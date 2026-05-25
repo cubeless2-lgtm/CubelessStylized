@@ -1,0 +1,18 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1.0",
+	"FriendlyName": "MSDF Texture Tools",
+	"Description": "Editor tools for generating MSDF textures from alpha-mask Texture2D assets.",
+	"Category": "Editor",
+	"CreatedBy": "Cubeless_AI",
+	"CanContainContent": true,
+	"EnabledByDefault": false,
+	"Modules": [
+		{
+			"Name": "MSDFTextureToolsEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}
