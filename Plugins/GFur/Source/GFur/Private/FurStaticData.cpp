@@ -9,6 +9,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "StaticMeshResources.h"
 #include "RHICommandList.h"
+#include "DataDrivenShaderPlatformInfo.h"
 
 #include "Runtime/RHI/Public/RHICommandList.h"
 
@@ -180,6 +181,9 @@ public:
 
 	static bool ShouldCompilePermutation(const FVertexFactoryShaderPermutationParameters& Parameters)
 	{
+		if (IsAndroidPlatform(Parameters.Platform))
+			return false;
+
 		return true;
 	}
 

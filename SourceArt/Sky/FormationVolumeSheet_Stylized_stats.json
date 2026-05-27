@@ -1,0 +1,18 @@
+{
+  "output": "C:\\Git\\CubelessStylized\\SourceArt\\Sky\\FormationVolumeSheet_Stylized.png",
+  "preview": "C:\\Git\\CubelessStylized\\SourceArt\\Sky\\FormationVolumeSheet_Stylized_preview.png",
+  "sheet_size": [
+    4096,
+    2048
+  ],
+  "tile_size": 256,
+  "slices": 128,
+  "layout": [
+    16,
+    8
+  ],
+  "min": 0,
+  "max": 255,
+  "mean": 26.366467475891113,
+  "nonzero_percent": 23.4979510307312
+}

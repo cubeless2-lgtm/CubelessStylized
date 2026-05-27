@@ -5,6 +5,7 @@
 #include "GPUSkinVertexFactory.h"
 #include "Runtime/Renderer/Public/MeshMaterialShader.h"
 #include "RHICommandList.h"
+#include "DataDrivenShaderPlatformInfo.h"
 #include "MeshDrawShaderBindings.h"
 #include "ShaderParameterUtils.h"
 #include "FurComponent.h"
@@ -381,6 +382,9 @@ public:
 
 	static bool ShouldCompilePermutation(const FVertexFactoryShaderPermutationParameters& Parameters)
 	{
+		if (IsAndroidPlatform(Parameters.Platform))
+			return false;
+
 		if (Parameters.MaterialParameters.bIsUsedWithSkeletalMesh)
 			return true;
 		if (Parameters.MaterialParameters.bIsSpecialEngineMaterial)

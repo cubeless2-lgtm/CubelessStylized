@@ -25,7 +25,7 @@ void AReactiveNiagaraTrailActor::BeginPlay()
 
 	if (!ReactiveRenderTarget)
 	{
-		ReactiveRenderTarget = LoadObject<UTextureRenderTarget2D>(nullptr, TEXT("/Game/Cuneless/Reactive/RT_Reactive_PlayerPosition.RT_Reactive_PlayerPosition"));
+		ReactiveRenderTarget = LoadObject<UTextureRenderTarget2D>(nullptr, TEXT("/Game/Cubeless/Reactive/RT_Reactive_PlayerPosition.RT_Reactive_PlayerPosition"));
 	}
 
 	if (!StampTexture)

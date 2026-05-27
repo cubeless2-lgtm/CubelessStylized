@@ -1,0 +1,94 @@
+{
+  "notes": {
+    "intent": "Stylized UDS FormationVolume sheet generator.",
+    "layout": "4096x2048 by default, 16x8 tiles, 128 slices, 256x256 per slice.",
+    "unreal": "Import as Texture2D, set sRGB false, then create VolumeTexture from 256x256 tiles."
+  },
+  "seed": 270527,
+  "output": {
+    "tile_size": 256,
+    "slices_x": 16,
+    "slices_y": 8,
+    "preview_width": 1536,
+    "preview_height": 768
+  },
+  "large_blobs": {
+    "count": 38,
+    "radius_min": 0.11,
+    "radius_max": 0.24,
+    "vertical_scale_min": 0.68,
+    "vertical_scale_max": 1.18,
+    "weight_min": 0.65,
+    "weight_max": 1.0,
+    "inner_softness": 0.38
+  },
+  "secondary_blobs": {
+    "count": 48,
+    "radius_min": 0.11,
+    "radius_max": 0.24,
+    "vertical_scale_min": 0.68,
+    "vertical_scale_max": 1.18,
+    "weight_min": 0.65,
+    "weight_max": 1.0,
+    "inner_softness": 0.38,
+    "x_scale": 1.33,
+    "y_scale": 0.91,
+    "z_scale": 1.11,
+    "x_offset": 0.17,
+    "y_offset": 0.23,
+    "z_offset": 0.07
+  },
+  "fbm": {
+    "frequencies": [
+      2,
+      4,
+      8,
+      16
+    ],
+    "first_amplitude": 0.58,
+    "amplitude_gain": 0.48
+  },
+  "soft_mass": {
+    "scale_xy": 0.82,
+    "offset_x": 0.0,
+    "offset_y": 0.0,
+    "weight": 0.42,
+    "bias": -0.48,
+    "threshold": 0.0
+  },
+  "breakup": {
+    "scale_xy": 1.7,
+    "offset_x": 0.11,
+    "offset_y": 0.39,
+    "weight": 0.18,
+    "bias": 0.0,
+    "threshold": 0.72
+  },
+  "erosion": {
+    "scale_xy": 4.0,
+    "offset_x": 0.31,
+    "offset_y": 0.13,
+    "weight": 0.44,
+    "bias": 0.0,
+    "threshold": 0.53
+  },
+  "height": {
+    "bottom_fade_start": 0.02,
+    "bottom_fade_end": 0.18,
+    "top_fade_start": 0.78,
+    "top_fade_end": 1.0,
+    "cap_start": 0.56,
+    "cap_end": 1.0,
+    "cap_amount": 0.35,
+    "lower_fade_start": 0.0,
+    "lower_fade_end": 0.95,
+    "lower_amount": 0.28
+  },
+  "ramp": {
+    "low": 0.2,
+    "high": 0.74,
+    "gamma": 0.82
+  },
+  "large_blob_weight": 0.72,
+  "secondary_blob_weight": 0.28
+}
