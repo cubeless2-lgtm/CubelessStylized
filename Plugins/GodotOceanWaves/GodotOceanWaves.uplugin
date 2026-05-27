@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1.0",
+	"FriendlyName": "Godot Ocean Waves",
+	"Description": "Directional ocean wave-map generation inspired by 2Retr0/GodotOceanWaves, with an experimental FFT path for future work.",
+	"Category": "Rendering",
+	"CreatedBy": "Codex",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": true,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "GodotOceanWaves",
+			"Type": "Runtime",
+			"LoadingPhase": "PostConfigInit"
+		}
+	]
+}

@@ -1,0 +1,303 @@
+#include "/Engine/Public/Platform.ush"
+
+#define PI 3.14159265358979323846f
+#define G 9.81f
+#define NUM_SPECTRA 4u
+#define MAX_MAP_SIZE 1024u
+#define TRANSPOSE_TILE_SIZE 32u
+#define UNPACK_TILE_SIZE 16u
+
+RWTexture2D<float4> OutSpectrum;
+Texture2D<float4> InSpectrum;
+RWStructuredBuffer<float4> OutButterfly;
+StructuredBuffer<float4> Butterfly;
+RWStructuredBuffer<float2> OutFFTBuffer;
+RWStructuredBuffer<float2> FFTBuffer;
+StructuredBuffer<float2> FFTBufferInput;
+RWTexture2D<float4> OutDisplacement;
+RWTexture2D<float4> OutNormalFoam;
+
+uint2 OutputSize;
+int2 Seed;
+float2 TileLength;
+float Alpha;
+float PeakFrequency;
+float WindSpeed;
+float WindDirectionRadians;
+float Depth;
+float Swell;
+float Detail;
+float Spread;
+float TimeSeconds;
+uint MapSize;
+uint NumStages;
+float DisplacementScale;
+float NormalScale;
+float Whitecap;
+float FoamAmount;
+uint bResetOutput;
+
+float2 Hash22(uint2 X)
+{
+	uint H = X.y + 374761393u + X.x * 3266489917u;
+	H = 2246822519u * (H ^ (H >> 15u));
+	H = 3266489917u * (H ^ (H >> 13u));
+	uint N = H ^ (H >> 16u);
+	uint2 R = uint2(N, N * 48271u);
+	return float2((R.xy >> 1u) & uint2(0x7fffffffu, 0x7fffffffu)) / float(0x7fffffff);
+}
+
+float2 Gaussian(float2 X)
+{
+	X = max(X, float2(1e-6f, 1e-6f));
+	float R = sqrt(-2.0f * log(X.x));
+	float Theta = 2.0f * PI * X.y;
+	return float2(R * cos(Theta), R * sin(Theta));
+}
+
+float2 MulComplex(float2 A, float2 B)
+{
+	return float2(A.x * B.x - A.y * B.y, A.x * B.y + A.y * B.x);
+}
+
+float2 ConjComplex(float2 X)
+{
+	return float2(X.x, -X.y);
+}
+
+float2 ExpComplex(float X)
+{
+	return float2(cos(X), sin(X));
+}
+
+float Sqr(float X)
+{
+	return X * X;
+}
+
+float2 DispersionRelationWithDerivative(float K)
+{
+	float A = K * Depth;
+	float B = tanh(A);
+	float W = sqrt(G * K * B);
+	float DW = 0.5f * G * (B + A * (1.0f - B * B)) / max(W, 1e-6f);
+	return float2(W, DW);
+}
+
+float DispersionRelation(float K)
+{
+	return sqrt(G * K * tanh(K * Depth));
+}
+
+float LonguetHigginsNormalization(float S)
+{
+	float A = sqrt(S);
+	return (S < 0.4f) ? (0.5f / PI) + S * (0.220636f + S * (-0.109f + S * 0.090f)) : rsqrt(PI) * (A * 0.5f + (1.0f / A) * 0.0625f);
+}
+
+float LonguetHigginsFunction(float S, float Theta)
+{
+	return LonguetHigginsNormalization(S) * pow(abs(cos(Theta * 0.5f)), 2.0f * S);
+}
+
+float HasselmannDirectionalSpread(float W, float WP, float Theta)
+{
+	float P = W / WP;
+	float S = (W <= WP) ? 6.97f * pow(abs(P), 4.06f) : 9.77f * pow(abs(P), -2.33f - 1.45f * (WindSpeed * WP / G - 1.17f));
+	float SXi = 16.0f * tanh(WP / W) * Swell * Swell;
+	return LonguetHigginsFunction(S + SXi, Theta - WindDirectionRadians);
+}
+
+float TMASpectrum(float W, float WP, float InAlpha)
+{
+	const float Beta = 1.25f;
+	const float Gamma = 3.3f;
+	float Sigma = (W <= WP) ? 0.07f : 0.09f;
+	float R = exp(-Sqr(W - WP) / (2.0f * Sigma * Sigma * WP * WP));
+	float Jonswap = (InAlpha * G * G) / pow(W, 5.0f) * exp(-Beta * pow(WP / W, 4.0f)) * pow(Gamma, R);
+	float WH = min(W * sqrt(Depth / G), 2.0f);
+	float Attenuation = (WH <= 1.0f) ? 0.5f * WH * WH : 1.0f - 0.5f * Sqr(2.0f - WH);
+	return Jonswap * Attenuation;
+}
+
+float2 SpectrumAmplitude(int2 Id)
+{
+	float2 Dims = float2(OutputSize);
+	float2 DK = 2.0f * PI / TileLength;
+	float2 KVec = (float2(Id) - Dims * 0.5f) * DK;
+	float K = length(KVec) + 1e-6f;
+	float Theta = atan2(KVec.x, KVec.y);
+	float2 Dispersion = DispersionRelationWithDerivative(K);
+	float W = Dispersion.x;
+	float WNorm = Dispersion.y / K * DK.x * DK.y;
+	float S = TMASpectrum(W, PeakFrequency, Alpha);
+	float D = lerp(0.5f / PI, HasselmannDirectionalSpread(W, PeakFrequency, Theta), 1.0f - Spread) * exp(-Sqr(1.0f - Detail) * K * K);
+	return Gaussian(Hash22(uint2(Id + Seed))) * sqrt(max(2.0f * S * D * WNorm, 0.0f));
+}
+
+uint FFTIndex(uint2 Id, uint Layer, uint PingPong)
+{
+	return PingPong * NUM_SPECTRA * MapSize * MapSize + Layer * MapSize * MapSize + Id.y * MapSize + Id.x;
+}
+
+[numthreads(16, 16, 1)]
+void SpectrumCS(uint3 DispatchThreadId : SV_DispatchThreadID)
+{
+	if (DispatchThreadId.x >= OutputSize.x || DispatchThreadId.y >= OutputSize.y)
+	{
+		return;
+	}
+
+	int2 Id0 = int2(DispatchThreadId.xy);
+	int2 Dims = int2(OutputSize);
+	int2 Id1 = ((-Id0 % Dims) + Dims) % Dims;
+	OutSpectrum[DispatchThreadId.xy] = float4(SpectrumAmplitude(Id0), ConjComplex(SpectrumAmplitude(Id1)));
+}
+
+[numthreads(64, 1, 1)]
+void ButterflyCS(uint3 DispatchThreadId : SV_DispatchThreadID)
+{
+	uint PairCol = DispatchThreadId.x;
+	uint Stage = DispatchThreadId.y;
+	if (PairCol >= (MapSize >> 1u) || Stage >= NumStages)
+	{
+		return;
+	}
+
+	uint Stride = 1u << Stage;
+	uint Mid = MapSize >> (Stage + 1u);
+	uint I = PairCol >> Stage;
+	uint J = PairCol % Stride;
+
+	float2 Twiddle = ExpComplex(PI / float(Stride) * float(J));
+	uint R0 = Stride * (I + 0u) + J;
+	uint R1 = Stride * (I + Mid) + J;
+	uint W0 = Stride * (2u * I + 0u) + J;
+	uint W1 = Stride * (2u * I + 1u) + J;
+	float2 ReadIndices = asfloat(uint2(R0, R1));
+
+	OutButterfly[Stage * MapSize + W0] = float4(ReadIndices, Twiddle);
+	OutButterfly[Stage * MapSize + W1] = float4(ReadIndices, -Twiddle);
+}
+
+[numthreads(16, 16, 1)]
+void ModulateCS(uint3 DispatchThreadId : SV_DispatchThreadID)
+{
+	if (DispatchThreadId.x >= OutputSize.x || DispatchThreadId.y >= OutputSize.y)
+	{
+		return;
+	}
+
+	uint2 Id = DispatchThreadId.xy;
+	float2 KVec = (float2(Id) - float2(OutputSize) * 0.5f) * 2.0f * PI / TileLength;
+	float K = length(KVec) + 1e-6f;
+	float2 KUnit = KVec / K;
+	float4 H0 = InSpectrum.Load(int3(Id, 0));
+	float2 Modulation = ExpComplex(DispersionRelation(K) * TimeSeconds);
+	float2 H = MulComplex(H0.xy, Modulation) + MulComplex(H0.zw, ConjComplex(Modulation));
+	float2 HInv = float2(-H.y, H.x);
+
+	float2 Hx = HInv * KUnit.y;
+	float2 Hy = H;
+	float2 Hz = HInv * KUnit.x;
+	float2 DHyDx = HInv * KVec.y;
+	float2 DHyDz = HInv * KVec.x;
+	float2 DHxDx = -H * KVec.y * KUnit.y;
+	float2 DHzDz = -H * KVec.x * KUnit.x;
+	float2 DHzDx = -H * KVec.y * KUnit.x;
+
+	OutFFTBuffer[FFTIndex(Id, 0u, 0u)] = float2(Hx.x - Hy.y, Hx.y + Hy.x);
+	OutFFTBuffer[FFTIndex(Id, 1u, 0u)] = float2(Hz.x - DHyDx.y, Hz.y + DHyDx.x);
+	OutFFTBuffer[FFTIndex(Id, 2u, 0u)] = float2(DHyDz.x - DHxDx.y, DHyDz.y + DHxDx.x);
+	OutFFTBuffer[FFTIndex(Id, 3u, 0u)] = float2(DHzDz.x - DHzDx.y, DHzDz.y + DHzDx.x);
+}
+
+groupshared float2 RowShared[2u * MAX_MAP_SIZE];
+
+[numthreads(MAX_MAP_SIZE, 1, 1)]
+void FFTCS(uint3 DispatchThreadId : SV_DispatchThreadID, uint3 LocalId : SV_GroupThreadID)
+{
+	uint Col = LocalId.x;
+	uint Row = DispatchThreadId.y;
+	uint SpectrumLayer = DispatchThreadId.z;
+	bool bActive = Col < MapSize && Row < MapSize && SpectrumLayer < NUM_SPECTRA;
+
+	RowShared[Col] = bActive ? FFTBuffer[FFTIndex(uint2(Col, Row), SpectrumLayer, 0u)] : 0.0f;
+	RowShared[MAX_MAP_SIZE + Col] = 0.0f;
+
+	for (uint Stage = 0u; Stage < NumStages; ++Stage)
+	{
+		GroupMemoryBarrierWithGroupSync();
+		uint ReadBuffer = Stage % 2u;
+		uint WriteBuffer = (Stage + 1u) % 2u;
+		if (bActive)
+		{
+			float4 ButterflyData = Butterfly[Stage * MapSize + Col];
+			uint2 ReadIndices = asuint(ButterflyData.xy);
+			float2 Twiddle = ButterflyData.zw;
+			float2 Upper = RowShared[ReadBuffer * MAX_MAP_SIZE + ReadIndices.x];
+			float2 Lower = RowShared[ReadBuffer * MAX_MAP_SIZE + ReadIndices.y];
+			RowShared[WriteBuffer * MAX_MAP_SIZE + Col] = Upper + MulComplex(Lower, Twiddle);
+		}
+	}
+
+	GroupMemoryBarrierWithGroupSync();
+	if (bActive)
+	{
+		FFTBuffer[FFTIndex(uint2(Col, Row), SpectrumLayer, 1u)] = RowShared[(NumStages % 2u) * MAX_MAP_SIZE + Col];
+	}
+}
+
+groupshared float2 TransposeTile[TRANSPOSE_TILE_SIZE][TRANSPOSE_TILE_SIZE + 1u];
+
+[numthreads(TRANSPOSE_TILE_SIZE, TRANSPOSE_TILE_SIZE, 1)]
+void TransposeCS(uint3 DispatchThreadId : SV_DispatchThreadID, uint3 GroupId : SV_GroupID, uint3 LocalId : SV_GroupThreadID)
+{
+	uint SpectrumLayer = DispatchThreadId.z;
+	uint2 InId = DispatchThreadId.xy;
+	bool bInBounds = InId.x < MapSize && InId.y < MapSize && SpectrumLayer < NUM_SPECTRA;
+	TransposeTile[LocalId.y][LocalId.x] = bInBounds ? FFTBuffer[FFTIndex(InId, SpectrumLayer, 1u)] : 0.0f;
+	GroupMemoryBarrierWithGroupSync();
+
+	uint2 OutId = GroupId.yx * TRANSPOSE_TILE_SIZE + LocalId.xy;
+	if (OutId.x < MapSize && OutId.y < MapSize && SpectrumLayer < NUM_SPECTRA)
+	{
+		FFTBuffer[FFTIndex(OutId, SpectrumLayer, 0u)] = TransposeTile[LocalId.x][LocalId.y];
+	}
+}
+
+[numthreads(16, 16, 1)]
+void UnpackCS(uint3 DispatchThreadId : SV_DispatchThreadID)
+{
+	if (DispatchThreadId.x >= OutputSize.x || DispatchThreadId.y >= OutputSize.y)
+	{
+		return;
+	}
+
+	uint2 Id = DispatchThreadId.xy;
+	float SignShift = (((Id.x & 1u) ^ (Id.y & 1u)) == 0u) ? 1.0f : -1.0f;
+	float Hx = FFTBufferInput[FFTIndex(Id, 0u, 1u)].x * SignShift;
+	float Hy = FFTBufferInput[FFTIndex(Id, 0u, 1u)].y * SignShift;
+	float Hz = FFTBufferInput[FFTIndex(Id, 1u, 1u)].x * SignShift;
+	float DHyDx = FFTBufferInput[FFTIndex(Id, 1u, 1u)].y * SignShift;
+	float DHyDz = FFTBufferInput[FFTIndex(Id, 2u, 1u)].x * SignShift;
+	float DHxDx = FFTBufferInput[FFTIndex(Id, 2u, 1u)].y * SignShift;
+	float DHzDz = FFTBufferInput[FFTIndex(Id, 3u, 1u)].x * SignShift;
+	float DHzDx = FFTBufferInput[FFTIndex(Id, 3u, 1u)].y * SignShift;
+
+	float Jacobian = (1.0f + DHxDx) * (1.0f + DHzDz) - DHzDx * DHzDx;
+	float FoamFactor = -min(0.0f, Jacobian - Whitecap);
+	float Foam = saturate(FoamFactor * FoamAmount);
+	float2 Gradient = float2(DHyDx, DHyDz) / (1.0f + abs(float2(DHxDx, DHzDz)));
+
+	float4 ExistingDisplacement = bResetOutput != 0u ? 0.0f : OutDisplacement[Id];
+	float4 ExistingNormalFoam = bResetOutput != 0u ? float4(0.5f, 0.5f, 1.0f, 0.0f) : OutNormalFoam[Id];
+	float4 NewDisplacement = float4(Hx, Hz, Hy, 1.0f) * float4(DisplacementScale, DisplacementScale, DisplacementScale, 1.0f);
+	float2 NewGradient = Gradient * NormalScale;
+	float2 ExistingGradient = (ExistingNormalFoam.xy - 0.5f) * 2.0f;
+	float2 AccumulatedGradient = ExistingGradient + NewGradient;
+	float3 EncodedNormal = normalize(float3(-AccumulatedGradient.x, -AccumulatedGradient.y, 1.0f)) * 0.5f + 0.5f;
+
+	OutDisplacement[Id] = float4(ExistingDisplacement.xyz + NewDisplacement.xyz, 1.0f);
+	OutNormalFoam[Id] = float4(EncodedNormal, saturate(max(ExistingNormalFoam.a, Foam)));
+}

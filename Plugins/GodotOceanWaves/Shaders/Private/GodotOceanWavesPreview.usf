@@ -1,0 +1,150 @@
+#include "/Engine/Public/Platform.ush"
+
+RWTexture2D<float4> OutDisplacement;
+RWTexture2D<float4> OutNormalFoam;
+
+uint2 OutputSize;
+float TimeSeconds;
+float DeltaTime;
+float2 WorldOrigin;
+float2 TileLength;
+float DisplacementScale;
+float NormalScale;
+float WindSpeed;
+float WindDirectionRadians;
+float FetchLengthKm;
+float Swell;
+float Spread;
+float Detail;
+float Whitecap;
+float FoamAmount;
+uint bResetOutput;
+
+static const float PI = 3.14159265359f;
+static const float GRAVITY_CM = 980.0f;
+
+float2 SafeNormalize2(float2 Value, float2 Fallback)
+{
+	const float LengthSq = dot(Value, Value);
+	return LengthSq > 0.000001f ? Value * rsqrt(LengthSq) : Fallback;
+}
+
+float DirectionalWave(
+	float2 WorldXY,
+	float2 Direction,
+	float Wavelength,
+	float Amplitude,
+	float Steepness,
+	float PhaseOffset,
+	float SpeedScale,
+	out float2 HorizontalPush,
+	out float2 Gradient,
+	out float Crest)
+{
+	const float K = 2.0f * PI / max(Wavelength, 1.0f);
+	const float AngularSpeed = sqrt(GRAVITY_CM * K) * SpeedScale;
+	const float Phase = dot(WorldXY, Direction) * K - TimeSeconds * AngularSpeed + PhaseOffset;
+	const float S = sin(Phase);
+	const float C = cos(Phase);
+
+	HorizontalPush = Direction * C * Amplitude * Steepness;
+	Gradient = Direction * C * Amplitude * K;
+	Crest = saturate(S * 0.5f + 0.5f);
+	return S * Amplitude;
+}
+
+[numthreads(8, 8, 1)]
+void MainCS(uint3 DispatchThreadId : SV_DispatchThreadID)
+{
+	if (DispatchThreadId.x >= OutputSize.x || DispatchThreadId.y >= OutputSize.y)
+	{
+		return;
+	}
+
+	const float2 PixelUV = (float2(DispatchThreadId.xy) + 0.5f) / float2(OutputSize);
+	const float2 CenteredUV = PixelUV - 0.5f;
+
+	const float2 WindDirection = normalize(float2(cos(WindDirectionRadians), sin(WindDirectionRadians)));
+	const float2 CrossDirection = float2(-WindDirection.y, WindDirection.x);
+	const float FetchShape = saturate(FetchLengthKm / 550.0f);
+	const float DetailShape = saturate(Detail);
+	const float SpreadShape = saturate(Spread);
+	const float SwellShape = saturate(Swell * 0.5f);
+
+	const float2 WorldXY = CenteredUV * TileLength + WorldOrigin;
+
+	const float WindShape = saturate(WindSpeed / 32.0f);
+	const float BaseWavelength = max(min(TileLength.x, TileLength.y) * lerp(0.20f, 0.45f, SwellShape), 160.0f);
+	const float BaseAmplitude = DisplacementScale * lerp(18.0f, 86.0f, WindShape) * lerp(0.65f, 1.12f, FetchShape);
+	const float SpeedScale = lerp(0.82f, 1.18f, WindShape);
+	const float DirectionBlend = lerp(0.08f, 0.42f, SpreadShape);
+
+	float Height = 0.0f;
+	float2 HorizontalPush = 0.0f;
+	float2 Gradient = 0.0f;
+	float CrestSignal = 0.0f;
+	float CrestWeight = 0.0f;
+
+	float2 PushSample;
+	float2 GradientSample;
+	float CrestSample;
+
+	const float2 Dir0 = WindDirection;
+	const float2 Dir1 = SafeNormalize2(lerp(WindDirection, CrossDirection, DirectionBlend), WindDirection);
+	const float2 Dir2 = SafeNormalize2(lerp(WindDirection, -CrossDirection, DirectionBlend * 1.12f), WindDirection);
+	const float2 Dir3 = SafeNormalize2(lerp(WindDirection, CrossDirection, DirectionBlend * 1.95f), WindDirection);
+	const float2 Dir4 = SafeNormalize2(lerp(WindDirection, -CrossDirection, DirectionBlend * 2.25f), WindDirection);
+	const float2 Dir5 = SafeNormalize2(lerp(WindDirection, CrossDirection, DirectionBlend * 0.55f), WindDirection);
+
+	Height += DirectionalWave(WorldXY, Dir0, BaseWavelength, BaseAmplitude, lerp(0.55f, 0.78f, SwellShape), 0.0f, SpeedScale, PushSample, GradientSample, CrestSample);
+	HorizontalPush += PushSample;
+	Gradient += GradientSample;
+	CrestSignal += CrestSample * 1.0f;
+	CrestWeight += 1.0f;
+
+	Height += DirectionalWave(WorldXY, Dir1, BaseWavelength * 0.56f, BaseAmplitude * 0.34f, 0.46f, 2.1f, SpeedScale * 1.08f, PushSample, GradientSample, CrestSample);
+	HorizontalPush += PushSample;
+	Gradient += GradientSample;
+	CrestSignal += CrestSample * 0.55f;
+	CrestWeight += 0.55f;
+
+	Height += DirectionalWave(WorldXY, Dir2, BaseWavelength * 0.34f, BaseAmplitude * 0.18f, 0.34f, 4.4f, SpeedScale * 1.16f, PushSample, GradientSample, CrestSample);
+	HorizontalPush += PushSample;
+	Gradient += GradientSample;
+	CrestSignal += CrestSample * 0.35f;
+	CrestWeight += 0.35f;
+
+	Height += DirectionalWave(WorldXY, Dir3, BaseWavelength * 0.18f, BaseAmplitude * 0.075f * DetailShape, 0.18f, 1.2f, SpeedScale * 1.32f, PushSample, GradientSample, CrestSample);
+	HorizontalPush += PushSample;
+	Gradient += GradientSample;
+	CrestSignal += CrestSample * 0.18f * DetailShape;
+	CrestWeight += 0.18f * DetailShape;
+
+	Height += DirectionalWave(WorldXY, Dir4, BaseWavelength * 0.105f, BaseAmplitude * 0.032f * DetailShape, 0.10f, 5.7f, SpeedScale * 1.46f, PushSample, GradientSample, CrestSample);
+	HorizontalPush += PushSample;
+	Gradient += GradientSample;
+	CrestSignal += CrestSample * 0.10f * DetailShape;
+	CrestWeight += 0.10f * DetailShape;
+
+	Height += DirectionalWave(WorldXY, Dir5, BaseWavelength * 0.72f, BaseAmplitude * 0.14f * SpreadShape, 0.30f, 3.5f, SpeedScale * 0.96f, PushSample, GradientSample, CrestSample);
+	HorizontalPush += PushSample;
+	Gradient += GradientSample;
+	CrestSignal += CrestSample * 0.25f * SpreadShape;
+	CrestWeight += 0.25f * SpreadShape;
+
+	Gradient *= NormalScale;
+	HorizontalPush *= lerp(0.55f, 1.0f, SwellShape);
+
+	const float AverageCrest = CrestSignal / max(CrestWeight, 0.001f);
+	const float Foam = pow(saturate((AverageCrest - Whitecap) * FoamAmount), 1.65f);
+
+	const float4 ExistingDisplacement = bResetOutput != 0u ? 0.0f : OutDisplacement[DispatchThreadId.xy];
+	const float4 ExistingNormalFoam = bResetOutput != 0u ? float4(0.5f, 0.5f, 1.0f, 0.0f) : OutNormalFoam[DispatchThreadId.xy];
+	const float3 ExistingNormal = normalize(ExistingNormalFoam.xyz * 2.0f - 1.0f);
+	const float2 ExistingGradient = ExistingNormal.z > 0.001f ? -ExistingNormal.xy / ExistingNormal.z : 0.0f;
+	const float2 AccumulatedGradient = ExistingGradient + Gradient;
+	const float3 EncodedNormal = normalize(float3(-AccumulatedGradient.x, -AccumulatedGradient.y, 1.0f)) * 0.5f + 0.5f;
+
+	OutDisplacement[DispatchThreadId.xy] = float4(ExistingDisplacement.xyz + float3(HorizontalPush.x, HorizontalPush.y, Height), 1.0f);
+	OutNormalFoam[DispatchThreadId.xy] = float4(EncodedNormal, saturate(max(ExistingNormalFoam.a, Foam)));
+}
