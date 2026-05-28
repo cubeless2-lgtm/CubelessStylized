@@ -22,6 +22,7 @@
 #include "Engine/Selection.h"
 #include "Kismet/GameplayStatics.h"
 #include "Async/Async.h"
+#include "Containers/Ticker.h"
 // Add Blueprint related includes
 #include "Engine/Blueprint.h"
 #include "Engine/BlueprintGeneratedClass.h"
@@ -206,11 +207,10 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
     UE_LOG(LogTemp, Display, TEXT("UnrealMCPBridge: Executing command: %s"), *CommandType);
     
     // Create a promise to wait for the result
-    TPromise<FString> Promise;
-    TFuture<FString> Future = Promise.GetFuture();
+    TSharedRef<TPromise<FString>, ESPMode::ThreadSafe> Promise = MakeShared<TPromise<FString>, ESPMode::ThreadSafe>();
+    TFuture<FString> Future = Promise->GetFuture();
     
-    // Queue execution on Game Thread
-    AsyncTask(ENamedThreads::GameThread, [this, CommandType, Params, Promise = MoveTemp(Promise)]() mutable
+    auto RunCommand = [this, CommandType, Params, Promise]()
     {
         TSharedPtr<FJsonObject> ResponseJson = MakeShareable(new FJsonObject);
         
@@ -287,7 +287,7 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                 FString ResultString;
                 TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResultString);
                 FJsonSerializer::Serialize(ResponseJson.ToSharedRef(), Writer);
-                Promise.SetValue(ResultString);
+                Promise->SetValue(ResultString);
                 return;
             }
             
@@ -326,8 +326,27 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
         FString ResultString;
         TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResultString);
         FJsonSerializer::Serialize(ResponseJson.ToSharedRef(), Writer);
-        Promise.SetValue(ResultString);
-    });
+        Promise->SetValue(ResultString);
+    };
+
+    // Queue execution on Game Thread. Python import workflows can enter UE's
+    // Interchange pipeline, which must not run inside a TaskGraph task because
+    // it may wait on TaskGraph work internally.
+    if (CommandType == TEXT("execute_python"))
+    {
+        AsyncTask(ENamedThreads::GameThread, [RunCommand]()
+        {
+            FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([RunCommand](float)
+            {
+                RunCommand();
+                return false;
+            }));
+        });
+    }
+    else
+    {
+        AsyncTask(ENamedThreads::GameThread, RunCommand);
+    }
     
     return Future.Get();
 }
