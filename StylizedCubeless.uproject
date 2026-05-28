@@ -10,6 +10,9 @@
 			"LoadingPhase": "Default"
 		}
 	],
+	"AdditionalPluginDirectories": [
+		"../Unreal_mcp/plugins"
+	],
 	"Plugins": [
 		{
 			"Name": "ModelingToolsEditorMode",
@@ -25,6 +28,13 @@
 		{
 			"Name": "RemoteControl",
 			"Enabled": true
+		},
+		{
+			"Name": "McpAutomationBridge",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Editor"
+			]
 		},
 		{
 			"Name": "PCG",

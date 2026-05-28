@@ -1,95 +1,177 @@
 import os
 import sys
+import traceback
+
 import unreal
-import importlib
+
+
+MENU_OWNER = "CubelessPythonTools"
+MAIN_MENU_NAME = "LevelEditor.MainMenu"
+ROOT_MENU_NAME = "Cubeless"
+SECTION_NAME = "Scripts"
 
 current_file_dir = os.path.dirname(os.path.abspath(__file__))
 if current_file_dir not in sys.path:
     sys.path.append(current_file_dir)
 
-def open_foliage_sample_map():
-    import unreal
-    map_path = "/Game/EL/Maps/SampleMap/EL_Foliage_InteractionSampleMap/EL_Foliage_InteractionSampleMap"
-    
-    # 레벨 에셋 존재 여부 확인
-    if not unreal.EditorAssetLibrary.does_asset_exist(map_path):
-        unreal.EditorDialog.show_message("Error", f"Level not found:\n{map_path}", unreal.AppMsgType.OK)
+
+def _log_exception(context):
+    unreal.log_error("{}\n{}".format(context, traceback.format_exc()))
+
+
+def _python_command(function_name, *args):
+    args_text = ", ".join(repr(arg) for arg in args)
+    return "from ArtScripts import RegisterMenu; RegisterMenu.{}({})".format(function_name, args_text)
+
+
+def _add_python_entry(menu, name, label, tooltip, command):
+    try:
+        entry = unreal.ToolMenuEntry(
+            name=name,
+            owner=MENU_OWNER,
+            type=unreal.MultiBlockType.MENU_ENTRY
+        )
+    except Exception:
+        entry = unreal.ToolMenuEntry(
+            name=name,
+            type=unreal.MultiBlockType.MENU_ENTRY
+        )
+
+    entry.set_label(label)
+    entry.set_tool_tip(tooltip)
+    entry.set_string_command(unreal.ToolMenuStringCommandType.PYTHON, "", command)
+    menu.add_menu_entry(SECTION_NAME, entry)
+
+
+def open_editor_utility(asset_path):
+    asset = unreal.EditorAssetLibrary.load_asset(asset_path)
+    if not asset:
+        unreal.EditorDialog.show_message("Error", "Asset not found:\n{}".format(asset_path), unreal.AppMsgType.OK)
         return
 
-    # 다이얼로그 메시지 표시
-    result = unreal.EditorDialog.show_message("레벨 열기", "EL_Foliage_InteractionSampleMap 레벨을 여시겠습니까?", unreal.AppMsgType.YES_NO)
-    
-    # Yes 선택 시 레벨 열기
-    if result == unreal.AppReturnType.YES:
+    subsystem = unreal.get_editor_subsystem(unreal.EditorUtilitySubsystem)
+    if not subsystem:
+        unreal.EditorDialog.show_message("Error", "EditorUtilitySubsystem is not available.", unreal.AppMsgType.OK)
+        return
+
+    subsystem.spawn_and_register_tab(asset)
+
+
+def open_asset(asset_path):
+    asset = unreal.EditorAssetLibrary.load_asset(asset_path)
+    if not asset:
+        unreal.EditorDialog.show_message("Error", "Asset not found:\n{}".format(asset_path), unreal.AppMsgType.OK)
+        return
+
+    subsystem = unreal.get_editor_subsystem(unreal.AssetEditorSubsystem)
+    if subsystem:
+        subsystem.open_editor_for_assets([asset])
+
+
+def open_foliage_sample_map():
+    map_path = "/Game/EL/Maps/SampleMap/EL_Foliage_InteractionSampleMap/EL_Foliage_InteractionSampleMap"
+
+    if not unreal.EditorAssetLibrary.does_asset_exist(map_path):
+        unreal.EditorDialog.show_message("Error", "Level not found:\n{}".format(map_path), unreal.AppMsgType.OK)
+        return
+
+    result = unreal.EditorDialog.show_message(
+        "레벨 열기",
+        "EL_Foliage_InteractionSampleMap 레벨을 여시겠습니까?",
+        unreal.AppMsgType.YES_NO
+    )
+
+    if result != unreal.AppReturnType.YES:
+        return
+
+    level_subsystem = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
+    if level_subsystem and hasattr(level_subsystem, "load_level"):
+        level_subsystem.load_level(map_path)
+    else:
         unreal.EditorLevelLibrary.load_level(map_path)
 
-def main():
-    print("Creating Menus!")
+
+def _register_menu():
+    unreal.log("Cubeless: registering Python tool menu")
     menus = unreal.ToolMenus.get()
 
-    main_menu = menus.find_menu("LevelEditor.MainMenu")
+    try:
+        menus.unregister_owner_by_name(MENU_OWNER)
+    except Exception:
+        unreal.log_warning("Cubeless: previous Python tool menu owner was not registered")
+
+    main_menu = menus.find_menu(MAIN_MENU_NAME)
     if not main_menu:
-        print("Failed to find the 'Main' menu. Something is wrong in the force!")
-    else:
-        # Cubeless 메인 메뉴
-        el_env_menu = main_menu.add_sub_menu(main_menu.get_name(), "Cubeless", "Cubeless", "Cubeless")
+        unreal.log_warning("Cubeless: failed to find menu '{}'".format(MAIN_MENU_NAME))
+        return
 
-        # Cubeless 메뉴에 항목 추가
-        coi_capture_entry = unreal.ToolMenuEntry(
-            name="Python.CaptureCOI",
-            type=unreal.MultiBlockType.MENU_ENTRY
-        )
-        coi_capture_entry.set_label("EL : PCG Info")
-        coi_capture_entry.set_tool_tip("Open the PCG Analytics Widget")
-        coi_capture_entry.set_string_command(unreal.ToolMenuStringCommandType.PYTHON, '', 'import unreal; bp = unreal.EditorAssetLibrary.load_asset("/Game/Developers/TA/Script/WB_PCGAnalytics/WB_PCGAnalytics"); unreal.EditorUtilitySubsystem().spawn_and_register_tab(bp)')
-        el_env_menu.add_menu_entry("Scripts", coi_capture_entry)
+    cubeless_menu = main_menu.add_sub_menu(
+        owner=MENU_OWNER,
+        section_name=ROOT_MENU_NAME,
+        name=ROOT_MENU_NAME,
+        label=ROOT_MENU_NAME,
+        tool_tip="Cubeless tools"
+    )
+    cubeless_menu.add_section(SECTION_NAME, SECTION_NAME)
 
-        # EL : ISM Script 메뉴에 항목 추가
-        ism_script_entry = unreal.ToolMenuEntry(
-            name="Python.ISMScript",
-            type=unreal.MultiBlockType.MENU_ENTRY
-        )
-        ism_script_entry.set_label("EL : ISM Script")
-        ism_script_entry.set_tool_tip("Open the ISM Script Widget")
-        ism_script_entry.set_string_command(unreal.ToolMenuStringCommandType.PYTHON, '', 'import unreal; bp = unreal.EditorAssetLibrary.load_asset("/Game/Developers/TA/Script/WB_ISM/WB_ISM"); unreal.EditorUtilitySubsystem().spawn_and_register_tab(bp)')
-        el_env_menu.add_menu_entry("Scripts", ism_script_entry)
+    _add_python_entry(
+        cubeless_menu,
+        "Python.CaptureCOI",
+        "EL : PCG Info",
+        "Open the PCG Analytics Widget",
+        _python_command("open_editor_utility", "/Game/Developers/TA/Script/WB_PCGAnalytics/WB_PCGAnalytics")
+    )
 
-        # Cubeless 메뉴에 "EL : Data Asset" 서브메뉴 추가
-        data_asset_menu = el_env_menu.add_sub_menu(el_env_menu.get_name(), "DataAsset", "EL : Data Asset", "EL : Data Asset")
+    _add_python_entry(
+        cubeless_menu,
+        "Python.ISMScript",
+        "EL : ISM Script",
+        "Open the ISM Script Widget",
+        _python_command("open_editor_utility", "/Game/Developers/TA/Script/WB_ISM/WB_ISM")
+    )
 
-        # DA_CuttedFoliageList 버튼 추가
-        da_cutted_foliage_list_entry = unreal.ToolMenuEntry(
-            name="Python.DACuttedFoliageList",
-            type=unreal.MultiBlockType.MENU_ENTRY
-        )
-        da_cutted_foliage_list_entry.set_label("DA_CuttedFoliageList")
-        da_cutted_foliage_list_entry.set_tool_tip("Load DA_CuttedFoliageList Data Asset")
-        da_cutted_foliage_list_entry.set_string_command(unreal.ToolMenuStringCommandType.PYTHON, '', 'asset=unreal.EditorAssetLibrary.load_asset("/Game/EL/Art/BG/Common/BP/BP_ReactiveFoliage/Resource/DA_CuttedFoliageList");unreal.get_editor_subsystem(unreal.AssetEditorSubsystem).open_editor_for_assets([asset])')
-        data_asset_menu.add_menu_entry("Scripts", da_cutted_foliage_list_entry)
+    data_asset_menu = cubeless_menu.add_sub_menu(
+        owner=MENU_OWNER,
+        section_name=SECTION_NAME,
+        name="DataAsset",
+        label="EL : Data Asset",
+        tool_tip="EL : Data Asset"
+    )
+    data_asset_menu.add_section(SECTION_NAME, SECTION_NAME)
 
-        # CuttedFoliageSmapleMap 버튼 추가
-        cutted_foliage_smaple_map_entry = unreal.ToolMenuEntry(
-            name="Python.CuttedFoliageSmapleMap",
-            type=unreal.MultiBlockType.MENU_ENTRY
-        )
-        cutted_foliage_smaple_map_entry.set_label("SampleMap_CuttedFoliage")
-        cutted_foliage_smaple_map_entry.set_tool_tip("Open EL_Foliage_InteractionSampleMap")
-        command_string = 'import RegisterMenu; import importlib; importlib.reload(RegisterMenu); RegisterMenu.open_foliage_sample_map()'
-        cutted_foliage_smaple_map_entry.set_string_command(unreal.ToolMenuStringCommandType.PYTHON, '', command_string)
-        data_asset_menu.add_menu_entry("Scripts", cutted_foliage_smaple_map_entry)
+    _add_python_entry(
+        data_asset_menu,
+        "Python.DACuttedFoliageList",
+        "DA_CuttedFoliageList",
+        "Load DA_CuttedFoliageList Data Asset",
+        _python_command("open_asset", "/Game/EL/Art/BG/Common/BP/BP_ReactiveFoliage/Resource/DA_CuttedFoliageList")
+    )
 
-        # EL : ShowFlag Manager
-        showflag_manager_entry = unreal.ToolMenuEntry(
-            name="Python.ShowFlagManager",
-            type=unreal.MultiBlockType.MENU_ENTRY
-        )
-        showflag_manager_entry.set_label("EL : ShowFlag Manager")
-        showflag_manager_entry.set_tool_tip("Open ShowFlag Manager Tool")
-        showflag_manager_entry.set_string_command(unreal.ToolMenuStringCommandType.PYTHON, '', 'import unreal; bp = unreal.EditorAssetLibrary.load_asset("/Game/EL/Tools/Script/WB_ShowFlagManager"); unreal.EditorUtilitySubsystem().spawn_and_register_tab(bp)')
-        el_env_menu.add_menu_entry("Scripts", showflag_manager_entry)
+    _add_python_entry(
+        data_asset_menu,
+        "Python.CuttedFoliageSmapleMap",
+        "SampleMap_CuttedFoliage",
+        "Open EL_Foliage_InteractionSampleMap",
+        _python_command("open_foliage_sample_map")
+    )
 
-        # Refresh UI
-        menus.refresh_all_widgets()
+    _add_python_entry(
+        cubeless_menu,
+        "Python.ShowFlagManager",
+        "EL : ShowFlag Manager",
+        "Open ShowFlag Manager Tool",
+        _python_command("open_editor_utility", "/Game/EL/Tools/Script/WB_ShowFlagManager")
+    )
 
-if __name__ == '__main__':
+    menus.refresh_all_widgets()
+
+
+def main():
+    try:
+        _register_menu()
+    except Exception:
+        _log_exception("Cubeless: failed to register Python tool menu")
+
+
+if __name__ == "__main__":
     main()
