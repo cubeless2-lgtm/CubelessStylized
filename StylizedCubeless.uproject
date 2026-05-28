@@ -1,6 +1,6 @@
 {
 	"FileVersion": 3,
-	"EngineAssociation": "5.7",
+	"EngineAssociation": "{F49D6625-4864-D14A-3319-739D5E2CC935}",
 	"Category": "",
 	"Description": "",
 	"Modules": [
@@ -9,9 +9,6 @@
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		}
-	],
-	"AdditionalPluginDirectories": [
-		"../Unreal_mcp/plugins"
 	],
 	"Plugins": [
 		{
@@ -28,13 +25,6 @@
 		{
 			"Name": "RemoteControl",
 			"Enabled": true
-		},
-		{
-			"Name": "McpAutomationBridge",
-			"Enabled": true,
-			"TargetAllowList": [
-				"Editor"
-			]
 		},
 		{
 			"Name": "PCG",
@@ -118,6 +108,13 @@
 		{
 			"Name": "VirtualHeightfieldMesh",
 			"Enabled": true
+		},
+		{
+			"Name": "UnrealMCP",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Editor"
+			]
 		}
 	]
 }

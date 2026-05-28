@@ -1,15 +1,13 @@
 {
   "mcpServers": {
-    "unreal-engine": {
-      "command": "node",
+    "unreal-mcp-cubeless": {
+      "command": "uv",
       "args": [
-        "../Unreal_mcp/dist/cli.js"
-      ],
-      "env": {
-        "UE_PROJECT_PATH": ".",
-        "MCP_AUTOMATION_HOST": "127.0.0.1",
-        "MCP_AUTOMATION_PORT": "8091"
-      }
+        "--directory",
+        "D:/Git/unreal-mcp/Python",
+        "run",
+        "unreal_mcp_server.py"
+      ]
     }
   }
 }
