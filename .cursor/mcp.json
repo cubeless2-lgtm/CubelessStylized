@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "unrealMCP": {
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "../unreal-mcp/scripts/run_unreal_mcp_server.ps1",
+        "-ProjectRoot",
+        "."
+      ]
+    }
+  }
+}
