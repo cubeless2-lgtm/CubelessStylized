@@ -108,7 +108,7 @@ public:
 
         if (StatusWindow.IsValid())
         {
-            const TSharedPtr<SWindow> ExistingWindow = StatusWindow.Pin();
+            const TSharedPtr<SWindow> ExistingWindow = StatusWindow;
             LastShowTime = FPlatformTime::Seconds();
             SetProcessingStatus(CommandType);
             ExistingWindow->BringToFront();
@@ -217,6 +217,7 @@ public:
                 ]
             ];
 
+        Window->SetOnWindowClosed(FOnWindowClosed::CreateStatic(&FIetaMCPStatusWindow::OnStatusWindowClosed));
         StatusWindow = Window;
         LastShowTime = FPlatformTime::Seconds();
         FSlateApplication::Get().AddWindow(Window);
@@ -271,7 +272,7 @@ public:
         LastShowTime = FPlatformTime::Seconds();
         if (StatusWindow.IsValid())
         {
-            const TSharedPtr<SWindow> Window = StatusWindow.Pin();
+            const TSharedPtr<SWindow> Window = StatusWindow;
             Window->BringToFront();
             FlushSlateWindowNow(Window.ToSharedRef());
         }
@@ -356,7 +357,7 @@ public:
                     {
                         WindowToClose.Pin()->RequestDestroyWindow();
                     }
-                    const TSharedPtr<SWindow> CurrentWindow = StatusWindow.Pin();
+                    const TSharedPtr<SWindow> CurrentWindow = StatusWindow;
                     const TSharedPtr<SWindow> ExpectedWindow = WindowToClose.Pin();
                     if ((CurrentWindow.IsValid() && ExpectedWindow.IsValid() && CurrentWindow.Get() == ExpectedWindow.Get()) ||
                         (!CurrentWindow.IsValid() && !ExpectedWindow.IsValid()))
@@ -374,7 +375,7 @@ public:
 
         if (StatusWindow.IsValid())
         {
-            StatusWindow.Pin()->RequestDestroyWindow();
+            StatusWindow->RequestDestroyWindow();
         }
 
         StatusWindow.Reset();
@@ -509,9 +510,20 @@ private:
         SlateApplication.ForceRedrawWindow(Window);
     }
 
+    static void OnStatusWindowClosed(const TSharedRef<SWindow>& ClosedWindow)
+    {
+        if (StatusWindow.IsValid() && StatusWindow.Get() == &ClosedWindow.Get())
+        {
+            StatusWindow.Reset();
+            AvatarBrush.Reset();
+            BodyTextBlock.Reset();
+            ProgressBar.Reset();
+        }
+    }
+
     static constexpr double CompletionVisibleSeconds = 5.0;
     static double LastShowTime;
-    static TWeakPtr<SWindow> StatusWindow;
+    static TSharedPtr<SWindow> StatusWindow;
     static TSharedPtr<STextBlock> BodyTextBlock;
     static TSharedPtr<SProgressBar> ProgressBar;
     static TSharedPtr<FSlateBrush> AvatarBrush;
@@ -522,7 +534,7 @@ private:
 };
 
 double FIetaMCPStatusWindow::LastShowTime = 0.0;
-TWeakPtr<SWindow> FIetaMCPStatusWindow::StatusWindow;
+TSharedPtr<SWindow> FIetaMCPStatusWindow::StatusWindow;
 TSharedPtr<STextBlock> FIetaMCPStatusWindow::BodyTextBlock;
 TSharedPtr<SProgressBar> FIetaMCPStatusWindow::ProgressBar;
 TSharedPtr<FSlateBrush> FIetaMCPStatusWindow::AvatarBrush;

@@ -130,6 +130,41 @@ Durable local fallback for project memory when Notion capture is unavailable.
 - Verified a standalone `ieta_status` popup appears and closes after the 5-second delay.
 - Verified a Tivret `ping` popup appears and closes after the 5-second delay.
 
+## 2026-05-30 - Selected texture asset rename
+
+### Summary
+- Exported previews for 28 selected texture assets and reviewed them as 7 material sets.
+- Renamed each 4-texture set using the requested order: BaseColor, Normal, Height, Roughness.
+- Applied the naming convention `T_<MaterialName>_D`, `T_<MaterialName>_N`, `T_<MaterialName>_H`, `T_<MaterialName>_M`.
+
+### Material Sets
+- `RoundPebbleCobble`
+- `WhiteStoneTile`
+- `FineAsphalt`
+- `WornStoneSlab`
+- `BluePanelFloor`
+- `BlueCeramicTile`
+- `DarkBrickTile`
+
+### Verification
+- Renamed 28 selected textures successfully.
+- Checked `/Game/AI_Generated/Textures` for redirectors; none were reported.
+- Verified all 14 textures ending in `_H` or `_M` have `sRGB = false`.
+
+## 2026-05-30 - Ieta Slate reuse and project voice
+
+### Summary
+- Fixed Ieta Slate reuse so repeated planning/status updates keep the same Slate window and update its text/progress instead of recreating the window.
+- Changed the Slate window reference from a weak pointer to a retained window pointer and clear it only when the Slate window closes.
+- Added project voice rules to `AGENTS.md`: Codex should use Ieta's proud, slightly tsundere Korean tone by default in this project.
+- Added a project rule to show Ieta's thinking/planning state through UnrealMCP Slate as soon as planning begins when the Unreal bridge is reachable.
+
+### Verification
+- Built `StylizedCubelessEditor Win64 Development` with UE 5.7 successfully.
+- Restarted the Unreal Editor successfully.
+- Sent two consecutive `ieta_status` updates and verified the Unreal window handle stayed the same while the text changed.
+- Verified the planning Slate still auto-closes after the configured delay.
+
 ## Recovered Notion Records Snapshot
 
 These entries were visible from Notion search/fetch results earlier in this Codex session. Full Notion sync is currently blocked by an expired Notion auth token, so this section preserves the recoverable local summary.
