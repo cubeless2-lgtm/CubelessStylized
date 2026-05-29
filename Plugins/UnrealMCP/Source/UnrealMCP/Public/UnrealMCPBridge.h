@@ -49,6 +49,7 @@ private:
 	bool bIsRunning;
 	TSharedPtr<FSocket> ListenerSocket;
 	TSharedPtr<FSocket> ConnectionSocket;
+	FMCPServerRunnable* ServerRunnable;
 	FRunnableThread* ServerThread;
 
 	// Server configuration

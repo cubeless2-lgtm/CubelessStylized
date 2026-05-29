@@ -1,12 +1,15 @@
 {
   "mcpServers": {
-    "unreal-mcp-cubeless": {
-      "command": "uv",
+    "unrealMCP": {
+      "command": "powershell",
       "args": [
-        "--directory",
-        "D:/Git/unreal-mcp/Python",
-        "run",
-        "unreal_mcp_server.py"
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "../unreal-mcp-cubeless/scripts/run_unreal_mcp_server.ps1",
+        "-ProjectRoot",
+        "."
       ]
     }
   }

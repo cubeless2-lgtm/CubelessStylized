@@ -7,7 +7,7 @@
         "-ExecutionPolicy",
         "Bypass",
         "-File",
-        "../unreal-mcp/scripts/run_unreal_mcp_server.ps1",
+        "../unreal-mcp-cubeless/scripts/run_unreal_mcp_server.ps1",
         "-ProjectRoot",
         "."
       ]

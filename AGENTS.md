@@ -29,3 +29,11 @@ This project uses two named agent roles. The Korean names are display names; the
 - If an Unreal asset cannot be safely modified through MCP or editor scripting, provide a concrete manual edit guide instead of adding C++.
 - Add or modify C++ only when the user explicitly asks for a code/C++ implementation.
 - Before considering C++ for an Unreal MCP task, state the non-C++ approach being attempted or why MCP/editor-asset editing is blocked.
+
+## Image Generation Cost Control
+
+- Do not call image generation through `OPENAI_API_KEY`, the OpenAI Images API, or MCP services that use the user's OpenAI API key.
+- If image generation is requested, use only non-API-key built-in image generation when available, or local/procedural generation.
+- If a task appears to require `OPENAI_API_KEY` based image generation, explain the limitation and ask before doing anything that could create API billing.
+- Treat Korean requests like "그려줘", "이미지로 만들어줘", or "이미지 젠" as requests for built-in image generation by default, not local Python texture synthesis.
+- Use local/Python procedural texture generation only when the user explicitly asks for "절차적 텍스쳐", "프로시듀얼 텍스쳐", "procedural texture", or equivalent wording.

@@ -1,0 +1,11 @@
+[mcp_servers.unrealMCP]
+command = "powershell"
+args = [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "../unreal-mcp-cubeless/scripts/run_unreal_mcp_server.ps1",
+    "-ProjectRoot",
+    ".",
+]
