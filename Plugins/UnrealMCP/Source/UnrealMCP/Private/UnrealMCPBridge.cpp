@@ -34,6 +34,7 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SWindow.h"
+#include "Widgets/Notifications/SProgressBar.h"
 #include "Widgets/Text/STextBlock.h"
 // Add Blueprint related includes
 #include "Engine/Blueprint.h"
@@ -183,6 +184,14 @@ public:
                             .ColorAndOpacity(FLinearColor(0.93f, 0.93f, 0.96f, 1.0f))
                             .Font(FCoreStyle::GetDefaultFontStyle("Regular", 12))
                         ]
+
+                        + SVerticalBox::Slot()
+                        .AutoHeight()
+                        .Padding(0.0f, 14.0f, 0.0f, 0.0f)
+                        [
+                            SAssignNew(ProgressBar, SProgressBar)
+                            .Percent(0.05f)
+                        ]
                     ]
                 ]
             ];
@@ -192,7 +201,7 @@ public:
         FSlateApplication::Get().AddWindow(Window);
     }
 
-    static void UpdateStatus(const FString& StatusText, const FString& CommandType)
+    static void UpdateStatus(const FString& StatusText, const FString& CommandType, TOptional<float> Progress = TOptional<float>())
     {
         if (!FSlateApplication::IsInitialized())
         {
@@ -218,11 +227,44 @@ public:
             BodyTextBlock->SetText(UpdatedBodyText);
         }
 
+        if (ProgressBar.IsValid() && Progress.IsSet())
+        {
+            ProgressBar->SetPercent(FMath::Clamp(Progress.GetValue(), 0.0f, 1.0f));
+        }
+
         LastShowTime = FPlatformTime::Seconds();
         if (StatusWindow.IsValid())
         {
             StatusWindow.Pin()->BringToFront();
         }
+    }
+
+    static void CompleteCommand(const FString& CommandType, const TSharedPtr<FJsonObject>& ResponseJson)
+    {
+        FString ResponseStatus;
+        if (ResponseJson.IsValid())
+        {
+            ResponseJson->TryGetStringField(TEXT("status"), ResponseStatus);
+        }
+
+        const bool bSucceeded = ResponseStatus == TEXT("success");
+        FString DetailText;
+        if (!bSucceeded && ResponseJson.IsValid())
+        {
+            ResponseJson->TryGetStringField(TEXT("error"), DetailText);
+            if (DetailText.IsEmpty())
+            {
+                ResponseJson->TryGetStringField(TEXT("message"), DetailText);
+            }
+        }
+
+        const FString CompletionText = bSucceeded
+            ? TEXT("MCP 작업 완료: 성공")
+            : FString::Printf(TEXT("MCP 작업 완료: 실패%s%s"),
+                DetailText.IsEmpty() ? TEXT("") : TEXT("\n"),
+                *DetailText);
+
+        UpdateStatus(CompletionText, CommandType, 1.0f);
     }
 
     static void Hide()
@@ -232,12 +274,13 @@ public:
             StatusWindow.Reset();
             AvatarBrush.Reset();
             BodyTextBlock.Reset();
+            ProgressBar.Reset();
             return;
         }
 
         if (StatusWindow.IsValid())
         {
-            const double RemainingSeconds = MinimumVisibleSeconds - (FPlatformTime::Seconds() - LastShowTime);
+            const double RemainingSeconds = CompletionVisibleSeconds - (FPlatformTime::Seconds() - LastShowTime);
             if (RemainingSeconds > 0.0)
             {
                 const TWeakPtr<SWindow> WindowToClose = StatusWindow;
@@ -249,11 +292,13 @@ public:
                     }
                     const TSharedPtr<SWindow> CurrentWindow = StatusWindow.Pin();
                     const TSharedPtr<SWindow> ExpectedWindow = WindowToClose.Pin();
-                    if (CurrentWindow.IsValid() && ExpectedWindow.IsValid() && CurrentWindow.Get() == ExpectedWindow.Get())
+                    if ((CurrentWindow.IsValid() && ExpectedWindow.IsValid() && CurrentWindow.Get() == ExpectedWindow.Get()) ||
+                        (!CurrentWindow.IsValid() && !ExpectedWindow.IsValid()))
                     {
                         StatusWindow.Reset();
                         AvatarBrush.Reset();
                         BodyTextBlock.Reset();
+                        ProgressBar.Reset();
                     }
                     return false;
                 }), static_cast<float>(RemainingSeconds));
@@ -269,13 +314,15 @@ public:
         StatusWindow.Reset();
         AvatarBrush.Reset();
         BodyTextBlock.Reset();
+        ProgressBar.Reset();
     }
 
 private:
-    static constexpr double MinimumVisibleSeconds = 10.0;
+    static constexpr double CompletionVisibleSeconds = 10.0;
     static double LastShowTime;
     static TWeakPtr<SWindow> StatusWindow;
     static TSharedPtr<STextBlock> BodyTextBlock;
+    static TSharedPtr<SProgressBar> ProgressBar;
     static TSharedPtr<FSlateBrush> AvatarBrush;
     static UTexture2D* AvatarTexture;
 };
@@ -283,6 +330,7 @@ private:
 double FIetaMCPStatusWindow::LastShowTime = 0.0;
 TWeakPtr<SWindow> FIetaMCPStatusWindow::StatusWindow;
 TSharedPtr<STextBlock> FIetaMCPStatusWindow::BodyTextBlock;
+TSharedPtr<SProgressBar> FIetaMCPStatusWindow::ProgressBar;
 TSharedPtr<FSlateBrush> FIetaMCPStatusWindow::AvatarBrush;
 UTexture2D* FIetaMCPStatusWindow::AvatarTexture = nullptr;
 
@@ -476,10 +524,12 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
             {
                 FString StatusText;
                 FString StatusCommand;
+                double ProgressValue = -1.0;
                 if (Params.IsValid())
                 {
                     Params->TryGetStringField(TEXT("text"), StatusText);
                     Params->TryGetStringField(TEXT("command"), StatusCommand);
+                    Params->TryGetNumberField(TEXT("progress"), ProgressValue);
                 }
 
                 if (StatusText.IsEmpty())
@@ -487,12 +537,19 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                     StatusText = TEXT("이에타가 작업 상태를 확인하는 중이야.");
                 }
 
-                FIetaMCPStatusWindow::UpdateStatus(StatusText, StatusCommand);
+                FIetaMCPStatusWindow::UpdateStatus(
+                    StatusText,
+                    StatusCommand,
+                    ProgressValue >= 0.0 ? TOptional<float>(static_cast<float>(ProgressValue)) : TOptional<float>());
 
                 ResultJson = MakeShareable(new FJsonObject);
                 ResultJson->SetBoolField(TEXT("success"), true);
                 ResultJson->SetStringField(TEXT("text"), StatusText);
                 ResultJson->SetStringField(TEXT("command"), StatusCommand);
+                if (ProgressValue >= 0.0)
+                {
+                    ResultJson->SetNumberField(TEXT("progress"), ProgressValue);
+                }
             }
             // Editor Commands (including actor manipulation)
             else if (CommandType == TEXT("get_actors_in_level") || 
@@ -555,6 +612,8 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                 ResponseJson->SetStringField(TEXT("status"), TEXT("error"));
                 ResponseJson->SetStringField(TEXT("error"), FString::Printf(TEXT("Unknown command: %s"), *CommandType));
                 
+                FIetaMCPStatusWindow::CompleteCommand(CommandType, ResponseJson);
+
                 FString ResultString;
                 TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResultString);
                 FJsonSerializer::Serialize(ResponseJson.ToSharedRef(), Writer);
@@ -594,6 +653,8 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
             ResponseJson->SetStringField(TEXT("error"), UTF8_TO_TCHAR(e.what()));
         }
         
+        FIetaMCPStatusWindow::CompleteCommand(CommandType, ResponseJson);
+
         FString ResultString;
         TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResultString);
         FJsonSerializer::Serialize(ResponseJson.ToSharedRef(), Writer);

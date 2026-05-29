@@ -1,5 +1,23 @@
 # Codex Project Instructions
 
+## Related Workspace Scope
+
+- Treat this repository (`CubelessStylized`) and the sibling workspace folder `../unreal-mcp-cubeless` as the default managed project scope.
+- On the user's current machine this sibling folder is expected at `C:\Git\unreal-mcp-cubeless`; on other machines, resolve it relative to the parent folder of the cloned `CubelessStylized` repository.
+- When MCP behavior, tooling, or integration work may require changes in `unreal-mcp-cubeless`, inspect and modify that sibling workspace without requiring the user to repeat this instruction.
+- Keep Git status, diffs, staging, commits, and summaries separate for `CubelessStylized` and `unreal-mcp-cubeless` so changes from the two workspaces are not mixed accidentally.
+
+## Invocation Shortcut
+
+- When the user sends `이에타` as a standalone call, first check the Unreal MCP connection state and report it briefly before continuing.
+- Do not trigger this shortcut for task requests that merely start with `이에타`, such as `이에타 작업해줘` or `이에타 수정해줘`.
+- The status check should include whether `.mcp.json` defines the `unrealMCP` server, whether the configured `command` and sibling workspace paths in `args` resolve, and whether available MCP tooling can confirm a live connection.
+- If the Unreal MCP connection is live, also report `connected` through the UnrealMCP plugin's Ieta Slate status window by using the available MCP `show_ieta_connection_status`/`ieta_status` path.
+- If the connection is not live, attempt reasonable non-asset connection repair before giving up: verify `.mcp.json`, `../unreal-mcp-cubeless/Python`, `uv`, the Python 3.11 MCP environment, and the Unreal Editor bridge port `127.0.0.1:55557`; after repair, show the resulting status through the Ieta Slate window when the Unreal bridge is reachable.
+- In the user-facing response, explicitly include whether the Unreal Ieta Slate status call succeeded or failed, for example `Slate call: success` or `Slate call: failed`.
+- Report the result clearly as `connected`, `not connected`, or `unknown`, with the specific blocker or missing piece when it is not connected.
+- This shortcut is a status check only; it does not modify Unreal assets.
+
 ## Agent Roles
 
 This project uses two named agent roles. The Korean names are display names; the English role names are the stable internal meanings.
