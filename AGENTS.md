@@ -14,6 +14,7 @@
 - Treat Codex chat as the active workspace and Notion as the summarized project memory.
 - Use the Notion page `CubelessStylized 운영 문서` as the documentation hub for operating rules, summaries, decisions, recurring procedures, MCP checks, and Builder handoff instructions.
 - Use summary auto-capture by default: when a conversation creates an important decision, reusable procedure, Builder handoff instruction, execution result, verification result, failure cause, workaround, or residual risk, write a concise Notion summary and report which page was updated.
+- If Notion capture fails or is unavailable, append the same concise summary to `docs/work-log.md` so the repository still carries a durable local project memory.
 - Do not auto-capture short confirmation-only exchanges, unaccepted temporary ideas, secrets, credentials, personal data, or anything the user says not to record.
 
 ## Invocation Shortcut
@@ -46,7 +47,8 @@ This project uses two named agent roles. The Korean names are display names; the
 - Python and Unreal Editor scripting are allowed without extra approval when they fit the requested task.
 - Reading C++ code is allowed without restriction.
 - Creating or modifying C++ code requires explicit user approval first.
-- If C++ appears necessary, explain why and ask before writing it.
+- Exception: C++ code inside the UnrealMCP plugin may be created or modified directly without asking again.
+- Outside that UnrealMCP plugin exception, if C++ appears necessary, explain why and ask before writing it.
 - When executing a plan from 이에타, treat the visible `티브렛에게 전달할 지시` section as the source of truth.
 
 ## Unreal MCP Asset Editing
