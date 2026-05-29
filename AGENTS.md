@@ -7,6 +7,15 @@
 - When MCP behavior, tooling, or integration work may require changes in `unreal-mcp-cubeless`, inspect and modify that sibling workspace without requiring the user to repeat this instruction.
 - Keep Git status, diffs, staging, commits, and summaries separate for `CubelessStylized` and `unreal-mcp-cubeless` so changes from the two workspaces are not mixed accidentally.
 
+## Codex Session and Notion Documentation Operations
+
+- Prefer one Codex session per coherent work topic. Keep follow-up work in the same session only when it continues the same asset, bug, decision, or implementation thread.
+- When a new request starts a materially different topic, recommend splitting it into a new Codex session and suggest a short session title. The user creates or switches sessions; the agent does not do that automatically.
+- Treat Codex chat as the active workspace and Notion as the summarized project memory.
+- Use the Notion page `CubelessStylized 운영 문서` as the documentation hub for operating rules, summaries, decisions, recurring procedures, MCP checks, and Builder handoff instructions.
+- Use summary auto-capture by default: when a conversation creates an important decision, reusable procedure, Builder handoff instruction, execution result, verification result, failure cause, workaround, or residual risk, write a concise Notion summary and report which page was updated.
+- Do not auto-capture short confirmation-only exchanges, unaccepted temporary ideas, secrets, credentials, personal data, or anything the user says not to record.
+
 ## Invocation Shortcut
 
 - When the user sends `이에타` as a standalone call, first check the Unreal MCP connection state and report it briefly before continuing.
