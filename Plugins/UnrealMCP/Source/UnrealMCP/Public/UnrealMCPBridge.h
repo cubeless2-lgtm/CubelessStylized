@@ -45,6 +45,8 @@ public:
 	FString ExecuteCommand(const FString& CommandType, const TSharedPtr<FJsonObject>& Params);
 
 private:
+	void ScheduleStartupIetaStatusSequence();
+
 	// Server state
 	bool bIsRunning;
 	TSharedPtr<FSocket> ListenerSocket;

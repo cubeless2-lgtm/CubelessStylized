@@ -14,19 +14,19 @@ struct FFurLod
 	* Size of the fur on the screen at which the LOD will be used. The lower the number is, the longer it stays even if becomes smaller on the screen. Should be higher than "Min Screen Size"
 	*/
 	UPROPERTY(EditAnywhere, Category = "LOD")
-	float ScreenSize;
+	float ScreenSize = 0.0f;
 
 	/**
 	* Number of shells for this particular LOD. Should be lower than "Fur Layer Count"
 	*/
 	UPROPERTY(EditAnywhere, Category = "LOD", meta = (UIMin = "1", UIMax = "128", ClampMin = "1", ClampMax = "128"))
-	int LayerCount;
+	int LayerCount = 1;
 
 	/**
 	* Which LOD of the Grow Mesh should be used to generate fur for this LOD.
 	*/
 	UPROPERTY(EditAnywhere, Category = "LOD")
-	int Lod;
+	int Lod = 0;
 
 	/**
 	* If fur should react to forces and movement while using this LOD.

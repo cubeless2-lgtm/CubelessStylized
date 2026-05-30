@@ -25,8 +25,12 @@
 #include "Engine/Texture2D.h"
 #include "Containers/Ticker.h"
 #include "Framework/Application/SlateApplication.h"
+#include "HAL/FileManager.h"
 #include "ImageUtils.h"
 #include "Interfaces/IPluginManager.h"
+#include "Misc/App.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Styling/SlateBrush.h"
 #include "Styling/CoreStyle.h"
 #include "Widgets/Images/SImage.h"
@@ -83,13 +87,26 @@ class FIetaMCPStatusWindow
 public:
     static void ShowWithParams(const FString& CommandType, const TSharedPtr<FJsonObject>& Params)
     {
-        PendingParamsSummary = BuildParamsSummary(Params);
-        bUsePendingParamsOnNextShow = true;
+        if (!IsIetaPlanningCommand(CommandType))
+        {
+            PendingParamsSummary.Reset();
+            bUsePendingParamsOnNextShow = false;
+            return;
+        }
+
+        (void)Params;
+        PendingParamsSummary.Reset();
+        bUsePendingParamsOnNextShow = false;
         Show(CommandType);
     }
 
     static void Show(const FString& CommandType)
     {
+        if (!IsIetaPlanningCommand(CommandType))
+        {
+            return;
+        }
+
         if (!FSlateApplication::IsInitialized())
         {
             return;
@@ -135,7 +152,7 @@ public:
         {
             AvatarBrush = MakeShared<FSlateBrush>();
             AvatarBrush->SetResourceObject(AvatarTexture);
-            AvatarBrush->ImageSize = FVector2D(96.0f, 96.0f);
+            AvatarBrush->ImageSize = FVector2D(64.0f, 64.0f);
             AvatarBrush->DrawAs = ESlateBrushDrawType::Image;
         }
         else
@@ -143,17 +160,15 @@ public:
             AvatarBrush.Reset();
         }
 
-        const FText TitleText = FText::FromString(TEXT("이에타가 처리 중"));
+        const FText TitleText = FText::FromString(TEXT("이에타 상태"));
         const FText BodyText = FText::FromString(FString::Printf(
-            TEXT("흥, 잠깐 기다려.\n")
-            TEXT("이에타가 MCP 작업을 지켜보고 있어.\n")
-            TEXT("명령: %s\n")
-            TEXT("끝나면 티브렛이 알아서 정리해둘 거야."),
+            TEXT("확인 중\n")
+            TEXT("명령: %s"),
             *CommandType));
 
         TSharedRef<SWindow> Window = SNew(SWindow)
             .Title(TitleText)
-            .ClientSize(FVector2D(620.0f, 240.0f))
+            .ClientSize(FVector2D(520.0f, 170.0f))
             .SizingRule(ESizingRule::FixedSize)
             .SupportsMaximize(false)
             .SupportsMinimize(false)
@@ -161,7 +176,7 @@ public:
             .IsTopmostWindow(true)
             [
                 SNew(SBorder)
-                .Padding(18.0f)
+                .Padding(14.0f)
                 .BorderBackgroundColor(FLinearColor(0.035f, 0.035f, 0.042f, 0.96f))
                 [
                     SNew(SHorizontalBox)
@@ -171,8 +186,8 @@ public:
                     .VAlign(VAlign_Center)
                     [
                         SNew(SBox)
-                        .WidthOverride(112.0f)
-                        .HeightOverride(112.0f)
+                        .WidthOverride(78.0f)
+                        .HeightOverride(78.0f)
                         [
                             SNew(SImage)
                             .Image(AvatarBrush.IsValid() ? AvatarBrush.Get() : FCoreStyle::Get().GetDefaultBrush())
@@ -181,7 +196,7 @@ public:
 
                     + SHorizontalBox::Slot()
                     .FillWidth(1.0f)
-                    .Padding(18.0f, 0.0f, 0.0f, 0.0f)
+                    .Padding(14.0f, 0.0f, 0.0f, 0.0f)
                     .VAlign(VAlign_Center)
                     [
                         SNew(SVerticalBox)
@@ -192,12 +207,12 @@ public:
                             SNew(STextBlock)
                             .Text(TitleText)
                             .ColorAndOpacity(FLinearColor(1.0f, 0.86f, 0.48f, 1.0f))
-                            .Font(FCoreStyle::GetDefaultFontStyle("Bold", 18))
+                            .Font(FCoreStyle::GetDefaultFontStyle("Bold", 16))
                         ]
 
                         + SVerticalBox::Slot()
                         .AutoHeight()
-                        .Padding(0.0f, 10.0f, 0.0f, 0.0f)
+                        .Padding(0.0f, 6.0f, 0.0f, 0.0f)
                         [
                             SAssignNew(BodyTextBlock, STextBlock)
                             .Text(BodyText)
@@ -208,7 +223,7 @@ public:
 
                         + SVerticalBox::Slot()
                         .AutoHeight()
-                        .Padding(0.0f, 14.0f, 0.0f, 0.0f)
+                        .Padding(0.0f, 10.0f, 0.0f, 0.0f)
                         [
                             SAssignNew(ProgressBar, SProgressBar)
                             .Percent(0.05f)
@@ -227,6 +242,12 @@ public:
 
     static void UpdateStatus(const FString& StatusText, const FString& CommandType, TOptional<float> Progress = TOptional<float>())
     {
+        const FString SlateCommand = CommandType.IsEmpty() ? TEXT("ieta_status") : CommandType;
+        if (!IsIetaPlanningCommand(SlateCommand))
+        {
+            return;
+        }
+
         if (!FSlateApplication::IsInitialized())
         {
             return;
@@ -234,26 +255,15 @@ public:
 
         if (!StatusWindow.IsValid())
         {
-            Show(CommandType.IsEmpty() ? TEXT("ieta_status") : CommandType);
+            Show(SlateCommand);
         }
 
-        const FString EffectiveCommand = CommandType.IsEmpty() ? TEXT("작업 상태") : CommandType;
-        const bool bPlanning = IsIetaPlanningCommand(EffectiveCommand);
-        const FText UpdatedBodyText = bPlanning
-            ? FText::FromString(FString::Printf(
-                TEXT("흠, 생각은 이 정도면 됐어.\n")
-                TEXT("%s\n")
-                TEXT("명령: %s\n")
-                TEXT("정리해서 넘기면 되겠지."),
-                *StatusText,
-                *EffectiveCommand))
-            : FText::FromString(FString::Printf(
-                TEXT("흥, 티브렛이 하는 일은 설명해줄게.\n")
-                TEXT("%s\n")
-                TEXT("명령: %s\n")
-                TEXT("끝날 때까지 얌전히 기다려."),
-                *StatusText,
-                *EffectiveCommand));
+        const FString EffectiveCommand = SlateCommand;
+        const FText UpdatedBodyText = FText::FromString(FString::Printf(
+            TEXT("%s\n")
+            TEXT("명령: %s"),
+            *StatusText,
+            *EffectiveCommand));
 
         if (BodyTextBlock.IsValid())
         {
@@ -280,6 +290,11 @@ public:
 
     static void CompleteCommand(const FString& CommandType, const TSharedPtr<FJsonObject>& ResponseJson)
     {
+        if (!IsIetaPlanningCommand(CommandType))
+        {
+            return;
+        }
+
         FString ResponseStatus;
         if (ResponseJson.IsValid())
         {
@@ -387,10 +402,7 @@ public:
 private:
     static bool IsIetaPlanningCommand(const FString& CommandType)
     {
-        return CommandType.IsEmpty() ||
-            CommandType == TEXT("ieta_status") ||
-            CommandType == TEXT("codex_start") ||
-            CommandType == TEXT("이에타");
+        return CommandType == TEXT("ieta_status");
     }
 
     static FString GetFriendlyCommandText(const FString& CommandType)
@@ -462,30 +474,10 @@ private:
 
     static FText BuildProcessingBodyText(const FString& CommandType)
     {
-        const FString EffectiveCommand = CommandType.IsEmpty() ? TEXT("codex_start") : CommandType;
-        const FString DetailText = PendingParamsSummary.IsEmpty() ? TEXT("추가 입력은 없어.") : PendingParamsSummary;
-        if (IsIetaPlanningCommand(EffectiveCommand))
-        {
-            return FText::FromString(TEXT("흠, 잠깐 생각 좀 할게.\n계획을 정리하고 있어.\n보채지 말고 조용히 기다려."));
-        }
-        if (FPlatformTime::Seconds() >= 0.0)
-        {
-            return FText::FromString(FString::Printf(
-                TEXT("흥, 티브렛이 일을 시작했어.\n")
-                TEXT("%s\n")
-                TEXT("명령: %s\n")
-                TEXT("내용: %s\n")
-                TEXT("귀찮지만 진행은 내가 보고 있을게."),
-                *GetFriendlyCommandText(EffectiveCommand),
-                *EffectiveCommand,
-                *DetailText));
-        }
-
+        const FString EffectiveCommand = CommandType.IsEmpty() ? TEXT("ieta_status") : CommandType;
         return FText::FromString(FString::Printf(
-            TEXT("흥, Codex가 Unreal MCP 작업을 시작했어.\n")
-            TEXT("이에타가 진행 중인 명령을 지켜보고 있어.\n")
-            TEXT("명령: %s\n")
-            TEXT("결과가 표시되면 창은 알아서 닫힐 거야."),
+            TEXT("확인 중\n")
+            TEXT("명령: %s"),
             *EffectiveCommand));
     }
 
@@ -499,7 +491,7 @@ private:
         if (ProgressBar.IsValid())
         {
             ProgressBar->SetVisibility(EVisibility::Visible);
-            ProgressBar->SetPercent(IsIetaPlanningCommand(CommandType) ? 0.15f : 0.05f);
+            ProgressBar->SetPercent(0.25f);
         }
     }
 
@@ -521,7 +513,7 @@ private:
         }
     }
 
-    static constexpr double CompletionVisibleSeconds = 5.0;
+    static constexpr double CompletionVisibleSeconds = 3.0;
     static double LastShowTime;
     static TSharedPtr<SWindow> StatusWindow;
     static TSharedPtr<STextBlock> BodyTextBlock;
@@ -542,6 +534,32 @@ UTexture2D* FIetaMCPStatusWindow::AvatarTexture = nullptr;
 FString FIetaMCPStatusWindow::PendingParamsSummary;
 bool FIetaMCPStatusWindow::bUsePendingParamsOnNextShow = false;
 uint64 FIetaMCPStatusWindow::CloseRequestGeneration = 0;
+
+static FString BuildIetaEditorLogStatusText()
+{
+    const FString EditorLogPath = FPaths::Combine(FPaths::ProjectLogDir(), FString::Printf(TEXT("%s.log"), FApp::GetProjectName()));
+    TArray<FString> Lines;
+    if (!FPaths::FileExists(EditorLogPath) || !FFileHelper::LoadFileToStringArray(Lines, *EditorLogPath))
+    {
+        return TEXT("로그는 아직 못 읽었어. 나중에 확인해봐.");
+    }
+
+    int32 ErrorLineCount = 0;
+    for (const FString& Line : Lines)
+    {
+        if (Line.Contains(TEXT("Error:"), ESearchCase::CaseSensitive))
+        {
+            ++ErrorLineCount;
+        }
+    }
+
+    if (ErrorLineCount > 0)
+    {
+        return FString::Printf(TEXT("흠, 로그 오류가 %d줄 보여. 확인해봐."), ErrorLineCount);
+    }
+
+    return TEXT("흥, 로그 오류는 안 보여. 작업 잘 해라.");
+}
 
 }
 
@@ -578,6 +596,7 @@ void UUnrealMCPBridge::Initialize(FSubsystemCollectionBase& Collection)
 
     // Start the server automatically
     StartServer();
+    ScheduleStartupIetaStatusSequence();
 }
 
 // Clean up resources when subsystem is destroyed
@@ -694,16 +713,66 @@ void UUnrealMCPBridge::StopServer()
     UE_LOG(LogTemp, Display, TEXT("UnrealMCPBridge: Server stopped"));
 }
 
+void UUnrealMCPBridge::ScheduleStartupIetaStatusSequence()
+{
+    TWeakObjectPtr<UUnrealMCPBridge> WeakThis(this);
+    AsyncTask(ENamedThreads::GameThread, [WeakThis]()
+    {
+        if (!WeakThis.IsValid())
+        {
+            return;
+        }
+
+        constexpr double StartupCheckSeconds = 2.0;
+        const double StartTime = FPlatformTime::Seconds();
+        const FString ConnectingText = TEXT("흥, 연결 확인 중이야. 잠깐만 기다려.");
+        FIetaMCPStatusWindow::UpdateStatus(ConnectingText, TEXT("ieta_status"), TOptional<float>(0.0f));
+
+        FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([WeakThis, StartTime, ConnectingText](float)
+        {
+            if (!WeakThis.IsValid())
+            {
+                return false;
+            }
+
+            const double ElapsedSeconds = FPlatformTime::Seconds() - StartTime;
+            const float Progress = FMath::Clamp(static_cast<float>(ElapsedSeconds / StartupCheckSeconds), 0.0f, 1.0f);
+            if (Progress < 1.0f)
+            {
+                FIetaMCPStatusWindow::UpdateStatus(ConnectingText, TEXT("ieta_status"), TOptional<float>(Progress));
+                return true;
+            }
+
+            const bool bConnected = WeakThis->IsRunning();
+            const FString LogStatusText = BuildIetaEditorLogStatusText();
+            const FString StatusText = bConnected
+                ? FString::Printf(TEXT("연결 완료야. Unreal MCP 준비됐어.\n%s"), *LogStatusText)
+                : FString::Printf(TEXT("연결 실패야. 서버가 안 떠 있어. 이 창은 닫지 않을게.\n%s"), *LogStatusText);
+
+            FIetaMCPStatusWindow::UpdateStatus(
+                StatusText,
+                TEXT("ieta_status"),
+                TOptional<float>(bConnected ? 1.0f : 0.0f));
+            if (bConnected)
+            {
+                FIetaMCPStatusWindow::Hide();
+            }
+            return false;
+        }), 0.1f);
+    });
+}
+
 // Execute a command received from a client
 FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TSharedPtr<FJsonObject>& Params)
 {
     UE_LOG(LogTemp, Display, TEXT("UnrealMCPBridge: Executing command: %s"), *CommandType);
+    const bool bShowIetaSlate = CommandType == TEXT("ieta_status");
     
     // Create a promise to wait for the result
     TSharedRef<TPromise<FString>, ESPMode::ThreadSafe> Promise = MakeShared<TPromise<FString>, ESPMode::ThreadSafe>();
     TFuture<FString> Future = Promise->GetFuture();
     
-    auto RunCommand = [this, CommandType, Params, Promise]()
+    auto RunCommand = [this, CommandType, Params, Promise, bShowIetaSlate]()
     {
         TSharedPtr<FJsonObject> ResponseJson = MakeShareable(new FJsonObject);
         
@@ -732,6 +801,16 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                 {
                     StatusText = TEXT("이에타가 작업 상태를 확인하는 중이야.");
                 }
+
+                if (StatusCommand.IsEmpty())
+                {
+                    StatusCommand = TEXT("ieta_status");
+                }
+
+                FIetaMCPStatusWindow::UpdateStatus(
+                    StatusText,
+                    StatusCommand,
+                    ProgressValue >= 0.0 ? TOptional<float>(static_cast<float>(ProgressValue)) : TOptional<float>());
 
                 ResultJson = MakeShareable(new FJsonObject);
                 ResultJson->SetBoolField(TEXT("success"), true);
@@ -803,8 +882,6 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                 ResponseJson->SetStringField(TEXT("status"), TEXT("error"));
                 ResponseJson->SetStringField(TEXT("error"), FString::Printf(TEXT("Unknown command: %s"), *CommandType));
                 
-                FIetaMCPStatusWindow::CompleteCommand(CommandType, ResponseJson);
-
                 FString ResultString;
                 TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResultString);
                 FJsonSerializer::Serialize(ResponseJson.ToSharedRef(), Writer);
@@ -844,7 +921,10 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
             ResponseJson->SetStringField(TEXT("error"), UTF8_TO_TCHAR(e.what()));
         }
         
-        FIetaMCPStatusWindow::CompleteCommand(CommandType, ResponseJson);
+        if (bShowIetaSlate)
+        {
+            FIetaMCPStatusWindow::Hide();
+        }
 
         FString ResultString;
         TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResultString);
@@ -852,14 +932,18 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
         Promise->SetValue(ResultString);
     };
 
-    // Queue execution on Game Thread. Show the assistant window first, then run
-    // the command on the next tick so the editor has a chance to paint the UI.
+    // Queue execution on Game Thread. The assistant window is reserved for
+    // explicit ieta_status checks so background work stays out of the way.
     // Python import workflows can enter UE's Interchange pipeline, which must
     // not run inside a TaskGraph task because it may wait on TaskGraph work
     // internally.
-    AsyncTask(ENamedThreads::GameThread, [CommandType, Params, RunCommand]()
+    AsyncTask(ENamedThreads::GameThread, [CommandType, Params, RunCommand, bShowIetaSlate]()
     {
-        FIetaMCPStatusWindow::ShowWithParams(CommandType, Params);
+        if (bShowIetaSlate)
+        {
+            FIetaMCPStatusWindow::ShowWithParams(CommandType, Params);
+        }
+
         FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([RunCommand](float)
         {
             RunCommand();
