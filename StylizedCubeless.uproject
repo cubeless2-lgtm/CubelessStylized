@@ -115,6 +115,10 @@
 			"TargetAllowList": [
 				"Editor"
 			]
+		},
+		{
+			"Name": "StylizedSky",
+			"Enabled": true
 		}
 	]
 }

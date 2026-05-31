@@ -1,0 +1,55 @@
+{
+  "notes": {
+    "intent": "Shared art-direction presets for Cubeless light-packed cloud plane material instances.",
+    "scope": "Only targets /Game/Cubeless/Env/Sky/Materials/MI_CloudPlane_LightPacked_* assets. It must not touch UDS assets.",
+    "packing": "R=upper-right key light, G=upper-left key light, B=overhead/front fill, A=opacity density.",
+    "uds_static_sky": "Sampled from the placed Ultra_Dynamic_Sky sky MID while static sky/static clouds were active. UDS Static Clouds Shadow Tint is used as CloudLightTint because it reads as the warm lit color in this setup."
+  },
+  "default_preset": "uds_static_sky",
+  "presets": {
+    "uds_static_sky": {
+      "LightWeights_RGB": [0.586461, 0.340078, 0.073461, 1.0],
+      "CloudLightTint": [0.869251, 0.840228, 0.81523, 0.0],
+      "CloudShadowTint": [0.701009, 0.702989, 0.760417, 1.0],
+      "TimeOfDayTint": [1.0, 1.0, 1.0, 1.0],
+      "AmbientColor": [0.140302, 0.253465, 0.471929, 0.0],
+      "Opacity": 0.82,
+      "CloudDensity": 1.596,
+      "CloudIntensity": 1.15,
+      "SunLightingIntensity": 3.0,
+      "ShadingClouds_Offset": 0.10,
+      "ShadingClouds_GradientWidth": 0.75,
+      "RimLightAmount": 0.16,
+      "AmbientInfluence": 0.10,
+      "AlphaFeather": 0.18,
+      "MPCSunVectorInfluence": 1.0,
+      "MPCCloudDensityInfluence": 0.35,
+      "MPCCloudCoverageInfluence": 0.40,
+      "MPCShadowCancelInfluence": 0.0
+    },
+    "day_soft": {
+      "LightWeights_RGB": [0.42, 0.33, 0.25, 0.0],
+      "CloudLightTint": [1.0, 0.97, 0.88, 1.0],
+      "CloudShadowTint": [0.44, 0.55, 0.72, 1.0],
+      "TimeOfDayTint": [1.0, 1.0, 1.0, 1.0],
+      "Opacity": 0.74,
+      "CloudIntensity": 1.12
+    },
+    "sunset_warm": {
+      "LightWeights_RGB": [0.56, 0.28, 0.16, 0.0],
+      "CloudLightTint": [1.0, 0.63, 0.34, 1.0],
+      "CloudShadowTint": [0.42, 0.33, 0.58, 1.0],
+      "TimeOfDayTint": [1.0, 0.82, 0.63, 1.0],
+      "Opacity": 0.80,
+      "CloudIntensity": 1.28
+    },
+    "moon_cool": {
+      "LightWeights_RGB": [0.28, 0.42, 0.30, 0.0],
+      "CloudLightTint": [0.66, 0.76, 1.0, 1.0],
+      "CloudShadowTint": [0.08, 0.12, 0.26, 1.0],
+      "TimeOfDayTint": [0.50, 0.62, 1.0, 1.0],
+      "Opacity": 0.58,
+      "CloudIntensity": 0.82
+    }
+  }
+}

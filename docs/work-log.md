@@ -203,3 +203,22 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - Tivret MCP work status shows a progress bar.
   - New Slate popups close existing Ieta Slate popups first.
   - Tivret completion closes the Slate popup after 10 seconds.
+
+## UltraDynamicSky Sky Modifier Save Error Investigation
+
+- Date: 2026-05-31
+- Target: `/Game/UltraDynamicSky/Blueprints/Tools/Sky_Modifier_Editor.Sky_Modifier_Editor`
+- Symptom: after using the Sky Modifier / Cloud Painter tool, saving can show `Path does not start with a valid root`.
+- Log evidence: the tool spawned `Ultra_Dynamic_Sky` and `Ultra_Dynamic_Weather` into `/Temp/Untitled_1`, then `LevelEditorSubsystem` reported `SaveCurrentLevel. Can't save the level because it doesn't have a filename`.
+- Additional evidence: the tool saved `/Engine/Ultra_Dynamic_Sky/Cloud_Painter/CloudPainterSettings` into Engine content. Asset validation then reported invalid references from that Engine package to project assets under `/Game/UltraDynamicSky/.../Cloud_Painter_Settings` and `/Game/UltraDynamicSky/Textures/Weather/Mask_Brushes/Brush_Square`.
+- Cause: primary cause is running the tool while the current level is an unsaved temporary package (`/Temp/Untitled_1`), which is not a valid saved content root. Secondary cause is the Cloud Painter settings asset living under `/Engine/...` while referencing `/Game/...` project content.
+- Workaround: save the current level under `/Game/...` before running the Sky Modifier / Cloud Painter tool.
+- Follow-up fix candidate: move or retarget the Cloud Painter settings save path from `/Engine/Ultra_Dynamic_Sky/...` to a project content path under `/Game/UltraDynamicSky/...`, or clean the Engine-content settings asset so it does not reference project assets.
+
+## Keilan Polar/Radial Cloud Reference
+
+- Date: 2026-05-31
+- Decision: Keilan will treat `/Script/Engine.Texture2D'/Game/UltraDynamicSky/Textures/StaticClouds/Custom/cloub02.cloub02'` as the current Polar/Radial UV reference cloud texture until the user replaces it.
+- Local file observed: `Content/UltraDynamicSky/Textures/StaticClouds/Custom/cloub02.uasset`.
+- Use: reference for UDS static-cloud source generation, especially radial readability, cloud mass shape, and projection behavior.
+- Guardrail: use it as a reference only; do not overwrite or modify UDS reference assets while generating Cubeless source art.

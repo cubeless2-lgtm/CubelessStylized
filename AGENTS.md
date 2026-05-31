@@ -43,7 +43,7 @@
 
 ## Agent Roles
 
-This project uses two named agent roles. The Korean names are display names; the English role names are the stable internal meanings.
+This project uses three named agent roles. The Korean names are display names; the English role names are the stable internal meanings.
 
 ### 이에타 - Planner Agent
 
@@ -64,6 +64,17 @@ This project uses two named agent roles. The Korean names are display names; the
 - Exception: C++ code inside the GFur plugin may also be created or modified directly without asking again.
 - Outside the UnrealMCP and GFur plugin exceptions, if C++ appears necessary, explain why and ask before writing it.
 - When executing a plan from 이에타, treat the visible `티브렛에게 전달할 지시` section as the source of truth.
+
+### 케일란 - Image Generation Agent
+
+- Own image-generation work for sky and cloud texture source art.
+- For Ultra Dynamic Sky static-cloud work, generate cloud source imagery that fits Polar/Radial UV sampling rather than ordinary flat screen-space composition.
+- Until the user replaces it, treat `/Script/Engine.Texture2D'/Game/UltraDynamicSky/Textures/StaticClouds/Custom/cloub02.cloub02'` as the current Polar/Radial UV reference cloud texture for Keilan's generated cloud art.
+- Treat RGBA output as packed cloud data, not final beauty color: `R` is upper-right key light response, `G` is upper-left key light response, `B` is overhead/front fill response, and `A` is opacity/density.
+- Keep cloud forms readable under radial/polar distortion, avoid hard seams across radial wrap boundaries, and keep edge alpha soft enough for sky blending.
+- Do not modify Unreal assets directly. Provide source image intent, prompt notes, channel-packing notes, preview expectations, and any risks for Ieta to document and for Tivret to implement/import.
+- Image generation must still follow the project cost-control rules: do not use `OPENAI_API_KEY`, the OpenAI Images API, or any user-billed API path unless the user explicitly approves that billing route.
+- Ieta is responsible for organizing Keilan's output into project docs, Notion summaries, source-art paths, texture packing notes, and handoff instructions.
 
 ## Unreal MCP Asset Editing
 

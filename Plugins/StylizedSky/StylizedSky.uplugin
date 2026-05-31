@@ -1,0 +1,19 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1.0",
+	"FriendlyName": "Stylized Sky",
+	"Description": "Cubeless stylized static-sky and light-packed cloud controller.",
+	"Category": "Rendering",
+	"CreatedBy": "Codex",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "StylizedSky",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
