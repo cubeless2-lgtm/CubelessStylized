@@ -1,0 +1,16 @@
+Torchvision version: 0.22.1+cu128
+torchvision.transforms.functional_tensor not found, applying compatibility fix...
+Applied compatibility fix: created functional_tensor mock module
+[2026-06-01 00:18:58] Applied torchvision compatibility fix
+[2026-06-01 00:19:00] Patched MeshRender.save_mesh to keep final texture resolution
+[2026-06-01 00:19:00] Loading Hunyuan3D paint pipeline at final 512 texture output
+Models Loaded.
+[2026-06-01 00:19:12] Texture 512 start: 11_hillside_apartment_backfill
+[2026-06-01 00:20:05] Texture 512 done: 11_hillside_apartment_backfill
+[2026-06-01 00:20:05] Texture 512 start: 12_stair_retaining_wall_rail_module
+[2026-06-01 00:21:03] Texture 512 done: 12_stair_retaining_wall_rail_module
+[2026-06-01 00:21:04] Texture 512 start: 13_store_stair_gap_alley_filler
+[2026-06-01 00:21:47] Texture 512 done: 13_store_stair_gap_alley_filler
+[2026-06-01 00:21:48] Texture 512 start: 14_blue_corrugated_fence_gate
+[2026-06-01 00:22:31] Texture 512 done: 14_blue_corrugated_fence_gate
+[2026-06-01 00:22:32] Texture 512 start: 15_dense_planter_bank
