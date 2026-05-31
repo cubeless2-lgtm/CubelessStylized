@@ -1,0 +1,33 @@
+Torchvision version: 0.22.1+cu128
+torchvision.transforms.functional_tensor not found, applying compatibility fix...
+Applied compatibility fix: created functional_tensor mock module
+[2026-06-01 01:56:41] Applied torchvision compatibility fix
+[2026-06-01 01:56:45] Loading Hunyuan3D shape pipeline
+using moe
+using moe
+using moe
+using moe
+using moe
+using moe
+PointCrossAttentionEncoder INFO: pc_sharpedge_size is zero
+[2026-06-01 01:57:19] Shape exists, skipping: 17_hillside_understructure_wall
+[2026-06-01 01:57:19] Shape exists, skipping: 18_left_background_residential_wall
+[2026-06-01 01:57:19] Shape exists, skipping: 19_right_hillside_building_stack
+[2026-06-01 01:57:19] Shape exists, skipping: 20_under_stair_shadow_filler
+[2026-06-01 01:57:19] Shape exists, skipping: 21_far_edge_fence_vegetation_strip
+[2026-06-01 01:57:19] Shape exists, skipping: 22_rooftop_parapet_utility_extension
+[2026-06-01 01:57:19] Patched MeshRender.save_mesh to keep final texture resolution
+[2026-06-01 01:57:19] Loading Hunyuan3D paint pipeline at final 512 texture output
+Models Loaded.
+[2026-06-01 01:57:49] Texture exists, skipping: 17_hillside_understructure_wall
+[2026-06-01 01:57:49] Texture start: 18_left_background_residential_wall
+[2026-06-01 01:59:16] Texture done: 18_left_background_residential_wall -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\textured_obj_512\18_left_background_residential_wall\textured_mesh.obj
+[2026-06-01 01:59:17] Texture start: 19_right_hillside_building_stack
+[2026-06-01 02:00:40] Texture done: 19_right_hillside_building_stack -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\textured_obj_512\19_right_hillside_building_stack\textured_mesh.obj
+[2026-06-01 02:00:41] Texture start: 20_under_stair_shadow_filler
+[2026-06-01 02:01:59] Texture done: 20_under_stair_shadow_filler -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\textured_obj_512\20_under_stair_shadow_filler\textured_mesh.obj
+[2026-06-01 02:02:00] Texture start: 21_far_edge_fence_vegetation_strip
+[2026-06-01 02:02:35] Texture done: 21_far_edge_fence_vegetation_strip -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\textured_obj_512\21_far_edge_fence_vegetation_strip\textured_mesh.obj
+[2026-06-01 02:02:36] Texture start: 22_rooftop_parapet_utility_extension
+[2026-06-01 02:03:34] Texture done: 22_rooftop_parapet_utility_extension -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\textured_obj_512\22_rooftop_parapet_utility_extension\textured_mesh.obj
+[2026-06-01 02:03:35] Report written: D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\generation_report.json

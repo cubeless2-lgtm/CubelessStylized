@@ -1,0 +1,6 @@
+D:\Git\Hunyuan3D-2.1\.venv\lib\site-packages\cupy\_environment.py:217: UserWarning: CUDA path could not be detected. Set CUDA_PATH environment variable if CuPy fails to load.
+  warnings.warn(
+2026-06-01 01:56:45,114 - hy3dgen.shapgen - INFO - Try to load model from local path: D:\Git\Hunyuan3D-2.1\.hy3dgen_models\tencent/Hunyuan3D-2.1\hunyuan3d-dit-v2-1
+2026-06-01 01:56:45,120 - hy3dgen.shapgen - INFO - Loading model from D:\Git\Hunyuan3D-2.1\.hy3dgen_models\tencent/Hunyuan3D-2.1\hunyuan3d-dit-v2-1\model.fp16.ckpt
+Fetching 19 files:   0%|          | 0/19 [00:00<?, ?it/s]Fetching 19 files: 100%|##########| 19/19 [00:00<00:00, 12627.44it/s]
+Loading pipeline components...:   0%|          | 0/6 [00:00<?, ?it/s]Loading pipeline components...:  67%|######6   | 4/6 [00:12<00:06,  3.16s/it]Loading pipeline components...:  83%|########3 | 5/6 [00:15<00:03,  3.11s/it]Loading pipeline components...: 100%|##########| 6/6 [00:16<00:00,  2.58s/it]Loading pipeline components...: 100%|##########| 6/6 [00:16<00:00,  2.80s/it]

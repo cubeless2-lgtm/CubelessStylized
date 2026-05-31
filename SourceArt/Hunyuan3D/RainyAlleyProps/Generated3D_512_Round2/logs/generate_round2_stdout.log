@@ -1,0 +1,30 @@
+Torchvision version: 0.22.1+cu128
+torchvision.transforms.functional_tensor not found, applying compatibility fix...
+Applied compatibility fix: created functional_tensor mock module
+[2026-06-01 00:59:28] Applied torchvision compatibility fix
+[2026-06-01 00:59:33] Loading Hunyuan3D shape pipeline
+using moe
+using moe
+using moe
+using moe
+using moe
+using moe
+PointCrossAttentionEncoder INFO: pc_sharpedge_size is zero
+[2026-06-01 01:00:12] Shape start: 17_hillside_understructure_wall
+[2026-06-01 01:02:57] Shape done: 17_hillside_understructure_wall -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\shape_glb\17_hillside_understructure_wall.glb
+[2026-06-01 01:02:57] Shape start: 18_left_background_residential_wall
+[2026-06-01 01:04:23] Shape done: 18_left_background_residential_wall -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\shape_glb\18_left_background_residential_wall.glb
+[2026-06-01 01:04:23] Shape start: 19_right_hillside_building_stack
+[2026-06-01 01:05:50] Shape done: 19_right_hillside_building_stack -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\shape_glb\19_right_hillside_building_stack.glb
+[2026-06-01 01:05:50] Shape start: 20_under_stair_shadow_filler
+[2026-06-01 01:07:18] Shape done: 20_under_stair_shadow_filler -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\shape_glb\20_under_stair_shadow_filler.glb
+[2026-06-01 01:07:18] Shape start: 21_far_edge_fence_vegetation_strip
+[2026-06-01 01:08:45] Shape done: 21_far_edge_fence_vegetation_strip -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\shape_glb\21_far_edge_fence_vegetation_strip.glb
+[2026-06-01 01:08:45] Shape start: 22_rooftop_parapet_utility_extension
+[2026-06-01 01:10:13] Shape done: 22_rooftop_parapet_utility_extension -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\shape_glb\22_rooftop_parapet_utility_extension.glb
+[2026-06-01 01:10:14] Patched MeshRender.save_mesh to keep final texture resolution
+[2026-06-01 01:10:14] Loading Hunyuan3D paint pipeline at final 512 texture output
+Models Loaded.
+[2026-06-01 01:10:30] Texture start: 17_hillside_understructure_wall
+[2026-06-01 01:17:40] Texture done: 17_hillside_understructure_wall -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Round2\textured_obj_512\17_hillside_understructure_wall\textured_mesh.obj
+[2026-06-01 01:17:42] Texture start: 18_left_background_residential_wall

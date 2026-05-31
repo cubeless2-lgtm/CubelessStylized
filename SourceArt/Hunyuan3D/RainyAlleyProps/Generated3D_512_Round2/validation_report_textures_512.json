@@ -1,0 +1,206 @@
+[
+  {
+    "asset": "17_hillside_understructure_wall",
+    "glb_exists": true,
+    "obj_exists": true,
+    "textures": {
+      "textured_mesh.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 102170
+      },
+      "textured_mesh_metallic.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 26297
+      },
+      "textured_mesh_roughness.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 26769
+      }
+    },
+    "glb_bytes": 25374836,
+    "obj_bytes": 3059724,
+    "glb_vertices": 704695,
+    "glb_faces": 1409806,
+    "obj_vertices": 30100,
+    "obj_faces": 40000
+  },
+  {
+    "asset": "18_left_background_residential_wall",
+    "glb_exists": true,
+    "obj_exists": true,
+    "textures": {
+      "textured_mesh.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 111104
+      },
+      "textured_mesh_metallic.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 23837
+      },
+      "textured_mesh_roughness.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 8973
+      }
+    },
+    "glb_bytes": 31338956,
+    "obj_bytes": 3558337,
+    "glb_vertices": 870065,
+    "glb_faces": 1741446,
+    "obj_vertices": 38915,
+    "obj_faces": 40000
+  },
+  {
+    "asset": "19_right_hillside_building_stack",
+    "glb_exists": true,
+    "obj_exists": true,
+    "textures": {
+      "textured_mesh.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 138828
+      },
+      "textured_mesh_metallic.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 22184
+      },
+      "textured_mesh_roughness.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 12633
+      }
+    },
+    "glb_bytes": 33291524,
+    "obj_bytes": 3556320,
+    "glb_vertices": 924367,
+    "glb_faces": 1849858,
+    "obj_vertices": 38938,
+    "obj_faces": 40000
+  },
+  {
+    "asset": "20_under_stair_shadow_filler",
+    "glb_exists": true,
+    "obj_exists": true,
+    "textures": {
+      "textured_mesh.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 87756
+      },
+      "textured_mesh_metallic.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 20809
+      },
+      "textured_mesh_roughness.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 22634
+      }
+    },
+    "glb_bytes": 17952536,
+    "obj_bytes": 2916780,
+    "glb_vertices": 498594,
+    "glb_faces": 997382,
+    "obj_vertices": 27478,
+    "obj_faces": 40000
+  },
+  {
+    "asset": "21_far_edge_fence_vegetation_strip",
+    "glb_exists": true,
+    "obj_exists": true,
+    "textures": {
+      "textured_mesh.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 92369
+      },
+      "textured_mesh_metallic.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 30358
+      },
+      "textured_mesh_roughness.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 45841
+      }
+    },
+    "glb_bytes": 5074744,
+    "obj_bytes": 3152082,
+    "glb_vertices": 140921,
+    "glb_faces": 281906,
+    "obj_vertices": 31279,
+    "obj_faces": 40000
+  },
+  {
+    "asset": "22_rooftop_parapet_utility_extension",
+    "glb_exists": true,
+    "obj_exists": true,
+    "textures": {
+      "textured_mesh.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 88669
+      },
+      "textured_mesh_metallic.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 51830
+      },
+      "textured_mesh_roughness.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 59918
+      }
+    },
+    "glb_bytes": 21939128,
+    "obj_bytes": 2980554,
+    "glb_vertices": 609324,
+    "glb_faces": 1218868,
+    "obj_vertices": 28134,
+    "obj_faces": 40000
+  }
+]
