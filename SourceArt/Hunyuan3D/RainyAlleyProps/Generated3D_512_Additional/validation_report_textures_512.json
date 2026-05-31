@@ -1,0 +1,206 @@
+[
+  {
+    "asset": "11_hillside_apartment_backfill",
+    "glb_exists": true,
+    "obj_exists": true,
+    "textures": {
+      "textured_mesh.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 95887
+      },
+      "textured_mesh_metallic.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 28349
+      },
+      "textured_mesh_roughness.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 27346
+      }
+    },
+    "glb_vertices": 490108,
+    "glb_faces": 980528,
+    "glb_bytes": 17648456,
+    "obj_vertices": 35471,
+    "obj_faces": 40000,
+    "obj_bytes": 3376231
+  },
+  {
+    "asset": "12_stair_retaining_wall_rail_module",
+    "glb_exists": true,
+    "obj_exists": true,
+    "textures": {
+      "textured_mesh.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 86272
+      },
+      "textured_mesh_metallic.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 29531
+      },
+      "textured_mesh_roughness.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 45852
+      }
+    },
+    "glb_vertices": 593636,
+    "glb_faces": 1187542,
+    "glb_bytes": 21374956,
+    "obj_vertices": 29560,
+    "obj_faces": 40000,
+    "obj_bytes": 3051233
+  },
+  {
+    "asset": "13_store_stair_gap_alley_filler",
+    "glb_exists": true,
+    "obj_exists": true,
+    "textures": {
+      "textured_mesh.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 87455
+      },
+      "textured_mesh_metallic.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 34324
+      },
+      "textured_mesh_roughness.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 50225
+      }
+    },
+    "glb_vertices": 311386,
+    "glb_faces": 623004,
+    "glb_bytes": 11213504,
+    "obj_vertices": 29260,
+    "obj_faces": 40000,
+    "obj_bytes": 3023765
+  },
+  {
+    "asset": "14_blue_corrugated_fence_gate",
+    "glb_exists": true,
+    "obj_exists": true,
+    "textures": {
+      "textured_mesh.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 98096
+      },
+      "textured_mesh_metallic.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 52595
+      },
+      "textured_mesh_roughness.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 84687
+      }
+    },
+    "glb_vertices": 280304,
+    "glb_faces": 560896,
+    "glb_bytes": 10095220,
+    "obj_vertices": 32009,
+    "obj_faces": 40000,
+    "obj_bytes": 3191936
+  },
+  {
+    "asset": "15_dense_planter_bank",
+    "glb_exists": true,
+    "obj_exists": true,
+    "textures": {
+      "textured_mesh.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 78625
+      },
+      "textured_mesh_metallic.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 32013
+      },
+      "textured_mesh_roughness.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 48444
+      }
+    },
+    "glb_vertices": 438067,
+    "glb_faces": 879634,
+    "glb_bytes": 15813236,
+    "obj_vertices": 47381,
+    "obj_faces": 40000,
+    "obj_bytes": 4038042
+  },
+  {
+    "asset": "16_streetlight_powerbox_module",
+    "glb_exists": true,
+    "obj_exists": true,
+    "textures": {
+      "textured_mesh.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 73244
+      },
+      "textured_mesh_metallic.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 44179
+      },
+      "textured_mesh_roughness.jpg": {
+        "size": [
+          512,
+          512
+        ],
+        "bytes": 59101
+      }
+    },
+    "glb_vertices": 102168,
+    "glb_faces": 204368,
+    "glb_bytes": 3679252,
+    "obj_vertices": 25927,
+    "obj_faces": 40000,
+    "obj_bytes": 2822083
+  }
+]

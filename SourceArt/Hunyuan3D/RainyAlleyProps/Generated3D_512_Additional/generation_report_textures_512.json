@@ -1,0 +1,52 @@
+{
+  "started": "2026-06-01 00:18:58",
+  "texture_root": "D:\\Git\\CubelessStylized\\SourceArt\\Hunyuan3D\\RainyAlleyProps\\Generated3D_512_Additional\\textured_obj_512",
+  "assets": [
+    "11_hillside_apartment_backfill",
+    "12_stair_retaining_wall_rail_module",
+    "13_store_stair_gap_alley_filler",
+    "14_blue_corrugated_fence_gate",
+    "15_dense_planter_bank",
+    "16_streetlight_powerbox_module"
+  ],
+  "texture": [
+    {
+      "asset": "11_hillside_apartment_backfill",
+      "path": "D:\\Git\\CubelessStylized\\SourceArt\\Hunyuan3D\\RainyAlleyProps\\Generated3D_512_Additional\\textured_obj_512\\11_hillside_apartment_backfill\\textured_mesh.obj",
+      "missing": [],
+      "bytes": 3376231
+    },
+    {
+      "asset": "12_stair_retaining_wall_rail_module",
+      "path": "D:\\Git\\CubelessStylized\\SourceArt\\Hunyuan3D\\RainyAlleyProps\\Generated3D_512_Additional\\textured_obj_512\\12_stair_retaining_wall_rail_module\\textured_mesh.obj",
+      "missing": [],
+      "bytes": 3051233
+    },
+    {
+      "asset": "13_store_stair_gap_alley_filler",
+      "path": "D:\\Git\\CubelessStylized\\SourceArt\\Hunyuan3D\\RainyAlleyProps\\Generated3D_512_Additional\\textured_obj_512\\13_store_stair_gap_alley_filler\\textured_mesh.obj",
+      "missing": [],
+      "bytes": 3023765
+    },
+    {
+      "asset": "14_blue_corrugated_fence_gate",
+      "path": "D:\\Git\\CubelessStylized\\SourceArt\\Hunyuan3D\\RainyAlleyProps\\Generated3D_512_Additional\\textured_obj_512\\14_blue_corrugated_fence_gate\\textured_mesh.obj",
+      "missing": [],
+      "bytes": 3191936
+    },
+    {
+      "asset": "15_dense_planter_bank",
+      "path": "D:\\Git\\CubelessStylized\\SourceArt\\Hunyuan3D\\RainyAlleyProps\\Generated3D_512_Additional\\textured_obj_512\\15_dense_planter_bank\\textured_mesh.obj",
+      "missing": [],
+      "bytes": 4038042
+    },
+    {
+      "asset": "16_streetlight_powerbox_module",
+      "path": "D:\\Git\\CubelessStylized\\SourceArt\\Hunyuan3D\\RainyAlleyProps\\Generated3D_512_Additional\\textured_obj_512\\16_streetlight_powerbox_module\\textured_mesh.obj",
+      "missing": [],
+      "bytes": 2822083
+    }
+  ],
+  "status": "success",
+  "elapsed_seconds": 316.61
+}
