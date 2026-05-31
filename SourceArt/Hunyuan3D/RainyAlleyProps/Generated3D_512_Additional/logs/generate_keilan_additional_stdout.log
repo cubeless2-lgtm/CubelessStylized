@@ -1,0 +1,37 @@
+Torchvision version: 0.22.1+cu128
+torchvision.transforms.functional_tensor not found, applying compatibility fix...
+Applied compatibility fix: created functional_tensor mock module
+[2026-05-31 23:53:24] Applied torchvision compatibility fix
+[2026-05-31 23:53:28] Loading Hunyuan3D shape pipeline
+using moe
+using moe
+using moe
+using moe
+using moe
+using moe
+PointCrossAttentionEncoder INFO: pc_sharpedge_size is zero
+[2026-05-31 23:53:52] Shape start: 11_hillside_apartment_backfill
+[2026-05-31 23:55:11] Shape done: 11_hillside_apartment_backfill -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Additional\shape_glb\11_hillside_apartment_backfill.glb
+[2026-05-31 23:55:11] Shape start: 12_stair_retaining_wall_rail_module
+[2026-05-31 23:56:30] Shape done: 12_stair_retaining_wall_rail_module -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Additional\shape_glb\12_stair_retaining_wall_rail_module.glb
+[2026-05-31 23:56:30] Shape start: 13_store_stair_gap_alley_filler
+[2026-05-31 23:57:48] Shape done: 13_store_stair_gap_alley_filler -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Additional\shape_glb\13_store_stair_gap_alley_filler.glb
+[2026-05-31 23:57:48] Shape start: 14_blue_corrugated_fence_gate
+[2026-05-31 23:59:06] Shape done: 14_blue_corrugated_fence_gate -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Additional\shape_glb\14_blue_corrugated_fence_gate.glb
+[2026-05-31 23:59:06] Shape start: 15_dense_planter_bank
+[2026-06-01 00:00:26] Shape done: 15_dense_planter_bank -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Additional\shape_glb\15_dense_planter_bank.glb
+[2026-06-01 00:00:26] Shape start: 16_streetlight_powerbox_module
+[2026-06-01 00:01:45] Shape done: 16_streetlight_powerbox_module -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Additional\shape_glb\16_streetlight_powerbox_module.glb
+[2026-06-01 00:01:45] Loading Hunyuan3D paint pipeline at 512
+Models Loaded.
+[2026-06-01 00:05:13] Texture start: 11_hillside_apartment_backfill
+[2026-06-01 00:06:05] Texture done: 11_hillside_apartment_backfill -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Additional\textured_obj\11_hillside_apartment_backfill\textured_mesh.obj
+[2026-06-01 00:06:06] Texture start: 12_stair_retaining_wall_rail_module
+[2026-06-01 00:07:04] Texture done: 12_stair_retaining_wall_rail_module -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Additional\textured_obj\12_stair_retaining_wall_rail_module\textured_mesh.obj
+[2026-06-01 00:07:05] Texture start: 13_store_stair_gap_alley_filler
+[2026-06-01 00:07:49] Texture done: 13_store_stair_gap_alley_filler -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Additional\textured_obj\13_store_stair_gap_alley_filler\textured_mesh.obj
+[2026-06-01 00:07:50] Texture start: 14_blue_corrugated_fence_gate
+[2026-06-01 00:08:33] Texture done: 14_blue_corrugated_fence_gate -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Additional\textured_obj\14_blue_corrugated_fence_gate\textured_mesh.obj
+[2026-06-01 00:08:34] Texture start: 15_dense_planter_bank
+[2026-06-01 00:09:42] Texture done: 15_dense_planter_bank -> D:\Git\CubelessStylized\SourceArt\Hunyuan3D\RainyAlleyProps\Generated3D_512_Additional\textured_obj\15_dense_planter_bank\textured_mesh.obj
+[2026-06-01 00:09:43] Texture start: 16_streetlight_powerbox_module

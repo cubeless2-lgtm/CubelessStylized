@@ -222,3 +222,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Local file observed: `Content/UltraDynamicSky/Textures/StaticClouds/Custom/cloub02.uasset`.
 - Use: reference for UDS static-cloud source generation, especially radial readability, cloud mass shape, and projection behavior.
 - Guardrail: use it as a reference only; do not overwrite or modify UDS reference assets while generating Cubeless source art.
+
+## Keilan PBR Texture Source Lighting Rule
+
+- Date: 2026-05-31
+- Decision: Keilan must generate 3D/PBR texture source images in a neutral, shadow-free setup by default.
+- Source-art rule: avoid cast shadows, baked ambient occlusion/contact shadows, directional key/fill lighting, reflection/specular highlights, and final beauty lighting unless the user explicitly asks for a lit preview.
+- Material rule: BaseColor/albedo source imagery should stay separable from lighting; Normal, Roughness, Metallic, Height, and AO belong to material data or derived maps rather than being baked into BaseColor.
+- Responsibility: Keilan owns this during image-generation prompt/output design, Ieta documents and reviews the handoff, and Tivret checks imported texture/material results for baked-lighting artifacts when implementation is requested.

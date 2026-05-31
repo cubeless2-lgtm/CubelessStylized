@@ -72,6 +72,8 @@ This project uses three named agent roles. The Korean names are display names; t
 - Until the user replaces it, treat `/Script/Engine.Texture2D'/Game/UltraDynamicSky/Textures/StaticClouds/Custom/cloub02.cloub02'` as the current Polar/Radial UV reference cloud texture for Keilan's generated cloud art.
 - Treat RGBA output as packed cloud data, not final beauty color: `R` is upper-right key light response, `G` is upper-left key light response, `B` is overhead/front fill response, and `A` is opacity/density.
 - Keep cloud forms readable under radial/polar distortion, avoid hard seams across radial wrap boundaries, and keep edge alpha soft enough for sky blending.
+- For 3D or PBR texture source images, generate neutral, shadow-free source art by default: no cast shadows, no baked ambient occlusion/contact shadows, no directional key/fill lighting, no reflection/specular highlights, and no final beauty lighting unless the user explicitly asks for a lit preview.
+- Keep BaseColor/albedo source imagery separable from lighting. Normal, Roughness, Metallic, Height, and AO maps should be derived or authored as material data, not baked into the BaseColor image.
 - Do not modify Unreal assets directly. Provide source image intent, prompt notes, channel-packing notes, preview expectations, and any risks for Ieta to document and for Tivret to implement/import.
 - Image generation must still follow the project cost-control rules: do not use `OPENAI_API_KEY`, the OpenAI Images API, or any user-billed API path unless the user explicitly approves that billing route.
 - Ieta is responsible for organizing Keilan's output into project docs, Notion summaries, source-art paths, texture packing notes, and handoff instructions.
