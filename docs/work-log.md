@@ -230,3 +230,83 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Source-art rule: avoid cast shadows, baked ambient occlusion/contact shadows, directional key/fill lighting, reflection/specular highlights, and final beauty lighting unless the user explicitly asks for a lit preview.
 - Material rule: BaseColor/albedo source imagery should stay separable from lighting; Normal, Roughness, Metallic, Height, and AO belong to material data or derived maps rather than being baked into BaseColor.
 - Responsibility: Keilan owns this during image-generation prompt/output design, Ieta documents and reviews the handoff, and Tivret checks imported texture/material results for baked-lighting artifacts when implementation is requested.
+
+## Unreal Editor Crash - StaticMeshDescription UV Channel Probe
+
+- Date: 2026-06-01
+- Crash report: `Saved/Crashes/UECC-Windows-C37B751447BBD43E8DE689A31C8B68A8_0000`.
+- Symptom: Unreal Editor exited during an MCP Python UV inspection after the `SM_Ramp` texture workflow.
+- Log evidence: `StylizedCubeless.log` shows `StaticMeshEditorSubsystem.get_num_uv_channels(mesh, 0)` returned `1`, then the diagnostic script continued to call `StaticMeshDescription.GetVertexInstanceUV(..., 1)`. Unreal asserted with `Array index out of bounds: 1 into an array of size 1`.
+- Cause: `StaticMeshDescription.GetVertexInstanceUV` does not fail as a catchable Python exception for an out-of-range UV channel; it can trigger a native Unreal assertion and crash the editor.
+- Guardrail: do not loop or probe UV channels blindly through `GetVertexInstanceUV`. Check the mesh UV channel count first and access only confirmed channels. For selected Static Mesh texture work, compare extracted UV data against the Static Mesh Editor UV preview before using it as texture placement truth.
+
+## Selected Actor Keilan Texturing Trigger
+
+- Date: 2026-06-01
+- Decision: after selecting an actor, the command `케일란 텍스쳐링해` starts the full selected Static Mesh texture workflow.
+- Required flow: 티브렛 captures the selected mesh screenshot and real UV layout; 케일란 first generates concept/source art with built-in image generation; the actual model texture is then generated from both the source art and the real UV layout.
+- Review gate: 이에타 reviews the source art, UV layout, UV-fitted texture, and UV texture preview together. If UV placement or art direction is wrong, 이에타 requests a specific correction from 케일란 or 티브렛 and repeats the loop.
+- Approval rule: only when UV fit and art direction pass review may 티브렛 import/apply the texture to the selected actor. 이에타 posts a final opinion after implementation.
+
+## Keilan Texture Review Guardrail - Source Motifs And UV Orientation
+
+- Date: 2026-06-02
+- Trigger: the first `낡은 스타일라이즈 돌 계단` selected mesh texture pass omitted the source-art side guide stones on the stair edges, and the UV overlay preview did not clearly distinguish texture-space orientation from UV/editor display orientation.
+- Cause: during UV fitting, the mesh was treated as a simple ramp without carrying over the source art's left/right guide-stone motif into the top UV island. The preview also used a single overlay image, which can hide V-axis orientation assumptions.
+- Guardrail: 이에타 review must explicitly compare source-art structural motifs against the UV-fitted texture. Examples include side guide stones, trim stones, rails, borders, large cracks, moss bands, and other visually important cues.
+- Guardrail: UV review must verify texture-space orientation and UV/editor display orientation separately when V flipping may be involved, and should use the actual mesh application as the final source of truth.
+- Correction: in the `SM_Ramp3` stair texture pass, the final applied texture UV was correct; the visible issue was only that the user-facing UV preview image was vertically flipped. Future reviews must label this as a preview-display issue instead of implying the final texture UV is wrong.
+- Guardrail: repeated forms must match the source art's count, spacing, rhythm, and major alignment before approval. The stair case exposed this rule: the source art had seven stair rows, while the earlier fitted texture read as five rows.
+
+## Keilan Texture Correction - Baked UV Guide Lines
+
+- Date: 2026-06-02
+- Trigger: the applied `SM_Ramp3` stair material showed thick dark horizontal and vertical lines across the stair face.
+- Cause: UV/placement guide lines were accidentally baked into `T_SM_Ramp_OldStoneStairGuide7_BC` and corresponding material maps.
+- Correction: rebuilt a clean v6 texture set from the Keilan source art while preserving the existing UV island placement, imported it as `T_SM_Ramp_OldStoneStairGuide7_Clean_BC`, `T_SM_Ramp_OldStoneStairGuide7_Clean_N`, and `T_SM_Ramp_OldStoneStairGuide7_Clean_R`, then applied `/Game/AI_Generated/Materials/M_SM_Ramp_OldStoneStairGuide7_Clean` to `SM_Ramp3`.
+- Guardrail: UV guide lines, UV island outlines, selection outlines, checker/grid guides, and preview labels are review-only overlays. They must not be baked into deliverable BaseColor, Normal, Roughness, Metallic, Height, AO, or packed mask textures.
+
+## Keilan Reference Art Guardrail - No Overlapping Views
+
+- Date: 2026-06-02
+- Trigger: the stair source art included useful reference pieces, but overlapping/near-overlapping reference elements can contaminate later UV fitting or texture extraction.
+- Guardrail: modeling/reference concept art must keep every view, part callout, material sample, trim strip, loose piece, and optional preview render clearly separated with enough margin.
+- Rule: do not allow overlapping, occlusion, cropping, or tangency between reference elements. If an isometric preview is included, it must not cover, touch, or intrude into the main orthographic/source texture area.
+- Review responsibility: 이에타 must reject Keilan reference art with overlapping reference elements before Tivret uses it for UV fitting, masking, or import.
+
+## Keilan Menu Invocation Shortcut
+
+- Date: 2026-06-01
+- Decision: standalone `케일란` is now a menu command, not an immediate execution command.
+- Menu:
+  - `1. 구름 그리기 - 스태틱 스카이 클라우드 생성 하는일`
+  - `2. 선택 매쉬 텍스쳐링 설계`
+- Execution rule: after the menu is shown in the current thread, a follow-up answer that starts with `1` or `2` and then includes a description executes the matching workflow.
+- Option 1: run Keilan's Ultra Dynamic Sky static-cloud generation workflow using the existing Polar/Radial UV and RGBA packing rules.
+- Option 2: run the Selected Static Mesh Texture Workflow, including selected mesh capture, UV layout/preview, Keilan texture design, Ieta review, and Tivret implementation only after approval.
+- Missing details: if the user answers only `1` or `2`, ask for the missing style, target, or material direction before executing.
+
+## Git Automation Approval Rule
+
+- Date: 2026-06-02
+- Decision: routine Git staging, commit, and push operations are pre-approved when the user explicitly asks for Git work using phrases such as `커밋`, `서밋`, `commit`, `푸시`, `push`, `커밋 푸시`, or `서밋 푸쉬`.
+- Operating rule: Codex should inspect status/diffs, stage only files that belong to the requested work, commit with a concise message, and push when the user's request includes push intent without asking for another approval.
+- Safety rule: do not stage unrelated dirty files, user-made Unreal asset changes, generated assets, or sibling workspace changes unless they are clearly part of the requested work or explicitly included by the user.
+- Main branch rule: on `main` or `master`, pushing is allowed only when the current user message explicitly requests `푸시`/`push` for that branch.
+- Scope rule: keep `CubelessStylized` and `../unreal-mcp-cubeless` Git operations separate.
+
+## User Approval Follow-Through Rule
+
+- Date: 2026-06-02
+- Decision: when Codex says a task needs user approval, and the user replies with approval wording such as `승인`, `승인한다`, `허가`, `진행해`, or `좋다`, Codex should proceed with the approved work without asking for the same approval again.
+- Scope: applies to approval-gated Unreal work, non-exception C++ edits, plugin/code changes, billed/API routes, destructive or high-impact operations, and other cases where Codex explicitly asked for approval first.
+- Safety rule: approval is scoped to the exact action, files, tools, cost route, branch, or risk described before approval. If the implementation scope materially changes, Codex must ask again.
+- Exclusions: unrelated dirty files, unrelated Unreal assets, unrelated sibling workspace changes, credentials, secrets, or a different billing/API route are not included unless the user explicitly includes them.
+- Blocker rule: if an external blocker remains after approval, such as OS security confirmation, Git authentication, missing credentials, offline editor bridge, or unavailable plugin/tooling, report the blocker instead of silently changing the plan.
+
+## Pending Approval Reminder Rule
+
+- Date: 2026-06-02
+- Decision: if Codex is actively waiting for a user approval, and the user sends a different work request instead of approving or rejecting it, Codex should first remind the user that an approval is still pending.
+- Reminder content: mention the pending approval's subject and say whether the new request will replace, pause, or run after the pending approval.
+- Scope: perform this check only while Codex is waiting for an approval it explicitly requested. Do not add approval reminders during normal work or ordinary conversation.

@@ -7,6 +7,25 @@
 - When MCP behavior, tooling, or integration work may require changes in `unreal-mcp-cubeless`, inspect and modify that sibling workspace without requiring the user to repeat this instruction.
 - Keep Git status, diffs, staging, commits, and summaries separate for `CubelessStylized` and `unreal-mcp-cubeless` so changes from the two workspaces are not mixed accidentally.
 
+## Git Automation Rules
+
+- The user has pre-approved routine Git staging, commit, and push operations when they explicitly ask for Git work with phrases such as `커밋`, `서밋`, `commit`, `푸시`, `push`, `커밋 푸시`, or `서밋 푸쉬`.
+- Do not ask for another approval for those routine Git operations. Inspect status and diffs, stage only the files that belong to the requested work, create a concise commit, and push when the user's request includes push intent.
+- Never stage unrelated dirty files, user-made Unreal asset changes, generated assets, or sibling workspace changes unless they are clearly part of the requested work or the user explicitly includes them.
+- Keep `CubelessStylized` and `../unreal-mcp-cubeless` Git operations separate: separate status checks, separate staging, separate commits, separate pushes, and separate summaries.
+- On `main` or `master`, do not push implicitly. Push from `main`/`master` only when the current user message explicitly requests `푸시`/`push` for that branch.
+- If authentication blocks a Git operation, report the blocker and prefer the existing credential/SSH setup path rather than changing remotes or credentials without user direction.
+
+## User Approval Follow-Through
+
+- When Codex says a task needs user approval, and the user replies with approval terms such as `승인`, `승인한다`, `허가`, `진행해`, `좋다`, or equivalent wording, proceed with the approved work without asking for the same approval again.
+- Apply this to approval-gated Unreal work, non-exception C++ edits, plugin/code changes, billed/API routes, destructive or high-impact operations, and other cases where Codex explicitly asked for approval first.
+- Treat approval as scoped to the exact action, files, tools, cost route, branch, or risk that was described before approval. If the implementation scope materially changes, pause and ask again.
+- Approval does not include unrelated dirty files, unrelated Unreal assets, unrelated sibling workspace changes, credentials, secrets, or a different billing/API route unless the user explicitly includes them.
+- If an external blocker remains after approval, such as OS security confirmation, Git authentication, missing credentials, offline editor bridge, or unavailable plugin/tooling, report the blocker instead of silently changing the plan.
+- Only when Codex is actively waiting for a user approval, and the user sends a different work request instead of approving or rejecting it, start the response with a brief reminder that an approval is still pending. Mention the pending approval's subject and whether the new request will replace, pause, or run after the pending approval.
+- Do not perform this pending-approval check during normal work. Use it only when Codex has explicitly asked for approval and is still waiting for that answer.
+
 ## Codex Session and Notion Documentation Operations
 
 - Prefer one Codex session per coherent work topic. Keep follow-up work in the same session only when it continues the same asset, bug, decision, or implementation thread.
@@ -41,6 +60,18 @@
 - Report `connected`, `not connected`, or `unknown` as a detail after the primary `성공`/`실패` result.
 - This shortcut is a status check only; it does not modify Unreal assets.
 
+## Keilan Invocation Shortcut
+
+- When the user sends `케일란` as a standalone call, show the available Keilan work menu and wait for the user's next answer. Do not start image generation, Unreal asset work, or source-art work from the standalone menu call alone.
+- The menu must show exactly these options:
+  - `1. 구름 그리기 - 스태틱 스카이 클라우드 생성 하는일`
+  - `2. 선택 매쉬 텍스쳐링 설계`
+- After this menu is shown in the current thread, treat a follow-up answer that starts with a number and then a description as the execution command, for example `1 노을용 방사형 구름` or `2 낡은 빨간 금속 자판기 스타일`.
+- If the answer starts with `1`, execute Keilan's static sky cloud generation workflow: use the Ultra Dynamic Sky static-cloud, Polar/Radial UV, and RGBA packing rules already defined for Keilan.
+- If the answer starts with `2`, execute the Selected Static Mesh Texture Workflow: capture the selected mesh and UV context first, then design the texture through Keilan and review it through Ieta before Tivret applies any Unreal asset changes.
+- If the user enters only `1` or `2` without a description, ask for the missing style, target, or material direction before executing.
+- Existing explicit Keilan commands such as `케일란 텍스쳐링해` may still trigger their matching workflow directly; only standalone `케일란` should show the menu and wait.
+
 ## Agent Roles
 
 This project uses three named agent roles. The Korean names are display names; the English role names are the stable internal meanings.
@@ -73,10 +104,36 @@ This project uses three named agent roles. The Korean names are display names; t
 - Treat RGBA output as packed cloud data, not final beauty color: `R` is upper-right key light response, `G` is upper-left key light response, `B` is overhead/front fill response, and `A` is opacity/density.
 - Keep cloud forms readable under radial/polar distortion, avoid hard seams across radial wrap boundaries, and keep edge alpha soft enough for sky blending.
 - For 3D or PBR texture source images, generate neutral, shadow-free source art by default: no cast shadows, no baked ambient occlusion/contact shadows, no directional key/fill lighting, no reflection/specular highlights, and no final beauty lighting unless the user explicitly asks for a lit preview.
+- For modeling/reference concept art, keep each view, part callout, material sample, trim strip, and optional preview render clearly separated with enough margin. Do not allow overlapping, occlusion, cropping, or tangency between reference elements, because those overlaps can contaminate later UV fitting, masking, or texture extraction.
 - Keep BaseColor/albedo source imagery separable from lighting. Normal, Roughness, Metallic, Height, and AO maps should be derived or authored as material data, not baked into the BaseColor image.
 - Do not modify Unreal assets directly. Provide source image intent, prompt notes, channel-packing notes, preview expectations, and any risks for Ieta to document and for Tivret to implement/import.
 - Image generation must still follow the project cost-control rules: do not use `OPENAI_API_KEY`, the OpenAI Images API, or any user-billed API path unless the user explicitly approves that billing route.
 - Ieta is responsible for organizing Keilan's output into project docs, Notion summaries, source-art paths, texture packing notes, and handoff instructions.
+
+## Selected Static Mesh Texture Workflow
+
+- When the user asks to add, draw, generate, or replace texture art for the currently selected Static Mesh, route the source-art step to 케일란 first.
+- When the user selects an actor and says `케일란 텍스쳐링해`, treat it as the full selected Static Mesh texture workflow trigger.
+- 케일란 must ask 티브렛 to capture a screenshot centered on the currently selected Static Mesh before generating or editing texture source art. The screenshot should show the mesh clearly enough to infer form, material scale, and visible UV-facing surfaces.
+- 케일란 then creates the concept/source art first with built-in image generation, following the user's visual prompt and the project's image generation cost-control rules.
+- Concept/source art used as modeling or UV-fitting reference must not contain overlapping reference views or parts. If an isometric preview, side view, loose stone sample, trim strip, or material swatch is included, it must be spatially separated from the main reference area and must not cover, touch, or intrude into it.
+- After the source art is accepted as directionally useful, create the actual model texture with image generation using both the source art and the real selected model UV layout as guides.
+- Show the generated source art, real UV layout, and generated UV-fitted texture to the user and submit them to 이에타 for review before any Unreal texture asset or material is modified.
+- For selected Static Mesh texture work, 티브렛 must also show the mesh UV layout and a UV texture preview that demonstrates how the generated/source texture will sit on the UV islands.
+- UV guide lines, UV island outlines, selection outlines, checker/grid guides, and preview labels are review-only overlays. They must never be baked into deliverable BaseColor, Normal, Roughness, Metallic, Height, AO, or packed mask textures.
+- 이에타 reviews the source art, generated UV-fitted texture, UV layout, and UV texture preview together. The review must check whether the image matches the requested style, material intent, mesh form, UV direction, UV scale, and UV island placement. It must also check that important source-art motifs such as side guide stones, trim stones, borders, rails, large cracks, moss bands, or other user-visible structural cues were not accidentally omitted while fitting the texture to UVs.
+- For repeated forms such as stairs, tiles, bricks, planks, fence slats, windows, or panels, 이에타 must compare the source art's count, spacing, rhythm, and major alignment against the UV-fitted texture before approval. Do not approve a texture if the source has seven stair rows but the fitted texture reads as five, or if a similar count/rhythm mismatch changes the intended design.
+- For UV review, show or reason about both texture-space orientation and UV/editor display orientation when they may differ. Confirm whether V is flipped between the exported UV guide, the imported texture image, the user-facing preview image, and the actual mesh application before approving. If only the displayed preview image is vertically flipped while the final applied texture UV is correct, label it as a preview-display issue and do not treat it as a final texture UV error.
+- If the review does not pass, 이에타 must request a specific correction from 케일란 or 티브렛 and repeat the preview/review loop until the issue is resolved.
+- When the UV texture preview fits correctly and the art direction is acceptable, 이에타 explicitly approves the work before implementation continues.
+- Only after 이에타 approves, 티브렛 may proceed with Unreal asset work: identify the UV regions that correspond to the concept/source image, match the generated image to those UV regions, and paint or import the texture onto the selected Static Mesh.
+- After implementation finishes, 이에타 posts a final opinion covering art match, UV fit, implementation result, and any residual risk.
+- Preserve the original mesh shape and UV layout unless the user explicitly asks for UV or geometry edits.
+- If the requested output needs material maps, keep BaseColor, Normal, Roughness, Metallic, Height, AO, and packed mask outputs separate unless the user asks for channel packing.
+- For PBR texture work, generated texture source art must exclude scene lighting and environment information: no cast shadows, no contact shadows, no baked ambient occlusion in BaseColor, no directional light gradients, no sky/environment reflections, and no perspective scene background.
+- BaseColor must be treated as albedo/color data only. Material response belongs in separate PBR maps: Normal for surface direction, Roughness for microsurface variation, Metallic when needed, Height/Displacement for relief, and AO only when explicitly requested as a separate map.
+- When the user asks for a texture to be drawn or generated for a mesh, default to a PBR texture set rather than a single lit beauty image unless the user explicitly asks for a preview-only concept image.
+- Do not skip the preview-and-review gate for selected Static Mesh texture work unless the user explicitly says to apply directly without review.
 
 ## Unreal MCP Asset Editing
 
@@ -85,6 +142,7 @@ This project uses three named agent roles. The Korean names are display names; t
 - If an Unreal asset cannot be safely modified through MCP or editor scripting, provide a concrete manual edit guide instead of adding C++.
 - Add or modify C++ only when the user explicitly asks for a code/C++ implementation.
 - Before considering C++ for an Unreal MCP task, state the non-C++ approach being attempted or why MCP/editor-asset editing is blocked.
+- When inspecting Static Mesh UVs through Unreal Python, never probe arbitrary UV channel indexes with `StaticMeshDescription.GetVertexInstanceUV`. It can trigger an Unreal assertion and crash the editor when the channel does not exist. Check the mesh UV channel count first and read only confirmed channels; if the editor UV preview differs from extracted data, use the editor-rendered UV preview as the user-facing source of truth before applying texture work.
 
 ## Image Generation Cost Control
 

@@ -1,0 +1,17 @@
+{
+  "default_texture_label": "1k",
+  "texture_resolution": 1024,
+  "render_size": 1024,
+  "texture_size": 1024,
+  "max_num_view": 6,
+  "use_super_resolution": false,
+  "force_no_export_downsample": true,
+  "texture_root_name": "textured_obj_1k",
+  "report_name": "generation_report_textures_1k.json",
+  "recommended_execution": {
+    "shape_and_texture_are_separate": true,
+    "texture_only_after_shape_approval": true,
+    "run_one_asset_at_a_time_if_vram_is_tight": true,
+    "close_gpu_heavy_apps_before_texture_generation": true
+  }
+}

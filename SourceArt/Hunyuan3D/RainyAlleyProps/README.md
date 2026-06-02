@@ -22,6 +22,8 @@ Private-use concept references for splitting the rainy hillside alley concept in
 
 - Generate each prop as a separate model. Avoid using the full reference board as a direct image-to-3D input.
 - Prefer shape generation first, then run texture/PBR separately at 1K.
+- Current default for future texture/PBR runs is 1K: `resolution=1024`, `render_size=1024`, `texture_size=1024`, `use_super_resolution=False`, with export downsampling disabled. The tracked default is `TextureGenerationDefaults_1K.json`.
+- Use the working script `D:\Git\CubelessStylized\Saved\Codex\generate_keilan_hunyuan3d_textures_1k_from_manifest.py` for future accepted-shape texture generation.
 - For RTX 5070 Ti 16GB, close GPU-heavy apps before texture generation and keep the texture run isolated.
 - Thin elements such as wires, railings, plant leaves, and cables may need manual cleanup or separate Unreal spline/card meshes.
 - Current references are for private/internal use. If the assets become public or commercial, clean up readable signs, brand-like shapes, and copied visual marks before release.
