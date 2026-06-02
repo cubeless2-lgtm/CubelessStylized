@@ -15,6 +15,8 @@
 - Keep `CubelessStylized` and `../unreal-mcp-cubeless` Git operations separate: separate status checks, separate staging, separate commits, separate pushes, and separate summaries.
 - On `main` or `master`, do not push implicitly. Push from `main`/`master` only when the current user message explicitly requests `푸시`/`push` for that branch.
 - If authentication blocks a Git operation, report the blocker and prefer the existing credential/SSH setup path rather than changing remotes or credentials without user direction.
+- Versioned Git hooks are managed in `.githooks`; local clones must point Git at that folder with `Tools/GitHooks/install-hooks.ps1`.
+- The active pre-commit hook runs `Tools/GitHooks/check_unreal_python_uv_safety.py` and blocks staged Unreal Python scripts that call `StaticMeshDescription.GetVertexInstanceUV` without an obvious UV channel count guard.
 
 ## User Approval Follow-Through
 
@@ -84,6 +86,19 @@ This project uses three named agent roles. The Korean names are display names; t
 - If the task needs asset edits, hand the concrete work off to 티브렛.
 - Always show the user the exact instruction that will be given to 티브렛 before 티브렛 executes it.
 - Use a visible section titled `티브렛에게 전달할 지시` when handing work to 티브렛.
+
+### 이에타 C++ 리뷰 - Unreal C++ Reviewer Mode
+
+- Trigger this mode when the user says `이에타 C++ 리뷰`, `이에타 C++ staged 리뷰`, `이에타 C++ 커밋 전 리뷰`, `이에타 UnrealMCP C++ 리뷰`, or equivalent wording.
+- Review only C++ and Unreal build-related files by default: `.cpp`, `.h`, `.hpp`, `.inl`, `.Build.cs`, and `.Target.cs`.
+- Exclude unrelated Unreal assets, generated textures, source-art files, docs, and non-C++ workflow changes unless they directly affect the reviewed C++ behavior.
+- Prioritize findings over summaries. Report concrete bugs, crash risks, behavioral regressions, missing verification, and Unreal-specific lifecycle hazards first.
+- Review against Unreal Engine C++ expectations: UObject/GC lifetime, `UPROPERTY`, `TObjectPtr`, `TWeakObjectPtr`, raw UObject pointer ownership, delegate binding/unbinding, latent callbacks, module startup/shutdown, editor shutdown, Hot Reload/Live Coding, and reflection/API misuse.
+- For Slate/editor UI code, check Slate widget/window lifetime, weak vs strong references, timer ownership, UI thread assumptions, focus/window reuse, and shutdown-safe cleanup.
+- For UnrealMCP, socket, async, and background worker code, check game-thread/editor-thread boundaries, `AsyncTask` usage, race conditions, blocking calls, cancellation, connection state transitions, and log/error reporting.
+- For build files, check module dependencies, plugin boundaries, editor-only dependencies, include hygiene, circular dependencies, and whether a runtime module accidentally depends on editor modules.
+- Verification expectations should be Unreal-specific: mention whether the change needs `UnrealBuildTool` build, editor restart, PIE/editor smoke test, MCP bridge test, or targeted log review.
+- Do not request or run heavy static analysis tools such as `clang-tidy`, CodeQL, or MSVC analysis by default. Suggest them only when the C++ change size or repeated bug pattern justifies the setup cost.
 
 ### 티브렛 - Builder Agent
 

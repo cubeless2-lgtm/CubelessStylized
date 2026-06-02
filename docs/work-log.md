@@ -310,3 +310,23 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Decision: if Codex is actively waiting for a user approval, and the user sends a different work request instead of approving or rejecting it, Codex should first remind the user that an approval is still pending.
 - Reminder content: mention the pending approval's subject and say whether the new request will replace, pause, or run after the pending approval.
 - Scope: perform this check only while Codex is waiting for an approval it explicitly requested. Do not add approval reminders during normal work or ordinary conversation.
+
+## Git Hook - Unreal Python UV Safety
+
+- Date: 2026-06-02
+- Decision: add a versioned Git pre-commit hook to reduce the chance of repeating the Unreal Editor crash caused by unsafe `StaticMeshDescription.GetVertexInstanceUV` channel probes.
+- Managed files: `.githooks/pre-commit`, `Tools/GitHooks/check_unreal_python_uv_safety.py`, `Tools/GitHooks/install-hooks.ps1`, and `docs/git-hooks.md`.
+- Hook behavior: scans staged `.py`/`.pyw` files before commit. If a file calls `GetVertexInstanceUV` without an obvious UV channel count guard such as `get_num_uv_channels`, `num_uv_channels`, or `uv_channel_count`, the commit is blocked.
+- Install state: this clone is configured with `git config core.hooksPath .githooks`. Other PCs must run `Tools/GitHooks/install-hooks.ps1` once after pulling.
+- PowerShell note: if script execution is blocked, run the installer with `powershell -NoProfile -ExecutionPolicy Bypass -File .\Tools\GitHooks\install-hooks.ps1`.
+- Override: a file can intentionally bypass the hook with `# unreal-uv-safety: allow-getvertexinstanceuv`, but the preferred fix is to make the UV channel-count guard obvious.
+
+## Ieta Unreal C++ Review Mode
+
+- Date: 2026-06-02
+- Decision: use `이에타 C++ 리뷰` as the project C++ review command, specialized for Unreal Engine C++ rather than generic C++ style review.
+- Trigger variants: `이에타 C++ 리뷰`, `이에타 C++ staged 리뷰`, `이에타 C++ 커밋 전 리뷰`, `이에타 UnrealMCP C++ 리뷰`, or equivalent wording.
+- Scope: review `.cpp`, `.h`, `.hpp`, `.inl`, `.Build.cs`, and `.Target.cs` by default. Exclude unrelated assets, generated textures, source art, docs, and non-C++ workflow changes unless they directly affect C++ behavior.
+- Priorities: concrete bugs, crash risks, behavioral regressions, missing verification, and Unreal-specific lifecycle hazards before summary.
+- Unreal checks: UObject/GC lifetime, `UPROPERTY`, `TObjectPtr`, `TWeakObjectPtr`, raw UObject pointer ownership, delegate binding/unbinding, latent callbacks, module startup/shutdown, editor shutdown, Hot Reload/Live Coding, reflection/API misuse, Slate lifetime, editor/game-thread boundaries, async/socket race conditions, Build.cs dependencies, plugin boundaries, and editor-only dependency leakage.
+- Tooling rule: do not run heavy static analysis such as `clang-tidy`, CodeQL, or MSVC analysis by default. Suggest those tools only when C++ change size or repeated bug patterns justify the setup cost.

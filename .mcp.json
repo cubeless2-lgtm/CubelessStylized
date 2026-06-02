@@ -10,6 +10,12 @@
         "3.11",
         "unreal_mcp_server.py"
       ]
+    },
+    "blenderMCP": {
+      "command": "uvx",
+      "args": [
+        "blender-mcp"
+      ]
     }
   }
 }
