@@ -72,6 +72,8 @@
 #include "Commands/UnrealMCPEditorCommands.h"
 #include "Commands/UnrealMCPBlueprintCommands.h"
 #include "Commands/UnrealMCPBlueprintNodeCommands.h"
+#include "Commands/UnrealMCPMaterialCommands.h"
+#include "Commands/UnrealMCPPCGCommands.h"
 #include "Commands/UnrealMCPProjectCommands.h"
 #include "Commands/UnrealMCPCommonUtils.h"
 #include "Commands/UnrealMCPUMGCommands.h"
@@ -568,6 +570,8 @@ UUnrealMCPBridge::UUnrealMCPBridge()
     EditorCommands = MakeShared<FUnrealMCPEditorCommands>();
     BlueprintCommands = MakeShared<FUnrealMCPBlueprintCommands>();
     BlueprintNodeCommands = MakeShared<FUnrealMCPBlueprintNodeCommands>();
+    MaterialCommands = MakeShared<FUnrealMCPMaterialCommands>();
+    PCGCommands = MakeShared<FUnrealMCPPCGCommands>();
     ProjectCommands = MakeShared<FUnrealMCPProjectCommands>();
     UMGCommands = MakeShared<FUnrealMCPUMGCommands>();
 }
@@ -577,6 +581,8 @@ UUnrealMCPBridge::~UUnrealMCPBridge()
     EditorCommands.Reset();
     BlueprintCommands.Reset();
     BlueprintNodeCommands.Reset();
+    MaterialCommands.Reset();
+    PCGCommands.Reset();
     ProjectCommands.Reset();
     UMGCommands.Reset();
 }
@@ -842,6 +848,7 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                      CommandType == TEXT("set_component_property") || 
                      CommandType == TEXT("set_physics_properties") || 
                      CommandType == TEXT("compile_blueprint") || 
+                     CommandType == TEXT("compile_and_save_blueprint") ||
                      CommandType == TEXT("set_blueprint_property") || 
                      CommandType == TEXT("set_static_mesh_properties") ||
                      CommandType == TEXT("set_pawn_properties"))
@@ -850,16 +857,50 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
             }
             // Blueprint Node Commands
             else if (CommandType == TEXT("connect_blueprint_nodes") || 
+                     CommandType == TEXT("resolve_blueprint") ||
+                     CommandType == TEXT("list_blueprint_nodes") ||
                      CommandType == TEXT("add_blueprint_get_self_component_reference") ||
                      CommandType == TEXT("add_blueprint_self_reference") ||
                      CommandType == TEXT("find_blueprint_nodes") ||
                      CommandType == TEXT("add_blueprint_event_node") ||
                      CommandType == TEXT("add_blueprint_input_action_node") ||
+                     CommandType == TEXT("add_blueprint_input_axis_event_node") ||
+                     CommandType == TEXT("add_blueprint_enhanced_input_action_node") ||
                      CommandType == TEXT("add_blueprint_function_node") ||
+                     CommandType == TEXT("add_blueprint_variable_get_node") ||
+                     CommandType == TEXT("add_blueprint_variable_set_node") ||
+                     CommandType == TEXT("add_blueprint_math_node") ||
+                     CommandType == TEXT("set_blueprint_pin_default") ||
                      CommandType == TEXT("add_blueprint_get_component_node") ||
                      CommandType == TEXT("add_blueprint_variable"))
             {
                 ResultJson = BlueprintNodeCommands->HandleCommand(CommandType, Params);
+            }
+            // Material Graph Commands
+            else if (CommandType == TEXT("resolve_material_graph") ||
+                     CommandType == TEXT("list_material_nodes") ||
+                     CommandType == TEXT("analyze_material_graph") ||
+                     CommandType == TEXT("add_material_node") ||
+                     CommandType == TEXT("add_custom_material_node") ||
+                     CommandType == TEXT("set_material_node_property") ||
+                     CommandType == TEXT("connect_material_nodes") ||
+                     CommandType == TEXT("connect_material_property") ||
+                     CommandType == TEXT("delete_material_node") ||
+                     CommandType == TEXT("layout_material_nodes") ||
+                     CommandType == TEXT("compile_and_save_material"))
+            {
+                ResultJson = MaterialCommands->HandleCommand(CommandType, Params);
+            }
+            // PCG Graph Commands
+            else if (CommandType == TEXT("resolve_pcg_graph") ||
+                     CommandType == TEXT("list_pcg_graph_nodes") ||
+                     CommandType == TEXT("add_pcg_node") ||
+                     CommandType == TEXT("connect_pcg_nodes") ||
+                     CommandType == TEXT("set_pcg_node_setting") ||
+                     CommandType == TEXT("compile_or_notify_pcg_graph") ||
+                     CommandType == TEXT("save_pcg_graph"))
+            {
+                ResultJson = PCGCommands->HandleCommand(CommandType, Params);
             }
             // Project Commands
             else if (CommandType == TEXT("create_input_mapping") ||

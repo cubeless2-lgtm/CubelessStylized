@@ -39,6 +39,7 @@ public:
     // Blueprint utilities
     static UBlueprint* FindBlueprint(const FString& BlueprintName);
     static UBlueprint* FindBlueprintByName(const FString& BlueprintName);
+    static TArray<FString> FindBlueprintAssetPaths(const FString& BlueprintNameOrPath);
     static UEdGraph* FindOrCreateEventGraph(UBlueprint* Blueprint);
     
     // Blueprint node utilities
@@ -56,4 +57,4 @@ public:
     // Property utilities
     static bool SetObjectProperty(UObject* Object, const FString& PropertyName, 
                                  const TSharedPtr<FJsonValue>& Value, FString& OutErrorMessage);
-}; 
+};

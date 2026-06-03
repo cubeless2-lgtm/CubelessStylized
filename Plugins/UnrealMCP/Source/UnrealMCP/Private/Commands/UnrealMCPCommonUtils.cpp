@@ -25,6 +25,55 @@
 #include "BlueprintActionDatabase.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
+#include "Misc/PackageName.h"
+
+namespace
+{
+FString NormalizeBlueprintObjectPath(const FString& BlueprintNameOrPath)
+{
+    FString Path = FPackageName::ExportTextPathToObjectPath(BlueprintNameOrPath).TrimStartAndEnd();
+    Path.TrimQuotesInline();
+
+    if (Path.EndsWith(TEXT("_C")))
+    {
+        Path.LeftChopInline(2);
+    }
+
+    if ((Path.StartsWith(TEXT("/Game/")) || Path.StartsWith(TEXT("/Engine/"))) && !Path.Contains(TEXT(".")))
+    {
+        const FString AssetName = FPackageName::GetShortName(Path);
+        Path = FString::Printf(TEXT("%s.%s"), *Path, *AssetName);
+    }
+
+    return Path;
+}
+
+UBlueprint* LoadBlueprintFromObjectPath(const FString& ObjectPath)
+{
+    if (ObjectPath.IsEmpty())
+    {
+        return nullptr;
+    }
+
+    if (UBlueprint* Blueprint = LoadObject<UBlueprint>(nullptr, *ObjectPath))
+    {
+        return Blueprint;
+    }
+
+    FString ClassPath = ObjectPath;
+    if (!ClassPath.EndsWith(TEXT("_C")))
+    {
+        ClassPath += TEXT("_C");
+    }
+
+    if (UClass* BlueprintClass = LoadObject<UClass>(nullptr, *ClassPath))
+    {
+        return Cast<UBlueprint>(BlueprintClass->ClassGeneratedBy);
+    }
+
+    return nullptr;
+}
+}
 
 // JSON Utilities
 TSharedPtr<FJsonObject> FUnrealMCPCommonUtils::CreateErrorResponse(const FString& Message)
@@ -153,8 +202,71 @@ UBlueprint* FUnrealMCPCommonUtils::FindBlueprint(const FString& BlueprintName)
 
 UBlueprint* FUnrealMCPCommonUtils::FindBlueprintByName(const FString& BlueprintName)
 {
-    FString AssetPath = TEXT("/Game/Blueprints/") + BlueprintName;
-    return LoadObject<UBlueprint>(nullptr, *AssetPath);
+    const FString NormalizedPath = NormalizeBlueprintObjectPath(BlueprintName);
+    if (UBlueprint* DirectBlueprint = LoadBlueprintFromObjectPath(NormalizedPath))
+    {
+        return DirectBlueprint;
+    }
+
+    const FString LegacyObjectPath = FString::Printf(TEXT("/Game/Blueprints/%s.%s"), *BlueprintName, *BlueprintName);
+    if (UBlueprint* LegacyBlueprint = LoadBlueprintFromObjectPath(LegacyObjectPath))
+    {
+        return LegacyBlueprint;
+    }
+
+    const TArray<FString> CandidatePaths = FindBlueprintAssetPaths(BlueprintName);
+    if (CandidatePaths.Num() == 1)
+    {
+        return LoadBlueprintFromObjectPath(CandidatePaths[0]);
+    }
+
+    if (CandidatePaths.Num() > 1)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Ambiguous blueprint name '%s'. Use a full asset path. Candidates:"), *BlueprintName);
+        for (const FString& CandidatePath : CandidatePaths)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("  - %s"), *CandidatePath);
+        }
+    }
+
+    return nullptr;
+}
+
+TArray<FString> FUnrealMCPCommonUtils::FindBlueprintAssetPaths(const FString& BlueprintNameOrPath)
+{
+    TArray<FString> CandidatePaths;
+    const FString Query = NormalizeBlueprintObjectPath(BlueprintNameOrPath);
+
+    if (Query.StartsWith(TEXT("/Game/")) || Query.StartsWith(TEXT("/Engine/")))
+    {
+        if (LoadBlueprintFromObjectPath(Query))
+        {
+            CandidatePaths.Add(Query);
+            return CandidatePaths;
+        }
+    }
+
+    FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+    TArray<FAssetData> BlueprintAssets;
+    AssetRegistryModule.Get().GetAssetsByClass(UBlueprint::StaticClass()->GetClassPathName(), BlueprintAssets, true);
+
+    const FString ShortQuery = FPackageName::GetShortName(Query);
+    for (const FAssetData& AssetData : BlueprintAssets)
+    {
+        const FString AssetName = AssetData.AssetName.ToString();
+        const FString PackageName = AssetData.PackageName.ToString();
+        const FString ObjectPath = AssetData.GetObjectPathString();
+
+        if (AssetName.Equals(BlueprintNameOrPath, ESearchCase::IgnoreCase) ||
+            AssetName.Equals(ShortQuery, ESearchCase::IgnoreCase) ||
+            PackageName.Equals(BlueprintNameOrPath, ESearchCase::IgnoreCase) ||
+            ObjectPath.Equals(Query, ESearchCase::IgnoreCase))
+        {
+            CandidatePaths.Add(ObjectPath);
+        }
+    }
+
+    return CandidatePaths;
 }
 
 UEdGraph* FUnrealMCPCommonUtils::FindOrCreateEventGraph(UBlueprint* Blueprint)
@@ -706,4 +818,4 @@ bool FUnrealMCPCommonUtils::SetObjectProperty(UObject* Object, const FString& Pr
     OutErrorMessage = FString::Printf(TEXT("Unsupported property type: %s for property %s"), 
                                     *Property->GetClass()->GetName(), *PropertyName);
     return false;
-} 
+}

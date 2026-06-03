@@ -34,7 +34,8 @@ public class UnrealMCP : ModuleRules
 				"HTTP",
 				"Json",
 				"JsonUtilities",
-				"DeveloperSettings"
+				"DeveloperSettings",
+				"RHI"
 			}
 		);
 		
@@ -51,6 +52,10 @@ public class UnrealMCP : ModuleRules
 				"Kismet",
 				"KismetCompiler",
 				"BlueprintGraph",
+				"EnhancedInput",
+				"InputBlueprintNodes",
+				"MaterialEditor",
+				"PCG",
 				"Projects",
 				"AssetRegistry"
 			}
