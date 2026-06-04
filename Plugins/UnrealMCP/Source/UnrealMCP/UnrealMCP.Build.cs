@@ -57,7 +57,9 @@ public class UnrealMCP : ModuleRules
 				"MaterialEditor",
 				"PCG",
 				"Projects",
-				"AssetRegistry"
+				"AssetRegistry",
+				"MeshDescription",
+				"PhysicsCore"
 			}
 		);
 		

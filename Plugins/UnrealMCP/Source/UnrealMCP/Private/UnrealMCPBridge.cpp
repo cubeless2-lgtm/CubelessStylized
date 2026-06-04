@@ -904,7 +904,12 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
             }
             // Project Commands
             else if (CommandType == TEXT("create_input_mapping") ||
-                     CommandType == TEXT("execute_python"))
+                     CommandType == TEXT("execute_python") ||
+                     CommandType == TEXT("recreate_content_folder_mcp") ||
+                     CommandType == TEXT("postprocess_content_folder_mcp") ||
+                     CommandType == TEXT("repair_world_actor_instances_mcp") ||
+                     CommandType == TEXT("run_content_validation_pipeline_mcp") ||
+                     CommandType == TEXT("analyze_blueprint_widget_fallbacks_mcp"))
             {
                 ResultJson = ProjectCommands->HandleCommand(CommandType, Params);
             }
@@ -958,8 +963,20 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
         }
         catch (const std::exception& e)
         {
+            const FString ExceptionMessage = UTF8_TO_TCHAR(e.what());
+            const FString SafeExceptionMessage = ExceptionMessage.IsEmpty()
+                ? FString::Printf(TEXT("Command '%s' threw std::exception with empty message"), *CommandType)
+                : ExceptionMessage;
+            UE_LOG(LogTemp, Error, TEXT("UnrealMCPBridge: Command %s threw std::exception: %s"), *CommandType, *SafeExceptionMessage);
             ResponseJson->SetStringField(TEXT("status"), TEXT("error"));
-            ResponseJson->SetStringField(TEXT("error"), UTF8_TO_TCHAR(e.what()));
+            ResponseJson->SetStringField(TEXT("error"), SafeExceptionMessage);
+        }
+        catch (...)
+        {
+            const FString ErrorMessage = FString::Printf(TEXT("Command '%s' threw an unknown exception"), *CommandType);
+            UE_LOG(LogTemp, Error, TEXT("UnrealMCPBridge: %s"), *ErrorMessage);
+            ResponseJson->SetStringField(TEXT("status"), TEXT("error"));
+            ResponseJson->SetStringField(TEXT("error"), ErrorMessage);
         }
         
         if (bShowIetaSlate)

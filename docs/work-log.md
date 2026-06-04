@@ -330,3 +330,198 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Priorities: concrete bugs, crash risks, behavioral regressions, missing verification, and Unreal-specific lifecycle hazards before summary.
 - Unreal checks: UObject/GC lifetime, `UPROPERTY`, `TObjectPtr`, `TWeakObjectPtr`, raw UObject pointer ownership, delegate binding/unbinding, latent callbacks, module startup/shutdown, editor shutdown, Hot Reload/Live Coding, reflection/API misuse, Slate lifetime, editor/game-thread boundaries, async/socket race conditions, Build.cs dependencies, plugin boundaries, and editor-only dependency leakage.
 - Tooling rule: do not run heavy static analysis such as `clang-tidy`, CodeQL, or MSVC analysis by default. Suggest those tools only when C++ change size or repeated bug patterns justify the setup cost.
+
+## Glorious Line Algorithm Material Match
+
+- Date: 2026-06-03
+- Request: analyze why `/Game/_MCP_Temp/M_GloriousLineAlgorithm_NodeGraph_Test` differs from custom-HLSL source `/Game/_MCP_Temp/M_GloriousLineAlgorithm_Test`, then create two matching variants.
+- Cause found: the existing node conversion was not mathematically equivalent. Main mismatches included UV scale/centering (`(UV - 0.5) * 16` in source), missing `ddy(uv).y` pixel scale, Unreal Sine/Cosine `Period=1` instead of HLSL radians (`Period=2*pi` needed), and incomplete `LINE_DIST` rounded/dashed SDF behavior including the zero-length segment branch.
+- Created assets:
+  - `/Game/_MCP_Temp/M_GloriousLineAlgorithm_NodeOnly_Match`: native material nodes only, no Custom nodes, 632 nodes.
+  - `/Game/_MCP_Temp/M_GloriousLineAlgorithm_Hybrid_Match`: native nodes for UV/time/aspect/rotation/color accumulation/final correction, 9 Float1 Custom nodes only for repeated `LINE_DIST` SDF, 189 nodes.
+- Verification: both assets compile and save through UnrealMCP with `compile_error_count: 0`; both are `Surface`, `Opaque`, `Unlit`, `Two Sided`, and connected to Emissive.
+- Notion capture fallback: Notion connector handshake failed, so this local work-log entry is the durable capture.
+
+## Hybrid Shader Conversion 100-Case Comparison
+
+- Date: 2026-06-03
+- Scope: reran the same 100 public ISF GLSL shader candidates used in the previous node-only batch, this time as hybrid Unreal materials under `/Game/_MCP_Temp/HybridShaderBatch/`.
+- Hybrid graph structure: native nodes provide `TextureCoordinate`, `Time`, scalar parameters `AspectRatio`, `Speed`, `Amount`, color constants, palette lerp, intensity multiply, and final clamp. A single `MaterialExpressionCustom` per material handles difficult procedural logic such as `if`, `for`, hash/noise, SDF, warp, glitch, and halftone loops.
+- Verification: 100/100 created, 100/100 verified, 100/100 have exactly 1 Custom node, 100/100 Custom nodes have 5 connected inputs, 100/100 compiled successfully, and 100/100 have `compile_error_count=0`.
+- Comparison to node-only batch: node-only average node count was 48.9 with 0 Custom nodes; hybrid average node count is 14.0 with 1 Custom node. Average node reduction is 34.9 nodes, about 71.37%.
+- Stability: no new crash dump occurred during the 14:43-14:46 hybrid batch/verification window; the latest crash dump before this run was from 14:08.
+- Opinion: hybrid is much more inspectable and production-practical than full node-only expansion for shaders with loops, branches, noise/hash, SDF repetition, and feedback-like logic. Native nodes should own graph-level parameters and material semantics, while Custom nodes should remain small, named, and isolated to difficult math islands.
+- Notion capture fallback: Notion connector transport failed twice, so this local work-log entry is the durable capture.
+
+## Default Material Workflow Decision
+
+- Date: 2026-06-03
+- Decision: future material analysis, shader conversion, and material authoring should default to the hybrid workflow.
+- Default rule: keep material semantics and user-facing controls in native Material Expression nodes, and isolate only difficult math islands in `MaterialExpressionCustom`.
+- Reconfirmed default principle: build materials with native Unreal material nodes as much as practical; use Custom nodes only for difficult parts that would be impractical or unreadable as native nodes.
+- Native graph responsibilities: `TextureCoordinate`, `Time`, scalar/vector parameters, texture samples, material functions, color constants, palette/parameter blending, final clamps, and root material property connections.
+- Custom node responsibilities: source-shader `if`/`for` blocks, hash/noise functions, repeated SDF formulas, matrix-style coordinate transforms, sampler-heavy helper logic, warp/glitch/halftone loops, and compact branch-heavy formulas.
+- Sample/effect texture rule: when material work needs sample textures or effect images, Ieta first states the final shader/material purpose and routes quality-sensitive organic/stylized source art to Keilan image generation.
+- Effect image scope: Keilan can create glitch, dissolve, breakup, distortion, flow/noise, scratch, dust, scanline dirt, impact, energy, and stylized mask source images when visual quality matters.
+- Channel packing rule: RGBA channel meanings for material effect and mask textures are defined per request. Do not assume a fixed packing layout unless a specific workflow, such as Ultra Dynamic Sky static clouds, already defines one.
+- Procedural exception: use procedural/local generation instead of Keilan when the texture needs exact numeric data, UV test grids, deterministic gradients, LUTs, or strict channel validation patterns.
+- Safety rule: do not convert a whole material into one opaque Custom node by default. Custom nodes should be small, named, isolated, and have explicit validated inputs and output types.
+- Verification rule: after material work, list nodes, confirm Custom-node count and connected inputs, compile with structured error reporting, confirm `compile_error_count=0`, and save only after compile success unless the user asked for a draft asset.
+- Project instruction update: added the same rule to `AGENTS.md` under `Material Analysis and Authoring Workflow`.
+
+## Packaging Output Folder Rule
+
+- Date: 2026-06-03
+- Decision: use the repository-local `Build/` folder under `CubelessStylized` as the default output root for package builds.
+- Android trigger: when the user asks `안드로이드 패키징 해줘`, package Android output into `Build/Android/`.
+- Windows trigger: when the user asks `윈도우 패키징 해줘`, package Windows output into `Build/Windows/`.
+- Separation rule: keep platform outputs in platform-specific subfolders so Android and Windows package data do not overwrite or mix with each other.
+- Rule-only handling: do not run packaging when the user says the rule should be applied but packaging should not run yet.
+- Git rule: package outputs under `Build/` are generated artifacts and should not be staged or committed unless the user explicitly asks to version a specific packaging artifact or configuration file.
+
+## Android Packaging Toolchain Setup
+
+- Date: 2026-06-03
+- Scope: prepare this PC for future UE_5.7 Android packaging without running a package build.
+- Project engine: `StylizedCubeless.uproject` uses `EngineAssociation` `5.7`; installed engines include `C:\Program Files\Epic Games\UE_5.7` and `C:\Program Files\Epic Games\UE_5.8`.
+- UE_5.7 requirement source: `C:\Program Files\Epic Games\UE_5.7\Engine\Config\Android\Android_SDK.json`.
+- Required SDK packages from UE_5.7: `platforms;android-34`, `build-tools;35.0.1`, `cmake;3.22.1`, and `ndk;27.2.12479018`.
+- Installed programs: Android Studio `2026.1.1.8` and Eclipse Temurin JDK `21.0.11.10`; environment now uses Android Studio `jbr` Java `21.0.10`.
+- Installed SDK root: `C:\Users\cubel\AppData\Local\Android\Sdk`.
+- Installed SDK packages verified by `sdkmanager --list_installed`: `platform-tools` `37.0.0`, `platforms;android-34`, `build-tools;35.0.1`, `cmake;3.22.1`, `ndk;27.2.12479018`, and `extras;google;usb_driver`.
+- User environment variables set: `ANDROID_HOME`, `ANDROID_SDK_ROOT`, `JAVA_HOME`, `NDKROOT`, `NDK_ROOT`, `ANDROID_NDK_ROOT`, and `ANDROID_NDK_HOME`; `ANDROID_SDK_HOME` was cleared.
+- Licenses: Android SDK licenses accepted through `sdkmanager --licenses`.
+- Verification: `adb version`, Java version, and `sdkmanager --version` succeed when the current process uses the configured environment.
+- Remaining blocker: Unreal Turnkey currently lists only `Win64`; `C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Android\UnrealGame.target` and `UnrealGame-Android-Shipping.target` are missing. The user plans to install the Unreal/Epic Android platform support package manually.
+- Follow-up check after user-reported Android component install: `Engine\Binaries\Android\UnrealGame.target` and `UnrealGame-Android-Shipping.target` are still missing under both `UE_5.7` and `UE_5.8`; Launcher manifest for `UE_5.7` still shows `InstallTags` only `templates` and `engine_source`. Android SDK/JDK/NDK remain valid, but the Unreal Android platform support package has not actually materialized in the UE_5.7 install yet.
+- USB driver note: Google USB Driver files were downloaded into the SDK, but `pnputil /add-driver` failed with access denied. If a physical Android device is not detected later, register `C:\Users\cubel\AppData\Local\Android\Sdk\extras\google\usb_driver\android_winusb.inf` from an elevated terminal or use the device vendor driver.
+
+## Material GPU Preview Actor Coloration Backend
+
+- Date: 2026-06-03
+- Scope: `OptimizationPreviewTools` Material GPU Preview debug visualization.
+- Decision: in the editor, Material GPU Preview uses Unreal `ActorColoration` to color target mesh primitives directly. In packaged Development builds, it uses `ActorColoration` only when `r.ForceDebugViewModes=1`; otherwise it keeps the collision-shaped debug draw fallback.
+- Color rule: target primitive colors sample `GEngine->ShaderComplexityColors` with `MaxMS`; `0.0-0.5ms` maps to the green range, `0.5-2.0ms` maps through the red range, and `>=2.0ms` clamps to the white range.
+- Non-target rule: primitives without a Material GPU Preview target color return black in the Actor Coloration handler.
+- Safety: `stat mat 0`, `stat mat start`, `stat mat clear`, PIE end, and module shutdown disable the Material GPU Preview Actor Coloration state and restore saved view modes. The code only deactivates Actor Coloration when the active handler is the plugin's own handler, so unrelated Actor Coloration handlers are not cleared.
+- Verification: `StylizedCubelessEditor Win64 Development` and `StylizedCubeless Win64 Development` builds both succeeded before the later target-cache split. After the split, `StylizedCubeless Win64 Development` succeeded; editor compile succeeded but link was blocked because the running editor held `UnrealEditor-OptimizationPreviewTools.dll`.
+- Notion capture fallback: Notion enhanced markdown spec fetch failed with a validation error, so this local work-log entry is the durable capture.
+
+## Material GPU Preview Full Debug Target Cache
+
+- Date: 2026-06-03
+- Scope: `OptimizationPreviewTools` Material GPU Preview result table and debug visualization.
+- Decision: keep the on-screen stat table limited to the Top N material rows, defaulting to 10, but build debug coloration from every Insights material aggregate that can be matched back to current-world primitive components.
+- Implementation rule: `GCachedRows` is the visible table cache; `GCachedDebugRows` is the all-matched-primitives debug cache. Actor Coloration and the collision debug-draw fallback both read `GCachedDebugRows`, not `GCachedRows`.
+- Target count: the overlay status line now shows `Targets` so the user can verify how many unique primitive components are colored from the last trace.
+- Table rule: trace-only rows with `Comps=0` are not shown in the Top N table; the table continues down the sorted trace list until it has Top N rows that match real current-world components.
+- Limit rule: `materialgpu.MaxDebugComponents` now defaults to `0`, meaning no component cap. A positive value can still be used as a manual performance cap.
+- Verification: `StylizedCubeless Win64 Development` build succeeded after the change. `StylizedCubelessEditor Win64 Development` compiled `MaterialGPUPreview.cpp` but failed during link because the running Unreal Editor locked `Plugins/OptimizationPreviewTools/Binaries/Win64/UnrealEditor-OptimizationPreviewTools.dll`.
+
+## Material GPU Preview Threshold Config
+
+- Date: 2026-06-03
+- Scope: `OptimizationPreviewTools` Material GPU Preview debug color thresholds.
+- Decision: keep the existing shader-complexity color palette, but move the `MaxMS` threshold values from console variables into plugin config.
+- Config file: `Plugins/OptimizationPreviewTools/Config/DefaultOptimizationPreviewTools.ini`.
+- Config section and keys: `[MaterialGPUPreview]`, `DebugGreenMaxMs=0.5`, and `DebugWhiteMs=2.0`.
+- Runtime behavior: missing config values fall back to the same defaults, `0.5ms` and `2.0ms`; `DebugWhiteMs` is clamped to stay above `DebugGreenMaxMs`.
+- Verification: `StylizedCubeless Win64 Development` build succeeded. `StylizedCubelessEditor Win64 Development` compiled `MaterialGPUPreview.cpp` but link failed because the running editor still held `UnrealEditor-OptimizationPreviewTools.dll`.
+
+## Object Memory Snapshot Preview
+
+- Date: 2026-06-03
+- Scope: `OptimizationPreviewTools` Object Memory Snapshot preview.
+- Command rule: `stat obj` creates a memreport-style current-world object memory snapshot, shows the stat table, and applies debug coloration. `stat obj 0` hides the table and debug visualization. `stat obj 1` is intentionally unsupported.
+- Data rule: the visible table is Top N only, defaulting to 10, while debug coloration uses every snapshot row that maps back to visible primitive components.
+- Measurement rule: rows use `FArchiveCountMem` object memory plus `GetResourceSizeEx(Exclusive)` resource memory. Components, static/skinned mesh assets, materials, and used textures are sampled from visible registered primitive components in the current world.
+- Raw output: every snapshot writes a CSV under `Saved/Profiling/OptimizationPreviewTools/ObjectMemorySnapshot/`.
+- Color rule: object memory uses the same shader-complexity-style palette as Material GPU Preview, with `[ObjectMemorySnapshot] DebugGreenMaxMB=5.0` and `DebugWhiteMB=10.0` in `DefaultOptimizationPreviewTools.ini`.
+- Verification: `StylizedCubelessEditor Win64 Development` and `StylizedCubeless Win64 Development` builds succeeded. UnrealMCP executed `stat obj`, producing 10 visible rows, 114 debug objects, 59 debug components, 59 source components, and a CSV snapshot in 0.08 seconds; `stat obj 0` also executed successfully.
+
+## Optimization Profiling Command Bar
+
+- Date: 2026-06-03
+- Scope: `OptimizationPreviewTools` stat UI command surface.
+- Decision: add `stat profiling` as a lightweight command bar for the plugin's profiling commands.
+- Layout rule: when `stat profiling` is enabled alongside `stat mat` or `stat obj`, a single-line command toolbar is drawn directly below the active Top 10 stat table. When used alone, it draws a compact standalone `OPTIMIZATION PROFILING` command panel.
+- Input rule: in PIE/game viewports, the command toolbar is also backed by real Slate `SButton` widgets added through `UGameViewportClient::AddViewportWidgetContent`, so mouse clicks and mobile touches on buttons are consumed by Slate instead of falling through to gameplay attack/input.
+- Hit-test rule: the overlay root/background is `SelfHitTestInvisible`; only the actual buttons receive input, while empty toolbar space can still fall through.
+- Button labels: `MAT START`, `MAT END`, `MAT OFF`, `OBJ SNAP`, and `OBJ OFF`; narrow panels switch to shorter labels so the one-line layout does not overflow.
+- Command hint: the toolbar shows the matching console commands below the button row: `stat mat start/end/0 | stat obj/0`.
+- Toggle rule: `stat profiling` shows the command bar; `stat profiling 0` hides it.
+- Verification: `StylizedCubelessEditor Win64 Development` and `StylizedCubeless Win64 Development` builds succeeded after the change. UnrealMCP executed `stat profiling` and `stat profiling 0` successfully in editor and PIE. PIE logs confirmed `Optimization Profiling Slate command overlay added` and `removed`.
+
+## UnrealMCP UltraDynamicSky SoundWave Fresh Creation
+
+- Date: 2026-06-04 17:50 KST
+- Scope: `Plugins/UnrealMCP` UltraDynamicSky recreate/postprocess/world-repair tooling.
+- Decision: add fresh `USoundWave` creation support instead of duplicating the 68 Ultra Dynamic Sky sound assets.
+- SoundWave rule: create a new `USoundWave`, copy editor raw audio payload through `RawData.GetPayload()` and `RawData.UpdatePayload()`, preserve imported sample rate/runtime sample rate, invalidate compressed data, and validate imported PCM bytes, sample rate, channel count, duration, and looping before saving.
+- Stability fix: add `IsLiveObjectForMCP` and use it around package object iteration, archive remap, actor/component class repair, replacement map lookup, and world repair loops. This fixed a crash in `RepairLoadedWorldActorInstances()` after the editor compiled `DemoMap_MCP`.
+- Build verification: `StylizedCubelessEditor Win64 Development` succeeded after closing the stale `CrashReportClientEditor` process that held `UnrealEditor-UnrealMCP.dll`.
+- Recreate verification: `verification_pass=true`, `source_asset_count=806`, `created_count=806`, `fresh_sound_wave_asset_count=68`, `fresh_material_function_asset_count=82`, `fresh_static_mesh_asset_count=23`, `fresh_create_fallback_count=1`, `fallback_duplicate_count=199`, `original_dependency_asset_count=0`, `blueprint_compile_error_count=0`, and `editor_log_issue_count=0`.
+- Postprocess verification: `verification_pass=true`, `paired_asset_count=806`, `missing_target_asset_count=0`, `original_dependency_asset_count=0`, `blueprint_compile_error_count=0`, and `editor_log_issue_count=0`.
+- World repair verification: `verification_pass=true` for `/Game/_MCP_Temp/UltraDynamicSky_MCP/Maps/DemoMap_MCP`, with source actor/component/map-key counts all `0`, `source_hard_dependency_count=0`, and `editor_log_issue_count=0`.
+- Residual fallback: the only fresh-create fallback remains the known StaticMesh `Icicle` case; SoundWave no longer contributes fallback assets.
+- Notion capture fallback: Notion enhanced markdown spec fetch failed with a validation error, so this local work-log entry is the durable capture.
+
+## UnrealMCP UltraDynamicSky Icicle Fallback Review
+
+- Date: 2026-06-04 18:34 KST
+- Scope: `Plugins/UnrealMCP` UltraDynamicSky recreate/postprocess/world-repair tooling.
+- Decision: keep `/Game/UltraDynamicSky/Meshes/Icicle` as a rule-compliant fallback duplicate. Its source StaticMesh has three render LODs, but only LOD 0 exposes source `MeshDescription`; LOD 1 and LOD 2 are render/generated LODs.
+- Fresh-create attempt: UnrealMCP now tries `ExportStaticMeshLOD()` for generated/render-only StaticMesh LODs after `CloneMeshDescription()` fails. This allowed Icicle LOD data to be inspected and rebuilt far enough to validate the true blocker.
+- Blocker: the source Icicle render LOD reports `GetNumUVChannels(1)=0`, while a freshly built StaticMesh from exported mesh data produces target LOD UV channel count `1`. Forcing the exported `MeshDescription` UV channel count to `0` crashes UE 5.7 StaticMesh build with an Array index assertion in `StaticMeshDescription`/`MeshBuilder`. Because exact behavior is required, this remains a duplicate fallback instead of accepting a mismatched fresh mesh.
+- Stability fix: world actor instance reference remap no longer uses `FArchiveReplaceObjectRef` directly on live actors. It now walks reflected object/interface properties on actors and components, including arrays, sets, maps, and structs, so stale object pointers in loaded maps are not broadly serialized during postprocess repair.
+- Build verification: `StylizedCubelessEditor Win64 Development` succeeded after the safety patch and after removing the zero-UV experiment.
+- Recreate verification: `verification_pass=true`, `source_asset_count=806`, `created_count=806`, `fresh_static_mesh_asset_count=23`, `fresh_sound_wave_asset_count=68`, `fresh_create_fallback_count=1`, `original_dependency_asset_count=0`, `blueprint_compile_error_count=0`, and `editor_log_issue_count=0`.
+- Postprocess verification: `verification_pass=true`, `paired_asset_count=806`, `missing_target_asset_count=0`, `original_dependency_asset_count=0`, `blueprint_compile_error_count=0`, and `editor_log_issue_count=0`.
+- World repair verification: `verification_pass=true` for `/Game/_MCP_Temp/UltraDynamicSky_MCP/Maps/DemoMap_MCP`, `source_hard_dependency_count=0`, and `editor_log_issue_count=0`.
+- Notion capture fallback: Notion enhanced markdown spec fetch failed with a validation error, so this local work-log entry is the durable capture.
+
+## UnrealMCP UltraDynamicSky Accepted Fallback Reporting
+
+- Date: 2026-06-04 19:12 KST
+- Scope: `Plugins/UnrealMCP` UltraDynamicSky recreate report quality gate.
+- Decision: split fresh-create fallback results into accepted and unresolved buckets so known safe exceptions do not hide real tool failures.
+- Report fields: `accepted_fallback_count`, `unresolved_fallback_count`, `accepted_fallback_samples`, and `unresolved_fallback_samples` were added to the recreate report and socket result. Existing `fresh_create_fallback_count` remains unchanged for backwards compatibility.
+- Asset field rule: a fresh-create fallback asset now gets `fallback_resolution` set to `accepted` or `unresolved`; accepted assets also include `fallback_acceptance_reason`.
+- Gate rule: `verification_pass` now requires `unresolved_fallback_count=0`. If a new fresh-create fallback appears without an accepted rule, recreate fails with a verification error even if dependencies and Blueprint compile checks pass.
+- Accepted rule: `/Game/UltraDynamicSky/Meshes/Icicle` is accepted only for the verified StaticMesh generated/render LOD source-data gap, including LOD 1 UV mismatch `source=0 target=1` or missing/export-failed LOD 1 `MeshDescription`.
+- Recreate verification: `verification_pass=true`, `fresh_create_fallback_count=1`, `accepted_fallback_count=1`, `unresolved_fallback_count=0`, `original_dependency_asset_count=0`, `blueprint_compile_error_count=0`, and `editor_log_issue_count=0`.
+- Postprocess verification: `verification_pass=true`, `paired_asset_count=806`, `missing_target_asset_count=0`, and `original_dependency_asset_count=0`.
+- World repair verification: `verification_pass=true` for `/Game/_MCP_Temp/UltraDynamicSky_MCP/Maps/DemoMap_MCP`, `source_hard_dependency_count=0`, and `editor_log_issue_count=0`.
+- Notion capture fallback: Notion enhanced markdown spec fetch previously failed with a validation error, so this local work-log entry is the durable capture.
+
+## UnrealMCP Generic Content Validation Pipeline
+
+- Date: 2026-06-04 19:55 KST
+- Scope: `Plugins/UnrealMCP` postprocess validation workflow.
+- Decision: add generic `run_content_validation_pipeline_mcp` so MCP-created content can be validated with one command instead of a UDS-specific script sequence.
+- Input rule: callers must provide `source_root` and `target_root`; `suffix` defaults to `_MCP`. `map_path` is optional, and `run_world_repair` defaults to true only when `map_path` is supplied. The new pipeline does not use UltraDynamicSky as an implicit default.
+- Pipeline rule: execute `recreate_content_folder_mcp` first, then `postprocess_content_folder_mcp`, then optional `repair_world_actor_instances_mcp`. By default the pipeline stops after a failed verification step; `continue_on_failure=true` can force later diagnostic steps.
+- Default safety settings: recreate uses fallback duplicate allowance, delete-target-first, overwrite existing, reference remap, Blueprint compile, asset save, level actor repair, editor log health check, and editor prompt suppression unless the caller explicitly overrides them.
+- Report rule: `Saved/MCP/<target>_validation_pipeline_report.json` records `pipeline_steps`, step report paths, child command results, accepted/unresolved fallback counts, original dependency counts, Blueprint compile errors, editor log issues, and world repair residual source reference counts.
+- Report naming rule: existing recreate/postprocess/world-repair report filenames now derive from the target or map package short name instead of hardcoded UDS names. UDS still produces the same `UltraDynamicSky_MCP_*` report names because its target short name is `UltraDynamicSky_MCP`.
+- Usage example: send `type=run_content_validation_pipeline_mcp` with `source_root=/Game/SomeFolder`, `target_root=/Game/_MCP_Temp/SomeFolder_MCP`, `suffix=_MCP`, and optional `map_path=/Game/_MCP_Temp/SomeFolder_MCP/Maps/SomeMap_MCP`.
+- Build verification: `StylizedCubelessEditor Win64 Development` succeeded after the pipeline command was added and again after the report-save cleanup.
+- Regression verification: UDS target `/Game/_MCP_Temp/UltraDynamicSky_MCP` completed `recreate`, `postprocess`, and `world_repair` in one pipeline run with `verification_pass=true`.
+- Final UDS regression counts: `accepted_fallback_count=1`, `unresolved_fallback_count=0`, `fresh_create_fallback_count=1`, `recreate_original_dependency_asset_count=0`, `postprocess_original_dependency_asset_count=0`, `postprocess_missing_target_asset_count=0`, `blueprint_compile_error_count=0`, `editor_log_issue_count=0`, `world_repair_source_hard_dependency_count=0`, `world_repair_after_source_actor_count=0`, and `world_repair_after_source_component_count=0`.
+- Pipeline report: `D:/Git/CubelessStylized/Saved/MCP/UltraDynamicSky_MCP_validation_pipeline_report.json`.
+- Notion capture fallback: Notion enhanced markdown spec fetch previously failed with a validation error, so this local work-log entry is the durable capture.
+
+## UnrealMCP Content Validation Generalization Cleanup
+
+- Date: 2026-06-04 20:36 KST
+- Scope: `Plugins/UnrealMCP` content validation commands.
+- Decision: remove content-specific names and assumptions from the MCP plugin implementation so the recreate/postprocess/pipeline tools behave as generic project tools.
+- Removed plugin assumptions: `UltraDynamicSky`, `UltraDynamicSky_MCP`, and the `Icicle` fallback exception no longer appear in `Plugins/UnrealMCP` C++ or plugin metadata.
+- Required input rule: `recreate_content_folder_mcp`, `postprocess_content_folder_mcp`, `repair_world_actor_instances_mcp`, `analyze_blueprint_widget_fallbacks_mcp`, and `run_content_validation_pipeline_mcp` require explicit `source_root` and `target_root`.
+- Missing-input verification: calling the four direct content commands with `{}` now returns `Missing required parameter: source_root` instead of silently using any content folder default.
+- Fallback policy rule: known acceptable fresh-create fallback cases are now caller-provided through `accepted_fallback_rules`; the plugin default treats fresh-create fallback as unresolved unless an explicit rule matches.
+- Accepted fallback rule schema: each rule may provide `source_path` or `source_path_prefix`, optional `class` or `asset_class`, optional `detail_contains` or `detail_contains_any`, and optional `reason`.
+- Regression setup: the UDS Icicle exception is now only in the external test payload `Saved/MCP/run_content_validation_pipeline_mcp.py`, not in the plugin.
+- Build verification: `StylizedCubelessEditor Win64 Development` succeeded after the cleanup.
+- Regression verification: UDS pipeline run with explicit `accepted_fallback_rules` completed with `verification_pass=true`, `accepted_fallback_rule_count=1`, `accepted_fallback_count=1`, `unresolved_fallback_count=0`, `blueprint_compile_error_count=0`, `editor_log_issue_count=0`, and `world_repair_source_hard_dependency_count=0`.
+- Notion capture fallback: Notion enhanced markdown spec fetch previously failed with a validation error, so this local work-log entry is the durable capture.
