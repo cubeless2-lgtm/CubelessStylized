@@ -50,6 +50,9 @@ __pycache__/
 SourceArt/**/*.png
 SourceArt/**/*.tga
 
+# MCP temporary generated/validation content
+/Content/_MCP_Temp/
+
 # Binary Files
 Binaries/*
 Plugins/**/Binaries/*

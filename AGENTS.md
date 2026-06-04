@@ -158,6 +158,9 @@ This project uses three named agent roles. The Korean names are display names; t
 - Add or modify C++ only when the user explicitly asks for a code/C++ implementation.
 - Before considering C++ for an Unreal MCP task, state the non-C++ approach being attempted or why MCP/editor-asset editing is blocked.
 - When inspecting Static Mesh UVs through Unreal Python, never probe arbitrary UV channel indexes with `StaticMeshDescription.GetVertexInstanceUV`. It can trigger an Unreal assertion and crash the editor when the channel does not exist. Check the mesh UV channel count first and read only confirmed channels; if the editor UV preview differs from extracted data, use the editor-rendered UV preview as the user-facing source of truth before applying texture work.
+- Treat `/Content/_MCP_Temp/` as the shared temporary output root for MCP-recreated content and validation artifacts. Use package paths such as `/Game/_MCP_Temp/<SourceName>_MCP` for recreate/validation targets.
+- `_MCP_Temp` outputs are disposable generated artifacts that may change on every validation run. They are gitignored and must not be staged or committed unless the user explicitly asks to version a specific generated asset.
+- This `_MCP_Temp` rule is shared by 이에타, 케일란, and 티브렛. Use `/Content/MCPTestFixtures/` only for deliberate stable test fixtures, not for ordinary temporary MCP output.
 
 ## Image Generation Cost Control
 

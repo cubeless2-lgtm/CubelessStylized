@@ -525,3 +525,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Build verification: `StylizedCubelessEditor Win64 Development` succeeded after the cleanup.
 - Regression verification: UDS pipeline run with explicit `accepted_fallback_rules` completed with `verification_pass=true`, `accepted_fallback_rule_count=1`, `accepted_fallback_count=1`, `unresolved_fallback_count=0`, `blueprint_compile_error_count=0`, `editor_log_issue_count=0`, and `world_repair_source_hard_dependency_count=0`.
 - Notion capture fallback: Notion enhanced markdown spec fetch previously failed with a validation error, so this local work-log entry is the durable capture.
+
+## MCP Temporary Content Output Rule
+
+- Date: 2026-06-04 21:22 KST
+- Decision: `/Content/_MCP_Temp/` is the shared temporary output root for MCP-recreated content and validation artifacts.
+- Package path rule: ordinary recreate/validation targets should use paths such as `/Game/_MCP_Temp/<SourceName>_MCP`.
+- Git rule: `_MCP_Temp` outputs are disposable generated artifacts that may change on every validation run, so `/Content/_MCP_Temp/` is now gitignored.
+- Fixture separation rule: `/Content/MCPTestFixtures/` is reserved for deliberate stable test fixtures only, not for ordinary temporary MCP output.
+- Agent rule: 이에타, 케일란, and 티브렛 all use this `_MCP_Temp` convention when planning, generating, importing, recreating, or validating MCP content.
