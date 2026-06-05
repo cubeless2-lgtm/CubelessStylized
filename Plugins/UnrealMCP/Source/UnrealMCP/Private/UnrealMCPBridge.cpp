@@ -130,11 +130,9 @@ public:
             const TSharedPtr<SWindow> ExistingWindow = StatusWindow;
             LastShowTime = FPlatformTime::Seconds();
             SetProcessingStatus(CommandType);
-            StartSlideAnimation(
-                ExistingWindow,
-                ExistingWindow->GetPositionInScreen(),
-                GetFinalWindowPosition(),
-                false);
+            ExistingWindow->MoveWindowTo(GetFinalWindowPosition());
+            ExistingWindow->ShowWindow();
+            ExistingWindow->BringToFront();
             FlushSlateWindowNow(ExistingWindow.ToSharedRef());
             return;
         }
@@ -171,13 +169,12 @@ public:
             TEXT("확인 중\n")
             TEXT("명령: %s"),
             *CommandType));
-        const FVector2D HiddenPosition = GetHiddenWindowPosition();
         const FVector2D FinalPosition = GetFinalWindowPosition();
 
         TSharedRef<SWindow> Window = SNew(SWindow)
             .Title(TitleText)
             .AutoCenter(EAutoCenter::None)
-            .ScreenPosition(HiddenPosition)
+            .ScreenPosition(FinalPosition)
             .ClientSize(FVector2D(520.0f, 170.0f))
             .SizingRule(ESizingRule::FixedSize)
             .SupportsMaximize(false)
@@ -248,7 +245,9 @@ public:
         LastShowTime = FPlatformTime::Seconds();
         FSlateApplication::Get().AddWindow(Window);
         SetProcessingStatus(CommandType);
-        StartSlideAnimation(Window, HiddenPosition, FinalPosition, false);
+        Window->MoveWindowTo(FinalPosition);
+        Window->ShowWindow();
+        Window->BringToFront();
         FlushSlateWindowNow(Window);
     }
 
@@ -375,13 +374,13 @@ public:
                         return false;
                     }
 
-                    BeginHideAnimation(RequestedGeneration);
+                    CloseStatusWindow(RequestedGeneration);
                     return false;
                 }), static_cast<float>(RemainingSeconds));
                 return;
             }
 
-            BeginHideAnimation(RequestedGeneration);
+            CloseStatusWindow(RequestedGeneration);
             return;
         }
 
@@ -492,13 +491,6 @@ private:
             FMath::Max(WorkArea.Top + ScreenMargin, WorkArea.Bottom - WindowHeight - ScreenMargin));
     }
 
-    static FVector2D GetHiddenWindowPosition()
-    {
-        const FSlateRect WorkArea = GetTargetWorkArea();
-        const FVector2D FinalPosition = GetFinalWindowPosition();
-        return FVector2D(FinalPosition.X, WorkArea.Bottom + ScreenMargin);
-    }
-
     static FSlateRect GetTargetWorkArea()
     {
         TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindBestParentWindowForDialogs(nullptr);
@@ -514,65 +506,7 @@ private:
         return FSlateApplication::Get().GetPreferredWorkArea();
     }
 
-    static float EaseSlide(float Alpha)
-    {
-        const float ClampedAlpha = FMath::Clamp(Alpha, 0.0f, 1.0f);
-        return ClampedAlpha * ClampedAlpha * (3.0f - 2.0f * ClampedAlpha);
-    }
-
-    static void StartSlideAnimation(
-        const TSharedPtr<SWindow>& Window,
-        const FVector2D& FromPosition,
-        const FVector2D& ToPosition,
-        bool bDestroyWhenComplete)
-    {
-        if (!Window.IsValid())
-        {
-            return;
-        }
-
-        const uint64 RequestedAnimationGeneration = ++WindowAnimationGeneration;
-        const double StartTime = FPlatformTime::Seconds();
-        const TWeakPtr<SWindow> WeakWindow = Window;
-        Window->MoveWindowTo(FromPosition);
-
-        FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda(
-            [WeakWindow, FromPosition, ToPosition, StartTime, RequestedAnimationGeneration, bDestroyWhenComplete](float)
-            {
-                if (WindowAnimationGeneration != RequestedAnimationGeneration)
-                {
-                    return false;
-                }
-
-                const TSharedPtr<SWindow> PinnedWindow = WeakWindow.Pin();
-                if (!PinnedWindow.IsValid())
-                {
-                    return false;
-                }
-
-                const float Alpha = FMath::Clamp(
-                    static_cast<float>((FPlatformTime::Seconds() - StartTime) / SlideAnimationSeconds),
-                    0.0f,
-                    1.0f);
-                const float EasedAlpha = EaseSlide(Alpha);
-                const FVector2D CurrentPosition = FromPosition + ((ToPosition - FromPosition) * EasedAlpha);
-                PinnedWindow->MoveWindowTo(CurrentPosition);
-
-                if (Alpha < 1.0f)
-                {
-                    return true;
-                }
-
-                PinnedWindow->MoveWindowTo(ToPosition);
-                if (bDestroyWhenComplete)
-                {
-                    PinnedWindow->RequestDestroyWindow();
-                }
-                return false;
-            }));
-    }
-
-    static void BeginHideAnimation(uint64 RequestedGeneration)
+    static void CloseStatusWindow(uint64 RequestedGeneration)
     {
         if (CloseRequestGeneration != RequestedGeneration)
         {
@@ -586,11 +520,7 @@ private:
         }
 
         const TSharedPtr<SWindow> WindowToClose = StatusWindow;
-        StartSlideAnimation(
-            WindowToClose,
-            WindowToClose->GetPositionInScreen(),
-            GetHiddenWindowPosition(),
-            true);
+        WindowToClose->RequestDestroyWindow();
     }
 
     static void FlushSlateWindowNow(const TSharedRef<SWindow>& Window)
@@ -602,7 +532,6 @@ private:
 
     static void ResetWindowReferences()
     {
-        ++WindowAnimationGeneration;
         StatusWindow.Reset();
         AvatarBrush.Reset();
         BodyTextBlock.Reset();
@@ -618,7 +547,6 @@ private:
     }
 
     static constexpr double CompletionVisibleSeconds = 3.0;
-    static constexpr double SlideAnimationSeconds = 2.0;
     static constexpr float WindowWidth = 520.0f;
     static constexpr float WindowHeight = 170.0f;
     static constexpr float ScreenMargin = 24.0f;
@@ -631,7 +559,6 @@ private:
     static FString PendingParamsSummary;
     static bool bUsePendingParamsOnNextShow;
     static uint64 CloseRequestGeneration;
-    static uint64 WindowAnimationGeneration;
 };
 
 double FIetaMCPStatusWindow::LastShowTime = 0.0;
@@ -643,7 +570,6 @@ UTexture2D* FIetaMCPStatusWindow::AvatarTexture = nullptr;
 FString FIetaMCPStatusWindow::PendingParamsSummary;
 bool FIetaMCPStatusWindow::bUsePendingParamsOnNextShow = false;
 uint64 FIetaMCPStatusWindow::CloseRequestGeneration = 0;
-uint64 FIetaMCPStatusWindow::WindowAnimationGeneration = 0;
 
 static FString BuildIetaEditorLogStatusText()
 {
