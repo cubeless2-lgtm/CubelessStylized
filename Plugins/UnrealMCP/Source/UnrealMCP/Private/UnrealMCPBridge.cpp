@@ -243,7 +243,7 @@ public:
         Window->SetOnWindowClosed(FOnWindowClosed::CreateStatic(&FIetaMCPStatusWindow::OnStatusWindowClosed));
         StatusWindow = Window;
         LastShowTime = FPlatformTime::Seconds();
-        FSlateApplication::Get().AddWindow(Window);
+        AddStatusWindow(Window);
         SetProcessingStatus(CommandType);
         Window->ShowWindow();
         PositionWindowAtBottomRight(Window);
@@ -512,9 +512,22 @@ private:
         Window->MoveWindowTo(FinalPosition);
     }
 
+    static void AddStatusWindow(const TSharedRef<SWindow>& Window)
+    {
+        FSlateApplication& SlateApplication = FSlateApplication::Get();
+        const TSharedPtr<SWindow> ParentWindow = GetTargetParentWindow();
+        if (ParentWindow.IsValid())
+        {
+            SlateApplication.AddWindowAsNativeChild(Window, ParentWindow.ToSharedRef(), false);
+            return;
+        }
+
+        SlateApplication.AddWindow(Window, false);
+    }
+
     static FSlateRect GetTargetWorkArea()
     {
-        TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindBestParentWindowForDialogs(nullptr);
+        const TSharedPtr<SWindow> ParentWindow = GetTargetParentWindow();
         if (ParentWindow.IsValid())
         {
             const FSlateRect ParentRect = ParentWindow->GetRectInScreen();
@@ -525,6 +538,17 @@ private:
         }
 
         return FSlateApplication::Get().GetPreferredWorkArea();
+    }
+
+    static TSharedPtr<SWindow> GetTargetParentWindow()
+    {
+        TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindBestParentWindowForDialogs(nullptr);
+        if (ParentWindow == StatusWindow)
+        {
+            ParentWindow.Reset();
+        }
+
+        return ParentWindow;
     }
 
     static void CloseStatusWindow(uint64 RequestedGeneration)
