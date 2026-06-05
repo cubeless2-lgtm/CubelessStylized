@@ -3,6 +3,10 @@
 #include "Engine/Blueprint.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "Factories/BlueprintFactory.h"
+#include "EdGraph/EdGraph.h"
+#include "EdGraph/EdGraphNode.h"
+#include "EdGraph/EdGraphPin.h"
+#include "EdGraphToken.h"
 #include "EdGraphSchema_K2.h"
 #include "K2Node_Event.h"
 #include "K2Node_VariableGet.h"
@@ -11,6 +15,7 @@
 #include "Components/BoxComponent.h"
 #include "Components/SphereComponent.h"
 #include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/CompilerResultsLog.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Engine/SimpleConstructionScript.h"
 #include "Engine/SCS_Node.h"
@@ -20,6 +25,326 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
+#include "Logging/TokenizedMessage.h"
+#include "Misc/PackageName.h"
+#include "Misc/UObjectToken.h"
+
+namespace
+{
+FString GetBlueprintStatusName(EBlueprintStatus Status)
+{
+    switch (Status)
+    {
+    case BS_Unknown:
+        return TEXT("unknown");
+    case BS_Dirty:
+        return TEXT("dirty");
+    case BS_Error:
+        return TEXT("error");
+    case BS_UpToDate:
+        return TEXT("up_to_date");
+    case BS_BeingCreated:
+        return TEXT("being_created");
+    case BS_UpToDateWithWarnings:
+        return TEXT("up_to_date_with_warnings");
+    default:
+        return TEXT("unknown");
+    }
+}
+
+FString GetCompilerMessageSeverityName(EMessageSeverity::Type Severity)
+{
+    if (static_cast<int32>(Severity) <= static_cast<int32>(EMessageSeverity::Error))
+    {
+        return TEXT("error");
+    }
+    if (Severity == EMessageSeverity::PerformanceWarning)
+    {
+        return TEXT("performance_warning");
+    }
+    if (Severity == EMessageSeverity::Warning)
+    {
+        return TEXT("warning");
+    }
+
+    return TEXT("info");
+}
+
+bool IsCompilerErrorSeverity(EMessageSeverity::Type Severity)
+{
+    return static_cast<int32>(Severity) <= static_cast<int32>(EMessageSeverity::Error);
+}
+
+bool IsCompilerWarningSeverity(EMessageSeverity::Type Severity)
+{
+    return Severity == EMessageSeverity::Warning || Severity == EMessageSeverity::PerformanceWarning;
+}
+
+FString GetCompilerPinDirectionName(const UEdGraphPin* Pin)
+{
+    return Pin && Pin->Direction == EGPD_Output ? TEXT("output") : TEXT("input");
+}
+
+void AddGraphContextToDiagnostic(TSharedPtr<FJsonObject> DiagnosticObj, const UEdGraph* Graph)
+{
+    if (!DiagnosticObj.IsValid() || !Graph)
+    {
+        return;
+    }
+
+    DiagnosticObj->SetStringField(TEXT("graph_id"), Graph->GraphGuid.ToString());
+    DiagnosticObj->SetStringField(TEXT("graph_name"), Graph->GetName());
+    DiagnosticObj->SetStringField(TEXT("graph_path"), Graph->GetPathName());
+}
+
+void AddNodeContextToDiagnostic(TSharedPtr<FJsonObject> DiagnosticObj, const UEdGraphNode* Node)
+{
+    if (!DiagnosticObj.IsValid() || !Node)
+    {
+        return;
+    }
+
+    AddGraphContextToDiagnostic(DiagnosticObj, Node->GetGraph());
+    DiagnosticObj->SetStringField(TEXT("node_id"), Node->NodeGuid.ToString());
+    DiagnosticObj->SetStringField(TEXT("node_name"), Node->GetName());
+    DiagnosticObj->SetStringField(TEXT("node_title"), Node->GetNodeTitle(ENodeTitleType::FullTitle).ToString());
+    DiagnosticObj->SetStringField(TEXT("node_class"), Node->GetClass() ? Node->GetClass()->GetName() : FString());
+}
+
+void AddPinContextToDiagnostic(TSharedPtr<FJsonObject> DiagnosticObj, const UEdGraphPin* Pin)
+{
+    if (!DiagnosticObj.IsValid() || !Pin)
+    {
+        return;
+    }
+
+    AddNodeContextToDiagnostic(DiagnosticObj, Pin->GetOwningNodeUnchecked());
+    DiagnosticObj->SetStringField(TEXT("pin_id"), Pin->PinId.ToString());
+    DiagnosticObj->SetStringField(TEXT("pin_name"), Pin->PinName.ToString());
+    DiagnosticObj->SetStringField(TEXT("pin_direction"), GetCompilerPinDirectionName(Pin));
+    DiagnosticObj->SetStringField(TEXT("pin_category"), Pin->PinType.PinCategory.ToString());
+    DiagnosticObj->SetStringField(TEXT("pin_subcategory"), Pin->PinType.PinSubCategory.ToString());
+}
+
+void AddObjectContextToDiagnostic(TSharedPtr<FJsonObject> DiagnosticObj, const UObject* Object)
+{
+    if (!DiagnosticObj.IsValid() || !Object)
+    {
+        return;
+    }
+
+    if (const UEdGraphNode* Node = Cast<UEdGraphNode>(Object))
+    {
+        AddNodeContextToDiagnostic(DiagnosticObj, Node);
+    }
+    else if (const UEdGraph* Graph = Cast<UEdGraph>(Object))
+    {
+        AddGraphContextToDiagnostic(DiagnosticObj, Graph);
+    }
+}
+
+TSharedPtr<FJsonObject> CompilerMessageToDiagnosticJson(const TSharedRef<FTokenizedMessage>& Message, const FCompilerResultsLog& ResultsLog)
+{
+    TSharedPtr<FJsonObject> DiagnosticObj = MakeShared<FJsonObject>();
+
+    const EMessageSeverity::Type Severity = Message->GetSeverity();
+    DiagnosticObj->SetStringField(TEXT("severity"), GetCompilerMessageSeverityName(Severity));
+    DiagnosticObj->SetStringField(TEXT("message"), Message->ToText().ToString());
+
+    const FName MessageId = Message->GetIdentifier();
+    if (!MessageId.IsNone())
+    {
+        DiagnosticObj->SetStringField(TEXT("message_id"), MessageId.ToString());
+    }
+
+    for (const TSharedRef<IMessageToken>& Token : Message->GetMessageTokens())
+    {
+        if (Token->GetType() == EMessageToken::EdGraph)
+        {
+            const FEdGraphToken& EdGraphToken = static_cast<const FEdGraphToken&>(Token.Get());
+            if (const UEdGraphPin* Pin = ResultsLog.FindSourcePin(EdGraphToken.GetPin()))
+            {
+                AddPinContextToDiagnostic(DiagnosticObj, Pin);
+            }
+            if (const UObject* ReferencedObject = EdGraphToken.GetGraphObject())
+            {
+                if (const UObject* GraphObject = ResultsLog.FindSourceObject(ReferencedObject))
+                {
+                    AddObjectContextToDiagnostic(DiagnosticObj, GraphObject);
+                }
+            }
+        }
+        else if (Token->GetType() == EMessageToken::Object)
+        {
+            const FUObjectToken& ObjectToken = static_cast<const FUObjectToken&>(Token.Get());
+            if (const UObject* ReferencedObject = ObjectToken.GetObject().Get())
+            {
+                if (const UObject* Object = ResultsLog.FindSourceObject(ReferencedObject))
+                {
+                    AddObjectContextToDiagnostic(DiagnosticObj, Object);
+                }
+            }
+        }
+    }
+
+    if (const TSharedPtr<IMessageToken> MessageLink = Message->GetMessageLink())
+    {
+        const IMessageToken& LinkToken = *MessageLink.Get();
+        if (LinkToken.GetType() == EMessageToken::EdGraph)
+        {
+            const FEdGraphToken& EdGraphToken = static_cast<const FEdGraphToken&>(LinkToken);
+            if (const UEdGraphPin* Pin = ResultsLog.FindSourcePin(EdGraphToken.GetPin()))
+            {
+                AddPinContextToDiagnostic(DiagnosticObj, Pin);
+            }
+            if (const UObject* ReferencedObject = EdGraphToken.GetGraphObject())
+            {
+                if (const UObject* GraphObject = ResultsLog.FindSourceObject(ReferencedObject))
+                {
+                    AddObjectContextToDiagnostic(DiagnosticObj, GraphObject);
+                }
+            }
+        }
+        else if (LinkToken.GetType() == EMessageToken::Object)
+        {
+            const FUObjectToken& ObjectToken = static_cast<const FUObjectToken&>(LinkToken);
+            if (const UObject* ReferencedObject = ObjectToken.GetObject().Get())
+            {
+                if (const UObject* Object = ResultsLog.FindSourceObject(ReferencedObject))
+                {
+                    AddObjectContextToDiagnostic(DiagnosticObj, Object);
+                }
+            }
+        }
+    }
+
+    return DiagnosticObj;
+}
+
+void AddCompilerFallbackDiagnostic(TArray<TSharedPtr<FJsonValue>>& SummaryMessages, TArray<TSharedPtr<FJsonValue>>& Diagnostics, const FString& Severity, const FString& Message)
+{
+    SummaryMessages.Add(MakeShared<FJsonValueString>(Message));
+
+    TSharedPtr<FJsonObject> DiagnosticObj = MakeShared<FJsonObject>();
+    DiagnosticObj->SetStringField(TEXT("severity"), Severity);
+    DiagnosticObj->SetStringField(TEXT("message"), Message);
+    Diagnostics.Add(MakeShared<FJsonValueObject>(DiagnosticObj));
+}
+
+TSharedPtr<FJsonObject> CompileBlueprintAndBuildValidationResult(UBlueprint* Blueprint, bool bSave, bool bRefreshNodes)
+{
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    if (!Blueprint)
+    {
+        ResultObj->SetBoolField(TEXT("compiled"), false);
+        ResultObj->SetBoolField(TEXT("validation_pass"), false);
+        ResultObj->SetNumberField(TEXT("compile_error_count"), 1);
+        ResultObj->SetNumberField(TEXT("compile_warning_count"), 0);
+        return ResultObj;
+    }
+
+    const bool bWasDirtyBeforeCompile = Blueprint->GetOutermost() ? Blueprint->GetOutermost()->IsDirty() : false;
+
+    if (bRefreshNodes)
+    {
+        FBlueprintEditorUtils::RefreshAllNodes(Blueprint);
+    }
+
+    FCompilerResultsLog ResultsLog;
+    ResultsLog.SetSourcePath(Blueprint->GetPathName());
+    FKismetEditorUtilities::CompileBlueprint(Blueprint, EBlueprintCompileOptions::None, &ResultsLog);
+
+    const EBlueprintStatus CompileStatus = Blueprint->Status;
+    const bool bCompiledByStatus = CompileStatus == BS_UpToDate || CompileStatus == BS_UpToDateWithWarnings;
+
+    TArray<TSharedPtr<FJsonValue>> CompileErrors;
+    TArray<TSharedPtr<FJsonValue>> CompileWarnings;
+    TArray<TSharedPtr<FJsonValue>> Diagnostics;
+    int32 CompileErrorCount = ResultsLog.NumErrors;
+    int32 CompileWarningCount = ResultsLog.NumWarnings;
+
+    for (const TSharedRef<FTokenizedMessage>& Message : ResultsLog.Messages)
+    {
+        const EMessageSeverity::Type Severity = Message->GetSeverity();
+        if (!IsCompilerErrorSeverity(Severity) && !IsCompilerWarningSeverity(Severity))
+        {
+            continue;
+        }
+
+        const FString MessageText = Message->ToText().ToString();
+        TSharedPtr<FJsonObject> DiagnosticObj = CompilerMessageToDiagnosticJson(Message, ResultsLog);
+        Diagnostics.Add(MakeShared<FJsonValueObject>(DiagnosticObj));
+
+        if (IsCompilerErrorSeverity(Severity))
+        {
+            CompileErrors.Add(MakeShared<FJsonValueString>(MessageText));
+        }
+        else if (IsCompilerWarningSeverity(Severity))
+        {
+            CompileWarnings.Add(MakeShared<FJsonValueString>(MessageText));
+        }
+    }
+
+    CompileErrorCount = FMath::Max(CompileErrorCount, CompileErrors.Num());
+    CompileWarningCount = FMath::Max(CompileWarningCount, CompileWarnings.Num());
+
+    if (CompileErrorCount > 0 && CompileErrors.Num() == 0)
+    {
+        const FString FallbackError = FString::Printf(
+            TEXT("Blueprint compiler reported %d error(s), but no tokenized error messages were available."),
+            CompileErrorCount);
+        AddCompilerFallbackDiagnostic(CompileErrors, Diagnostics, TEXT("error"), FallbackError);
+    }
+
+    if (!bCompiledByStatus && CompileErrors.Num() == 0)
+    {
+        const FString FallbackError = FString::Printf(
+            TEXT("Blueprint compile status is '%s'. Check the editor Message Log for node-level compiler diagnostics."),
+            *GetBlueprintStatusName(CompileStatus));
+        AddCompilerFallbackDiagnostic(CompileErrors, Diagnostics, TEXT("error"), FallbackError);
+        CompileErrorCount = 1;
+    }
+
+    if (CompileWarningCount > 0 && CompileWarnings.Num() == 0)
+    {
+        const FString FallbackWarning = FString::Printf(
+            TEXT("Blueprint compiler reported %d warning(s), but no tokenized warning messages were available."),
+            CompileWarningCount);
+        AddCompilerFallbackDiagnostic(CompileWarnings, Diagnostics, TEXT("warning"), FallbackWarning);
+    }
+
+    CompileErrorCount = FMath::Max(CompileErrorCount, CompileErrors.Num());
+    CompileWarningCount = FMath::Max(CompileWarningCount, CompileWarnings.Num());
+
+    const bool bCompiled = bCompiledByStatus && CompileErrorCount == 0;
+    const bool bHasWarnings = CompileStatus == BS_UpToDateWithWarnings || CompileWarningCount > 0;
+
+    bool bSaved = false;
+    if (bSave && bCompiled)
+    {
+        bSaved = UEditorAssetLibrary::SaveLoadedAsset(Blueprint, false);
+    }
+
+    ResultObj->SetStringField(TEXT("name"), Blueprint->GetName());
+    ResultObj->SetStringField(TEXT("asset_path"), Blueprint->GetPathName());
+    ResultObj->SetBoolField(TEXT("compiled"), bCompiled);
+    ResultObj->SetBoolField(TEXT("validation_pass"), bCompiled);
+    ResultObj->SetStringField(TEXT("status"), GetBlueprintStatusName(CompileStatus));
+    ResultObj->SetBoolField(TEXT("has_warnings"), bHasWarnings);
+    ResultObj->SetNumberField(TEXT("compile_error_count"), CompileErrorCount);
+    ResultObj->SetNumberField(TEXT("compile_warning_count"), CompileWarningCount);
+    ResultObj->SetArrayField(TEXT("compile_errors"), CompileErrors);
+    ResultObj->SetArrayField(TEXT("compile_warnings"), CompileWarnings);
+    ResultObj->SetArrayField(TEXT("diagnostics"), Diagnostics);
+    ResultObj->SetNumberField(TEXT("diagnostic_count"), Diagnostics.Num());
+    ResultObj->SetBoolField(TEXT("saved"), bSaved);
+    ResultObj->SetBoolField(TEXT("requested_save"), bSave);
+    ResultObj->SetBoolField(TEXT("refreshed_nodes"), bRefreshNodes);
+    ResultObj->SetBoolField(TEXT("was_dirty_before_compile"), bWasDirtyBeforeCompile);
+    ResultObj->SetBoolField(TEXT("dirty_after_compile"), Blueprint->GetOutermost() ? Blueprint->GetOutermost()->IsDirty() : false);
+    return ResultObj;
+}
+}
 
 FUnrealMCPBlueprintCommands::FUnrealMCPBlueprintCommands()
 {
@@ -51,6 +376,10 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleCommand(const FString
     {
         return HandleCompileAndSaveBlueprint(Params);
     }
+    else if (CommandType == TEXT("compile_and_validate_blueprint"))
+    {
+        return HandleCompileAndValidateBlueprint(Params);
+    }
     else if (CommandType == TEXT("spawn_blueprint_actor"))
     {
         return HandleSpawnBlueprintActor(Params);
@@ -80,9 +409,60 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleCreateBlueprint(const
         return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'name' parameter"));
     }
 
-    // Check if blueprint already exists
     FString PackagePath = TEXT("/Game/Blueprints/");
+    if (Params->HasField(TEXT("package_path")))
+    {
+        if (!Params->TryGetStringField(TEXT("package_path"), PackagePath))
+        {
+            return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("'package_path' must be a string"));
+        }
+
+        PackagePath.TrimStartAndEndInline();
+        if (PackagePath.IsEmpty())
+        {
+            return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("'package_path' cannot be empty"));
+        }
+
+        while (PackagePath.Len() > 1 && PackagePath.EndsWith(TEXT("/")))
+        {
+            PackagePath.LeftChopInline(1);
+        }
+
+        if (PackagePath != TEXT("/Game") && !PackagePath.StartsWith(TEXT("/Game/")))
+        {
+            return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("'package_path' must be under /Game"));
+        }
+        if (PackagePath.Contains(TEXT(".")))
+        {
+            return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("'package_path' must be a package directory, not an object path"));
+        }
+
+        if (PackagePath != TEXT("/Game"))
+        {
+            FText PackagePathFailureReason;
+            if (!FPackageName::IsValidLongPackageName(PackagePath, false, &PackagePathFailureReason))
+            {
+                return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(
+                    TEXT("'package_path' is not a valid long package path: %s"),
+                    *PackagePathFailureReason.ToString()));
+            }
+        }
+
+        PackagePath += TEXT("/");
+    }
+
+    // Check if blueprint already exists
     FString AssetName = BlueprintName;
+    const FString NewPackageName = PackagePath + AssetName;
+    FText PackageNameFailureReason;
+    if (!FPackageName::IsValidLongPackageName(NewPackageName, false, &PackageNameFailureReason))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(
+            TEXT("Invalid Blueprint package name '%s': %s"),
+            *NewPackageName,
+            *PackageNameFailureReason.ToString()));
+    }
+
     if (UEditorAssetLibrary::DoesAssetExist(PackagePath + AssetName))
     {
         return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint already exists: %s"), *BlueprintName));
@@ -146,7 +526,7 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleCreateBlueprint(const
     Factory->ParentClass = SelectedParentClass;
 
     // Create the blueprint
-    UPackage* Package = CreatePackage(*(PackagePath + AssetName));
+    UPackage* Package = CreatePackage(*NewPackageName);
     UBlueprint* NewBlueprint = Cast<UBlueprint>(Factory->FactoryCreateNew(UBlueprint::StaticClass(), Package, *AssetName, RF_Standalone | RF_Public, nullptr, GWarn));
 
     if (NewBlueprint)
@@ -845,13 +1225,7 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleCompileBlueprint(cons
         return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
     }
 
-    // Compile the blueprint
-    FKismetEditorUtilities::CompileBlueprint(Blueprint);
-
-    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
-    ResultObj->SetStringField(TEXT("name"), BlueprintName);
-    ResultObj->SetBoolField(TEXT("compiled"), true);
-    return ResultObj;
+    return CompileBlueprintAndBuildValidationResult(Blueprint, false, false);
 }
 
 TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleCompileAndSaveBlueprint(const TSharedPtr<FJsonObject>& Params)
@@ -874,20 +1248,36 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleCompileAndSaveBluepri
         return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
     }
 
-    FKismetEditorUtilities::CompileBlueprint(Blueprint);
+    return CompileBlueprintAndBuildValidationResult(Blueprint, bSave, false);
+}
 
-    bool bSaved = false;
-    if (bSave)
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleCompileAndValidateBlueprint(const TSharedPtr<FJsonObject>& Params)
+{
+    FString BlueprintName;
+    if (!Params->TryGetStringField(TEXT("blueprint_name"), BlueprintName))
     {
-        bSaved = UEditorAssetLibrary::SaveLoadedAsset(Blueprint, false);
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'blueprint_name' parameter"));
     }
 
-    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
-    ResultObj->SetStringField(TEXT("name"), Blueprint->GetName());
-    ResultObj->SetStringField(TEXT("asset_path"), Blueprint->GetPathName());
-    ResultObj->SetBoolField(TEXT("compiled"), true);
-    ResultObj->SetBoolField(TEXT("saved"), bSaved);
-    return ResultObj;
+    bool bSave = false;
+    if (Params->HasField(TEXT("save")))
+    {
+        bSave = Params->GetBoolField(TEXT("save"));
+    }
+
+    bool bRefreshNodes = true;
+    if (Params->HasField(TEXT("refresh_nodes")))
+    {
+        bRefreshNodes = Params->GetBoolField(TEXT("refresh_nodes"));
+    }
+
+    UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindBlueprint(BlueprintName);
+    if (!Blueprint)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+    }
+
+    return CompileBlueprintAndBuildValidationResult(Blueprint, bSave, bRefreshNodes);
 }
 
 TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleSpawnBlueprintActor(const TSharedPtr<FJsonObject>& Params)

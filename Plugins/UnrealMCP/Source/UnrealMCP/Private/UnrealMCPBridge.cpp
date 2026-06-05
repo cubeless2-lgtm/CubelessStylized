@@ -130,7 +130,11 @@ public:
             const TSharedPtr<SWindow> ExistingWindow = StatusWindow;
             LastShowTime = FPlatformTime::Seconds();
             SetProcessingStatus(CommandType);
-            ExistingWindow->BringToFront();
+            StartSlideAnimation(
+                ExistingWindow,
+                ExistingWindow->GetPositionInScreen(),
+                GetFinalWindowPosition(),
+                false);
             FlushSlateWindowNow(ExistingWindow.ToSharedRef());
             return;
         }
@@ -167,15 +171,20 @@ public:
             TEXT("확인 중\n")
             TEXT("명령: %s"),
             *CommandType));
+        const FVector2D HiddenPosition = GetHiddenWindowPosition();
+        const FVector2D FinalPosition = GetFinalWindowPosition();
 
         TSharedRef<SWindow> Window = SNew(SWindow)
             .Title(TitleText)
+            .AutoCenter(EAutoCenter::None)
+            .ScreenPosition(HiddenPosition)
             .ClientSize(FVector2D(520.0f, 170.0f))
             .SizingRule(ESizingRule::FixedSize)
             .SupportsMaximize(false)
             .SupportsMinimize(false)
             .HasCloseButton(true)
-            .IsTopmostWindow(true)
+            .IsTopmostWindow(false)
+            .FocusWhenFirstShown(false)
             [
                 SNew(SBorder)
                 .Padding(14.0f)
@@ -239,6 +248,7 @@ public:
         LastShowTime = FPlatformTime::Seconds();
         FSlateApplication::Get().AddWindow(Window);
         SetProcessingStatus(CommandType);
+        StartSlideAnimation(Window, HiddenPosition, FinalPosition, false);
         FlushSlateWindowNow(Window);
     }
 
@@ -285,7 +295,6 @@ public:
         if (StatusWindow.IsValid())
         {
             const TSharedPtr<SWindow> Window = StatusWindow;
-            Window->BringToFront();
             FlushSlateWindowNow(Window.ToSharedRef());
         }
     }
@@ -349,56 +358,34 @@ public:
     {
         if (!FSlateApplication::IsInitialized())
         {
-            StatusWindow.Reset();
-            AvatarBrush.Reset();
-            BodyTextBlock.Reset();
-            ProgressBar.Reset();
+            ResetWindowReferences();
             return;
         }
 
         if (StatusWindow.IsValid())
         {
             const double RemainingSeconds = CompletionVisibleSeconds - (FPlatformTime::Seconds() - LastShowTime);
+            const uint64 RequestedGeneration = CloseRequestGeneration;
             if (RemainingSeconds > 0.0)
             {
-                const TWeakPtr<SWindow> WindowToClose = StatusWindow;
-                const uint64 RequestedGeneration = CloseRequestGeneration;
-                FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([WindowToClose, RequestedGeneration](float)
+                FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([RequestedGeneration](float)
                 {
                     if (CloseRequestGeneration != RequestedGeneration)
                     {
                         return false;
                     }
 
-                    if (WindowToClose.IsValid())
-                    {
-                        WindowToClose.Pin()->RequestDestroyWindow();
-                    }
-                    const TSharedPtr<SWindow> CurrentWindow = StatusWindow;
-                    const TSharedPtr<SWindow> ExpectedWindow = WindowToClose.Pin();
-                    if ((CurrentWindow.IsValid() && ExpectedWindow.IsValid() && CurrentWindow.Get() == ExpectedWindow.Get()) ||
-                        (!CurrentWindow.IsValid() && !ExpectedWindow.IsValid()))
-                    {
-                        StatusWindow.Reset();
-                        AvatarBrush.Reset();
-                        BodyTextBlock.Reset();
-                        ProgressBar.Reset();
-                    }
+                    BeginHideAnimation(RequestedGeneration);
                     return false;
                 }), static_cast<float>(RemainingSeconds));
                 return;
             }
+
+            BeginHideAnimation(RequestedGeneration);
+            return;
         }
 
-        if (StatusWindow.IsValid())
-        {
-            StatusWindow->RequestDestroyWindow();
-        }
-
-        StatusWindow.Reset();
-        AvatarBrush.Reset();
-        BodyTextBlock.Reset();
-        ProgressBar.Reset();
+        ResetWindowReferences();
     }
 
 private:
@@ -497,6 +484,115 @@ private:
         }
     }
 
+    static FVector2D GetFinalWindowPosition()
+    {
+        const FSlateRect WorkArea = GetTargetWorkArea();
+        return FVector2D(
+            FMath::Max(WorkArea.Left + ScreenMargin, WorkArea.Right - WindowWidth - ScreenMargin),
+            FMath::Max(WorkArea.Top + ScreenMargin, WorkArea.Bottom - WindowHeight - ScreenMargin));
+    }
+
+    static FVector2D GetHiddenWindowPosition()
+    {
+        const FSlateRect WorkArea = GetTargetWorkArea();
+        const FVector2D FinalPosition = GetFinalWindowPosition();
+        return FVector2D(FinalPosition.X, WorkArea.Bottom + ScreenMargin);
+    }
+
+    static FSlateRect GetTargetWorkArea()
+    {
+        TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindBestParentWindowForDialogs(nullptr);
+        if (ParentWindow.IsValid())
+        {
+            const FSlateRect ParentRect = ParentWindow->GetRectInScreen();
+            if (ParentRect.IsValid() && !ParentRect.IsEmpty())
+            {
+                return FSlateApplication::Get().GetWorkArea(ParentRect);
+            }
+        }
+
+        return FSlateApplication::Get().GetPreferredWorkArea();
+    }
+
+    static float EaseSlide(float Alpha)
+    {
+        const float ClampedAlpha = FMath::Clamp(Alpha, 0.0f, 1.0f);
+        return ClampedAlpha * ClampedAlpha * (3.0f - 2.0f * ClampedAlpha);
+    }
+
+    static void StartSlideAnimation(
+        const TSharedPtr<SWindow>& Window,
+        const FVector2D& FromPosition,
+        const FVector2D& ToPosition,
+        bool bDestroyWhenComplete)
+    {
+        if (!Window.IsValid())
+        {
+            return;
+        }
+
+        const uint64 RequestedAnimationGeneration = ++WindowAnimationGeneration;
+        const double StartTime = FPlatformTime::Seconds();
+        const TWeakPtr<SWindow> WeakWindow = Window;
+        Window->MoveWindowTo(FromPosition);
+
+        FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda(
+            [WeakWindow, FromPosition, ToPosition, StartTime, RequestedAnimationGeneration, bDestroyWhenComplete](float)
+            {
+                if (WindowAnimationGeneration != RequestedAnimationGeneration)
+                {
+                    return false;
+                }
+
+                const TSharedPtr<SWindow> PinnedWindow = WeakWindow.Pin();
+                if (!PinnedWindow.IsValid())
+                {
+                    return false;
+                }
+
+                const float Alpha = FMath::Clamp(
+                    static_cast<float>((FPlatformTime::Seconds() - StartTime) / SlideAnimationSeconds),
+                    0.0f,
+                    1.0f);
+                const float EasedAlpha = EaseSlide(Alpha);
+                const FVector2D CurrentPosition = FromPosition + ((ToPosition - FromPosition) * EasedAlpha);
+                PinnedWindow->MoveWindowTo(CurrentPosition);
+
+                if (Alpha < 1.0f)
+                {
+                    return true;
+                }
+
+                PinnedWindow->MoveWindowTo(ToPosition);
+                if (bDestroyWhenComplete)
+                {
+                    PinnedWindow->RequestDestroyWindow();
+                }
+                return false;
+            }));
+    }
+
+    static void BeginHideAnimation(uint64 RequestedGeneration)
+    {
+        if (CloseRequestGeneration != RequestedGeneration)
+        {
+            return;
+        }
+
+        if (!StatusWindow.IsValid())
+        {
+            ResetWindowReferences();
+            return;
+        }
+
+        const TSharedPtr<SWindow> WindowToClose = StatusWindow;
+        StartSlideAnimation(
+            WindowToClose,
+            WindowToClose->GetPositionInScreen(),
+            GetHiddenWindowPosition(),
+            true);
+    }
+
     static void FlushSlateWindowNow(const TSharedRef<SWindow>& Window)
     {
         FSlateApplication& SlateApplication = FSlateApplication::Get();
@@ -504,18 +600,28 @@ private:
         SlateApplication.ForceRedrawWindow(Window);
     }
 
+    static void ResetWindowReferences()
+    {
+        ++WindowAnimationGeneration;
+        StatusWindow.Reset();
+        AvatarBrush.Reset();
+        BodyTextBlock.Reset();
+        ProgressBar.Reset();
+    }
+
     static void OnStatusWindowClosed(const TSharedRef<SWindow>& ClosedWindow)
     {
         if (StatusWindow.IsValid() && StatusWindow.Get() == &ClosedWindow.Get())
         {
-            StatusWindow.Reset();
-            AvatarBrush.Reset();
-            BodyTextBlock.Reset();
-            ProgressBar.Reset();
+            ResetWindowReferences();
         }
     }
 
     static constexpr double CompletionVisibleSeconds = 3.0;
+    static constexpr double SlideAnimationSeconds = 2.0;
+    static constexpr float WindowWidth = 520.0f;
+    static constexpr float WindowHeight = 170.0f;
+    static constexpr float ScreenMargin = 24.0f;
     static double LastShowTime;
     static TSharedPtr<SWindow> StatusWindow;
     static TSharedPtr<STextBlock> BodyTextBlock;
@@ -525,6 +631,7 @@ private:
     static FString PendingParamsSummary;
     static bool bUsePendingParamsOnNextShow;
     static uint64 CloseRequestGeneration;
+    static uint64 WindowAnimationGeneration;
 };
 
 double FIetaMCPStatusWindow::LastShowTime = 0.0;
@@ -536,6 +643,7 @@ UTexture2D* FIetaMCPStatusWindow::AvatarTexture = nullptr;
 FString FIetaMCPStatusWindow::PendingParamsSummary;
 bool FIetaMCPStatusWindow::bUsePendingParamsOnNextShow = false;
 uint64 FIetaMCPStatusWindow::CloseRequestGeneration = 0;
+uint64 FIetaMCPStatusWindow::WindowAnimationGeneration = 0;
 
 static FString BuildIetaEditorLogStatusText()
 {
@@ -849,6 +957,7 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                      CommandType == TEXT("set_physics_properties") || 
                      CommandType == TEXT("compile_blueprint") || 
                      CommandType == TEXT("compile_and_save_blueprint") ||
+                     CommandType == TEXT("compile_and_validate_blueprint") ||
                      CommandType == TEXT("set_blueprint_property") || 
                      CommandType == TEXT("set_static_mesh_properties") ||
                      CommandType == TEXT("set_pawn_properties"))
@@ -858,20 +967,41 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
             // Blueprint Node Commands
             else if (CommandType == TEXT("connect_blueprint_nodes") || 
                      CommandType == TEXT("resolve_blueprint") ||
+                     CommandType == TEXT("list_blueprint_graphs") ||
+                     CommandType == TEXT("resolve_blueprint_graph") ||
                      CommandType == TEXT("list_blueprint_nodes") ||
                      CommandType == TEXT("add_blueprint_get_self_component_reference") ||
                      CommandType == TEXT("add_blueprint_self_reference") ||
                      CommandType == TEXT("find_blueprint_nodes") ||
                      CommandType == TEXT("add_blueprint_event_node") ||
+                     CommandType == TEXT("add_blueprint_branch_node") ||
+                     CommandType == TEXT("add_blueprint_sequence_node") ||
+                     CommandType == TEXT("add_blueprint_return_node") ||
+                     CommandType == TEXT("add_blueprint_dynamic_cast_node") ||
+                     CommandType == TEXT("add_blueprint_loop_node") ||
+                     CommandType == TEXT("add_blueprint_array_function_node") ||
+                     CommandType == TEXT("add_blueprint_make_array_node") ||
                      CommandType == TEXT("add_blueprint_input_action_node") ||
                      CommandType == TEXT("add_blueprint_input_axis_event_node") ||
                      CommandType == TEXT("add_blueprint_enhanced_input_action_node") ||
                      CommandType == TEXT("add_blueprint_function_node") ||
+                     CommandType == TEXT("add_blueprint_call_function_node") ||
                      CommandType == TEXT("add_blueprint_variable_get_node") ||
                      CommandType == TEXT("add_blueprint_variable_set_node") ||
                      CommandType == TEXT("add_blueprint_math_node") ||
+                     CommandType == TEXT("add_blueprint_compare_node") ||
+                     CommandType == TEXT("add_blueprint_boolean_node") ||
+                     CommandType == TEXT("add_blueprint_select_node") ||
+                     CommandType == TEXT("add_blueprint_literal_node") ||
+                     CommandType == TEXT("add_blueprint_enum_literal_node") ||
+                     CommandType == TEXT("add_blueprint_is_valid_node") ||
+                     CommandType == TEXT("add_blueprint_make_struct_node") ||
+                     CommandType == TEXT("add_blueprint_break_struct_node") ||
+                     CommandType == TEXT("add_blueprint_switch_int_node") ||
+                     CommandType == TEXT("add_blueprint_switch_enum_node") ||
                      CommandType == TEXT("set_blueprint_pin_default") ||
-                     CommandType == TEXT("add_blueprint_get_component_node") ||
+                     CommandType == TEXT("add_blueprint_function_parameter") ||
+                     CommandType == TEXT("add_blueprint_local_variable") ||
                      CommandType == TEXT("add_blueprint_variable"))
             {
                 ResultJson = BlueprintNodeCommands->HandleCommand(CommandType, Params);
@@ -946,6 +1076,33 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                 {
                     ErrorMessage = ResultJson->GetStringField(TEXT("error"));
                 }
+                if (!bSuccess && ErrorMessage.IsEmpty() && ResultJson->HasField(TEXT("command_result")))
+                {
+                    ErrorMessage = ResultJson->GetStringField(TEXT("command_result"));
+                }
+                if (!bSuccess && ErrorMessage.IsEmpty() && ResultJson->HasTypedField<EJson::Array>(TEXT("logs")))
+                {
+                    const TArray<TSharedPtr<FJsonValue>>* Logs = nullptr;
+                    if (ResultJson->TryGetArrayField(TEXT("logs"), Logs) && Logs)
+                    {
+                        for (const TSharedPtr<FJsonValue>& LogValue : *Logs)
+                        {
+                            const TSharedPtr<FJsonObject> LogObject = LogValue.IsValid() ? LogValue->AsObject() : nullptr;
+                            if (LogObject.IsValid() && LogObject->HasField(TEXT("output")))
+                            {
+                                ErrorMessage = LogObject->GetStringField(TEXT("output"));
+                                if (!ErrorMessage.IsEmpty())
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (!bSuccess && ErrorMessage.IsEmpty())
+                {
+                    ErrorMessage = FString::Printf(TEXT("Command '%s' reported failure without details"), *CommandType);
+                }
             }
             
             if (bSuccess)
@@ -990,16 +1147,28 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
         Promise->SetValue(ResultString);
     };
 
+    bool bUseTickerDispatch = false;
+    if (CommandType == TEXT("execute_python") && Params.IsValid() && Params->HasField(TEXT("defer_to_ticker")))
+    {
+        bUseTickerDispatch = Params->GetBoolField(TEXT("defer_to_ticker"));
+    }
+
     // Queue execution on Game Thread. The assistant window is reserved for
     // explicit ieta_status checks so background work stays out of the way.
-    // Python import workflows can enter UE's Interchange pipeline, which must
-    // not run inside a TaskGraph task because it may wait on TaskGraph work
-    // internally.
-    AsyncTask(ENamedThreads::GameThread, [CommandType, Params, RunCommand, bShowIetaSlate]()
+    // Most MCP commands run immediately once they reach the game thread. A
+    // small set of Python workflows can opt into ticker dispatch when they need
+    // to avoid running inside the TaskGraph callback itself.
+    AsyncTask(ENamedThreads::GameThread, [CommandType, Params, RunCommand, bShowIetaSlate, bUseTickerDispatch]()
     {
         if (bShowIetaSlate)
         {
             FIetaMCPStatusWindow::ShowWithParams(CommandType, Params);
+        }
+
+        if (!bUseTickerDispatch)
+        {
+            RunCommand();
+            return;
         }
 
         FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([RunCommand](float)
@@ -1009,5 +1178,23 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
         }));
     });
     
+    constexpr double CommandTimeoutSeconds = 120.0;
+    if (!Future.WaitFor(FTimespan::FromSeconds(CommandTimeoutSeconds)))
+    {
+        UE_LOG(LogTemp, Error, TEXT("UnrealMCPBridge: Command %s timed out after %.0f seconds"), *CommandType, CommandTimeoutSeconds);
+
+        TSharedPtr<FJsonObject> TimeoutResponse = MakeShared<FJsonObject>();
+        TimeoutResponse->SetStringField(TEXT("status"), TEXT("error"));
+        TimeoutResponse->SetStringField(TEXT("error"), FString::Printf(
+            TEXT("Command '%s' timed out after %.0f seconds"),
+            *CommandType,
+            CommandTimeoutSeconds));
+
+        FString TimeoutResultString;
+        TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&TimeoutResultString);
+        FJsonSerializer::Serialize(TimeoutResponse.ToSharedRef(), Writer);
+        return TimeoutResultString;
+    }
+
     return Future.Get();
 }

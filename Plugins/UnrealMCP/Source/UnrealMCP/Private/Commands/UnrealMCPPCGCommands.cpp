@@ -16,7 +16,7 @@
 
 namespace
 {
-FString NormalizeObjectPathForLoad(const FString& ObjectPath)
+FString NormalizePCGObjectPathForLoad(const FString& ObjectPath)
 {
     FString NormalizedPath = FPackageName::ExportTextPathToObjectPath(ObjectPath).TrimStartAndEnd();
     NormalizedPath.TrimQuotesInline();
@@ -33,7 +33,7 @@ FString NormalizeObjectPathForLoad(const FString& ObjectPath)
 TArray<FString> FindPCGGraphAssetPaths(const FString& GraphPathOrName)
 {
     TArray<FString> CandidatePaths;
-    const FString Query = NormalizeObjectPathForLoad(GraphPathOrName);
+    const FString Query = NormalizePCGObjectPathForLoad(GraphPathOrName);
 
     if (Query.StartsWith(TEXT("/Game/")) || Query.StartsWith(TEXT("/Engine/")))
     {
@@ -69,7 +69,7 @@ TArray<FString> FindPCGGraphAssetPaths(const FString& GraphPathOrName)
 
 UPCGGraph* FindPCGGraph(const FString& GraphPathOrName)
 {
-    const FString Query = NormalizeObjectPathForLoad(GraphPathOrName);
+    const FString Query = NormalizePCGObjectPathForLoad(GraphPathOrName);
     if (UPCGGraph* Graph = LoadObject<UPCGGraph>(nullptr, *Query))
     {
         return Graph;
@@ -96,7 +96,7 @@ FString StripUClassPrefix(const FString& ClassName)
 
 UClass* FindSettingsClass(const FString& SettingsClassName)
 {
-    const FString NormalizedPath = NormalizeObjectPathForLoad(SettingsClassName);
+    const FString NormalizedPath = NormalizePCGObjectPathForLoad(SettingsClassName);
     if (UClass* Class = LoadObject<UClass>(nullptr, *NormalizedPath))
     {
         return Class->IsChildOf(UPCGSettings::StaticClass()) ? Class : nullptr;
@@ -170,7 +170,7 @@ UPCGNode* FindPCGNodeById(UPCGGraph* Graph, const FString& NodeId)
     return nullptr;
 }
 
-FString JsonValueToImportText(const TSharedPtr<FJsonValue>& Value)
+FString JsonValueToPCGImportText(const TSharedPtr<FJsonValue>& Value)
 {
     if (!Value.IsValid())
     {
@@ -196,14 +196,14 @@ FString JsonValueToImportText(const TSharedPtr<FJsonValue>& Value)
     return Serialized;
 }
 
-UObject* LoadObjectValue(const FString& ObjectPath)
+UObject* LoadPCGObjectValue(const FString& ObjectPath)
 {
-    return LoadObject<UObject>(nullptr, *NormalizeObjectPathForLoad(ObjectPath));
+    return LoadObject<UObject>(nullptr, *NormalizePCGObjectPathForLoad(ObjectPath));
 }
 
-UClass* LoadClassValue(const FString& ClassPathOrName)
+UClass* LoadPCGClassValue(const FString& ClassPathOrName)
 {
-    const FString NormalizedPath = NormalizeObjectPathForLoad(ClassPathOrName);
+    const FString NormalizedPath = NormalizePCGObjectPathForLoad(ClassPathOrName);
     if (UClass* Class = LoadObject<UClass>(nullptr, *NormalizedPath))
     {
         return Class;
@@ -273,7 +273,7 @@ bool SetPCGSettingsProperty(UPCGSettings* Settings, const FString& PropertyName,
 
     if (FClassProperty* ClassProperty = CastField<FClassProperty>(Property))
     {
-        UClass* ClassValue = LoadClassValue(Value->AsString());
+        UClass* ClassValue = LoadPCGClassValue(Value->AsString());
         if (!ClassValue)
         {
             OutErrorMessage = FString::Printf(TEXT("Class not found: %s"), *Value->AsString());
@@ -285,7 +285,7 @@ bool SetPCGSettingsProperty(UPCGSettings* Settings, const FString& PropertyName,
 
     if (FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(Property))
     {
-        UObject* ObjectValue = LoadObjectValue(Value->AsString());
+        UObject* ObjectValue = LoadPCGObjectValue(Value->AsString());
         if (!ObjectValue)
         {
             OutErrorMessage = FString::Printf(TEXT("Object not found: %s"), *Value->AsString());
@@ -297,7 +297,7 @@ bool SetPCGSettingsProperty(UPCGSettings* Settings, const FString& PropertyName,
 
     if (Value->Type == EJson::String)
     {
-        const FString ImportText = JsonValueToImportText(Value);
+        const FString ImportText = JsonValueToPCGImportText(Value);
         if (Property->ImportText_Direct(*ImportText, PropertyAddr, Settings, PPF_None) != nullptr)
         {
             return true;

@@ -5852,7 +5852,7 @@ TSharedPtr<FJsonObject> StringIntMapToJsonObject(const TMap<FString, int32>& Map
     return Object;
 }
 
-FString ObjectPathOrEmpty(const UObject* Object)
+FString ProjectObjectPathOrEmpty(const UObject* Object)
 {
     return Object ? Object->GetPathName() : FString();
 }
@@ -5869,9 +5869,9 @@ TSharedPtr<FJsonObject> BlueprintStructureSummaryToJson(UBlueprint* Blueprint)
     Object->SetBoolField(TEXT("loaded"), true);
     Object->SetStringField(TEXT("path"), Blueprint->GetPathName());
     Object->SetStringField(TEXT("class"), Blueprint->GetClass()->GetName());
-    Object->SetStringField(TEXT("parent_class"), ObjectPathOrEmpty(Blueprint->ParentClass));
-    Object->SetStringField(TEXT("generated_class"), ObjectPathOrEmpty(Blueprint->GeneratedClass));
-    Object->SetStringField(TEXT("skeleton_generated_class"), ObjectPathOrEmpty(Blueprint->SkeletonGeneratedClass));
+    Object->SetStringField(TEXT("parent_class"), ProjectObjectPathOrEmpty(Blueprint->ParentClass));
+    Object->SetStringField(TEXT("generated_class"), ProjectObjectPathOrEmpty(Blueprint->GeneratedClass));
+    Object->SetStringField(TEXT("skeleton_generated_class"), ProjectObjectPathOrEmpty(Blueprint->SkeletonGeneratedClass));
     Object->SetNumberField(TEXT("new_variable_count"), Blueprint->NewVariables.Num());
     Object->SetNumberField(TEXT("generated_variable_count"), Blueprint->GeneratedVariables.Num());
 
