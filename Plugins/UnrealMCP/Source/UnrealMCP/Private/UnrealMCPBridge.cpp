@@ -130,8 +130,8 @@ public:
             const TSharedPtr<SWindow> ExistingWindow = StatusWindow;
             LastShowTime = FPlatformTime::Seconds();
             SetProcessingStatus(CommandType);
-            ExistingWindow->MoveWindowTo(GetFinalWindowPosition());
             ExistingWindow->ShowWindow();
+            PositionWindowAtBottomRight(ExistingWindow.ToSharedRef());
             ExistingWindow->BringToFront();
             FlushSlateWindowNow(ExistingWindow.ToSharedRef());
             return;
@@ -245,8 +245,8 @@ public:
         LastShowTime = FPlatformTime::Seconds();
         FSlateApplication::Get().AddWindow(Window);
         SetProcessingStatus(CommandType);
-        Window->MoveWindowTo(FinalPosition);
         Window->ShowWindow();
+        PositionWindowAtBottomRight(Window);
         Window->BringToFront();
         FlushSlateWindowNow(Window);
     }
@@ -489,6 +489,27 @@ private:
         return FVector2D(
             FMath::Max(WorkArea.Left + ScreenMargin, WorkArea.Right - WindowWidth - ScreenMargin),
             FMath::Max(WorkArea.Top + ScreenMargin, WorkArea.Bottom - WindowHeight - ScreenMargin));
+    }
+
+    static void PositionWindowAtBottomRight(const TSharedRef<SWindow>& Window)
+    {
+        const FSlateRect WorkArea = GetTargetWorkArea();
+        const FSlateRect WindowRect = Window->GetRectInScreen();
+        FVector2D WindowSize = Window->GetSizeInScreen();
+        if (WindowRect.IsValid() && !WindowRect.IsEmpty())
+        {
+            WindowSize = FVector2D(WindowRect.Right - WindowRect.Left, WindowRect.Bottom - WindowRect.Top);
+        }
+
+        if (WindowSize.X <= 0.0f || WindowSize.Y <= 0.0f)
+        {
+            WindowSize = FVector2D(WindowWidth, WindowHeight);
+        }
+
+        const FVector2D FinalPosition(
+            FMath::Max(WorkArea.Left + ScreenMargin, WorkArea.Right - WindowSize.X - ScreenMargin),
+            FMath::Max(WorkArea.Top + ScreenMargin, WorkArea.Bottom - WindowSize.Y - ScreenMargin));
+        Window->MoveWindowTo(FinalPosition);
     }
 
     static FSlateRect GetTargetWorkArea()
