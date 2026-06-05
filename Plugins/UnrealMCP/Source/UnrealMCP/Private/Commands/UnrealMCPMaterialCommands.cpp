@@ -123,7 +123,7 @@ FString NormalizeObjectPathForLoad(const FString& ObjectPath)
     return NormalizedPath;
 }
 
-FString NormalizeGraphType(const FString& GraphType)
+FString NormalizeMaterialGraphType(const FString& GraphType)
 {
     if (GraphType.Equals(TEXT("material_function"), ESearchCase::IgnoreCase) ||
         GraphType.Equals(TEXT("function"), ESearchCase::IgnoreCase))
@@ -140,7 +140,7 @@ FString NormalizeGraphType(const FString& GraphType)
 bool LoadMaterialGraphByObjectPath(const FString& GraphPath, const FString& GraphType, FMaterialGraphTarget& OutTarget, FString& OutError)
 {
     const FString Query = NormalizeObjectPathForLoad(GraphPath);
-    const FString NormalizedGraphType = NormalizeGraphType(GraphType);
+    const FString NormalizedGraphType = NormalizeMaterialGraphType(GraphType);
 
     if (NormalizedGraphType != TEXT("function"))
     {
@@ -205,7 +205,7 @@ void AppendAssetCandidatesForClass(UClass* AssetClass, const FString& GraphPathO
 TArray<FString> FindMaterialGraphAssetPaths(const FString& GraphPathOrName, const FString& GraphType)
 {
     TArray<FString> CandidatePaths;
-    const FString NormalizedGraphType = NormalizeGraphType(GraphType);
+    const FString NormalizedGraphType = NormalizeMaterialGraphType(GraphType);
 
     FMaterialGraphTarget DirectTarget;
     FString DirectError;
@@ -2564,7 +2564,7 @@ TSharedPtr<FJsonObject> FUnrealMCPMaterialCommands::HandleAnalyzeMaterialGraph(c
     if (!LoadedObject)
     {
         TArray<FString> CandidatePaths = FindMaterialGraphAssetPaths(MaterialPath, GraphType);
-        if (NormalizeGraphType(GraphType) != TEXT("function"))
+        if (NormalizeMaterialGraphType(GraphType) != TEXT("function"))
         {
             AppendAssetCandidatesForClass(UMaterialInstance::StaticClass(), MaterialPath, CandidatePaths);
         }

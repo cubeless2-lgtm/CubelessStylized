@@ -1,0 +1,20 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1",
+	"FriendlyName": "Optimization Preview Tools",
+	"Description": "Preview scene optimization costs from profiling data. Includes Material GPU Preview and Object Memory Snapshot debug overlays.",
+	"Category": "Profiling",
+	"CreatedBy": "Cubeless",
+	"CanContainContent": false,
+	"IsBetaVersion": true,
+	"Installed": false,
+	"EnabledByDefault": true,
+	"Modules": [
+		{
+			"Name": "OptimizationPreviewTools",
+			"Type": "DeveloperTool",
+			"LoadingPhase": "PostEngineInit"
+		}
+	]
+}

@@ -102,10 +102,6 @@
 			"Enabled": true
 		},
 		{
-			"Name": "GodotOceanWaves",
-			"Enabled": true
-		},
-		{
 			"Name": "VirtualHeightfieldMesh",
 			"Enabled": true
 		},
@@ -118,6 +114,10 @@
 		},
 		{
 			"Name": "StylizedSky",
+			"Enabled": true
+		},
+		{
+			"Name": "OptimizationPreviewTools",
 			"Enabled": true
 		}
 	]
