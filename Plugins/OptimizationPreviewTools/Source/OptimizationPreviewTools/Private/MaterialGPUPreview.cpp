@@ -20,6 +20,7 @@
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformProcess.h"
 #include "InputCoreTypes.h"
+#include "Framework/Application/IInputProcessor.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Materials/MaterialInterface.h"
 #include "Misc/DateTime.h"
@@ -46,6 +47,7 @@
 #include "UObject/WeakObjectPtrTemplates.h"
 #include "ViewportClient.h"
 #include "Widgets/Input/SButton.h"
+#include "Widgets/Images/SImage.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SSpacer.h"
@@ -328,6 +330,7 @@ static FString GOptimizationPreviewToolsIni;
 static bool GOptimizationPreviewToolsIniLoaded = false;
 static TArray<IConsoleCommand*> GConsoleAutoCompleteCommands;
 static TSharedPtr<SWidget> GProfilingSlateOverlayWidget;
+static TSharedPtr<IInputProcessor> GProfilingCommandInputProcessor;
 static TWeakObjectPtr<UGameViewportClient> GProfilingSlateOverlayViewport;
 static TWeakObjectPtr<UGameViewportClient> GProfilingInputOverrideViewport;
 static FOverrideInputKeyHandler GPreviousProfilingInputOverride;
@@ -348,6 +351,11 @@ static float GProfilingCommandHitHeight = 36.0f;
 static float GProfilingCommandHitButtonHeight = ProfilingCommandButtonHeight;
 static float GProfilingCommandHitButtonGap = ProfilingCommandButtonGap;
 static bool GProfilingSlateDrawPanel = false;
+static bool GLastProfilingSlateDrawPanel = false;
+static float GLastProfilingSlateOverlayLeft = -1.0f;
+static float GLastProfilingSlateOverlayTop = -1.0f;
+static float GLastProfilingSlateOverlayWidth = -1.0f;
+static float GLastProfilingSlateOverlayHeight = -1.0f;
 
 #if WITH_EDITOR
 static FDelegateHandle GEndPIEHandle;
@@ -1303,20 +1311,27 @@ static UGameViewportClient* ResolveProfilingGameViewport(FCommonViewportClient* 
 	return nullptr;
 }
 
-static bool TryGetProfilingCommandAtLocalPosition(const FVector2D& LocalPosition, FString& OutCommand)
+static bool TryGetProfilingCommandAtRectPosition(
+	const FVector2D& Position,
+	float RectLeft,
+	float RectTop,
+	float RectWidth,
+	float RectHeight,
+	float ButtonGap,
+	FString& OutCommand)
 {
 	const int32 ButtonCount = UE_ARRAY_COUNT(GProfilingCommandButtons);
 	if (ButtonCount <= 0
-		|| LocalPosition.Y < GProfilingCommandHitTop
-		|| LocalPosition.Y > GProfilingCommandHitTop + GProfilingCommandHitHeight
-		|| LocalPosition.X < GProfilingCommandHitLeft
-		|| LocalPosition.X > GProfilingCommandHitLeft + GProfilingCommandHitWidth)
+		|| Position.Y < RectTop
+		|| Position.Y > RectTop + RectHeight
+		|| Position.X < RectLeft
+		|| Position.X > RectLeft + RectWidth)
 	{
 		return false;
 	}
 
-	const float LocalX = LocalPosition.X - GProfilingCommandHitLeft;
-	const float ButtonWidth = (GProfilingCommandHitWidth - GProfilingCommandHitButtonGap * static_cast<float>(ButtonCount - 1)) / static_cast<float>(ButtonCount);
+	const float LocalX = Position.X - RectLeft;
+	const float ButtonWidth = (RectWidth - ButtonGap * static_cast<float>(ButtonCount - 1)) / static_cast<float>(ButtonCount);
 	if (ButtonWidth <= 0.0f)
 	{
 		return false;
@@ -1324,7 +1339,7 @@ static bool TryGetProfilingCommandAtLocalPosition(const FVector2D& LocalPosition
 
 	for (int32 ButtonIndex = 0; ButtonIndex < ButtonCount; ++ButtonIndex)
 	{
-		const float ButtonLeft = static_cast<float>(ButtonIndex) * (ButtonWidth + GProfilingCommandHitButtonGap);
+		const float ButtonLeft = static_cast<float>(ButtonIndex) * (ButtonWidth + ButtonGap);
 		if (LocalX >= ButtonLeft && LocalX <= ButtonLeft + ButtonWidth)
 		{
 			OutCommand = GProfilingCommandButtons[ButtonIndex].Command;
@@ -1333,6 +1348,72 @@ static bool TryGetProfilingCommandAtLocalPosition(const FVector2D& LocalPosition
 	}
 
 	return false;
+}
+
+static bool TryGetProfilingCommandAtLocalPosition(const FVector2D& LocalPosition, FString& OutCommand)
+{
+	if (TryGetProfilingCommandAtRectPosition(
+		LocalPosition,
+		GProfilingCommandHitLeft,
+		GProfilingCommandHitTop,
+		GProfilingCommandHitWidth,
+		GProfilingCommandHitHeight,
+		GProfilingCommandHitButtonGap,
+		OutCommand))
+	{
+		return true;
+	}
+
+	if (!GProfilingSlateDrawPanel
+		&& TryGetProfilingCommandAtRectPosition(
+			LocalPosition,
+			GProfilingSlateOverlayLeft,
+			GProfilingSlateOverlayTop,
+			GProfilingSlateOverlayWidth,
+			GProfilingSlateOverlayHeight,
+			GProfilingSlateButtonGap,
+			OutCommand))
+	{
+		return true;
+	}
+
+	float ScaleCandidates[] =
+	{
+		FSlateApplication::IsInitialized() ? FMath::Max(FSlateApplication::Get().GetApplicationScale(), 0.01f) : 1.0f,
+		1.25f,
+		1.5f,
+		1.75f,
+		2.0f
+	};
+	for (const float DPIScale : ScaleCandidates)
+	{
+		if (!FMath::IsNearlyEqual(DPIScale, 1.0f)
+			&& TryGetProfilingCommandAtRectPosition(
+				LocalPosition * DPIScale,
+				GProfilingCommandHitLeft,
+				GProfilingCommandHitTop,
+				GProfilingCommandHitWidth,
+				GProfilingCommandHitHeight,
+				GProfilingCommandHitButtonGap,
+				OutCommand))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool TryGetProfilingCommandAtButtonRowPosition(const FVector2D& LocalPosition, const FVector2D& RowSize, FString& OutCommand)
+{
+	return TryGetProfilingCommandAtRectPosition(
+		LocalPosition,
+		0.0f,
+		0.0f,
+		RowSize.X,
+		RowSize.Y,
+		GProfilingSlateButtonGap,
+		OutCommand);
 }
 
 static bool TryGetProfilingCommandUnderCursor(UGameViewportClient* GameViewportClient, FString& OutCommand)
@@ -1345,6 +1426,8 @@ static bool TryGetProfilingCommandUnderCursor(UGameViewportClient* GameViewportC
 	const FVector2D CursorPosition = FSlateApplication::Get().GetCursorPos();
 	return TryGetProfilingCommandAtLocalPosition(CursorPosition, OutCommand);
 }
+
+static void KeepProfilingCommandsVisibleAfterButtonCommand(const FString& Command);
 
 static void ExecuteProfilingCommand(const FString& Command)
 {
@@ -1369,6 +1452,7 @@ static void ExecuteProfilingCommand(const FString& Command)
 	if (GEngine)
 	{
 		GEngine->Exec(World, *Command);
+		KeepProfilingCommandsVisibleAfterButtonCommand(Command);
 	}
 }
 
@@ -1377,6 +1461,71 @@ static FReply ExecuteProfilingSlateCommand(const FString Command)
 	ExecuteProfilingCommand(Command);
 
 	return FReply::Handled();
+}
+
+class FProfilingCommandInputProcessor final : public IInputProcessor
+{
+public:
+	virtual void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override
+	{
+	}
+
+	virtual bool HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override
+	{
+		if (MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton)
+		{
+			return false;
+		}
+
+		return TryExecuteCommandAtScreenPosition(MouseEvent.GetScreenSpacePosition());
+	}
+
+	virtual const TCHAR* GetDebugName() const override
+	{
+		return TEXT("OptimizationPreviewToolsProfilingCommands");
+	}
+
+private:
+	static bool TryExecuteCommandAtScreenPosition(const FVector2D& ScreenPosition)
+	{
+		if (!GProfilingSlateOverlayWidget.IsValid())
+		{
+			return false;
+		}
+
+		FString Command;
+		if (!TryGetProfilingCommandAtLocalPosition(ScreenPosition, Command))
+		{
+			return false;
+		}
+
+		ExecuteProfilingCommand(Command);
+		return true;
+	}
+};
+
+static void RemoveProfilingInputProcessor()
+{
+	if (GProfilingCommandInputProcessor.IsValid() && FSlateApplication::IsInitialized())
+	{
+		FSlateApplication::Get().UnregisterInputPreProcessor(GProfilingCommandInputProcessor);
+	}
+
+	GProfilingCommandInputProcessor.Reset();
+}
+
+static void InstallProfilingInputProcessor()
+{
+	if (!FSlateApplication::IsInitialized())
+	{
+		return;
+	}
+
+	if (!GProfilingCommandInputProcessor.IsValid())
+	{
+		GProfilingCommandInputProcessor = MakeShared<FProfilingCommandInputProcessor>();
+		FSlateApplication::Get().RegisterInputPreProcessor(GProfilingCommandInputProcessor);
+	}
 }
 
 static bool HandleProfilingOverrideInputKey(FInputKeyEventArgs& EventArgs)
@@ -1500,7 +1649,34 @@ static TSharedRef<SWidget> MakeProfilingSlateButtonRow()
 		];
 	}
 
-	return ButtonRow;
+	return SNew(SOverlay)
+		+ SOverlay::Slot()
+		[
+			ButtonRow
+		]
+		+ SOverlay::Slot()
+		[
+			SNew(SImage)
+			.Image(FCoreStyle::Get().GetBrush("WhiteBrush"))
+			.ColorAndOpacity(FLinearColor::Transparent)
+			.OnMouseButtonDown_Lambda([](const FGeometry& Geometry, const FPointerEvent& MouseEvent)
+			{
+				if (MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton && !MouseEvent.IsTouchEvent())
+				{
+					return FReply::Unhandled();
+				}
+
+				FString Command;
+				const FVector2D LocalPosition = Geometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
+				if (!TryGetProfilingCommandAtButtonRowPosition(LocalPosition, Geometry.GetLocalSize(), Command))
+				{
+					return FReply::Unhandled();
+				}
+
+				ExecuteProfilingCommand(Command);
+				return FReply::Handled();
+			})
+		];
 }
 
 static TSharedRef<SWidget> BuildProfilingSlateOverlay()
@@ -1634,6 +1810,38 @@ static void RemoveProfilingSlateOverlay()
 	GProfilingSlateOverlayViewport = nullptr;
 }
 
+static void RecordProfilingSlateOverlayLayout()
+{
+	GLastProfilingSlateDrawPanel = GProfilingSlateDrawPanel;
+	GLastProfilingSlateOverlayLeft = GProfilingSlateOverlayLeft;
+	GLastProfilingSlateOverlayTop = GProfilingSlateOverlayTop;
+	GLastProfilingSlateOverlayWidth = GProfilingSlateOverlayWidth;
+	GLastProfilingSlateOverlayHeight = GProfilingSlateOverlayHeight;
+}
+
+static bool HasProfilingSlateOverlayLayoutChanged()
+{
+	return GLastProfilingSlateDrawPanel != GProfilingSlateDrawPanel
+		|| !FMath::IsNearlyEqual(GLastProfilingSlateOverlayLeft, GProfilingSlateOverlayLeft, 0.5f)
+		|| !FMath::IsNearlyEqual(GLastProfilingSlateOverlayTop, GProfilingSlateOverlayTop, 0.5f)
+		|| !FMath::IsNearlyEqual(GLastProfilingSlateOverlayWidth, GProfilingSlateOverlayWidth, 0.5f)
+		|| !FMath::IsNearlyEqual(GLastProfilingSlateOverlayHeight, GProfilingSlateOverlayHeight, 0.5f);
+}
+
+static void RefreshProfilingSlateOverlayIfLayoutChanged()
+{
+	UGameViewportClient* GameViewportClient = GProfilingSlateOverlayViewport.Get();
+	if (!GameViewportClient || !GProfilingSlateOverlayWidget.IsValid() || !HasProfilingSlateOverlayLayoutChanged())
+	{
+		return;
+	}
+
+	GameViewportClient->RemoveViewportWidgetContent(GProfilingSlateOverlayWidget.ToSharedRef());
+	GProfilingSlateOverlayWidget = BuildProfilingSlateOverlay();
+	GameViewportClient->AddViewportWidgetContent(GProfilingSlateOverlayWidget.ToSharedRef(), 1000);
+	RecordProfilingSlateOverlayLayout();
+}
+
 static void EnsureProfilingSlateOverlay(FCommonViewportClient* ViewportClient)
 {
 	UGameViewportClient* GameViewportClient = ResolveProfilingGameViewport(ViewportClient);
@@ -1645,6 +1853,7 @@ static void EnsureProfilingSlateOverlay(FCommonViewportClient* ViewportClient)
 
 	if (GProfilingSlateOverlayWidget.IsValid() && GProfilingSlateOverlayViewport.Get() == GameViewportClient)
 	{
+		InstallProfilingInputProcessor();
 		InstallProfilingInputOverride(GameViewportClient);
 		return;
 	}
@@ -1653,6 +1862,8 @@ static void EnsureProfilingSlateOverlay(FCommonViewportClient* ViewportClient)
 	GProfilingSlateOverlayViewport = GameViewportClient;
 	GProfilingSlateOverlayWidget = BuildProfilingSlateOverlay();
 	GameViewportClient->AddViewportWidgetContent(GProfilingSlateOverlayWidget.ToSharedRef(), 1000);
+	RecordProfilingSlateOverlayLayout();
+	InstallProfilingInputProcessor();
 	InstallProfilingInputOverride(GameViewportClient);
 	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Optimization Profiling Slate command overlay added."));
 }
@@ -2019,6 +2230,43 @@ static bool DisablePluginViewportStatsForConflictingExternalStat(UWorld* World, 
 }
 
 static bool StopInsightsTraceIfNeeded();
+
+static bool IsProfilingOffCommand(const FString& Command)
+{
+	FString NormalizedCommand = Command;
+	NormalizedCommand.TrimStartAndEndInline();
+
+	const TCHAR* Cmd = *NormalizedCommand;
+	if (!FParse::Command(&Cmd, TEXT("stat")))
+	{
+		return false;
+	}
+	if (!FParse::Command(&Cmd, *ProfilingStatName))
+	{
+		return false;
+	}
+
+	return FParse::Command(&Cmd, TEXT("0"))
+		|| FParse::Command(&Cmd, TEXT("off"))
+		|| FParse::Command(&Cmd, TEXT("clear"));
+}
+
+static void KeepProfilingCommandsVisibleAfterButtonCommand(const FString& Command)
+{
+	if (IsProfilingOffCommand(Command))
+	{
+		return;
+	}
+
+	if (UGameViewportClient* ProfilingViewportClient = GProfilingSlateOverlayViewport.Get())
+	{
+		SetProfilingViewportStatEnabled(ProfilingViewportClient, true);
+	}
+	else if (UGameViewportClient* EngineGameViewportClient = GEngine ? GEngine->GameViewport : nullptr)
+	{
+		SetProfilingViewportStatEnabled(EngineGameViewportClient, true);
+	}
+}
 
 static void DisableAllViewportStats()
 {
@@ -2957,29 +3205,32 @@ static float DrawProfilingCommandBar(FCanvas* Canvas, UFont* Font, float PanelX,
 	GProfilingCommandHitHeight = ButtonsHeight;
 	GProfilingCommandHitButtonHeight = ProfilingCommandButtonHeight;
 	GProfilingCommandHitButtonGap = ProfilingCommandButtonGap;
-	if (UGameViewportClient* GameViewportClient = GProfilingSlateOverlayViewport.Get())
-	{
-		if (TSharedPtr<SViewport> ViewportWidget = GameViewportClient->GetGameViewportWidget())
-		{
-			const FGeometry& ViewportGeometry = ViewportWidget->GetCachedGeometry();
-			const FVector2D AbsoluteTopLeft = ViewportGeometry.LocalToAbsolute(FVector2D(InnerX, ButtonY));
-			const FVector2D AbsoluteBottomRight = ViewportGeometry.LocalToAbsolute(FVector2D(InnerX + ButtonWidth, ButtonY + ButtonsHeight));
-			const FVector2D AbsoluteButtonBottom = ViewportGeometry.LocalToAbsolute(FVector2D(InnerX, ButtonY + ProfilingCommandButtonHeight));
-			const int32 ButtonCount = UE_ARRAY_COUNT(GProfilingCommandButtons);
-			const float SingleButtonWidth = (ButtonWidth - ProfilingCommandButtonGap * static_cast<float>(ButtonCount - 1)) / static_cast<float>(ButtonCount);
-			const FVector2D AbsoluteButtonRight = ViewportGeometry.LocalToAbsolute(FVector2D(InnerX + SingleButtonWidth, ButtonY));
-			const FVector2D AbsoluteSlotRight = ViewportGeometry.LocalToAbsolute(FVector2D(InnerX + SingleButtonWidth + ProfilingCommandButtonGap, ButtonY));
-			GProfilingCommandHitLeft = AbsoluteTopLeft.X;
-			GProfilingCommandHitTop = AbsoluteTopLeft.Y;
-			GProfilingCommandHitWidth = FMath::Max(1.0f, AbsoluteBottomRight.X - AbsoluteTopLeft.X);
-			GProfilingCommandHitHeight = FMath::Max(1.0f, AbsoluteBottomRight.Y - AbsoluteTopLeft.Y);
-			GProfilingCommandHitButtonHeight = FMath::Max(1.0f, AbsoluteButtonBottom.Y - AbsoluteTopLeft.Y);
-			GProfilingCommandHitButtonGap = FMath::Max(0.0f, AbsoluteSlotRight.X - AbsoluteButtonRight.X);
-		}
-	}
+	RefreshProfilingSlateOverlayIfLayoutChanged();
 
 	DrawStatTile(Canvas, FVector2D(PanelX, ToolbarY), FVector2D(PanelWidth, BarHeight), FLinearColor(0.035f, 0.037f, 0.04f, 0.86f));
 	DrawStatLine(Canvas, FVector2D(PanelX, ToolbarY), FVector2D(PanelX + PanelWidth, ToolbarY), FLinearColor(0.46f, 0.46f, 0.43f, 0.55f));
+
+	const int32 ButtonCount = UE_ARRAY_COUNT(GProfilingCommandButtons);
+	const float SingleButtonWidth = (ButtonWidth - ProfilingCommandButtonGap * static_cast<float>(ButtonCount - 1)) / static_cast<float>(ButtonCount);
+	for (int32 ButtonIndex = 0; ButtonIndex < ButtonCount; ++ButtonIndex)
+	{
+		const float ButtonX = InnerX + static_cast<float>(ButtonIndex) * (SingleButtonWidth + ProfilingCommandButtonGap);
+		const FVector2D ButtonPosition(ButtonX, ButtonY);
+		const FVector2D ButtonSize(SingleButtonWidth, ButtonsHeight);
+		DrawStatTile(Canvas, ButtonPosition, ButtonSize, FLinearColor(0.54f, 0.56f, 0.55f, 0.70f));
+		DrawStatTile(Canvas, ButtonPosition + FVector2D(1.0f, 1.0f), ButtonSize - FVector2D(2.0f, 2.0f), FLinearColor(0.055f, 0.058f, 0.062f, 0.96f));
+
+		const FString Label(GProfilingCommandButtons[ButtonIndex].Label);
+		const float TextWidth = static_cast<float>(Label.Len()) * 7.0f;
+		const float TextHeight = 14.0f;
+		FCanvasTextItem ButtonTextItem(
+			FVector2D(ButtonX + FMath::Max(0.0f, (SingleButtonWidth - TextWidth) * 0.5f), ButtonY + FMath::Max(0.0f, (ButtonsHeight - TextHeight) * 0.5f)),
+			FText::FromString(Label),
+			Font,
+			FLinearColor(0.94f, 0.94f, 0.90f, 1.0f));
+		ButtonTextItem.EnableShadow(FLinearColor::Black);
+		Canvas->DrawItem(ButtonTextItem);
+	}
 
 	const float CommandY = ButtonY + ButtonsHeight + 6.0f;
 	FCanvasTextItem CommandTextItem(FVector2D(InnerX, CommandY), FText::FromString(TEXT("Commands: stat mat start/end/0 | stat obj/0")), Font, FLinearColor(0.50f, 0.58f, 0.64f, 0.95f));
@@ -4313,6 +4564,7 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 void FOptimizationPreviewToolsModule::StartupModule()
 {
 	RegisterStat();
+	OptimizationPreviewTools::InstallProfilingInputProcessor();
 	OptimizationPreviewTools::RegisterActorColorationHandler();
 	OptimizationPreviewTools::RegisterConsoleAutoComplete();
 #if WITH_EDITOR
@@ -4327,6 +4579,7 @@ void FOptimizationPreviewToolsModule::ShutdownModule()
 #endif
 	OptimizationPreviewTools::UnregisterConsoleAutoComplete();
 	UnregisterStat();
+	OptimizationPreviewTools::RemoveProfilingInputProcessor();
 	OptimizationPreviewTools::UnregisterActorColorationHandler();
 }
 
