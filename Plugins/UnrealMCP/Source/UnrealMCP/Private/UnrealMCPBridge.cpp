@@ -38,7 +38,6 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SWindow.h"
-#include "Widgets/Notifications/SProgressBar.h"
 #include "Widgets/Text/STextBlock.h"
 // Add Blueprint related includes
 #include "Engine/Blueprint.h"
@@ -229,13 +228,6 @@ public:
                             .Font(FCoreStyle::GetDefaultFontStyle("Regular", 12))
                         ]
 
-                        + SVerticalBox::Slot()
-                        .AutoHeight()
-                        .Padding(0.0f, 10.0f, 0.0f, 0.0f)
-                        [
-                            SAssignNew(ProgressBar, SProgressBar)
-                            .Percent(0.05f)
-                        ]
                     ]
                 ]
             ];
@@ -251,7 +243,7 @@ public:
         FlushSlateWindowNow(Window);
     }
 
-    static void UpdateStatus(const FString& StatusText, const FString& CommandType, TOptional<float> Progress = TOptional<float>())
+    static void UpdateStatus(const FString& StatusText, const FString& CommandType)
     {
         const FString SlateCommand = CommandType.IsEmpty() ? TEXT("ieta_status") : CommandType;
         if (!IsIetaPlanningCommand(SlateCommand))
@@ -279,15 +271,6 @@ public:
         if (BodyTextBlock.IsValid())
         {
             BodyTextBlock->SetText(UpdatedBodyText);
-        }
-
-        if (ProgressBar.IsValid())
-        {
-            ProgressBar->SetVisibility(EVisibility::Visible);
-            if (Progress.IsSet())
-            {
-                ProgressBar->SetPercent(FMath::Clamp(Progress.GetValue(), 0.0f, 1.0f));
-            }
         }
 
         LastShowTime = FPlatformTime::Seconds();
@@ -330,7 +313,7 @@ public:
                     DetailText.IsEmpty() ? TEXT("") : TEXT("\n"),
                     *DetailText);
 
-            UpdateStatus(IetaPlanningCompletionText, CommandType, TOptional<float>(1.0f));
+            UpdateStatus(IetaPlanningCompletionText, CommandType);
             Hide();
             return;
         }
@@ -349,7 +332,7 @@ public:
                 DetailText.IsEmpty() ? TEXT("") : TEXT("\n"),
                 *DetailText);
 
-        UpdateStatus(IetaCompletionText, CommandType, TOptional<float>(1.0f));
+        UpdateStatus(IetaCompletionText, CommandType);
         Hide();
     }
 
@@ -476,11 +459,6 @@ private:
             BodyTextBlock->SetText(BuildProcessingBodyText(CommandType));
         }
 
-        if (ProgressBar.IsValid())
-        {
-            ProgressBar->SetVisibility(EVisibility::Visible);
-            ProgressBar->SetPercent(0.25f);
-        }
     }
 
     static FVector2D GetFinalWindowPosition()
@@ -580,7 +558,6 @@ private:
         StatusWindow.Reset();
         AvatarBrush.Reset();
         BodyTextBlock.Reset();
-        ProgressBar.Reset();
     }
 
     static void OnStatusWindowClosed(const TSharedRef<SWindow>& ClosedWindow)
@@ -598,7 +575,6 @@ private:
     static double LastShowTime;
     static TSharedPtr<SWindow> StatusWindow;
     static TSharedPtr<STextBlock> BodyTextBlock;
-    static TSharedPtr<SProgressBar> ProgressBar;
     static TSharedPtr<FSlateBrush> AvatarBrush;
     static UTexture2D* AvatarTexture;
     static FString PendingParamsSummary;
@@ -609,7 +585,6 @@ private:
 double FIetaMCPStatusWindow::LastShowTime = 0.0;
 TSharedPtr<SWindow> FIetaMCPStatusWindow::StatusWindow;
 TSharedPtr<STextBlock> FIetaMCPStatusWindow::BodyTextBlock;
-TSharedPtr<SProgressBar> FIetaMCPStatusWindow::ProgressBar;
 TSharedPtr<FSlateBrush> FIetaMCPStatusWindow::AvatarBrush;
 UTexture2D* FIetaMCPStatusWindow::AvatarTexture = nullptr;
 FString FIetaMCPStatusWindow::PendingParamsSummary;
@@ -811,9 +786,9 @@ void UUnrealMCPBridge::ScheduleStartupIetaStatusSequence()
         constexpr double StartupCheckSeconds = 2.0;
         const double StartTime = FPlatformTime::Seconds();
         const FString ConnectingText = TEXT("흥, 연결 확인 중이야. 잠깐만 기다려.");
-        FIetaMCPStatusWindow::UpdateStatus(ConnectingText, TEXT("ieta_status"), TOptional<float>(0.0f));
+        FIetaMCPStatusWindow::UpdateStatus(ConnectingText, TEXT("ieta_status"));
 
-        FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([WeakThis, StartTime, ConnectingText](float)
+        FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([WeakThis, StartTime](float)
         {
             if (!WeakThis.IsValid())
             {
@@ -821,23 +796,29 @@ void UUnrealMCPBridge::ScheduleStartupIetaStatusSequence()
             }
 
             const double ElapsedSeconds = FPlatformTime::Seconds() - StartTime;
-            const float Progress = FMath::Clamp(static_cast<float>(ElapsedSeconds / StartupCheckSeconds), 0.0f, 1.0f);
-            if (Progress < 1.0f)
+            if (ElapsedSeconds < StartupCheckSeconds)
             {
-                FIetaMCPStatusWindow::UpdateStatus(ConnectingText, TEXT("ieta_status"), TOptional<float>(Progress));
                 return true;
             }
 
             const bool bConnected = WeakThis->IsRunning();
-            const FString LogStatusText = BuildIetaEditorLogStatusText();
+            const FString MCPStatusText = bConnected
+                ? FString::Printf(
+                    TEXT("현재 접속된 MCP: unrealMCP / UnrealMCP Editor bridge (%s:%d)"),
+                    *WeakThis->ServerAddress.ToString(),
+                    WeakThis->Port)
+                : TEXT("현재 접속된 MCP: 없음");
+            const FString LogStatusText = FString::Printf(
+                TEXT("%s\n%s"),
+                *MCPStatusText,
+                *BuildIetaEditorLogStatusText());
             const FString StatusText = bConnected
                 ? FString::Printf(TEXT("연결 완료야. Unreal MCP 준비됐어.\n%s"), *LogStatusText)
                 : FString::Printf(TEXT("연결 실패야. 서버가 안 떠 있어. 이 창은 닫지 않을게.\n%s"), *LogStatusText);
 
             FIetaMCPStatusWindow::UpdateStatus(
                 StatusText,
-                TEXT("ieta_status"),
-                TOptional<float>(bConnected ? 1.0f : 0.0f));
+                TEXT("ieta_status"));
             if (bConnected)
             {
                 FIetaMCPStatusWindow::Hide();
@@ -894,8 +875,7 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
 
                 FIetaMCPStatusWindow::UpdateStatus(
                     StatusText,
-                    StatusCommand,
-                    ProgressValue >= 0.0 ? TOptional<float>(static_cast<float>(ProgressValue)) : TOptional<float>());
+                    StatusCommand);
 
                 ResultJson = MakeShareable(new FJsonObject);
                 ResultJson->SetBoolField(TEXT("success"), true);
