@@ -494,6 +494,36 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - World repair verification: `verification_pass=true` for `/Game/_MCP_Temp/UltraDynamicSky_MCP/Maps/DemoMap_MCP`, `source_hard_dependency_count=0`, and `editor_log_issue_count=0`.
 - Notion capture fallback: Notion enhanced markdown spec fetch previously failed with a validation error, so this local work-log entry is the durable capture.
 
+## Optimization Preview Tools Material Replay Slider Fix
+
+- Date: 2026-06-06 03:15 KST
+- Scope: `Plugins/OptimizationPreviewTools` Material GPU Preview replay view.
+- Decision: replay actor-coloration fallback now uses the 0ms green preview color instead of black for primitives that do not have a current per-frame material match, reducing black gaps during replay playback.
+- Replay control: Material GPU Preview now draws a replay scrub slider under the top-10 table and accepts mouse/touch input through both Slate input preprocessing and the game viewport input override.
+- DPI handling: slider hit testing now checks viewport geometry plus DPI-scaled and inverse-DPI-scaled pointer coordinates, with a limited vertical tolerance to match the Canvas-drawn stat panel inside editor PIE viewports.
+- Verification: `StylizedCubelessEditor Win64 Development` build succeeded after the fix. PIE smoke test captured Insights/replay samples, started `stat mat replay`, clicked the scrub slider, and confirmed the replay time moved to the clicked position.
+- Notion capture fallback: Notion enhanced markdown spec fetch failed with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## Optimization Preview Tools Profiling Command Bar
+
+- Date: 2026-06-06 12:15 KST
+- Scope: `Plugins/OptimizationPreviewTools` stat overlay layout.
+- Decision: `stat profiling` owns the plugin command buttons as a top-of-viewport horizontal Slate row with 50px top padding. `stat mat` and `stat obj` Top 10 panels no longer embed command buttons.
+- Layout rule: when `stat profiling` is active together with `stat mat` or `stat obj`, the Top 10 panel is pushed below the command bar so the two overlays do not overlap.
+- Cleanup: removed the obsolete Canvas-drawn profiling command bar path and updated console autocomplete text for `stat profiling`.
+- Verification: `StylizedCubelessEditor Win64 Development` build succeeded. PIE smoke screenshots verified `stat profiling` alone, `stat profiling + stat mat`, `stat profiling + stat obj`, and `stat mat/stat obj` without profiling.
+
+## Optimization Preview Tools Replay Slider Hold Fix
+
+- Date: 2026-06-06 12:53 KST
+- Scope: `Plugins/OptimizationPreviewTools` Material GPU Preview replay slider.
+- Issue: slider scrubbing committed a replay `GotoTimeInSeconds`, then released scrub state so replay playback could continue automatically from the selected point.
+- Issue: actor-coloration debug view could briefly drop back to original material rendering when the replay sample produced an empty or stale color map during seek/rematch.
+- Fix: user-driven slider, START, and END seeks now pause/hold replay at the requested scrub time. The initial automatic replay seek still allows playback to continue.
+- Fix: replay pause now uses PlayerController pause, WorldSettings pauser fallback, and DemoNetDriver channel/time hold. `stat mat 0` clears that pause state.
+- Fix: replay actor-coloration view remains active during empty replay color-map frames and forces viewport redraw/refresh after color updates.
+- Verification: `StylizedCubelessEditor Win64 Development` build succeeded. Remote console smoke was blocked because Remote Control console execution is disabled and MCPUnreal port 8090 is offline.
+
 ## UnrealMCP Generic Content Validation Pipeline
 
 - Date: 2026-06-04 19:55 KST
@@ -534,3 +564,40 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Git rule: `_MCP_Temp` outputs are disposable generated artifacts that may change on every validation run, so `/Content/_MCP_Temp/` is now gitignored.
 - Fixture separation rule: `/Content/MCPTestFixtures/` is reserved for deliberate stable test fixtures only, not for ordinary temporary MCP output.
 - Agent rule: 이에타, 케일란, and 티브렛 all use this `_MCP_Temp` convention when planning, generating, importing, recreating, or validating MCP content.
+
+## Unreal C++ Convention Baseline
+
+- Date: 2026-06-06 12:04 KST
+- Scope: project C++ review and convention management rules.
+- Decision: 이에타 manages the Unreal C++ convention baseline for this project and applies it during `이에타 C++ 리뷰`.
+- Source priority: Epic official Unreal C++ coding standard first, then Unreal Engine/Lyra local style, then CubelessStylized project-specific rules, then third-party checklists as supporting references only.
+- Documentation: `AGENTS.md` now links the C++ review mode to `docs/unreal-cpp-conventions.md`, and the new docs page records naming, UObject ownership, module boundaries, Slate/editor UI, async/socket, UnrealMCP, and verification expectations.
+- Editor defaults: `.editorconfig` was added only for safe UTF-8, CRLF, final newline, and whitespace defaults. It does not force C++ indentation style.
+- Formatter rule: `.clang-format` remains deferred. It must be trialed on a small sample or temporary copy before any real source adoption, and broad formatting needs explicit approval.
+- Notion capture fallback: Notion enhanced markdown spec fetch failed with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## MCP Sample Learning Resource Folder
+
+## OptimizationPreviewTools Material Replay UI Input Fix
+
+- Date: 2026-06-06 14:38 KST
+- Scope: `Plugins/OptimizationPreviewTools/Source/OptimizationPreviewTools/Private/MaterialGPUPreview.cpp`.
+- Change: `stat profiling` command buttons now rely on real Slate buttons plus a viewport input preprocessor that consumes mouse and touch events before gameplay input.
+- Change: Material replay controls were simplified to `PLAY/STOP`, time label, and slider. `stat mat replay` now starts paused at the first sample, and playback begins from the current slider position.
+- Change: Replay slider scrubbing now uses screen-space hit rectangles computed from the current viewport geometry, pauses playback immediately on drag, updates the replay sample while dragging, and clears drag state when the overlay is removed.
+- Verification: `git diff --check` passed with only the repository CRLF warning. `StylizedCubelessEditor Win64 Development` build succeeded after compiling and linking `UnrealEditor-OptimizationPreviewTools.dll`.
+
+## OptimizationPreviewTools Replay Threshold and Camera Binding Fix
+
+- Date: 2026-06-06 15:14 KST
+- Scope: `Plugins/OptimizationPreviewTools` Material GPU Preview replay and stat profiling Slate input.
+- Change: default Material GPU Preview ms thresholds moved to `DebugGreenMaxMs=0.3` and `DebugWhiteMs=0.6` in plugin config and C++ fallback defaults.
+- Change: `stat profiling` buttons now store per-button Slate widget hit geometry so all buttons can be resolved individually by mouse or touch before gameplay input.
+- Change: Material replay slider hit testing now prefers the actual Slate slider geometry, pauses playback as soon as the user scrubs, and guards replay duration against non-finite Insights frame end times.
+- Change: replay camera samples are captured during `stat mat start/end`, and replay mode keeps the player view target bound to the transient replay camera while disabling look input until replay teardown.
+- Verification: `StylizedCubelessEditor Win64 Development -NoLiveCoding` build succeeded after the input and camera changes, then succeeded again after the non-finite replay duration guard.
+
+- Date: 2026-06-06 14:01 KST
+- Decision: `/Content/_MCP_Sample/` is reserved for local MCP learning/sample resources.
+- Git rule: `/Content/_MCP_Sample/` is now gitignored by default and must not be staged or committed unless the user explicitly asks to version a specific sample asset.
+- Agent rule: 이에타 treats this folder as a learning-resource area, separate from disposable `_MCP_Temp` validation output and stable `/Content/MCPTestFixtures/` fixtures.

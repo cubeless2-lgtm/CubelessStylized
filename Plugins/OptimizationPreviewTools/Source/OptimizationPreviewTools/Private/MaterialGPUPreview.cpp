@@ -1,10 +1,14 @@
 #include "OptimizationPreviewTools.h"
 
 #include "CanvasItem.h"
+#include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
+#include "Camera/CameraTypes.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/LineBatchComponent.h"
 #include "Components/SkinnedMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Containers/Ticker.h"
 #include "CoreGlobals.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
@@ -16,6 +20,8 @@
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/ActorPrimitiveColorHandler.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
 #include "HAL/FileManager.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformProcess.h"
@@ -47,7 +53,7 @@
 #include "UObject/WeakObjectPtrTemplates.h"
 #include "ViewportClient.h"
 #include "Widgets/Input/SButton.h"
-#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SSlider.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SSpacer.h"
@@ -80,6 +86,7 @@ static const FName ObjectEngineStatName(TEXT("STAT_Obj"));
 static const FName ProfilingEngineStatName(TEXT("STAT_Profiling"));
 static const FName EngineStatCategory(TEXT("STATCAT_Engine"));
 static const FName ActorColorationHandlerName(TEXT("OptimizationPreviewTools"));
+static const FName MaterialReplayCameraTag(TEXT("OptimizationPreviewToolsReplayCamera"));
 static const TCHAR* TraceChannels = TEXT("gpu,frame,stats,log,rendercommands,cpu");
 
 struct FProfilingCommandButtonSpec
@@ -92,6 +99,7 @@ static const FProfilingCommandButtonSpec GProfilingCommandButtons[] =
 {
 	{ TEXT("MAT START"), TEXT("stat mat start") },
 	{ TEXT("MAT END"), TEXT("stat mat end") },
+	{ TEXT("MAT REPLAY"), TEXT("stat mat replay") },
 	{ TEXT("MAT OFF"), TEXT("stat mat 0") },
 	{ TEXT("OBJ SNAP"), TEXT("stat obj") },
 	{ TEXT("OBJ OFF"), TEXT("stat obj 0") }
@@ -170,8 +178,8 @@ static TAutoConsoleVariable<int32> CVarObjectMaxDebugComponents(
 static const TCHAR* MaterialGPUPreviewConfigName = TEXT("OptimizationPreviewTools");
 static const TCHAR* MaterialGPUPreviewConfigSection = TEXT("MaterialGPUPreview");
 static const TCHAR* ObjectMemorySnapshotConfigSection = TEXT("ObjectMemorySnapshot");
-static constexpr float DefaultDebugGreenMaxMs = 0.5f;
-static constexpr float DefaultDebugWhiteMs = 2.0f;
+static constexpr float DefaultDebugGreenMaxMs = 0.3f;
+static constexpr float DefaultDebugWhiteMs = 0.6f;
 static constexpr float DefaultObjectDebugGreenMaxMB = 5.0f;
 static constexpr float DefaultObjectDebugWhiteMB = 10.0f;
 
@@ -272,6 +280,22 @@ struct FTraceMaterialAggregate
 	TMap<uint32, double> GpuMsByFrame;
 };
 
+struct FMaterialGpuReplayFrameSample
+{
+	uint32 TraceFrameIndex = 0;
+	double TimeSeconds = 0.0;
+	double EndTimeSeconds = 0.0;
+	TMap<FString, float> MaterialGpuMsByKey;
+	TMap<FString, int32> MaterialDrawEventsByKey;
+};
+
+struct FMaterialReplayCameraSample
+{
+	double TimeSeconds = 0.0;
+	FTransform Transform = FTransform::Identity;
+	FMinimalViewInfo ViewInfo;
+};
+
 struct FObjectMemorySnapshotRow
 {
 	TWeakObjectPtr<UObject> Object;
@@ -294,12 +318,75 @@ struct FObjectMemorySnapshotRow
 	}
 };
 
+struct FInputScreenRect
+{
+	FVector2D Min = FVector2D::ZeroVector;
+	FVector2D Max = FVector2D::ZeroVector;
+	bool bValid = false;
+
+	void Reset()
+	{
+		Min = FVector2D::ZeroVector;
+		Max = FVector2D::ZeroVector;
+		bValid = false;
+	}
+
+	void Set(const FVector2D& InMin, const FVector2D& InMax)
+	{
+		Min = FVector2D(FMath::Min(InMin.X, InMax.X), FMath::Min(InMin.Y, InMax.Y));
+		Max = FVector2D(FMath::Max(InMin.X, InMax.X), FMath::Max(InMin.Y, InMax.Y));
+		bValid = Max.X > Min.X && Max.Y > Min.Y;
+	}
+
+	bool Contains(const FVector2D& Position) const
+	{
+		return bValid
+			&& Position.X >= Min.X
+			&& Position.X <= Max.X
+			&& Position.Y >= Min.Y
+			&& Position.Y <= Max.Y;
+	}
+
+	float GetNormalizedX(const FVector2D& Position) const
+	{
+		return bValid
+			? FMath::Clamp(static_cast<float>((Position.X - Min.X) / FMath::Max(Max.X - Min.X, 1.0)), 0.0f, 1.0f)
+			: 0.0f;
+	}
+};
+
+static bool SetInputScreenRectFromWidget(const TSharedPtr<SWidget>& Widget, float InflateX, float InflateY, FInputScreenRect& OutRect)
+{
+	if (!Widget.IsValid())
+	{
+		return false;
+	}
+
+	const FGeometry& Geometry = Widget->GetCachedGeometry();
+	const FVector2D LocalSize = Geometry.GetLocalSize();
+	if (LocalSize.X <= 1.0f || LocalSize.Y <= 1.0f)
+	{
+		return false;
+	}
+
+	const FVector2D Min = Geometry.LocalToAbsolute(FVector2D::ZeroVector) - FVector2D(InflateX, InflateY);
+	const FVector2D Max = Geometry.LocalToAbsolute(LocalSize) + FVector2D(InflateX, InflateY);
+	OutRect.Set(Min, Max);
+	return OutRect.bValid;
+}
+
 static TArray<FMaterialAccumulator> GCachedRows;
 static TArray<FMaterialAccumulator> GCachedDebugRows;
+static TArray<FMaterialAccumulator> GMaterialReplayCurrentRows;
+static TArray<FMaterialAccumulator> GMaterialReplayDebugRows;
+static TArray<FMaterialAccumulator> GMaterialReplaySceneRows;
+static TArray<FMaterialGpuReplayFrameSample> GMaterialReplaySamples;
+static TArray<FMaterialReplayCameraSample> GMaterialReplayCameraSamples;
 static TArray<FObjectMemorySnapshotRow> GCachedObjectRows;
 static TArray<FObjectMemorySnapshotRow> GCachedObjectDebugRows;
 static TArray<FDebugOverlayEntry> GCachedDebugEntries;
 static TMap<FObjectKey, FLinearColor> GActorColorationColors;
+static TMap<FString, int32> GMaterialReplaySceneLookup;
 static double GCaptureStartTime = -1.0;
 static double GCaptureEndTime = -1.0;
 static TWeakObjectPtr<UWorld> GCachedDebugWorld;
@@ -310,6 +397,9 @@ static bool GCaptureFrozen = false;
 static bool GTraceStartedByCapture = false;
 static bool GActorColorationHandlerRegistered = false;
 static bool GActorColorationActive = false;
+static bool GMaterialReplayActive = false;
+static bool GMaterialReplayPlaying = false;
+static bool GMaterialReplayScrubbing = false;
 static bool GHasPreviousGameViewMode = false;
 static int32 GPreviousGameViewMode = VMI_Lit;
 static FString GTraceFilePath;
@@ -331,11 +421,28 @@ static bool GOptimizationPreviewToolsIniLoaded = false;
 static TArray<IConsoleCommand*> GConsoleAutoCompleteCommands;
 static TSharedPtr<SWidget> GProfilingSlateOverlayWidget;
 static TSharedPtr<IInputProcessor> GProfilingCommandInputProcessor;
+static TArray<TSharedPtr<SWidget>> GProfilingSlateButtonWidgets;
 static TWeakObjectPtr<UGameViewportClient> GProfilingSlateOverlayViewport;
 static TWeakObjectPtr<UGameViewportClient> GProfilingInputOverrideViewport;
+static TSharedPtr<SWidget> GMaterialReplayOverlayWidget;
+static TSharedPtr<SWidget> GMaterialReplayPlayButtonWidget;
+static TSharedPtr<SSlider> GMaterialReplaySliderWidget;
+static TWeakObjectPtr<UGameViewportClient> GMaterialReplayOverlayViewport;
+static TWeakObjectPtr<ACameraActor> GMaterialReplayCameraActor;
+static TWeakObjectPtr<UCameraComponent> GMaterialReplaySourceCameraComponent;
+static TWeakObjectPtr<APlayerController> GMaterialReplayViewPlayerController;
+static TWeakObjectPtr<AActor> GMaterialReplayPreviousViewTarget;
+static TWeakObjectPtr<APlayerController> GMaterialReplayLookInputPlayerController;
+static TWeakObjectPtr<UWorld> GMaterialReplayCameraCaptureWorld;
 static FOverrideInputKeyHandler GPreviousProfilingInputOverride;
 static FDelegateHandle GProfilingInputOverrideHandle;
+static FTSTicker::FDelegateHandle GMaterialReplayTickerHandle;
+static FTSTicker::FDelegateHandle GMaterialReplayCameraCaptureTickerHandle;
 static bool GHadPreviousProfilingInputOverride = false;
+static bool GMaterialReplayLookInputLocked = false;
+static double GMaterialReplayCurrentTimeSeconds = 0.0;
+static double GMaterialReplayLastTickSeconds = -1.0;
+static int32 GMaterialReplayCurrentSampleIndex = INDEX_NONE;
 static float GProfilingSlateOverlayLeft = 260.0f;
 static float GProfilingSlateOverlayTop = 300.0f;
 static float GProfilingSlateOverlayWidth = 760.0f;
@@ -348,7 +455,6 @@ static float GProfilingCommandHitLeft = 260.0f;
 static float GProfilingCommandHitTop = 300.0f;
 static float GProfilingCommandHitWidth = 760.0f;
 static float GProfilingCommandHitHeight = 36.0f;
-static float GProfilingCommandHitButtonHeight = ProfilingCommandButtonHeight;
 static float GProfilingCommandHitButtonGap = ProfilingCommandButtonGap;
 static bool GProfilingSlateDrawPanel = false;
 static bool GLastProfilingSlateDrawPanel = false;
@@ -356,6 +462,10 @@ static float GLastProfilingSlateOverlayLeft = -1.0f;
 static float GLastProfilingSlateOverlayTop = -1.0f;
 static float GLastProfilingSlateOverlayWidth = -1.0f;
 static float GLastProfilingSlateOverlayHeight = -1.0f;
+static FInputScreenRect GMaterialReplayPlayButtonRect;
+static FInputScreenRect GMaterialReplaySliderRect;
+static bool GMaterialReplayDraggingSlider = false;
+static uint32 GMaterialReplayDraggingPointerIndex = 0;
 
 #if WITH_EDITOR
 static FDelegateHandle GEndPIEHandle;
@@ -388,6 +498,17 @@ static FString BuildObjectSnapshotFilePath()
 		FString::Printf(TEXT("ObjectMemorySnapshot_%s.csv"), *FDateTime::Now().ToString(TEXT("%Y%m%d_%H%M%S"))));
 }
 
+static void RemoveMaterialReplayOverlay();
+static void StopMaterialReplayTicker();
+static void StopMaterialReplayCameraCaptureTicker();
+static void StartMaterialReplayCameraCapture(UWorld* World);
+static void DestroyMaterialReplayCamera();
+static void StartMaterialReplay(UWorld* World, FCommonViewportClient* ViewportClient);
+static void StopMaterialReplay(UWorld* World, FCommonViewportClient* ViewportClient);
+static bool TryHandleMaterialReplayPointerDown(const FPointerEvent& PointerEvent);
+static bool TryHandleMaterialReplayPointerMove(const FPointerEvent& PointerEvent);
+static bool TryHandleMaterialReplayPointerUp(const FPointerEvent& PointerEvent);
+
 static float GetCaptureDurationSeconds()
 {
 	if (GCaptureStartTime < 0.0)
@@ -412,6 +533,22 @@ static void ClearCaptureState()
 	GLastDebugComponentCount = 0;
 	GCachedRows.Reset();
 	GCachedDebugRows.Reset();
+	GMaterialReplayActive = false;
+	GMaterialReplayPlaying = false;
+	GMaterialReplayScrubbing = false;
+	GMaterialReplayCurrentRows.Reset();
+	GMaterialReplayDebugRows.Reset();
+	GMaterialReplaySceneRows.Reset();
+	GMaterialReplaySceneLookup.Reset();
+	GMaterialReplaySamples.Reset();
+	GMaterialReplayCameraSamples.Reset();
+	GMaterialReplayCurrentTimeSeconds = 0.0;
+	GMaterialReplayLastTickSeconds = -1.0;
+	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
+	StopMaterialReplayTicker();
+	StopMaterialReplayCameraCaptureTicker();
+	RemoveMaterialReplayOverlay();
+	DestroyMaterialReplayCamera();
 }
 
 static void ClearObjectMemorySnapshotState()
@@ -916,6 +1053,11 @@ static FLinearColor GetFallbackComplexityColorForRange(float Value, float GreenM
 
 static FLinearColor GetComplexityPreviewColorForRange(float Value, float GreenMax, float White, float Alpha = 1.0f)
 {
+	if (Value <= KINDA_SMALL_NUMBER)
+	{
+		return FLinearColor(0.0f, 1.0f, 0.0f, Alpha);
+	}
+
 	FLinearColor Color = GetFallbackComplexityColorForRange(Value, GreenMax, White);
 	if (GEngine && GEngine->ShaderComplexityColors.Num() > 0)
 	{
@@ -1062,6 +1204,11 @@ static FLinearColor GetActorColorationPrimitiveColor(const UPrimitiveComponent* 
 		return *Color;
 	}
 
+	if (GMaterialReplayActive)
+	{
+		return GetMaterialGpuPreviewColor(0.0f);
+	}
+
 	return FLinearColor::Black;
 }
 
@@ -1134,6 +1281,11 @@ static int32 CountUniqueDebugComponents(const TArray<FMaterialAccumulator>& Rows
 	return Components.Num();
 }
 
+static const TArray<FMaterialAccumulator>& GetActiveMaterialDebugRows()
+{
+	return GMaterialReplayActive ? GMaterialReplayDebugRows : GCachedDebugRows;
+}
+
 static void RebuildActorColorationColorMap()
 {
 	GActorColorationColors.Reset();
@@ -1141,7 +1293,7 @@ static void RebuildActorColorationColorMap()
 	const int32 MaxDebugComponents = GetDebugComponentLimit();
 
 	TMap<UPrimitiveComponent*, FActorColorationTarget> TargetsByComponent;
-	for (const FMaterialAccumulator& Row : GCachedDebugRows)
+	for (const FMaterialAccumulator& Row : GetActiveMaterialDebugRows())
 	{
 		const float DebugMs = GetSeverityMs(Row);
 		const int32 Severity = GetDebugSeverity(DebugMs);
@@ -1404,16 +1556,21 @@ static bool TryGetProfilingCommandAtLocalPosition(const FVector2D& LocalPosition
 	return false;
 }
 
-static bool TryGetProfilingCommandAtButtonRowPosition(const FVector2D& LocalPosition, const FVector2D& RowSize, FString& OutCommand)
+static bool TryGetProfilingCommandAtWidgetPosition(const FVector2D& ScreenPosition, FString& OutCommand)
 {
-	return TryGetProfilingCommandAtRectPosition(
-		LocalPosition,
-		0.0f,
-		0.0f,
-		RowSize.X,
-		RowSize.Y,
-		GProfilingSlateButtonGap,
-		OutCommand);
+	const int32 ButtonCount = FMath::Min(GProfilingSlateButtonWidgets.Num(), static_cast<int32>(UE_ARRAY_COUNT(GProfilingCommandButtons)));
+	for (int32 ButtonIndex = 0; ButtonIndex < ButtonCount; ++ButtonIndex)
+	{
+		FInputScreenRect ButtonRect;
+		if (SetInputScreenRectFromWidget(GProfilingSlateButtonWidgets[ButtonIndex], 2.0f, 4.0f, ButtonRect)
+			&& ButtonRect.Contains(ScreenPosition))
+		{
+			OutCommand = GProfilingCommandButtons[ButtonIndex].Command;
+			return true;
+		}
+	}
+
+	return false;
 }
 
 static bool TryGetProfilingCommandUnderCursor(UGameViewportClient* GameViewportClient, FString& OutCommand)
@@ -1424,7 +1581,8 @@ static bool TryGetProfilingCommandUnderCursor(UGameViewportClient* GameViewportC
 	}
 
 	const FVector2D CursorPosition = FSlateApplication::Get().GetCursorPos();
-	return TryGetProfilingCommandAtLocalPosition(CursorPosition, OutCommand);
+	return TryGetProfilingCommandAtWidgetPosition(CursorPosition, OutCommand)
+		|| TryGetProfilingCommandAtLocalPosition(CursorPosition, OutCommand);
 }
 
 static void KeepProfilingCommandsVisibleAfterButtonCommand(const FString& Command);
@@ -1463,6 +1621,24 @@ static FReply ExecuteProfilingSlateCommand(const FString Command)
 	return FReply::Handled();
 }
 
+static bool TryExecuteProfilingCommandAtScreenPosition(const FVector2D& ScreenPosition)
+{
+	if (!GProfilingSlateOverlayWidget.IsValid())
+	{
+		return false;
+	}
+
+	FString Command;
+	if (!TryGetProfilingCommandAtWidgetPosition(ScreenPosition, Command)
+		&& !TryGetProfilingCommandAtLocalPosition(ScreenPosition, Command))
+	{
+		return false;
+	}
+
+	ExecuteProfilingCommand(Command);
+	return true;
+}
+
 class FProfilingCommandInputProcessor final : public IInputProcessor
 {
 public:
@@ -1470,37 +1646,34 @@ public:
 	{
 	}
 
+	virtual bool HandleMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override
+	{
+		return TryHandleMaterialReplayPointerMove(MouseEvent);
+	}
+
 	virtual bool HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override
 	{
-		if (MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton)
+		if (!MouseEvent.IsTouchEvent() && MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton)
 		{
 			return false;
 		}
 
-		return TryExecuteCommandAtScreenPosition(MouseEvent.GetScreenSpacePosition());
+		if (TryExecuteProfilingCommandAtScreenPosition(MouseEvent.GetScreenSpacePosition()))
+		{
+			return true;
+		}
+
+		return TryHandleMaterialReplayPointerDown(MouseEvent);
+	}
+
+	virtual bool HandleMouseButtonUpEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override
+	{
+		return TryHandleMaterialReplayPointerUp(MouseEvent);
 	}
 
 	virtual const TCHAR* GetDebugName() const override
 	{
 		return TEXT("OptimizationPreviewToolsProfilingCommands");
-	}
-
-private:
-	static bool TryExecuteCommandAtScreenPosition(const FVector2D& ScreenPosition)
-	{
-		if (!GProfilingSlateOverlayWidget.IsValid())
-		{
-			return false;
-		}
-
-		FString Command;
-		if (!TryGetProfilingCommandAtLocalPosition(ScreenPosition, Command))
-		{
-			return false;
-		}
-
-		ExecuteProfilingCommand(Command);
-		return true;
 	}
 };
 
@@ -1590,9 +1763,10 @@ static void InstallProfilingInputOverride(UGameViewportClient* GameViewportClien
 	GProfilingInputOverrideHandle = OverrideInputKey.GetHandle();
 }
 
-static TSharedRef<SWidget> MakeProfilingSlateButton(const TCHAR* Label, const TCHAR* Command)
+static TSharedRef<SWidget> MakeProfilingSlateButton(int32 ButtonIndex, const TCHAR* Label, const TCHAR* Command)
 {
-	return SNew(SBox)
+	TSharedPtr<SBox> ButtonBox;
+	TSharedRef<SWidget> ButtonWidget = SAssignNew(ButtonBox, SBox)
 		.HeightOverride(TAttribute<FOptionalSize>::CreateLambda([]()
 		{
 			return FOptionalSize(GProfilingSlateButtonHeight);
@@ -1629,11 +1803,19 @@ static TSharedRef<SWidget> MakeProfilingSlateButton(const TCHAR* Label, const TC
 				]
 			]
 		];
+
+	if (GProfilingSlateButtonWidgets.IsValidIndex(ButtonIndex))
+	{
+		GProfilingSlateButtonWidgets[ButtonIndex] = ButtonBox;
+	}
+
+	return ButtonWidget;
 }
 
 static TSharedRef<SWidget> MakeProfilingSlateButtonRow()
 {
 	const int32 ButtonCount = UE_ARRAY_COUNT(GProfilingCommandButtons);
+	GProfilingSlateButtonWidgets.SetNum(ButtonCount);
 	TSharedRef<SHorizontalBox> ButtonRow = SNew(SHorizontalBox);
 	for (int32 ButtonIndex = 0; ButtonIndex < ButtonCount; ++ButtonIndex)
 	{
@@ -1645,38 +1827,11 @@ static TSharedRef<SWidget> MakeProfilingSlateButtonRow()
 			return FMargin(bHasLeftGap ? GProfilingSlateButtonGap : 0.0f, 0.0f, 0.0f, 0.0f);
 		}))
 		[
-			MakeProfilingSlateButton(GProfilingCommandButtons[ButtonIndex].Label, GProfilingCommandButtons[ButtonIndex].Command)
+			MakeProfilingSlateButton(ButtonIndex, GProfilingCommandButtons[ButtonIndex].Label, GProfilingCommandButtons[ButtonIndex].Command)
 		];
 	}
 
-	return SNew(SOverlay)
-		+ SOverlay::Slot()
-		[
-			ButtonRow
-		]
-		+ SOverlay::Slot()
-		[
-			SNew(SImage)
-			.Image(FCoreStyle::Get().GetBrush("WhiteBrush"))
-			.ColorAndOpacity(FLinearColor::Transparent)
-			.OnMouseButtonDown_Lambda([](const FGeometry& Geometry, const FPointerEvent& MouseEvent)
-			{
-				if (MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton && !MouseEvent.IsTouchEvent())
-				{
-					return FReply::Unhandled();
-				}
-
-				FString Command;
-				const FVector2D LocalPosition = Geometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
-				if (!TryGetProfilingCommandAtButtonRowPosition(LocalPosition, Geometry.GetLocalSize(), Command))
-				{
-					return FReply::Unhandled();
-				}
-
-				ExecuteProfilingCommand(Command);
-				return FReply::Handled();
-			})
-		];
+	return StaticCastSharedRef<SWidget>(ButtonRow);
 }
 
 static TSharedRef<SWidget> BuildProfilingSlateOverlay()
@@ -1770,7 +1925,7 @@ static TSharedRef<SWidget> BuildProfilingSlateOverlay()
 							.Padding(FMargin(18.0f, 0.0f, 18.0f, 10.0f))
 							[
 								SNew(STextBlock)
-								.Text(FText::FromString(TEXT("Commands: stat mat start/end/0 | stat obj/0")))
+								.Text(FText::FromString(TEXT("Commands: stat mat start/end/replay/0 | stat obj/0")))
 								.ColorAndOpacity(FSlateColor(FLinearColor(0.50f, 0.58f, 0.64f, 0.95f)))
 							]
 						]
@@ -1807,6 +1962,7 @@ static void RemoveProfilingSlateOverlay()
 	}
 
 	GProfilingSlateOverlayWidget.Reset();
+	GProfilingSlateButtonWidgets.Reset();
 	GProfilingSlateOverlayViewport = nullptr;
 }
 
@@ -1870,6 +2026,34 @@ static void EnsureProfilingSlateOverlay(FCommonViewportClient* ViewportClient)
 
 static void DisableActorColoration(UWorld* World, FCommonViewportClient* ViewportClient);
 
+static void RefreshActorColorationViewports(FCommonViewportClient* ViewportClient)
+{
+	if (UGameViewportClient* GameViewportClient = FindGameViewportClient(ViewportClient))
+	{
+		if (GameViewportClient->Viewport)
+		{
+			GameViewportClient->Viewport->InvalidateDisplay();
+			GameViewportClient->Viewport->Invalidate();
+		}
+	}
+
+#if WITH_EDITOR
+	if (FEditorViewportClient* EditorViewportClient = FindEditorViewportClient(ViewportClient))
+	{
+		if (EditorViewportClient->Viewport)
+		{
+			EditorViewportClient->Viewport->InvalidateDisplay();
+			EditorViewportClient->Viewport->Invalidate();
+		}
+	}
+
+	if (GEditor)
+	{
+		GEditor->RedrawAllViewports();
+	}
+#endif
+}
+
 static void ApplyActorColorationViewModeFromCurrentColors(UWorld* World, FCommonViewportClient* ViewportClient)
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -1879,7 +2063,7 @@ static void ApplyActorColorationViewModeFromCurrentColors(UWorld* World, FCommon
 	}
 
 	RegisterActorColorationHandler();
-	if (GActorColorationColors.Num() == 0)
+	if (GActorColorationColors.Num() == 0 && !GMaterialReplayActive)
 	{
 		DisableActorColoration(World, ViewportClient);
 		return;
@@ -1916,6 +2100,7 @@ static void ApplyActorColorationViewModeFromCurrentColors(UWorld* World, FCommon
 	GActorColorationActive = true;
 	GActorColorationWorld = World;
 	ClearCachedDebugOverlay(World);
+	RefreshActorColorationViewports(ViewportClient);
 #endif
 }
 
@@ -1991,6 +2176,7 @@ static void DisableActorColoration(UWorld* World, FCommonViewportClient* Viewpor
 
 	GActorColorationActive = false;
 	GActorColorationWorld = nullptr;
+	RefreshActorColorationViewports(ViewportClient);
 #endif
 }
 
@@ -2215,6 +2401,7 @@ static bool DisablePluginViewportStatsForConflictingExternalStat(UWorld* World, 
 
 	CVarDebug->Set(0);
 	CVarObjectDebug->Set(0);
+	StopMaterialReplay(World, ViewportClient);
 	DisableActorColoration(World, ViewportClient);
 	ClearCachedDebugOverlay(World);
 	SetViewportStatEnabled(ViewportClient, false);
@@ -2323,12 +2510,14 @@ static void RegisterConsoleAutoComplete()
 	RegisterConsoleAutoCompleteCommand(TEXT("stat mat start"), TEXT("Start Material GPU Preview Insights trace capture."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat mat end"), TEXT("Stop trace, analyze utrace, and show the result."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat mat stop"), TEXT("Stop trace, analyze utrace, and show the result."));
+	RegisterConsoleAutoCompleteCommand(TEXT("stat mat replay"), TEXT("Replay captured per-frame material GPU samples with a timeline slider."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat mat 0"), TEXT("Hide Material GPU Preview panel and debug visualization."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat mat 1"), TEXT("Show last Material GPU Preview Insights result."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat mat clear"), TEXT("Clear Material GPU Preview capture state and overlay."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat material"), TEXT("Toggle Material GPU Preview result panel."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat material start"), TEXT("Start Material GPU Preview Insights trace capture."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat material end"), TEXT("Stop trace, analyze utrace, and show the result."));
+	RegisterConsoleAutoCompleteCommand(TEXT("stat material replay"), TEXT("Replay captured per-frame material GPU samples with a timeline slider."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat obj"), TEXT("Create and show an Object Memory Snapshot for the current world."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat obj 0"), TEXT("Hide Object Memory Snapshot panel and debug visualization."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat profiling"), TEXT("Show Optimization Preview Tools command buttons under the active Top 10 stat panel."));
@@ -2356,6 +2545,20 @@ static void HandleEndPIE(const bool bIsSimulating)
 	GCaptureFrozen = GCachedRows.Num() > 0;
 	GCaptureEndTime = FPlatformTime::Seconds();
 	GTraceStartedByCapture = false;
+	GMaterialReplayActive = false;
+	GMaterialReplayPlaying = false;
+	GMaterialReplayScrubbing = false;
+	GMaterialReplayCurrentRows.Reset();
+	GMaterialReplayDebugRows.Reset();
+	GMaterialReplayCurrentTimeSeconds = 0.0;
+	GMaterialReplayLastTickSeconds = -1.0;
+	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
+	GLastDebugMaterialCount = GCachedDebugRows.Num();
+	GLastDebugComponentCount = CountUniqueDebugComponents(GCachedDebugRows);
+	StopMaterialReplayTicker();
+	StopMaterialReplayCameraCaptureTicker();
+	RemoveMaterialReplayOverlay();
+	DestroyMaterialReplayCamera();
 	CVarDebug->Set(0);
 	CVarObjectDebug->Set(0);
 	DisableActorColoration(nullptr, nullptr);
@@ -2454,6 +2657,7 @@ static void StartCapture(UWorld* World, FCommonViewportClient* ViewportClient)
 		return;
 	}
 
+	StopMaterialReplay(World, ViewportClient);
 	StopInsightsTraceIfNeeded();
 	RestoreInsightsMaterialCaptureCvars();
 	ClearCaptureState();
@@ -2477,6 +2681,7 @@ static void StartCapture(UWorld* World, FCommonViewportClient* ViewportClient)
 
 	if (!GTraceStartedByCapture)
 	{
+		StopMaterialReplayCameraCaptureTicker();
 		RestoreInsightsMaterialCaptureCvars();
 		GCaptureActive = false;
 		GCaptureEndTime = FPlatformTime::Seconds();
@@ -2487,6 +2692,7 @@ static void StartCapture(UWorld* World, FCommonViewportClient* ViewportClient)
 		return;
 	}
 
+	StartMaterialReplayCameraCapture(World);
 	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Material GPU Preview capture started. Trace=%s Channels=%s StartedTrace=%s"),
 		*GTraceFilePath,
 		TraceChannels,
@@ -2504,6 +2710,7 @@ static void EndCapture(UWorld* World, FCommonViewportClient* ViewportClient)
 	GCaptureActive = false;
 	GCaptureFrozen = true;
 	GCaptureEndTime = FPlatformTime::Seconds();
+	StopMaterialReplayCameraCaptureTicker();
 
 	FlushRenderingCommands();
 	const bool bStoppedTrace = StopInsightsTraceIfNeeded();
@@ -2553,6 +2760,7 @@ static void SetDebugViewEnabled(UWorld* World, FCommonViewportClient* ViewportCl
 {
 	if (!bEnable)
 	{
+		StopMaterialReplay(World, ViewportClient);
 		CVarDebug->Set(0);
 		DisableActorColoration(World, ViewportClient);
 		ClearCachedDebugOverlay(World);
@@ -2560,6 +2768,7 @@ static void SetDebugViewEnabled(UWorld* World, FCommonViewportClient* ViewportCl
 		return;
 	}
 
+	StopMaterialReplay(World, ViewportClient);
 	CVarObjectDebug->Set(0);
 	SetObjectViewportStatEnabled(ViewportClient, false);
 	ClearCachedDebugOverlay(World);
@@ -2617,8 +2826,15 @@ static bool ToggleStat(UWorld* World, FCommonViewportClient* ViewportClient, con
 		return true;
 	}
 
+	if (FParse::Command(&Cmd, TEXT("replay")))
+	{
+		StartMaterialReplay(World, ViewportClient);
+		return true;
+	}
+
 	if (FParse::Command(&Cmd, TEXT("clear")))
 	{
+		StopMaterialReplay(World, ViewportClient);
 		StopInsightsTraceIfNeeded();
 		RestoreInsightsMaterialCaptureCvars();
 		ClearCaptureState();
@@ -2860,6 +3076,7 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 	}
 
 	TMap<FString, FTraceMaterialAggregate> AggregatesByMaterial;
+	TMap<uint32, FMaterialGpuReplayFrameSample> ReplaySamplesByFrame;
 	TArray<FString> TraceDiagnosticSamples;
 	TSet<FString> SeenTraceDiagnosticSamples;
 	uint64 FrameCount = 0;
@@ -2930,7 +3147,8 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 							}
 
 							const uint32 FrameIndex = FrameProvider.GetFrameNumberForTimestamp(FrameType, EventStartTime);
-							FTraceMaterialAggregate& Aggregate = AggregatesByMaterial.FindOrAdd(NormalizeTraceLookupKey(MaterialName));
+							const FString MaterialKey = NormalizeTraceLookupKey(MaterialName);
+							FTraceMaterialAggregate& Aggregate = AggregatesByMaterial.FindOrAdd(MaterialKey);
 							if (Aggregate.MaterialName.IsEmpty())
 							{
 								Aggregate.MaterialName = MaterialName;
@@ -2939,6 +3157,21 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 							Aggregate.TotalGpuMs += DurationMs;
 							Aggregate.DrawEvents++;
 							Aggregate.GpuMsByFrame.FindOrAdd(FrameIndex) += DurationMs;
+
+							FMaterialGpuReplayFrameSample& ReplaySample = ReplaySamplesByFrame.FindOrAdd(FrameIndex);
+							ReplaySample.TraceFrameIndex = FrameIndex;
+							if (const TraceServices::FFrame* Frame = FrameProvider.GetFrame(FrameType, FrameIndex))
+							{
+								ReplaySample.TimeSeconds = Frame->StartTime;
+								ReplaySample.EndTimeSeconds = Frame->EndTime;
+							}
+							else
+							{
+								ReplaySample.TimeSeconds = EventStartTime;
+								ReplaySample.EndTimeSeconds = EventEndTime;
+							}
+							ReplaySample.MaterialGpuMsByKey.FindOrAdd(MaterialKey) += static_cast<float>(DurationMs);
+							ReplaySample.MaterialDrawEventsByKey.FindOrAdd(MaterialKey)++;
 							MatchedTraceEventCount++;
 
 							return TraceServices::EEventEnumerate::Continue;
@@ -2982,6 +3215,11 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 
 	if (AggregatesByMaterial.Num() == 0)
 	{
+		GMaterialReplaySamples.Reset();
+		GMaterialReplayCurrentRows.Reset();
+		GMaterialReplayDebugRows.Reset();
+		GMaterialReplayActive = false;
+		GMaterialReplayPlaying = false;
 		GLastAnalysisMessage = FString::Printf(TEXT("No material GPU scopes found. Trace=%s Queues=%d InspectedEvents=%d MaterialDrawEvents=%d MatchedEvents=%d SceneMaterials=%d"),
 			*GTraceFilePath,
 			GpuQueueCount,
@@ -3027,6 +3265,52 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 
 		return A.PeakFrameGpuMs > B.PeakFrameGpuMs;
 	});
+
+	GMaterialReplaySceneRows = SceneRows;
+	GMaterialReplaySceneLookup = SceneLookup;
+	GMaterialReplaySamples.Reset();
+	ReplaySamplesByFrame.GenerateValueArray(GMaterialReplaySamples);
+	GMaterialReplaySamples.RemoveAll([](const FMaterialGpuReplayFrameSample& Sample)
+	{
+		return !FMath::IsFinite(Sample.TimeSeconds);
+	});
+	GMaterialReplaySamples.Sort([](const FMaterialGpuReplayFrameSample& A, const FMaterialGpuReplayFrameSample& B)
+	{
+		if (!FMath::IsNearlyEqual(A.TimeSeconds, B.TimeSeconds))
+		{
+			return A.TimeSeconds < B.TimeSeconds;
+		}
+		return A.TraceFrameIndex < B.TraceFrameIndex;
+	});
+	if (GMaterialReplaySamples.Num() > 0)
+	{
+		const double ReplayStartTime = GMaterialReplaySamples[0].TimeSeconds;
+		for (int32 SampleIndex = 0; SampleIndex < GMaterialReplaySamples.Num(); ++SampleIndex)
+		{
+			FMaterialGpuReplayFrameSample& Sample = GMaterialReplaySamples[SampleIndex];
+			if (!FMath::IsFinite(Sample.EndTimeSeconds) || Sample.EndTimeSeconds <= Sample.TimeSeconds)
+			{
+				Sample.EndTimeSeconds = GMaterialReplaySamples.IsValidIndex(SampleIndex + 1)
+					? GMaterialReplaySamples[SampleIndex + 1].TimeSeconds
+					: Sample.TimeSeconds + (1.0 / 60.0);
+			}
+
+			Sample.TimeSeconds = FMath::Max(0.0, Sample.TimeSeconds - ReplayStartTime);
+			Sample.EndTimeSeconds = FMath::Max(Sample.TimeSeconds, Sample.EndTimeSeconds - ReplayStartTime);
+			if (!FMath::IsFinite(Sample.EndTimeSeconds))
+			{
+				Sample.EndTimeSeconds = Sample.TimeSeconds + (1.0 / 60.0);
+			}
+		}
+	}
+	GMaterialReplayCurrentRows.Reset();
+	GMaterialReplayDebugRows.Reset();
+	GMaterialReplayActive = false;
+	GMaterialReplayPlaying = false;
+	GMaterialReplayScrubbing = false;
+	GMaterialReplayCurrentTimeSeconds = 0.0;
+	GMaterialReplayLastTickSeconds = -1.0;
+	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
 
 	GCachedRows.Reset();
 	GCachedDebugRows.Reset();
@@ -3087,6 +3371,1039 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 		*GTraceFilePath);
 
 	return GCachedRows.Num() > 0;
+}
+
+static bool IsMaterialReplayCameraActor(const AActor* Actor)
+{
+	return Actor && Actor->ActorHasTag(MaterialReplayCameraTag);
+}
+
+static APlayerController* FindMaterialReplayPlayerController(UWorld* World)
+{
+	if (!World)
+	{
+		return nullptr;
+	}
+
+	if (APlayerController* PlayerController = World->GetFirstPlayerController())
+	{
+		return PlayerController;
+	}
+
+	return nullptr;
+}
+
+static UCameraComponent* FindCameraComponentOnActor(AActor* Actor)
+{
+	if (!Actor || IsMaterialReplayCameraActor(Actor))
+	{
+		return nullptr;
+	}
+
+	TInlineComponentArray<UCameraComponent*> CameraComponents;
+	Actor->GetComponents(CameraComponents);
+	for (UCameraComponent* CameraComponent : CameraComponents)
+	{
+		if (CameraComponent && CameraComponent->IsRegistered() && CameraComponent->IsActive())
+		{
+			return CameraComponent;
+		}
+	}
+
+	for (UCameraComponent* CameraComponent : CameraComponents)
+	{
+		if (CameraComponent && CameraComponent->IsRegistered())
+		{
+			return CameraComponent;
+		}
+	}
+
+	return nullptr;
+}
+
+static UCameraComponent* FindMaterialReplaySourceCamera(UWorld* World, APlayerController* PlayerController)
+{
+	if (!World || !PlayerController)
+	{
+		return nullptr;
+	}
+
+	if (APawn* Pawn = PlayerController->GetPawn())
+	{
+		if (UCameraComponent* PawnCamera = FindCameraComponentOnActor(Pawn))
+		{
+			return PawnCamera;
+		}
+	}
+
+	if (AActor* ViewTarget = PlayerController->GetViewTarget())
+	{
+		if (UCameraComponent* ViewTargetCamera = FindCameraComponentOnActor(ViewTarget))
+		{
+			return ViewTargetCamera;
+		}
+	}
+
+	return nullptr;
+}
+
+static void CopyMaterialReplayCameraSettings(UCameraComponent* SourceCamera, UCameraComponent* TargetCamera)
+{
+	if (!SourceCamera || !TargetCamera)
+	{
+		return;
+	}
+
+	TargetCamera->SetFieldOfView(SourceCamera->FieldOfView);
+	TargetCamera->SetProjectionMode(SourceCamera->ProjectionMode);
+	TargetCamera->SetOrthoWidth(SourceCamera->OrthoWidth);
+	TargetCamera->SetAspectRatio(SourceCamera->AspectRatio);
+	TargetCamera->SetConstraintAspectRatio(SourceCamera->bConstrainAspectRatio);
+	TargetCamera->SetAspectRatioAxisConstraint(SourceCamera->AspectRatioAxisConstraint);
+	TargetCamera->bOverrideAspectRatioAxisConstraint = SourceCamera->bOverrideAspectRatioAxisConstraint;
+	TargetCamera->bUseFieldOfViewForLOD = SourceCamera->bUseFieldOfViewForLOD;
+	TargetCamera->PostProcessSettings = SourceCamera->PostProcessSettings;
+	TargetCamera->SetPostProcessBlendWeight(SourceCamera->PostProcessBlendWeight);
+}
+
+static void ApplyMaterialReplayViewInfo(const FMinimalViewInfo& ViewInfo, UCameraComponent* TargetCamera)
+{
+	if (!TargetCamera)
+	{
+		return;
+	}
+
+	TargetCamera->SetFieldOfView(ViewInfo.FOV);
+	TargetCamera->SetProjectionMode(ViewInfo.ProjectionMode);
+	TargetCamera->SetOrthoWidth(ViewInfo.OrthoWidth);
+	TargetCamera->SetAspectRatio(ViewInfo.AspectRatio);
+	TargetCamera->SetConstraintAspectRatio(ViewInfo.bConstrainAspectRatio);
+	TargetCamera->PostProcessSettings = ViewInfo.PostProcessSettings;
+	TargetCamera->SetPostProcessBlendWeight(ViewInfo.PostProcessBlendWeight);
+}
+
+static bool CaptureMaterialReplayCameraSample(UWorld* World, double TimeSeconds)
+{
+	APlayerController* PlayerController = FindMaterialReplayPlayerController(World);
+	UCameraComponent* SourceCamera = FindMaterialReplaySourceCamera(World, PlayerController);
+	if (!World || !PlayerController || !SourceCamera)
+	{
+		return false;
+	}
+
+	FMaterialReplayCameraSample Sample;
+	Sample.TimeSeconds = FMath::Max(0.0, TimeSeconds);
+	SourceCamera->GetCameraView(0.0f, Sample.ViewInfo);
+	Sample.Transform = FTransform(Sample.ViewInfo.Rotation, Sample.ViewInfo.Location);
+	GMaterialReplayCameraSamples.Add(MoveTemp(Sample));
+	return true;
+}
+
+static bool TickMaterialReplayCameraCapture(float DeltaTime)
+{
+	UWorld* World = GMaterialReplayCameraCaptureWorld.Get();
+	if (!GCaptureActive || !World || GCaptureStartTime < 0.0)
+	{
+		GMaterialReplayCameraCaptureTickerHandle.Reset();
+		return false;
+	}
+
+	CaptureMaterialReplayCameraSample(World, FPlatformTime::Seconds() - GCaptureStartTime);
+	return true;
+}
+
+static void StopMaterialReplayCameraCaptureTicker()
+{
+	if (GMaterialReplayCameraCaptureTickerHandle.IsValid())
+	{
+		FTSTicker::GetCoreTicker().RemoveTicker(GMaterialReplayCameraCaptureTickerHandle);
+		GMaterialReplayCameraCaptureTickerHandle.Reset();
+	}
+
+	if (UWorld* World = GMaterialReplayCameraCaptureWorld.Get())
+	{
+		const double EndTime = GCaptureEndTime >= 0.0 ? GCaptureEndTime : FPlatformTime::Seconds();
+		if (GCaptureStartTime >= 0.0)
+		{
+			CaptureMaterialReplayCameraSample(World, EndTime - GCaptureStartTime);
+		}
+	}
+
+	GMaterialReplayCameraCaptureWorld = nullptr;
+}
+
+static void StartMaterialReplayCameraCapture(UWorld* World)
+{
+	StopMaterialReplayCameraCaptureTicker();
+	GMaterialReplayCameraSamples.Reset();
+	GMaterialReplayCameraCaptureWorld = World;
+	if (!World || GCaptureStartTime < 0.0)
+	{
+		return;
+	}
+
+	CaptureMaterialReplayCameraSample(World, 0.0);
+	GMaterialReplayCameraCaptureTickerHandle = FTSTicker::GetCoreTicker().AddTicker(
+		FTickerDelegate::CreateStatic(&TickMaterialReplayCameraCapture),
+		0.0f);
+}
+
+static int32 FindMaterialReplayCameraSampleIndexForTime(double TimeSeconds)
+{
+	if (GMaterialReplayCameraSamples.Num() == 0)
+	{
+		return INDEX_NONE;
+	}
+
+	const double ClampedTime = FMath::Max(0.0, TimeSeconds);
+	int32 BestIndex = 0;
+	for (int32 SampleIndex = 0; SampleIndex < GMaterialReplayCameraSamples.Num(); ++SampleIndex)
+	{
+		if (GMaterialReplayCameraSamples[SampleIndex].TimeSeconds > ClampedTime)
+		{
+			break;
+		}
+		BestIndex = SampleIndex;
+	}
+
+	return BestIndex;
+}
+
+static bool ApplyMaterialReplayCameraSample(ACameraActor* CameraActor, double TimeSeconds)
+{
+	if (!CameraActor || GMaterialReplayCameraSamples.Num() == 0)
+	{
+		return false;
+	}
+
+	const int32 SampleIndex = FindMaterialReplayCameraSampleIndexForTime(TimeSeconds);
+	if (!GMaterialReplayCameraSamples.IsValidIndex(SampleIndex))
+	{
+		return false;
+	}
+
+	const FMaterialReplayCameraSample& Sample = GMaterialReplayCameraSamples[SampleIndex];
+	CameraActor->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	CameraActor->SetActorTransform(Sample.Transform);
+	ApplyMaterialReplayViewInfo(Sample.ViewInfo, CameraActor->GetCameraComponent());
+	return true;
+}
+
+static void LockMaterialReplayLookInput(APlayerController* PlayerController)
+{
+	if (!PlayerController || GMaterialReplayLookInputLocked)
+	{
+		return;
+	}
+
+	PlayerController->SetIgnoreLookInput(true);
+	GMaterialReplayLookInputLocked = true;
+	GMaterialReplayLookInputPlayerController = PlayerController;
+}
+
+static void UnlockMaterialReplayLookInput()
+{
+	if (GMaterialReplayLookInputLocked)
+	{
+		if (APlayerController* PlayerController = GMaterialReplayLookInputPlayerController.Get())
+		{
+			PlayerController->SetIgnoreLookInput(false);
+		}
+	}
+
+	GMaterialReplayLookInputLocked = false;
+	GMaterialReplayLookInputPlayerController = nullptr;
+}
+
+static void DestroyMaterialReplayCamera()
+{
+	UnlockMaterialReplayLookInput();
+
+	APlayerController* PlayerController = GMaterialReplayViewPlayerController.Get();
+	ACameraActor* CameraActor = GMaterialReplayCameraActor.Get();
+	if (CameraActor)
+	{
+		if (!PlayerController)
+		{
+			PlayerController = FindMaterialReplayPlayerController(CameraActor->GetWorld());
+		}
+
+		if (PlayerController && PlayerController->GetViewTarget() == CameraActor)
+		{
+			AActor* RestoreTarget = GMaterialReplayPreviousViewTarget.Get();
+			if (!RestoreTarget)
+			{
+				RestoreTarget = PlayerController->GetPawn();
+			}
+
+			if (RestoreTarget && RestoreTarget != CameraActor)
+			{
+				PlayerController->SetViewTarget(RestoreTarget);
+			}
+		}
+
+		CameraActor->Destroy();
+	}
+
+	GMaterialReplayCameraActor = nullptr;
+	GMaterialReplaySourceCameraComponent = nullptr;
+	GMaterialReplayViewPlayerController = nullptr;
+	GMaterialReplayPreviousViewTarget = nullptr;
+}
+
+static bool EnsureMaterialReplayCamera(UWorld* World)
+{
+	if (!World || !GMaterialReplayActive)
+	{
+		DestroyMaterialReplayCamera();
+		return false;
+	}
+
+	APlayerController* PlayerController = FindMaterialReplayPlayerController(World);
+	UCameraComponent* SourceCamera = FindMaterialReplaySourceCamera(World, PlayerController);
+	if (!PlayerController)
+	{
+		DestroyMaterialReplayCamera();
+		return false;
+	}
+
+	ACameraActor* CameraActor = GMaterialReplayCameraActor.Get();
+	if (!CameraActor || CameraActor->GetWorld() != World || (GMaterialReplayCameraSamples.Num() == 0 && GMaterialReplaySourceCameraComponent.Get() != SourceCamera))
+	{
+		DestroyMaterialReplayCamera();
+
+		FActorSpawnParameters SpawnParameters;
+		SpawnParameters.Name = MakeUniqueObjectName(World, ACameraActor::StaticClass(), TEXT("OptimizationPreviewToolsReplayCamera"));
+		SpawnParameters.ObjectFlags |= RF_Transient;
+		SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		const FTransform FallbackTransform(
+			PlayerController->GetControlRotation(),
+			PlayerController->GetPawn() ? PlayerController->GetPawn()->GetActorLocation() : FVector::ZeroVector);
+		const FTransform SpawnTransform = GMaterialReplayCameraSamples.Num() > 0
+			? GMaterialReplayCameraSamples[0].Transform
+			: (SourceCamera ? SourceCamera->GetComponentTransform() : FallbackTransform);
+		CameraActor = World->SpawnActor<ACameraActor>(ACameraActor::StaticClass(), SpawnTransform, SpawnParameters);
+		if (!CameraActor)
+		{
+			return false;
+		}
+
+		CameraActor->Tags.AddUnique(MaterialReplayCameraTag);
+		CameraActor->SetActorEnableCollision(false);
+		CameraActor->SetActorHiddenInGame(true);
+		if (SourceCamera && GMaterialReplayCameraSamples.Num() == 0)
+		{
+			CameraActor->AttachToComponent(SourceCamera, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+			CameraActor->SetActorRelativeTransform(FTransform::Identity);
+		}
+		GMaterialReplayCameraActor = CameraActor;
+		GMaterialReplaySourceCameraComponent = SourceCamera;
+	}
+
+	if (!ApplyMaterialReplayCameraSample(CameraActor, GMaterialReplayCurrentTimeSeconds) && SourceCamera)
+	{
+		if (UCameraComponent* TargetCamera = CameraActor->GetCameraComponent())
+		{
+			CopyMaterialReplayCameraSettings(SourceCamera, TargetCamera);
+		}
+
+		CameraActor->AttachToComponent(SourceCamera, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		CameraActor->SetActorRelativeTransform(FTransform::Identity);
+	}
+
+	if (GMaterialReplayViewPlayerController.Get() != PlayerController)
+	{
+		GMaterialReplayViewPlayerController = PlayerController;
+		GMaterialReplayPreviousViewTarget = PlayerController->GetViewTarget() != CameraActor
+			? PlayerController->GetViewTarget()
+			: PlayerController->GetPawn();
+	}
+
+	if (PlayerController->GetViewTarget() != CameraActor)
+	{
+		PlayerController->SetViewTarget(CameraActor);
+	}
+	LockMaterialReplayLookInput(PlayerController);
+
+	return true;
+}
+
+static double GetMaterialReplayDurationSeconds()
+{
+	if (GMaterialReplaySamples.Num() == 0)
+	{
+		return 0.0;
+	}
+
+	const FMaterialGpuReplayFrameSample& LastSample = GMaterialReplaySamples.Last();
+	const double LastEndTime = FMath::IsFinite(LastSample.EndTimeSeconds) ? LastSample.EndTimeSeconds : 0.0;
+	const double LastStartTime = FMath::IsFinite(LastSample.TimeSeconds) ? LastSample.TimeSeconds : 0.0;
+	return FMath::Max(0.001, FMath::Max(LastEndTime, LastStartTime));
+}
+
+static float GetMaterialReplayNormalizedValue()
+{
+	const double Duration = GetMaterialReplayDurationSeconds();
+	if (Duration <= 0.0)
+	{
+		return 0.0f;
+	}
+
+	return FMath::Clamp(static_cast<float>(GMaterialReplayCurrentTimeSeconds / Duration), 0.0f, 1.0f);
+}
+
+static int32 FindMaterialReplaySampleIndexForTime(double TimeSeconds)
+{
+	if (GMaterialReplaySamples.Num() == 0)
+	{
+		return INDEX_NONE;
+	}
+
+	const double ClampedTime = FMath::Clamp(TimeSeconds, 0.0, GetMaterialReplayDurationSeconds());
+	int32 BestIndex = 0;
+	for (int32 SampleIndex = 0; SampleIndex < GMaterialReplaySamples.Num(); ++SampleIndex)
+	{
+		const FMaterialGpuReplayFrameSample& Sample = GMaterialReplaySamples[SampleIndex];
+		if (ClampedTime >= Sample.TimeSeconds && ClampedTime <= Sample.EndTimeSeconds)
+		{
+			return SampleIndex;
+		}
+
+		if (Sample.TimeSeconds <= ClampedTime)
+		{
+			BestIndex = SampleIndex;
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	return BestIndex;
+}
+
+static void AddMaterialReplayLookupCandidate(TArray<FString>& Candidates, const FString& Value)
+{
+	const FString Normalized = NormalizeTraceLookupKey(Value);
+	if (!Normalized.IsEmpty())
+	{
+		Candidates.AddUnique(Normalized);
+	}
+}
+
+static void BuildMaterialReplayLookupCandidates(const FMaterialAccumulator& Row, TArray<FString>& OutCandidates)
+{
+	OutCandidates.Reset();
+	AddMaterialReplayLookupCandidate(OutCandidates, Row.DisplayName);
+	AddMaterialReplayLookupCandidate(OutCandidates, Row.PathName);
+
+	if (UMaterialInterface* Material = Row.Material.Get())
+	{
+		AddMaterialReplayLookupCandidate(OutCandidates, Material->GetName());
+		AddMaterialReplayLookupCandidate(OutCandidates, Material->GetPathName());
+		AddMaterialReplayLookupCandidate(OutCandidates, Material->GetFullName());
+	}
+
+	FString PackageName;
+	FString AssetName;
+	if (Row.PathName.Split(TEXT("."), &PackageName, &AssetName, ESearchCase::CaseSensitive, ESearchDir::FromEnd))
+	{
+		AddMaterialReplayLookupCandidate(OutCandidates, AssetName);
+	}
+}
+
+static void GetMaterialReplaySampleValuesForRow(
+	const FMaterialGpuReplayFrameSample& Sample,
+	const FMaterialAccumulator& Row,
+	float& OutGpuMs,
+	int32& OutDrawEvents)
+{
+	OutGpuMs = 0.0f;
+	OutDrawEvents = 0;
+
+	TArray<FString> Candidates;
+	BuildMaterialReplayLookupCandidates(Row, Candidates);
+	for (const FString& Candidate : Candidates)
+	{
+		if (const float* GpuMs = Sample.MaterialGpuMsByKey.Find(Candidate))
+		{
+			OutGpuMs = FMath::Max(OutGpuMs, *GpuMs);
+		}
+
+		if (const int32* DrawEvents = Sample.MaterialDrawEventsByKey.Find(Candidate))
+		{
+			OutDrawEvents = FMath::Max(OutDrawEvents, *DrawEvents);
+		}
+	}
+}
+
+static void BuildMaterialReplayRowsForSample(int32 SampleIndex)
+{
+	GMaterialReplayCurrentRows.Reset();
+	GMaterialReplayDebugRows.Reset();
+
+	if (!GMaterialReplaySamples.IsValidIndex(SampleIndex))
+	{
+		GLastDebugMaterialCount = 0;
+		GLastDebugComponentCount = 0;
+		return;
+	}
+
+	const FMaterialGpuReplayFrameSample& Sample = GMaterialReplaySamples[SampleIndex];
+	TArray<FMaterialAccumulator> Rows;
+	for (const FMaterialAccumulator& SceneRow : GMaterialReplaySceneRows)
+	{
+		if (SceneRow.Components.Num() == 0)
+		{
+			continue;
+		}
+
+		float SampleGpuMs = 0.0f;
+		int32 SampleDrawEvents = 0;
+		GetMaterialReplaySampleValuesForRow(Sample, SceneRow, SampleGpuMs, SampleDrawEvents);
+
+		FMaterialAccumulator Row = SceneRow;
+		Row.MaxGpuMs = SampleGpuMs;
+		Row.AvgGpuMs = SampleGpuMs;
+		Row.TraceDrawEvents = SampleDrawEvents;
+		Rows.Add(MoveTemp(Row));
+	}
+
+	Rows.Sort([](const FMaterialAccumulator& A, const FMaterialAccumulator& B)
+	{
+		if (!FMath::IsNearlyEqual(A.MaxGpuMs, B.MaxGpuMs))
+		{
+			return A.MaxGpuMs > B.MaxGpuMs;
+		}
+		if (A.TraceDrawEvents != B.TraceDrawEvents)
+		{
+			return A.TraceDrawEvents > B.TraceDrawEvents;
+		}
+		return A.PathName < B.PathName;
+	});
+
+	GMaterialReplayDebugRows = Rows;
+	GMaterialReplayCurrentRows = Rows;
+	const int32 TopN = FMath::Clamp(CVarTopN.GetValueOnGameThread(), 1, 50);
+	if (GMaterialReplayCurrentRows.Num() > TopN)
+	{
+		GMaterialReplayCurrentRows.SetNum(TopN);
+	}
+
+	GLastDebugMaterialCount = GMaterialReplayDebugRows.Num();
+	GLastDebugComponentCount = CountUniqueDebugComponents(GMaterialReplayDebugRows);
+}
+
+static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* ViewportClient, double TimeSeconds, bool bForceRefresh = false)
+{
+	if (!World || GMaterialReplaySamples.Num() == 0)
+	{
+		return;
+	}
+
+	GMaterialReplayCurrentTimeSeconds = FMath::Clamp(TimeSeconds, 0.0, GetMaterialReplayDurationSeconds());
+	const int32 SampleIndex = FindMaterialReplaySampleIndexForTime(GMaterialReplayCurrentTimeSeconds);
+	const bool bNeedsActorColorationRefresh = ShouldUseActorColorationBackend()
+		&& (!GActorColorationActive || GActorColorationColors.Num() == 0);
+	if (!bForceRefresh && SampleIndex == GMaterialReplayCurrentSampleIndex && !bNeedsActorColorationRefresh)
+	{
+		ApplyMaterialReplayCameraSample(GMaterialReplayCameraActor.Get(), GMaterialReplayCurrentTimeSeconds);
+		return;
+	}
+
+	GMaterialReplayCurrentSampleIndex = SampleIndex;
+	BuildMaterialReplayRowsForSample(SampleIndex);
+	CVarDebug->Set(1);
+	SetViewportStatEnabled(ViewportClient, true);
+
+	if (ShouldUseActorColorationBackend())
+	{
+		ApplyActorColorationViewMode(World, ViewportClient);
+	}
+	else
+	{
+		DisableActorColoration(World, ViewportClient);
+		UpdateDebugOverlay(World);
+	}
+
+	ApplyMaterialReplayCameraSample(GMaterialReplayCameraActor.Get(), GMaterialReplayCurrentTimeSeconds);
+}
+
+static void RemoveMaterialReplayOverlay()
+{
+	if (GMaterialReplayOverlayWidget.IsValid())
+	{
+		if (UGameViewportClient* GameViewportClient = GMaterialReplayOverlayViewport.Get())
+		{
+			GameViewportClient->RemoveViewportWidgetContent(GMaterialReplayOverlayWidget.ToSharedRef());
+		}
+	}
+
+	GMaterialReplayOverlayWidget.Reset();
+	GMaterialReplayPlayButtonWidget.Reset();
+	GMaterialReplaySliderWidget.Reset();
+	GMaterialReplayOverlayViewport = nullptr;
+	GMaterialReplayPlayButtonRect.Reset();
+	GMaterialReplaySliderRect.Reset();
+	GMaterialReplayDraggingSlider = false;
+	GMaterialReplayScrubbing = false;
+}
+
+static void StopMaterialReplayTicker()
+{
+	if (GMaterialReplayTickerHandle.IsValid())
+	{
+		FTSTicker::GetCoreTicker().RemoveTicker(GMaterialReplayTickerHandle);
+		GMaterialReplayTickerHandle.Reset();
+	}
+}
+
+static FString GetMaterialReplayTimeLabel()
+{
+	return FString::Printf(
+		TEXT("%.2fs / %.2fs"),
+		GMaterialReplayCurrentTimeSeconds,
+		GetMaterialReplayDurationSeconds());
+}
+
+static void SetMaterialReplayScrubNormalized(UWorld* World, FCommonViewportClient* ViewportClient, float NormalizedValue)
+{
+	GMaterialReplayPlaying = false;
+	GMaterialReplayScrubbing = true;
+	GMaterialReplayLastTickSeconds = -1.0;
+	const double TargetTime = static_cast<double>(FMath::Clamp(NormalizedValue, 0.0f, 1.0f)) * GetMaterialReplayDurationSeconds();
+	ApplyMaterialReplayTime(World, ViewportClient, TargetTime, true);
+}
+
+static FReply ToggleMaterialReplayPlayback()
+{
+	if (GMaterialReplaySamples.Num() == 0)
+	{
+		return FReply::Handled();
+	}
+
+	GMaterialReplayScrubbing = false;
+	if (GMaterialReplayPlaying)
+	{
+		GMaterialReplayPlaying = false;
+	}
+	else
+	{
+		GMaterialReplayPlaying = true;
+	}
+
+	GMaterialReplayLastTickSeconds = -1.0;
+	return FReply::Handled();
+}
+
+static void SetInputScreenRectFromLocal(
+	const FGeometry& Geometry,
+	const FVector2D& LocalMin,
+	const FVector2D& LocalMax,
+	FInputScreenRect& OutRect)
+{
+	OutRect.Set(Geometry.LocalToAbsolute(LocalMin), Geometry.LocalToAbsolute(LocalMax));
+}
+
+static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClient)
+{
+	GMaterialReplayPlayButtonRect.Reset();
+	GMaterialReplaySliderRect.Reset();
+
+	if (!GMaterialReplayActive || !GameViewportClient)
+	{
+		return;
+	}
+
+	const bool bHasPlayButtonRect = SetInputScreenRectFromWidget(GMaterialReplayPlayButtonWidget, 4.0f, 6.0f, GMaterialReplayPlayButtonRect);
+	const bool bHasSliderRect = SetInputScreenRectFromWidget(GMaterialReplaySliderWidget, 4.0f, 14.0f, GMaterialReplaySliderRect);
+	if (bHasPlayButtonRect && bHasSliderRect)
+	{
+		return;
+	}
+
+	TSharedPtr<SViewport> ViewportWidget = GameViewportClient->GetGameViewportWidget();
+	if (!ViewportWidget.IsValid())
+	{
+		return;
+	}
+
+	const FGeometry& ViewportGeometry = ViewportWidget->GetCachedGeometry();
+	const FVector2D ViewportSize = ViewportGeometry.GetLocalSize();
+	if (ViewportSize.X < 240.0f || ViewportSize.Y < 120.0f)
+	{
+		return;
+	}
+
+	constexpr float OuterPaddingX = 50.0f;
+	constexpr float OuterPaddingBottom = 50.0f;
+	constexpr float BorderPaddingX = 10.0f;
+	constexpr float BorderPaddingY = 7.0f;
+	constexpr float ButtonWidth = 76.0f;
+	constexpr float ButtonHeight = 30.0f;
+	constexpr float TimeSlotLeftPadding = 14.0f;
+	constexpr float TimeSlotWidth = 118.0f;
+	constexpr float TimeSlotRightPadding = 12.0f;
+	constexpr float MinSliderWidth = 48.0f;
+	constexpr float SliderHitHeight = 30.0f;
+
+	const float OuterLeft = OuterPaddingX;
+	const float OuterRight = FMath::Max(OuterLeft + 1.0f, ViewportSize.X - OuterPaddingX);
+	const float OuterTop = FMath::Max(0.0f, ViewportSize.Y - OuterPaddingBottom - ButtonHeight - BorderPaddingY * 2.0f);
+	const float InnerLeft = OuterLeft + BorderPaddingX;
+	const float InnerRight = FMath::Max(InnerLeft + 1.0f, OuterRight - BorderPaddingX);
+	const float ControlTop = OuterTop + BorderPaddingY;
+
+	if (!bHasPlayButtonRect)
+	{
+		SetInputScreenRectFromLocal(
+			ViewportGeometry,
+			FVector2D(InnerLeft, ControlTop),
+			FVector2D(InnerLeft + ButtonWidth, ControlTop + ButtonHeight),
+			GMaterialReplayPlayButtonRect);
+	}
+
+	const float PreferredSliderLeft = InnerLeft + ButtonWidth + TimeSlotLeftPadding + TimeSlotWidth + TimeSlotRightPadding;
+	const float SliderLeft = FMath::Min(FMath::Max(PreferredSliderLeft, InnerLeft + ButtonWidth + 12.0f), InnerRight - MinSliderWidth);
+	if (!bHasSliderRect)
+	{
+		SetInputScreenRectFromLocal(
+			ViewportGeometry,
+			FVector2D(SliderLeft, ControlTop + (ButtonHeight - SliderHitHeight) * 0.5f),
+			FVector2D(InnerRight, ControlTop + (ButtonHeight + SliderHitHeight) * 0.5f),
+			GMaterialReplaySliderRect);
+	}
+}
+
+static bool TryHandleMaterialReplayPointerDown(const FPointerEvent& PointerEvent)
+{
+	if (!GMaterialReplayActive || !GMaterialReplayOverlayWidget.IsValid())
+	{
+		return false;
+	}
+
+	UpdateMaterialReplayInputRects(GMaterialReplayOverlayViewport.Get());
+	const FVector2D ScreenPosition = PointerEvent.GetScreenSpacePosition();
+	if (GMaterialReplayPlayButtonRect.Contains(ScreenPosition))
+	{
+		GMaterialReplayDraggingSlider = false;
+		GMaterialReplayScrubbing = false;
+		ToggleMaterialReplayPlayback();
+		return true;
+	}
+
+	if (GMaterialReplaySliderRect.Contains(ScreenPosition))
+	{
+		UGameViewportClient* GameViewportClient = GMaterialReplayOverlayViewport.Get();
+		UWorld* World = GameViewportClient ? GameViewportClient->GetWorld() : GWorld;
+		GMaterialReplayDraggingSlider = true;
+		GMaterialReplayDraggingPointerIndex = PointerEvent.GetPointerIndex();
+		SetMaterialReplayScrubNormalized(World, GameViewportClient, GMaterialReplaySliderRect.GetNormalizedX(ScreenPosition));
+		return true;
+	}
+
+	return false;
+}
+
+static bool TryHandleMaterialReplayPointerMove(const FPointerEvent& PointerEvent)
+{
+	if (!GMaterialReplayDraggingSlider)
+	{
+		return false;
+	}
+
+	if (!GMaterialReplayActive || !GMaterialReplayOverlayWidget.IsValid())
+	{
+		GMaterialReplayDraggingSlider = false;
+		GMaterialReplayScrubbing = false;
+		return false;
+	}
+
+	if (PointerEvent.GetPointerIndex() != GMaterialReplayDraggingPointerIndex)
+	{
+		return true;
+	}
+
+	UpdateMaterialReplayInputRects(GMaterialReplayOverlayViewport.Get());
+	if (!GMaterialReplaySliderRect.bValid)
+	{
+		return true;
+	}
+
+	UGameViewportClient* GameViewportClient = GMaterialReplayOverlayViewport.Get();
+	UWorld* World = GameViewportClient ? GameViewportClient->GetWorld() : GWorld;
+	SetMaterialReplayScrubNormalized(World, GameViewportClient, GMaterialReplaySliderRect.GetNormalizedX(PointerEvent.GetScreenSpacePosition()));
+	return true;
+}
+
+static bool TryHandleMaterialReplayPointerUp(const FPointerEvent& PointerEvent)
+{
+	if (!GMaterialReplayDraggingSlider)
+	{
+		return false;
+	}
+
+	if (PointerEvent.GetPointerIndex() != GMaterialReplayDraggingPointerIndex)
+	{
+		return true;
+	}
+
+	GMaterialReplayDraggingSlider = false;
+	GMaterialReplayScrubbing = false;
+	GMaterialReplayLastTickSeconds = -1.0;
+	return true;
+}
+
+static TSharedRef<SWidget> MakeMaterialReplayButton(
+	const TAttribute<FText>& Label,
+	TFunction<FReply()> OnClicked,
+	TSharedPtr<SWidget>* OutHitWidget = nullptr)
+{
+	TSharedPtr<SBox> ButtonBox;
+	TSharedRef<SWidget> ButtonWidget = SAssignNew(ButtonBox, SBox)
+		.WidthOverride(76.0f)
+		.HeightOverride(30.0f)
+		[
+			SNew(SBorder)
+			.Padding(1.0f)
+			.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
+			.BorderBackgroundColor(FLinearColor(0.55f, 0.56f, 0.54f, 0.65f))
+			[
+				SNew(SButton)
+				.ButtonStyle(&FCoreStyle::Get().GetWidgetStyle<FButtonStyle>("NoBorder"))
+				.ContentPadding(FMargin(8.0f, 0.0f))
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.ClickMethod(EButtonClickMethod::MouseDown)
+				.TouchMethod(EButtonTouchMethod::Down)
+				.IsFocusable(false)
+				.OnClicked_Lambda([OnClicked]()
+				{
+					return OnClicked();
+				})
+				[
+					SNew(STextBlock)
+					.Text(Label)
+					.ColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.94f, 0.90f, 1.0f)))
+					.Justification(ETextJustify::Center)
+				]
+			]
+		];
+
+	if (OutHitWidget)
+	{
+		*OutHitWidget = ButtonBox;
+	}
+
+	return ButtonWidget;
+}
+
+static TSharedRef<SWidget> BuildMaterialReplayOverlay()
+{
+	return SNew(SOverlay)
+		.Visibility(EVisibility::SelfHitTestInvisible)
+		+ SOverlay::Slot()
+		.HAlign(HAlign_Fill)
+		.VAlign(VAlign_Bottom)
+		.Padding(FMargin(50.0f, 0.0f, 50.0f, 50.0f))
+		[
+			SNew(SBorder)
+			.Padding(FMargin(10.0f, 7.0f))
+			.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
+			.BorderBackgroundColor(FLinearColor(0.025f, 0.026f, 0.028f, 0.82f))
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					MakeMaterialReplayButton(TAttribute<FText>::CreateLambda([]()
+					{
+						return FText::FromString(GMaterialReplayPlaying ? TEXT("STOP") : TEXT("PLAY"));
+					}), []()
+					{
+						return ToggleMaterialReplayPlayback();
+					}, &GMaterialReplayPlayButtonWidget)
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(FMargin(14.0f, 0.0f, 12.0f, 0.0f))
+				.VAlign(VAlign_Center)
+				[
+					SNew(SBox)
+					.WidthOverride(118.0f)
+					[
+						SNew(STextBlock)
+						.Text(TAttribute<FText>::CreateLambda([]()
+						{
+							return FText::FromString(GetMaterialReplayTimeLabel());
+						}))
+						.ColorAndOpacity(FSlateColor(FLinearColor(0.70f, 0.78f, 0.84f, 1.0f)))
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				.VAlign(VAlign_Center)
+				[
+					SAssignNew(GMaterialReplaySliderWidget, SSlider)
+					.Value(TAttribute<float>::CreateLambda([]()
+					{
+						return GetMaterialReplayNormalizedValue();
+					}))
+					.StepSize(0.0f)
+					.MouseUsesStep(false)
+					.IsFocusable(false)
+					.SliderBarColor(FLinearColor(0.14f, 0.76f, 0.86f, 0.78f))
+					.SliderHandleColor(FLinearColor(0.92f, 0.96f, 0.98f, 1.0f))
+					.OnMouseCaptureBegin_Lambda([]()
+					{
+						GMaterialReplayDraggingSlider = false;
+						GMaterialReplayPlaying = false;
+						GMaterialReplayScrubbing = true;
+						GMaterialReplayLastTickSeconds = -1.0;
+					})
+					.OnMouseCaptureEnd_Lambda([]()
+					{
+						GMaterialReplayDraggingSlider = false;
+						GMaterialReplayScrubbing = false;
+						GMaterialReplayLastTickSeconds = -1.0;
+					})
+					.OnValueChanged_Lambda([](float NewValue)
+					{
+						UGameViewportClient* GameViewportClient = GMaterialReplayOverlayViewport.Get();
+						UWorld* World = GameViewportClient ? GameViewportClient->GetWorld() : GWorld;
+						FCommonViewportClient* ViewportClient = GameViewportClient;
+						SetMaterialReplayScrubNormalized(World, ViewportClient, NewValue);
+					})
+				]
+			]
+		];
+}
+
+static void EnsureMaterialReplayOverlay(FCommonViewportClient* ViewportClient)
+{
+	UGameViewportClient* GameViewportClient = ResolveProfilingGameViewport(ViewportClient);
+	if (!GameViewportClient || !GMaterialReplayActive)
+	{
+		RemoveMaterialReplayOverlay();
+		return;
+	}
+
+	if (GMaterialReplayOverlayWidget.IsValid() && GMaterialReplayOverlayViewport.Get() == GameViewportClient)
+	{
+		UpdateMaterialReplayInputRects(GameViewportClient);
+		return;
+	}
+
+	RemoveMaterialReplayOverlay();
+	GMaterialReplayOverlayViewport = GameViewportClient;
+	GMaterialReplayOverlayWidget = BuildMaterialReplayOverlay();
+	GameViewportClient->AddViewportWidgetContent(GMaterialReplayOverlayWidget.ToSharedRef(), 1100);
+	UpdateMaterialReplayInputRects(GameViewportClient);
+}
+
+static bool TickMaterialReplay(float DeltaTime)
+{
+	if (!GMaterialReplayActive)
+	{
+		DestroyMaterialReplayCamera();
+		GMaterialReplayTickerHandle.Reset();
+		return false;
+	}
+
+	UGameViewportClient* GameViewportClient = GMaterialReplayOverlayViewport.Get();
+	UWorld* World = GameViewportClient ? GameViewportClient->GetWorld() : GWorld;
+	FCommonViewportClient* ViewportClient = GameViewportClient;
+	if (!World)
+	{
+		return true;
+	}
+
+	UpdateMaterialReplayInputRects(GameViewportClient);
+	EnsureMaterialReplayCamera(World);
+	if (!GMaterialReplayPlaying || GMaterialReplayScrubbing)
+	{
+		GMaterialReplayLastTickSeconds = -1.0;
+		ApplyMaterialReplayTime(World, ViewportClient, GMaterialReplayCurrentTimeSeconds);
+		return true;
+	}
+
+	const double Now = FPlatformTime::Seconds();
+	const double DeltaSeconds = GMaterialReplayLastTickSeconds > 0.0
+		? FMath::Max(0.0, Now - GMaterialReplayLastTickSeconds)
+		: static_cast<double>(DeltaTime);
+	GMaterialReplayLastTickSeconds = Now;
+
+	const double Duration = GetMaterialReplayDurationSeconds();
+	double NextTime = GMaterialReplayCurrentTimeSeconds + DeltaSeconds;
+	if (NextTime >= Duration)
+	{
+		NextTime = Duration;
+		GMaterialReplayPlaying = false;
+	}
+
+	ApplyMaterialReplayTime(World, ViewportClient, NextTime);
+	return true;
+}
+
+static void EnsureMaterialReplayTicker()
+{
+	if (!GMaterialReplayTickerHandle.IsValid())
+	{
+		GMaterialReplayTickerHandle = FTSTicker::GetCoreTicker().AddTicker(
+			FTickerDelegate::CreateStatic(&TickMaterialReplay),
+			0.0f);
+	}
+}
+
+static void StartMaterialReplay(UWorld* World, FCommonViewportClient* ViewportClient)
+{
+	if (!World || GMaterialReplaySamples.Num() == 0)
+	{
+		GLastAnalysisMessage = TEXT("No per-frame material replay samples. Run 'stat mat start' and 'stat mat end' first.");
+		UE_LOG(LogOptimizationPreviewTools, Warning, TEXT("Material GPU Preview replay skipped. World=%s Samples=%d"),
+			*GetNameSafe(World),
+			GMaterialReplaySamples.Num());
+		return;
+	}
+
+	CVarObjectDebug->Set(0);
+	SetObjectViewportStatEnabled(ViewportClient, false);
+	GMaterialReplayActive = true;
+	GMaterialReplayPlaying = false;
+	GMaterialReplayScrubbing = false;
+	GMaterialReplayCurrentTimeSeconds = 0.0;
+	GMaterialReplayLastTickSeconds = -1.0;
+	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
+	RemoveConflictingExternalViewportStats(ViewportClient);
+	ApplyMaterialReplayTime(World, ViewportClient, 0.0, true);
+	EnsureMaterialReplayCamera(World);
+	EnsureMaterialReplayOverlay(ViewportClient);
+	EnsureMaterialReplayTicker();
+	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Material GPU Preview replay ready. Samples=%d Duration=%.2fs"),
+		GMaterialReplaySamples.Num(),
+		GetMaterialReplayDurationSeconds());
+}
+
+static void StopMaterialReplay(UWorld* World, FCommonViewportClient* ViewportClient)
+{
+	const bool bWasActive = GMaterialReplayActive;
+	GMaterialReplayActive = false;
+	GMaterialReplayPlaying = false;
+	GMaterialReplayScrubbing = false;
+	GMaterialReplayCurrentRows.Reset();
+	GMaterialReplayDebugRows.Reset();
+	GMaterialReplayCurrentTimeSeconds = 0.0;
+	GMaterialReplayLastTickSeconds = -1.0;
+	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
+	StopMaterialReplayTicker();
+	RemoveMaterialReplayOverlay();
+	DestroyMaterialReplayCamera();
+
+	if (bWasActive)
+	{
+		ClearCachedDebugOverlay(World);
+		RefreshActorColorationViewports(ViewportClient);
+	}
 }
 
 static FString CompactPath(const FString& Path, int32 MaxLen)
@@ -3203,7 +4520,6 @@ static float DrawProfilingCommandBar(FCanvas* Canvas, UFont* Font, float PanelX,
 	GProfilingCommandHitTop = ButtonY;
 	GProfilingCommandHitWidth = ButtonWidth;
 	GProfilingCommandHitHeight = ButtonsHeight;
-	GProfilingCommandHitButtonHeight = ProfilingCommandButtonHeight;
 	GProfilingCommandHitButtonGap = ProfilingCommandButtonGap;
 	RefreshProfilingSlateOverlayIfLayoutChanged();
 
@@ -3233,7 +4549,7 @@ static float DrawProfilingCommandBar(FCanvas* Canvas, UFont* Font, float PanelX,
 	}
 
 	const float CommandY = ButtonY + ButtonsHeight + 6.0f;
-	FCanvasTextItem CommandTextItem(FVector2D(InnerX, CommandY), FText::FromString(TEXT("Commands: stat mat start/end/0 | stat obj/0")), Font, FLinearColor(0.50f, 0.58f, 0.64f, 0.95f));
+	FCanvasTextItem CommandTextItem(FVector2D(InnerX, CommandY), FText::FromString(TEXT("Commands: stat mat start/end/replay/0 | stat obj/0")), Font, FLinearColor(0.50f, 0.58f, 0.64f, 0.95f));
 	CommandTextItem.EnableShadow(FLinearColor::Black);
 	Canvas->DrawItem(CommandTextItem);
 
@@ -3478,7 +4794,7 @@ static TArray<FDebugOverlayEntry> BuildDebugOverlayEntries()
 	const float ShapePadding = FMath::Clamp(CVarDebugBoundsPadding.GetValueOnGameThread(), 1.0f, 4.0f);
 	TMap<UPrimitiveComponent*, FDebugOverlayEntry> EntriesByComponent;
 
-	for (const FMaterialAccumulator& Row : GCachedDebugRows)
+	for (const FMaterialAccumulator& Row : GetActiveMaterialDebugRows())
 	{
 		const float DebugMs = GetSeverityMs(Row);
 		const int32 Severity = GetDebugSeverity(DebugMs);
@@ -4097,6 +5413,7 @@ static void DisableObjectMemorySnapshot(UWorld* World, FCommonViewportClient* Vi
 
 static void ShowObjectMemorySnapshot(UWorld* World, FCommonViewportClient* ViewportClient)
 {
+	StopMaterialReplay(World, ViewportClient);
 	StopInsightsTraceIfNeeded();
 	RestoreInsightsMaterialCaptureCvars();
 	CVarDebug->Set(0);
@@ -4183,58 +5500,41 @@ static int32 RenderProfilingStat(UWorld* World, FViewport* Viewport, FCanvas* Ca
 		return Y;
 	}
 
-	if (!IsProfilingViewportStatEnabled(RenderingViewportClient)
-		|| IsViewportStatEnabled(RenderingViewportClient)
-		|| IsObjectViewportStatEnabled(RenderingViewportClient))
-	{
-		return Y;
-	}
-	EnsureProfilingSlateOverlay(RenderingViewportClient);
-
-	UFont* Font = GEngine->GetSmallFont();
-	if (!Font)
+	if (!IsProfilingViewportStatEnabled(RenderingViewportClient))
 	{
 		return Y;
 	}
 
 	const FIntRect CanvasViewRect = Canvas->GetViewRect();
 	const FIntPoint FallbackViewSize = Canvas->GetRenderTarget() ? Canvas->GetRenderTarget()->GetSizeXY() : FIntPoint(1280, 720);
+	const FIntPoint ViewportSize = Viewport ? Viewport->GetSizeXY() : FallbackViewSize;
 	const float DPIScale = FMath::Max(Canvas->GetDPIScale(), 0.01f);
-	const float ViewWidth = FMath::Max(320.0f, static_cast<float>(CanvasViewRect.Width() > 0 ? CanvasViewRect.Width() : FallbackViewSize.X) / DPIScale);
-	const float ViewHeight = FMath::Max(240.0f, static_cast<float>(CanvasViewRect.Height() > 0 ? CanvasViewRect.Height() : FallbackViewSize.Y) / DPIScale);
+	const float ViewWidth = FMath::Max(320.0f, static_cast<float>(FMath::Max3(CanvasViewRect.Width(), ViewportSize.X, FallbackViewSize.X)) / DPIScale);
 	const float ViewMinX = CanvasViewRect.Min.X > 0 ? static_cast<float>(CanvasViewRect.Min.X) / DPIScale : 0.0f;
 	const float ViewMinY = CanvasViewRect.Min.Y > 0 ? static_cast<float>(CanvasViewRect.Min.Y) / DPIScale : 0.0f;
-	const float AvailableWidth = FMath::Max(320.0f, ViewWidth - 32.0f);
-	const float PanelWidth = GetStatPanelWidth(ViewWidth, AvailableWidth);
-	const float PanelX = GetStatPanelX(ViewMinX, ViewWidth, PanelWidth);
-	const float PanelY = ViewMinY + FMath::Clamp(ViewHeight * 0.055f, 32.0f, 64.0f);
-	const float PaddingX = 18.0f;
-	const float TitleHeight = 20.0f;
-	const float StatusHeight = 17.0f;
-	const float CommandGap = 8.0f;
-	const float BottomPadding = 10.0f;
-	const float ToolbarY = PanelY + PaddingX + TitleHeight + StatusHeight + CommandGap;
-	const float PanelHeight = PaddingX + TitleHeight + StatusHeight + CommandGap + GetProfilingCommandBarTotalHeight() + BottomPadding;
 
-	GProfilingSlateDrawPanel = true;
+	constexpr float OuterPadding = 10.0f;
+	const float ButtonWidth = FMath::Clamp(ViewWidth - OuterPadding * 2.0f, 320.0f, 760.0f);
+	const float ButtonX = ViewMinX + FMath::Max(OuterPadding, (ViewWidth - ButtonWidth) * 0.5f);
+	const float ButtonY = ViewMinY + OuterPadding;
+
+	GProfilingSlateDrawPanel = false;
 	GProfilingSlateButtonHeight = ProfilingCommandButtonHeight;
 	GProfilingSlateButtonGap = ProfilingCommandButtonGap;
-	GProfilingSlateOverlayLeft = FMath::Max(0.0f, PanelX + ViewMinX);
-	GProfilingSlateOverlayTop = FMath::Max(0.0f, PanelY + ViewMinY);
-	GProfilingSlateOverlayWidth = PanelWidth;
-	GProfilingSlateOverlayHeight = PanelHeight;
+	GProfilingSlateOverlayLeft = FMath::Max(0.0f, ButtonX);
+	GProfilingSlateOverlayTop = FMath::Max(0.0f, ButtonY);
+	GProfilingSlateOverlayWidth = ButtonWidth;
+	GProfilingSlateOverlayHeight = ProfilingCommandButtonHeight;
 	GProfilingSlateViewportWidth = FMath::Max(4096.0f, GProfilingSlateOverlayLeft + GProfilingSlateOverlayWidth + 8.0f);
 	GProfilingSlateViewportHeight = FMath::Max(4096.0f, GProfilingSlateOverlayTop + GProfilingSlateOverlayHeight + 8.0f);
+	EnsureProfilingSlateOverlay(RenderingViewportClient);
+	RefreshProfilingSlateOverlayIfLayoutChanged();
 
 	const int32 ButtonCount = UE_ARRAY_COUNT(GProfilingCommandButtons);
-	const float ButtonX = PanelX + PaddingX;
-	const float ButtonY = ToolbarY + ProfilingCommandAreaPadding;
-	const float ButtonWidth = FMath::Max(240.0f, PanelWidth - PaddingX * 2.0f);
 	GProfilingCommandHitLeft = ButtonX;
 	GProfilingCommandHitTop = ButtonY;
 	GProfilingCommandHitWidth = ButtonWidth;
 	GProfilingCommandHitHeight = ProfilingCommandButtonHeight;
-	GProfilingCommandHitButtonHeight = ProfilingCommandButtonHeight;
 	GProfilingCommandHitButtonGap = ProfilingCommandButtonGap;
 	if (UGameViewportClient* GameViewportClient = GProfilingSlateOverlayViewport.Get())
 	{
@@ -4254,7 +5554,7 @@ static int32 RenderProfilingStat(UWorld* World, FViewport* Viewport, FCanvas* Ca
 		}
 	}
 
-	return static_cast<int32>(PanelY + PanelHeight + 4.0f);
+	return FMath::Max(Y, static_cast<int32>(ButtonY + ProfilingCommandButtonHeight + 4.0f));
 }
 
 static int32 RenderObjectStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation, const FRotator* ViewRotation)
@@ -4283,11 +5583,6 @@ static int32 RenderObjectStat(UWorld* World, FViewport* Viewport, FCanvas* Canva
 		return Y;
 	}
 
-	const bool bDrawProfilingCommands = IsProfilingViewportStatEnabled(RenderingViewportClient);
-	if (bDrawProfilingCommands)
-	{
-		EnsureProfilingSlateOverlay(RenderingViewportClient);
-	}
 	const float DPIScale = FMath::Max(Canvas->GetDPIScale(), 0.01f);
 	const float ViewWidth = FMath::Max(320.0f, static_cast<float>(CanvasViewRect.Width() > 0 ? CanvasViewRect.Width() : FallbackViewSize.X) / DPIScale);
 	const float ViewHeight = FMath::Max(240.0f, static_cast<float>(CanvasViewRect.Height() > 0 ? CanvasViewRect.Height() : FallbackViewSize.Y) / DPIScale);
@@ -4303,10 +5598,8 @@ static int32 RenderObjectStat(UWorld* World, FViewport* Viewport, FCanvas* Canva
 	const float HeaderHeight = 19.0f;
 	const float RowHeight = 16.0f;
 	const float BottomPadding = 10.0f;
-	const float ProfilingCommandGap = bDrawProfilingCommands ? 8.0f : 0.0f;
-	const float ProfilingCommandHeight = bDrawProfilingCommands ? GetProfilingCommandBarTotalHeight() : 0.0f;
 	const int32 VisibleRows = GCachedObjectRows.Num() > 0 ? GCachedObjectRows.Num() : 1;
-	const float PanelHeight = PaddingX + TitleHeight + StatusHeight + HeaderHeight + static_cast<float>(VisibleRows) * RowHeight + ProfilingCommandGap + ProfilingCommandHeight + BottomPadding;
+	const float PanelHeight = PaddingX + TitleHeight + StatusHeight + HeaderHeight + static_cast<float>(VisibleRows) * RowHeight + BottomPadding;
 	const float TableX = PanelX + PaddingX;
 	const float TableY = PanelY + PaddingX + TitleHeight + StatusHeight;
 
@@ -4361,10 +5654,6 @@ static int32 RenderObjectStat(UWorld* World, FViewport* Viewport, FCanvas* Canva
 		TextItem.Text = FText::FromString(TEXT("No object memory snapshot. Use 'stat obj'."));
 		Canvas->DrawItem(TextItem, FVector2D(ObjectX, RowY + 1.0f));
 		RowY += RowHeight;
-		if (bDrawProfilingCommands)
-		{
-			DrawProfilingCommandBar(Canvas, Font, PanelX, RowY + ProfilingCommandGap, PanelWidth);
-		}
 		return static_cast<int32>(PanelY + PanelHeight + 4.0f);
 	}
 
@@ -4396,11 +5685,6 @@ static int32 RenderObjectStat(UWorld* World, FViewport* Viewport, FCanvas* Canva
 		RowY += RowHeight;
 	}
 
-	if (bDrawProfilingCommands)
-	{
-		DrawProfilingCommandBar(Canvas, Font, PanelX, RowY + ProfilingCommandGap, PanelWidth);
-	}
-
 	return static_cast<int32>(PanelY + PanelHeight + 4.0f);
 }
 
@@ -4411,7 +5695,7 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 		return Y;
 	}
 
-	if (CVarDebug.GetValueOnGameThread() == 0)
+	if (CVarDebug.GetValueOnGameThread() == 0 && !GMaterialReplayActive)
 	{
 		ClearCachedDebugOverlay(World);
 	}
@@ -4430,10 +5714,14 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 		return Y;
 	}
 
-	const bool bDrawProfilingCommands = IsProfilingViewportStatEnabled(RenderingViewportClient);
-	if (bDrawProfilingCommands)
+	if (GMaterialReplayActive)
 	{
-		EnsureProfilingSlateOverlay(RenderingViewportClient);
+		ApplyMaterialReplayTime(World, RenderingViewportClient, GMaterialReplayCurrentTimeSeconds);
+		EnsureMaterialReplayOverlay(RenderingViewportClient);
+	}
+	else
+	{
+		RemoveMaterialReplayOverlay();
 	}
 	const float DPIScale = FMath::Max(Canvas->GetDPIScale(), 0.01f);
 	const float ViewWidth = FMath::Max(320.0f, static_cast<float>(CanvasViewRect.Width() > 0 ? CanvasViewRect.Width() : FallbackViewSize.X) / DPIScale);
@@ -4450,10 +5738,9 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 	const float HeaderHeight = 19.0f;
 	const float RowHeight = 16.0f;
 	const float BottomPadding = 10.0f;
-	const float ProfilingCommandGap = bDrawProfilingCommands ? 8.0f : 0.0f;
-	const float ProfilingCommandHeight = bDrawProfilingCommands ? GetProfilingCommandBarTotalHeight() : 0.0f;
-	const int32 VisibleRows = GCachedRows.Num() > 0 ? GCachedRows.Num() : 1;
-	const float PanelHeight = PaddingX + TitleHeight + StatusHeight + HeaderHeight + static_cast<float>(VisibleRows) * RowHeight + ProfilingCommandGap + ProfilingCommandHeight + BottomPadding;
+	const TArray<FMaterialAccumulator>& DisplayRows = GMaterialReplayActive ? GMaterialReplayCurrentRows : GCachedRows;
+	const int32 VisibleRows = DisplayRows.Num() > 0 ? DisplayRows.Num() : 1;
+	const float PanelHeight = PaddingX + TitleHeight + StatusHeight + HeaderHeight + static_cast<float>(VisibleRows) * RowHeight + BottomPadding;
 	const float TableX = PanelX + PaddingX;
 	const float TableY = PanelY + PaddingX + TitleHeight + StatusHeight;
 	const float TableWidth = PanelWidth - PaddingX * 2.0f;
@@ -4474,13 +5761,20 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 	TextItem.EnableShadow(FLinearColor::Black);
 
 	const TCHAR* CaptureState = GCaptureActive ? TEXT("Recording") : (GCaptureFrozen ? TEXT("Captured") : TEXT("Idle"));
+	const FString ReplayState = GMaterialReplayActive
+		? FString::Printf(TEXT("Replay %s %.2fs/%.2fs"),
+			GMaterialReplayPlaying ? TEXT("Playing") : TEXT("Paused"),
+			GMaterialReplayCurrentTimeSeconds,
+			GetMaterialReplayDurationSeconds())
+		: FString::Printf(TEXT("Replay %s"), GMaterialReplaySamples.Num() > 0 ? TEXT("Ready") : TEXT("Off"));
 	const FString TitleText = TEXT("MATERIAL GPU PREVIEW");
-	const FString StatusText = FString::Printf(TEXT("Insights %s %.1fs | Frames %llu | Targets %d | Debug %s"),
+	const FString StatusText = FString::Printf(TEXT("Insights %s %.1fs | Frames %llu | Targets %d | Debug %s | %s"),
 		CaptureState,
 		GetCaptureDurationSeconds(),
 		static_cast<unsigned long long>(GLastTraceFrameCount),
 		GLastDebugComponentCount,
-		CVarDebug.GetValueOnGameThread() != 0 ? TEXT("On") : TEXT("Off"));
+		CVarDebug.GetValueOnGameThread() != 0 ? TEXT("On") : TEXT("Off"),
+		*ReplayState);
 
 	TextItem.SetColor(FLinearColor(0.95f, 0.95f, 0.92f, 1.0f));
 	TextItem.Text = FText::FromString(TitleText);
@@ -4507,25 +5801,25 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 	Canvas->DrawItem(TextItem, FVector2D(TrisX, TableY + 2.0f));
 
 	float RowY = TableY + HeaderHeight;
-	if (GCachedRows.Num() == 0)
+	if (DisplayRows.Num() == 0)
 	{
 		DrawStatTile(Canvas, FVector2D(PanelX, RowY), FVector2D(PanelWidth, RowHeight), FLinearColor(0.10f, 0.10f, 0.10f, 0.62f));
 		TextItem.SetColor(FLinearColor::Yellow);
-		TextItem.Text = FText::FromString(TEXT("No Insights material data. Use 'stat mat start', then 'stat mat end'."));
+		TextItem.Text = FText::FromString(GMaterialReplayActive
+			? TEXT("No material GPU sample at this replay time.")
+			: TEXT("No Insights material data. Use 'stat mat start', then 'stat mat end'."));
 		Canvas->DrawItem(TextItem, FVector2D(MaterialX, RowY + 1.0f));
 		RowY += RowHeight;
-		if (bDrawProfilingCommands)
-		{
-			DrawProfilingCommandBar(Canvas, Font, PanelX, RowY + ProfilingCommandGap, PanelWidth);
-		}
 		return static_cast<int32>(PanelY + PanelHeight + 4.0f);
 	}
 
-	for (int32 RowIndex = 0; RowIndex < GCachedRows.Num(); ++RowIndex)
+	for (int32 RowIndex = 0; RowIndex < DisplayRows.Num(); ++RowIndex)
 	{
-		const FMaterialAccumulator& Row = GCachedRows[RowIndex];
+		const FMaterialAccumulator& Row = DisplayRows[RowIndex];
 		const float DisplayMs = GetSeverityMs(Row);
-		const double DrawEventsPerFrame = static_cast<double>(Row.TraceDrawEvents) / static_cast<double>(FMath::Max<uint64>(GLastTraceFrameCount, 1));
+		const double DrawEventsPerFrame = GMaterialReplayActive
+			? static_cast<double>(Row.TraceDrawEvents)
+			: static_cast<double>(Row.TraceDrawEvents) / static_cast<double>(FMath::Max<uint64>(GLastTraceFrameCount, 1));
 		const FLinearColor RowColor = GetMaterialGpuPreviewColor(DisplayMs);
 		const FLinearColor BandColor = (RowIndex % 2) == 0
 			? FLinearColor(0.11f, 0.11f, 0.11f, 0.66f)
@@ -4550,11 +5844,6 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 		Canvas->DrawItem(TextItem, FVector2D(TrisX, RowY + 1.0f));
 
 		RowY += RowHeight;
-	}
-
-	if (bDrawProfilingCommands)
-	{
-		DrawProfilingCommandBar(Canvas, Font, PanelX, RowY + ProfilingCommandGap, PanelWidth);
 	}
 
 	return static_cast<int32>(PanelY + PanelHeight + 4.0f);
