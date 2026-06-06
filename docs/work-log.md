@@ -635,6 +635,36 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Change: mouse/touch hit rectangles are refreshed from the centered Slate geometry so visual placement and input handling stay aligned.
 - Verification: `StylizedCubelessEditor Win64 Development -NoLiveCoding` build succeeded after the centering fix, then succeeded again after the direct Slate-center alignment fix.
 
+## OptimizationPreviewTools Material Replay Toggle
+
+- Date: 2026-06-06 19:55 KST
+- Scope: `Plugins/OptimizationPreviewTools/Source/OptimizationPreviewTools/Private/MaterialGPUPreview.cpp`.
+- Change: `stat mat replay` now toggles replay mode. If replay is inactive it starts the existing replay camera mode; if replay is active it stops replay through the existing teardown path.
+- Change: the `stat profiling` replay button now shows `MAT REPLAY` while inactive and `REPLAY OFF` while the transient replay camera mode is active.
+- Verification: `StylizedCubelessEditor Win64 Development` compiled `MaterialGPUPreview.cpp` successfully, then failed at DLL link because the running Unreal Editor process was holding `UnrealEditor-OptimizationPreviewTools.dll`. Close the editor and rerun the build for final link verification.
+- Notion capture fallback: Notion search/update tools were not available in this session, so this local work-log entry is the durable capture.
+
+## OptimizationPreviewTools Shared Color Toggle
+
+- Date: 2026-06-06 20:08 KST
+- Scope: `Plugins/OptimizationPreviewTools/Source/OptimizationPreviewTools/Private/MaterialGPUPreview.cpp`.
+- Change: `stat matmode` / the `COLOR ON/OFF` profiling button now applies the shared debug color mode to both Material GPU Preview and Object Memory Snapshot debug visualization.
+- Change: `stat obj` debug output now reports `Debug Color`, `Debug Original`, or `Debug Off`, and color ON rebuilds/reapplies object actor-coloration or fallback overlays after color OFF clears them.
+- Change: pressing `REPLAY OFF` while Material Replay is active now uses the `stat mat 0` path, so it stops replay, restores the view, clears material debug visualization, and hides the material stat panel.
+- Verification: `git diff --check` passed with only CRLF warnings. `StylizedCubelessEditor Win64 Development` compiled `MaterialGPUPreview.cpp` successfully, then failed at DLL link because the running Unreal Editor process was holding `UnrealEditor-OptimizationPreviewTools.dll`.
+- Notion capture fallback: Notion search/update tools were not available in this session, so this local work-log entry is the durable capture.
+
+## OptimizationPreviewTools Profiling UI and Trace Channels
+
+- Date: 2026-06-06 20:40 KST
+- Scope: `Plugins/OptimizationPreviewTools`.
+- Change: `stat profiling` command buttons were enlarged by about 20 percent, including row width, height, spacing, and top padding.
+- Change: `stat mat` no longer draws the `MaxMS` table column, while internal max GPU ms values remain available for sorting, debug color severity, and replay data.
+- Change: added `materialgpu.TraceChannels`; when the CVar is empty, capture channels come from `DefaultOptimizationPreviewTools.ini` `[MaterialGPUPreview] TraceChannels`.
+- Decision: default trace channels are now `gpu,frame`, removing the previous `stats`, `log`, `rendercommands`, and `cpu` channels from the default capture path.
+- Verification: `git diff --check` passed with only CRLF warnings. `StylizedCubelessEditor Win64 Development` build succeeded.
+- Notion capture fallback: Notion search/update tools were not available in this session, so this local work-log entry is the durable capture.
+
 - Date: 2026-06-06 14:01 KST
 - Decision: `/Content/_MCP_Sample/` is reserved for local MCP learning/sample resources.
 - Git rule: `/Content/_MCP_Sample/` is now gitignored by default and must not be staged or committed unless the user explicitly asks to version a specific sample asset.

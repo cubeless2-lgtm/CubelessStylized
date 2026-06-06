@@ -94,7 +94,7 @@ static const FName ProfilingEngineStatName(TEXT("STAT_Profiling"));
 static const FName EngineStatCategory(TEXT("STATCAT_Engine"));
 static const FName ActorColorationHandlerName(TEXT("OptimizationPreviewTools"));
 static const FName MaterialReplayCameraTag(TEXT("OptimizationPreviewToolsReplayCamera"));
-static const TCHAR* TraceChannels = TEXT("gpu,frame,stats,log,rendercommands,cpu");
+static const TCHAR* DefaultMaterialGPUTraceChannels = TEXT("gpu,frame");
 
 struct FProfilingCommandButtonSpec
 {
@@ -110,9 +110,15 @@ static const FProfilingCommandButtonSpec GProfilingCommandButtons[] =
 	{ TEXT("OBJ SNAP"), TEXT("stat obj") }
 };
 
-static constexpr float ProfilingCommandButtonHeight = 34.0f;
-static constexpr float ProfilingCommandButtonGap = 6.0f;
-static constexpr float ProfilingCommandAreaPadding = 8.0f;
+static constexpr float ProfilingCommandButtonHeight = 41.0f;
+static constexpr float ProfilingCommandButtonGap = 7.0f;
+static constexpr float ProfilingCommandAreaPadding = 10.0f;
+
+static TAutoConsoleVariable<FString> CVarTraceChannels(
+	TEXT("materialgpu.TraceChannels"),
+	TEXT(""),
+	TEXT("Override Material GPU Preview Insights trace channels. Empty uses OptimizationPreviewTools.ini MaterialGPUPreview.TraceChannels."),
+	ECVF_Default);
 
 static TAutoConsoleVariable<int32> CVarTopN(
 	TEXT("materialgpu.TopN"),
@@ -1006,6 +1012,22 @@ static float ReadMaterialGPUPreviewConfigFloat(const TCHAR* Key, float DefaultVa
 	return Value;
 }
 
+static FString ReadMaterialGPUPreviewConfigString(const TCHAR* Key, const TCHAR* DefaultValue)
+{
+	FString Value(DefaultValue);
+	if (GConfig)
+	{
+		const FString& ConfigFile = GetOptimizationPreviewToolsIni();
+		if (!ConfigFile.IsEmpty())
+		{
+			GConfig->GetString(MaterialGPUPreviewConfigSection, Key, Value, ConfigFile);
+		}
+	}
+
+	Value.TrimStartAndEndInline();
+	return Value.IsEmpty() ? FString(DefaultValue) : Value;
+}
+
 static float ReadObjectMemorySnapshotConfigFloat(const TCHAR* Key, float DefaultValue)
 {
 	float Value = DefaultValue;
@@ -1019,6 +1041,18 @@ static float ReadObjectMemorySnapshotConfigFloat(const TCHAR* Key, float Default
 	}
 
 	return Value;
+}
+
+static FString GetMaterialGPUTraceChannels()
+{
+	FString TraceChannels = CVarTraceChannels.GetValueOnGameThread();
+	TraceChannels.TrimStartAndEndInline();
+	if (!TraceChannels.IsEmpty())
+	{
+		return TraceChannels;
+	}
+
+	return ReadMaterialGPUPreviewConfigString(TEXT("TraceChannels"), DefaultMaterialGPUTraceChannels);
 }
 
 static float GetDebugGreenMaxMs()
@@ -1137,6 +1171,16 @@ static bool IsMaterialDebugColorModeEnabled()
 static FString GetMaterialDebugModeLabel()
 {
 	if (CVarDebug.GetValueOnGameThread() == 0 && !GMaterialReplayActive)
+	{
+		return TEXT("Off");
+	}
+
+	return IsMaterialDebugColorModeEnabled() ? TEXT("Color") : TEXT("Original");
+}
+
+static FString GetObjectDebugModeLabel()
+{
+	if (CVarObjectDebug.GetValueOnGameThread() == 0)
 	{
 		return TEXT("Off");
 	}
@@ -1567,7 +1611,7 @@ static float GetCenteredProfilingCommandWidth(float ViewWidth)
 {
 	constexpr float OuterPadding = 10.0f;
 	const float AvailableWidth = FMath::Max(1.0f, ViewWidth - OuterPadding * 2.0f);
-	return FMath::Min(FMath::Clamp(AvailableWidth, 320.0f, 760.0f), FMath::Max(1.0f, ViewWidth));
+	return FMath::Min(FMath::Clamp(AvailableWidth, 384.0f, 912.0f), FMath::Max(1.0f, ViewWidth));
 }
 
 static void SetCenteredProfilingCommandLayout(
@@ -1670,6 +1714,11 @@ static FString GetProfilingButtonLabel(int32 ButtonIndex)
 	if (DefaultCommand.Equals(TEXT("stat matmode"), ESearchCase::IgnoreCase))
 	{
 		return IsMaterialDebugColorModeEnabled() ? TEXT("COLOR ON") : TEXT("COLOR OFF");
+	}
+
+	if (DefaultCommand.Equals(TEXT("stat mat replay"), ESearchCase::IgnoreCase))
+	{
+		return GMaterialReplayActive ? TEXT("REPLAY OFF") : TEXT("MAT REPLAY");
 	}
 
 	if (DefaultCommand.Equals(TEXT("stat obj"), ESearchCase::IgnoreCase))
@@ -2810,6 +2859,7 @@ static void UnregisterEditorDelegates()
 #endif
 
 static void UpdateDebugOverlay(UWorld* World);
+static void ApplyObjectDebugVisualization(UWorld* World, FCommonViewportClient* ViewportClient);
 static bool BuildRowsFromInsightsTrace(UWorld* World);
 
 static void ApplyMaterialDebugVisualization(UWorld* World, FCommonViewportClient* ViewportClient)
@@ -2843,11 +2893,12 @@ static void ApplyMaterialDebugVisualization(UWorld* World, FCommonViewportClient
 static bool StartInsightsGpuTrace()
 {
 	GTraceFilePath = BuildTraceFilePath();
+	const FString TraceChannels = GetMaterialGPUTraceChannels();
 
 	FTraceAuxiliary::FOptions Options;
 	Options.bTruncateFile = true;
 	Options.bExcludeTail = true;
-	return FTraceAuxiliary::Start(FTraceAuxiliary::EConnectionType::File, *GTraceFilePath, TraceChannels, &Options, LogOptimizationPreviewTools);
+	return FTraceAuxiliary::Start(FTraceAuxiliary::EConnectionType::File, *GTraceFilePath, *TraceChannels, &Options, LogOptimizationPreviewTools);
 }
 
 static bool WaitForTraceFileReady(const FString& TraceFilePath)
@@ -2937,14 +2988,14 @@ static void StartCapture(UWorld* World, FCommonViewportClient* ViewportClient)
 		GLastAnalysisMessage = TEXT("Failed to start Insights trace.");
 		UE_LOG(LogOptimizationPreviewTools, Warning, TEXT("Material GPU Preview capture failed to start. Trace=%s Channels=%s"),
 			*GTraceFilePath,
-			TraceChannels);
+			*GetMaterialGPUTraceChannels());
 		return;
 	}
 
 	StartMaterialReplayCameraCapture(World);
 	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Material GPU Preview capture started. Trace=%s Channels=%s StartedTrace=%s"),
 		*GTraceFilePath,
-		TraceChannels,
+		*GetMaterialGPUTraceChannels(),
 		GTraceStartedByCapture ? TEXT("true") : TEXT("false"));
 }
 
@@ -3040,7 +3091,8 @@ static void SetMaterialDebugColorModeEnabled(UWorld* World, FCommonViewportClien
 {
 	CVarMaterialDebugMode->Set(bEnable ? 1 : 0, ECVF_SetByConsole);
 	ApplyMaterialDebugVisualization(World, ViewportClient);
-	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Material GPU Preview debug color mode %s."),
+	ApplyObjectDebugVisualization(World, ViewportClient);
+	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Optimization Preview Tools debug color mode %s."),
 		bEnable ? TEXT("enabled") : TEXT("disabled"));
 }
 
@@ -3098,7 +3150,14 @@ static bool ToggleStat(UWorld* World, FCommonViewportClient* ViewportClient, con
 
 	if (FParse::Command(&Cmd, TEXT("replay")))
 	{
-		StartMaterialReplay(World, ViewportClient);
+		if (GMaterialReplayActive)
+		{
+			SetDebugViewEnabled(World, ViewportClient, false);
+		}
+		else
+		{
+			StartMaterialReplay(World, ViewportClient);
+		}
 		return true;
 	}
 
@@ -5788,7 +5847,7 @@ static TArray<FDebugOverlayEntry> BuildObjectDebugOverlayEntries()
 
 static void UpdateObjectDebugOverlay(UWorld* World)
 {
-	if (!World || CVarObjectDebug.GetValueOnGameThread() == 0 || GActorColorationActive)
+	if (!World || CVarObjectDebug.GetValueOnGameThread() == 0 || GActorColorationActive || !IsMaterialDebugColorModeEnabled())
 	{
 		ClearCachedDebugOverlay(World);
 		return;
@@ -5822,6 +5881,37 @@ static void UpdateObjectDebugOverlay(UWorld* World)
 
 	GCachedDebugEntries = MoveTemp(NewEntries);
 	GCachedDebugWorld = World;
+}
+
+static void ApplyObjectDebugVisualization(UWorld* World, FCommonViewportClient* ViewportClient)
+{
+	if (!World || CVarObjectDebug.GetValueOnGameThread() == 0)
+	{
+		if (CVarDebug.GetValueOnGameThread() == 0 && !GMaterialReplayActive)
+		{
+			ClearCachedDebugOverlay(World);
+		}
+		return;
+	}
+
+	if (!IsMaterialDebugColorModeEnabled())
+	{
+		DisableActorColoration(World, ViewportClient);
+		ClearCachedDebugOverlay(World);
+		RefreshActorColorationViewports(ViewportClient);
+		return;
+	}
+
+	if (ShouldUseActorColorationBackend())
+	{
+		RebuildObjectActorColorationColorMap();
+		ApplyActorColorationViewModeFromCurrentColors(World, ViewportClient);
+	}
+	else
+	{
+		DisableActorColoration(World, ViewportClient);
+		UpdateObjectDebugOverlay(World);
+	}
 }
 
 static FString GetObjectMemoryTableName(const FObjectMemorySnapshotRow& Row, int32 MaxLen)
@@ -5869,16 +5959,7 @@ static void ShowObjectMemorySnapshot(UWorld* World, FCommonViewportClient* Viewp
 	}
 
 	CVarObjectDebug->Set(1);
-	if (ShouldUseActorColorationBackend())
-	{
-		RebuildObjectActorColorationColorMap();
-		ApplyActorColorationViewModeFromCurrentColors(World, ViewportClient);
-	}
-	else
-	{
-		DisableActorColoration(World, ViewportClient);
-		UpdateObjectDebugOverlay(World);
-	}
+	ApplyObjectDebugVisualization(World, ViewportClient);
 }
 
 static bool ToggleObjectStat(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream)
@@ -6020,7 +6101,7 @@ static int32 RenderObjectStat(UWorld* World, FViewport* Viewport, FCanvas* Canva
 		GCachedObjectDebugRows.Num(),
 		GLastObjectSnapshotSourceCount,
 		GLastObjectDebugComponentCount,
-		CVarObjectDebug.GetValueOnGameThread() != 0 ? TEXT("On") : TEXT("Off"));
+		*GetObjectDebugModeLabel());
 
 	TextItem.SetColor(FLinearColor(0.95f, 0.95f, 0.92f, 1.0f));
 	TextItem.Text = FText::FromString(TitleText);
@@ -6147,13 +6228,12 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 	DrawStatTile(Canvas, FVector2D(PanelX, TableY), FVector2D(PanelWidth, HeaderHeight), FLinearColor(0.18f, 0.18f, 0.18f, 0.86f));
 
 	const float MaterialX = TableX;
-	const float MaxX = PanelX + PanelWidth - 438.0f;
 	const float AvgX = PanelX + PanelWidth - 366.0f;
 	const float DrawEventsX = PanelX + PanelWidth - 288.0f;
 	const float CompsX = PanelX + PanelWidth - 214.0f;
 	const float BlendX = PanelX + PanelWidth - 146.0f;
 	const float TrisX = PanelX + PanelWidth - 82.0f;
-	const int32 MaterialNameChars = FMath::Clamp(static_cast<int32>((MaxX - MaterialX - 18.0f) / 7.0f), 24, 74);
+	const int32 MaterialNameChars = FMath::Clamp(static_cast<int32>((AvgX - MaterialX - 18.0f) / 7.0f), 24, 84);
 
 	FCanvasTextItem TextItem(FVector2D::ZeroVector, FText::GetEmpty(), Font, FLinearColor::White);
 	TextItem.EnableShadow(FLinearColor::Black);
@@ -6185,8 +6265,6 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 	TextItem.SetColor(FLinearColor(1.0f, 0.63f, 0.18f, 1.0f));
 	TextItem.Text = FText::FromString(TEXT("Material"));
 	Canvas->DrawItem(TextItem, FVector2D(MaterialX, TableY + 2.0f));
-	TextItem.Text = FText::FromString(TEXT("MaxMS"));
-	Canvas->DrawItem(TextItem, FVector2D(MaxX, TableY + 2.0f));
 	TextItem.Text = FText::FromString(TEXT("AvgMS"));
 	Canvas->DrawItem(TextItem, FVector2D(AvgX, TableY + 2.0f));
 	TextItem.Text = FText::FromString(TEXT("DrawEv/F"));
@@ -6228,8 +6306,6 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 		TextItem.Text = FText::FromString(GetMaterialTableName(Row, MaterialNameChars));
 		Canvas->DrawItem(TextItem, FVector2D(MaterialX, RowY + 1.0f));
 
-		TextItem.Text = FText::FromString(FString::Printf(TEXT("%5.2f"), Row.MaxGpuMs));
-		Canvas->DrawItem(TextItem, FVector2D(MaxX, RowY + 1.0f));
 		TextItem.Text = FText::FromString(FString::Printf(TEXT("%5.2f"), Row.AvgGpuMs));
 		Canvas->DrawItem(TextItem, FVector2D(AvgX, RowY + 1.0f));
 		TextItem.Text = FText::FromString(FString::Printf(TEXT("%7.2f"), DrawEventsPerFrame));
