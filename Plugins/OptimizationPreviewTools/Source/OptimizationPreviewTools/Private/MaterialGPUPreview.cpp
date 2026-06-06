@@ -13,6 +13,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Containers/Ticker.h"
 #include "CoreGlobals.h"
+#include "DynamicRHI.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/EngineTypes.h"
@@ -40,6 +41,7 @@
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "ProfilingDebugging/CountersTrace.h"
 #include "ProfilingDebugging/TraceAuxiliary.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "RenderingThread.h"
@@ -47,21 +49,25 @@
 #include "Serialization/MemoryReader.h"
 #include "StaticMeshResources.h"
 #include "Styling/CoreStyle.h"
+#include "Rendering/DrawElements.h"
 #include "TraceServices/AnalysisService.h"
 #include "TraceServices/Containers/Timelines.h"
 #include "TraceServices/ITraceServicesModule.h"
 #include "TraceServices/Model/AnalysisSession.h"
+#include "TraceServices/Model/Counters.h"
 #include "TraceServices/Model/Frames.h"
 #include "TraceServices/Model/TimingProfiler.h"
 #include "UObject/ObjectKey.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/WeakObjectPtrTemplates.h"
+#include "UnrealClient.h"
 #include "ViewportClient.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SSlider.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SSpacer.h"
+#include "Widgets/SLeafWidget.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/SViewport.h"
@@ -76,6 +82,7 @@
 #endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogOptimizationPreviewTools, Log, All);
+TRACE_DECLARE_FLOAT_COUNTER(MaterialGPUUnitGPU, TEXT("MaterialGPU/UnitGPU"));
 
 #define LOCTEXT_NAMESPACE "OptimizationPreviewTools"
 
@@ -94,7 +101,7 @@ static const FName ProfilingEngineStatName(TEXT("STAT_Profiling"));
 static const FName EngineStatCategory(TEXT("STATCAT_Engine"));
 static const FName ActorColorationHandlerName(TEXT("OptimizationPreviewTools"));
 static const FName MaterialReplayCameraTag(TEXT("OptimizationPreviewToolsReplayCamera"));
-static const TCHAR* DefaultMaterialGPUTraceChannels = TEXT("gpu,frame");
+static const TCHAR* DefaultMaterialGPUTraceChannels = TEXT("gpu,frame,counters");
 
 struct FProfilingCommandButtonSpec
 {
@@ -302,8 +309,16 @@ struct FMaterialGpuReplayFrameSample
 	uint32 TraceFrameIndex = 0;
 	double TimeSeconds = 0.0;
 	double EndTimeSeconds = 0.0;
+	float TotalFrameGpuMs = 0.0f;
+	bool bHasTotalFrameGpuMs = false;
 	TMap<FString, float> MaterialGpuMsByKey;
 	TMap<FString, int32> MaterialDrawEventsByKey;
+};
+
+struct FFrameGpuInterval
+{
+	double StartTimeSeconds = 0.0;
+	double EndTimeSeconds = 0.0;
 };
 
 struct FMaterialReplayCameraSample
@@ -328,6 +343,13 @@ struct FMaterialReplayCharacterSample
 	bool bHasMovementMode = false;
 	bool bHasMontage = false;
 	bool bHasControlRotation = false;
+};
+
+struct FMaterialReplayUnitGpuSample
+{
+	double TimeSeconds = 0.0;
+	float GpuMs = 0.0f;
+	bool bFromStatUnitData = false;
 };
 
 struct FObjectMemorySnapshotRow
@@ -410,13 +432,18 @@ static bool SetInputScreenRectFromWidget(const TSharedPtr<SWidget>& Widget, floa
 }
 
 static TArray<FMaterialAccumulator> GCachedRows;
+static TArray<FMaterialAccumulator> GCachedRowsAll;
 static TArray<FMaterialAccumulator> GCachedDebugRows;
 static TArray<FMaterialAccumulator> GMaterialReplayCurrentRows;
+static TArray<FMaterialAccumulator> GMaterialReplayCurrentRowsAll;
 static TArray<FMaterialAccumulator> GMaterialReplayDebugRows;
 static TArray<FMaterialAccumulator> GMaterialReplaySceneRows;
 static TArray<FMaterialGpuReplayFrameSample> GMaterialReplaySamples;
 static TArray<FMaterialReplayCameraSample> GMaterialReplayCameraSamples;
 static TArray<FMaterialReplayCharacterSample> GMaterialReplayCharacterSamples;
+static TArray<FMaterialReplayUnitGpuSample> GMaterialReplayUnitGpuSamples;
+static TArray<float> GMaterialReplayFrameGpuMs;
+static float GMaterialReplayFrameGpuMsMax = 0.0f;
 static TArray<FObjectMemorySnapshotRow> GCachedObjectRows;
 static TArray<FObjectMemorySnapshotRow> GCachedObjectDebugRows;
 static TArray<FDebugOverlayEntry> GCachedDebugEntries;
@@ -430,6 +457,9 @@ static TWeakObjectPtr<UGameViewportClient> GActorColorationGameViewport;
 static bool GCaptureActive = false;
 static bool GCaptureFrozen = false;
 static bool GTraceStartedByCapture = false;
+static bool GMaterialCaptureEndGuardActive = false;
+static double GMaterialCaptureEndGuardReleaseSeconds = 0.0;
+static constexpr double MaterialCaptureEndGuardDebounceSeconds = 0.35;
 static bool GActorColorationHandlerRegistered = false;
 static bool GActorColorationActive = false;
 static bool GMaterialReplayActive = false;
@@ -504,6 +534,78 @@ static FInputScreenRect GMaterialReplaySliderRect;
 static bool GMaterialReplayDraggingSlider = false;
 static uint32 GMaterialReplayDraggingPointerIndex = 0;
 
+static double CalculateMergedGpuIntervalDurationMs(TArray<FFrameGpuInterval>& Intervals)
+{
+	Intervals.RemoveAll([](const FFrameGpuInterval& Interval)
+	{
+		return !FMath::IsFinite(Interval.StartTimeSeconds)
+			|| !FMath::IsFinite(Interval.EndTimeSeconds)
+			|| Interval.EndTimeSeconds <= Interval.StartTimeSeconds;
+	});
+
+	if (Intervals.Num() == 0)
+	{
+		return 0.0;
+	}
+
+	Intervals.Sort([](const FFrameGpuInterval& A, const FFrameGpuInterval& B)
+	{
+		if (A.StartTimeSeconds == B.StartTimeSeconds)
+		{
+			return A.EndTimeSeconds < B.EndTimeSeconds;
+		}
+
+		return A.StartTimeSeconds < B.StartTimeSeconds;
+	});
+
+	double TotalSeconds = 0.0;
+	double CurrentStart = Intervals[0].StartTimeSeconds;
+	double CurrentEnd = Intervals[0].EndTimeSeconds;
+	for (int32 Index = 1; Index < Intervals.Num(); ++Index)
+	{
+		const FFrameGpuInterval& Interval = Intervals[Index];
+		if (Interval.StartTimeSeconds <= CurrentEnd)
+		{
+			CurrentEnd = FMath::Max(CurrentEnd, Interval.EndTimeSeconds);
+			continue;
+		}
+
+		TotalSeconds += CurrentEnd - CurrentStart;
+		CurrentStart = Interval.StartTimeSeconds;
+		CurrentEnd = Interval.EndTimeSeconds;
+	}
+
+	TotalSeconds += CurrentEnd - CurrentStart;
+	return TotalSeconds * 1000.0;
+}
+
+static float ReadCurrentStatUnitGpuMs(UWorld* World, bool& bOutFromStatUnitData)
+{
+	bOutFromStatUnitData = false;
+	if (World)
+	{
+		if (UGameViewportClient* GameViewportClient = World->GetGameViewport())
+		{
+			if (FStatUnitData* StatUnitData = GameViewportClient->GetStatUnitData())
+			{
+				if (StatUnitData->GPUFrameTime[0] > 0.0f)
+				{
+					bOutFromStatUnitData = true;
+					return StatUnitData->GPUFrameTime[0];
+				}
+
+				if (StatUnitData->RawGPUFrameTime[0] > 0.0f)
+				{
+					bOutFromStatUnitData = true;
+					return StatUnitData->RawGPUFrameTime[0];
+				}
+			}
+		}
+	}
+
+	return FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles(0));
+}
+
 #if WITH_EDITOR
 static FDelegateHandle GEndPIEHandle;
 static TMap<FEditorViewportClient*, EViewModeIndex> GPreviousEditorViewModes;
@@ -542,6 +644,14 @@ static void StartMaterialReplayCameraCapture(UWorld* World);
 static void DestroyMaterialReplayCamera();
 static void StartMaterialReplay(UWorld* World, FCommonViewportClient* ViewportClient);
 static void StopMaterialReplay(UWorld* World, FCommonViewportClient* ViewportClient);
+static int32 FindMaterialReplaySampleIndexForTime(double TimeSeconds);
+static float FindNearestMaterialReplayUnitGpuMs(const TArray<FMaterialReplayUnitGpuSample>& Samples, double TimeSeconds);
+static float GetMaterialReplayUnitGpuMsForTime(double TimeSeconds);
+static void RebuildMaterialReplayFrameGpuMs();
+static bool IsMaterialCaptureCommandLocked();
+static bool IsMaterialCaptureCommand(const FString& Command);
+static bool ShouldBlockMaterialCaptureCommand(const FString& Command);
+static bool IsProfilingButtonEnabled(int32 ButtonIndex);
 static bool TryHandleMaterialReplayPointerDown(const FPointerEvent& PointerEvent);
 static bool TryHandleMaterialReplayPointerMove(const FPointerEvent& PointerEvent);
 static bool TryHandleMaterialReplayPointerUp(const FPointerEvent& PointerEvent);
@@ -564,22 +674,29 @@ static void ClearCaptureState()
 	GCaptureActive = false;
 	GCaptureFrozen = false;
 	GTraceStartedByCapture = false;
+	GMaterialCaptureEndGuardActive = false;
+	GMaterialCaptureEndGuardReleaseSeconds = 0.0;
 	GTraceFilePath.Reset();
 	GLastTraceFrameCount = 0;
 	GLastDebugMaterialCount = 0;
 	GLastDebugComponentCount = 0;
 	GCachedRows.Reset();
+	GCachedRowsAll.Reset();
 	GCachedDebugRows.Reset();
 	GMaterialReplayActive = false;
 	GMaterialReplayPlaying = false;
 	GMaterialReplayScrubbing = false;
 	GMaterialReplayCurrentRows.Reset();
+	GMaterialReplayCurrentRowsAll.Reset();
 	GMaterialReplayDebugRows.Reset();
 	GMaterialReplaySceneRows.Reset();
 	GMaterialReplaySceneLookup.Reset();
 	GMaterialReplaySamples.Reset();
 	GMaterialReplayCameraSamples.Reset();
 	GMaterialReplayCharacterSamples.Reset();
+	GMaterialReplayUnitGpuSamples.Reset();
+	GMaterialReplayFrameGpuMs.Reset();
+	GMaterialReplayFrameGpuMsMax = 0.0f;
 	GMaterialReplayCurrentTimeSeconds = 0.0;
 	GMaterialReplayLastTickSeconds = -1.0;
 	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
@@ -1012,6 +1129,21 @@ static float ReadMaterialGPUPreviewConfigFloat(const TCHAR* Key, float DefaultVa
 	return Value;
 }
 
+static bool ReadMaterialGPUPreviewConfigBool(const TCHAR* Key, bool bDefaultValue)
+{
+	bool bValue = bDefaultValue;
+	if (GConfig)
+	{
+		const FString& ConfigFile = GetOptimizationPreviewToolsIni();
+		if (!ConfigFile.IsEmpty())
+		{
+			GConfig->GetBool(MaterialGPUPreviewConfigSection, Key, bValue, ConfigFile);
+		}
+	}
+
+	return bValue;
+}
+
 static FString ReadMaterialGPUPreviewConfigString(const TCHAR* Key, const TCHAR* DefaultValue)
 {
 	FString Value(DefaultValue);
@@ -1063,6 +1195,11 @@ static float GetDebugGreenMaxMs()
 static float GetDebugWhiteMs()
 {
 	return FMath::Max(ReadMaterialGPUPreviewConfigFloat(TEXT("DebugWhiteMs"), DefaultDebugWhiteMs), GetDebugGreenMaxMs() + 0.001f);
+}
+
+static bool ShouldEmitMaterialGPUUnitGpuCounter()
+{
+	return ReadMaterialGPUPreviewConfigBool(TEXT("EmitUnitGpuCounter"), true);
 }
 
 static float GetObjectDebugGreenMaxMB()
@@ -1687,6 +1824,10 @@ static FString GetProfilingButtonCommand(int32 ButtonIndex)
 	const FString DefaultCommand(GProfilingCommandButtons[ButtonIndex].Command);
 	if (DefaultCommand.Equals(TEXT("stat mat start"), ESearchCase::IgnoreCase))
 	{
+		if (!GCaptureActive && IsMaterialCaptureCommandLocked())
+		{
+			return FString();
+		}
 		return GCaptureActive ? TEXT("stat mat end") : TEXT("stat mat start");
 	}
 
@@ -1696,6 +1837,85 @@ static FString GetProfilingButtonCommand(int32 ButtonIndex)
 	}
 
 	return DefaultCommand;
+}
+
+static bool IsMaterialCaptureCommandLocked()
+{
+	return GMaterialCaptureEndGuardActive && FPlatformTime::Seconds() < GMaterialCaptureEndGuardReleaseSeconds;
+}
+
+static bool GetMaterialCaptureCommandVerb(const FString& Command, FString& OutVerb)
+{
+	FString NormalizedCommand = Command;
+	NormalizedCommand.TrimStartAndEndInline();
+
+	const TCHAR* Cmd = *NormalizedCommand;
+	if (!FParse::Command(&Cmd, TEXT("stat")))
+	{
+		return false;
+	}
+	if (!FParse::Command(&Cmd, *StatName) && !FParse::Command(&Cmd, *StatAliasName))
+	{
+		return false;
+	}
+
+	if (FParse::Command(&Cmd, TEXT("start")))
+	{
+		OutVerb = TEXT("start");
+		return true;
+	}
+	if (FParse::Command(&Cmd, TEXT("end")))
+	{
+		OutVerb = TEXT("end");
+		return true;
+	}
+	if (FParse::Command(&Cmd, TEXT("stop")))
+	{
+		OutVerb = TEXT("stop");
+		return true;
+	}
+
+	return false;
+}
+
+static bool IsMaterialCaptureCommand(const FString& Command)
+{
+	FString Verb;
+	return GetMaterialCaptureCommandVerb(Command, Verb);
+}
+
+static bool ShouldBlockMaterialCaptureCommand(const FString& Command)
+{
+	if (GCaptureActive || !GMaterialCaptureEndGuardActive)
+	{
+		return false;
+	}
+
+	FString Verb;
+	if (!GetMaterialCaptureCommandVerb(Command, Verb))
+	{
+		return false;
+	}
+
+	if (FPlatformTime::Seconds() < GMaterialCaptureEndGuardReleaseSeconds)
+	{
+		return true;
+	}
+
+	return !Verb.Equals(TEXT("start"), ESearchCase::IgnoreCase);
+}
+
+static bool IsProfilingButtonEnabled(int32 ButtonIndex)
+{
+	if (ButtonIndex < 0 || ButtonIndex >= static_cast<int32>(UE_ARRAY_COUNT(GProfilingCommandButtons)))
+	{
+		return false;
+	}
+
+	const FString DefaultCommand(GProfilingCommandButtons[ButtonIndex].Command);
+	return !DefaultCommand.Equals(TEXT("stat mat start"), ESearchCase::IgnoreCase)
+		|| GCaptureActive
+		|| !IsMaterialCaptureCommandLocked();
 }
 
 static FString GetProfilingButtonLabel(int32 ButtonIndex)
@@ -1708,6 +1928,10 @@ static FString GetProfilingButtonLabel(int32 ButtonIndex)
 	const FString DefaultCommand(GProfilingCommandButtons[ButtonIndex].Command);
 	if (DefaultCommand.Equals(TEXT("stat mat start"), ESearchCase::IgnoreCase))
 	{
+		if (!GCaptureActive && IsMaterialCaptureCommandLocked())
+		{
+			return TEXT("MAT WAIT");
+		}
 		return GCaptureActive ? TEXT("MAT END") : TEXT("MAT START");
 	}
 
@@ -1855,6 +2079,16 @@ static void KeepProfilingCommandsVisibleAfterButtonCommand(const FString& Comman
 
 static void ExecuteProfilingCommand(const FString& Command)
 {
+	if (Command.IsEmpty())
+	{
+		return;
+	}
+	if (ShouldBlockMaterialCaptureCommand(Command))
+	{
+		UE_LOG(LogOptimizationPreviewTools, Verbose, TEXT("Material GPU Preview capture command ignored during post-end guard: %s"), *Command);
+		return;
+	}
+
 	UWorld* World = nullptr;
 	if (UGameViewportClient* GameViewportClient = GProfilingSlateOverlayViewport.Get())
 	{
@@ -2056,6 +2290,10 @@ static TSharedRef<SWidget> MakeProfilingSlateButton(int32 ButtonIndex)
 					.ClickMethod(EButtonClickMethod::MouseDown)
 					.TouchMethod(EButtonTouchMethod::Down)
 					.IsFocusable(false)
+					.IsEnabled(TAttribute<bool>::CreateLambda([ButtonIndex]()
+					{
+						return IsProfilingButtonEnabled(ButtonIndex);
+					}))
 					.OnClicked_Lambda([ButtonIndex]()
 					{
 						return ExecuteProfilingSlateCommand(GetProfilingButtonCommand(ButtonIndex));
@@ -2102,6 +2340,109 @@ static TSharedRef<SWidget> MakeProfilingSlateButtonRow()
 
 	return StaticCastSharedRef<SWidget>(ButtonRow);
 }
+
+class SProfilingRecordingIndicator final : public SLeafWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SProfilingRecordingIndicator) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs)
+	{
+		SetCanTick(false);
+	}
+
+	virtual FVector2D ComputeDesiredSize(float LayoutScaleMultiplier) const override
+	{
+		return FVector2D(384.0f, 102.0f);
+	}
+
+	virtual bool ComputeVolatility() const override
+	{
+		return GCaptureActive;
+	}
+
+	virtual int32 OnPaint(
+		const FPaintArgs& Args,
+		const FGeometry& AllottedGeometry,
+		const FSlateRect& MyCullingRect,
+		FSlateWindowElementList& OutDrawElements,
+		int32 LayerId,
+		const FWidgetStyle& InWidgetStyle,
+		bool bParentEnabled) const override
+	{
+		if (!GCaptureActive)
+		{
+			return LayerId;
+		}
+
+		const bool bEnabled = ShouldBeEnabled(bParentEnabled);
+		const ESlateDrawEffect DrawEffects = bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
+		const FSlateBrush* WhiteBrush = FCoreStyle::Get().GetBrush("WhiteBrush");
+		const FLinearColor Tint = InWidgetStyle.GetColorAndOpacityTint();
+		const FVector2D Size = AllottedGeometry.GetLocalSize();
+		const double TimeSeconds = FSlateApplication::IsInitialized() ? FSlateApplication::Get().GetCurrentTime() : FPlatformTime::Seconds();
+		const float Pulse = 0.5f + 0.5f * FMath::Sin(static_cast<float>(TimeSeconds) * 6.0f);
+		const float TextPulse = 0.5f + 0.5f * FMath::Sin(static_cast<float>(TimeSeconds) * 14.0f);
+		const float FlickerStep = FMath::Fmod(FMath::FloorToFloat(static_cast<float>(TimeSeconds) * 17.0f) * 0.37f, 1.0f);
+		const float TextOpacity = FMath::Clamp(0.58f + TextPulse * 0.30f + (FlickerStep > 0.78f ? 0.12f : -0.08f), 0.42f, 1.0f);
+		const float Sweep = FMath::Fmod(static_cast<float>(TimeSeconds) * 1.25f, 1.0f);
+		const FVector2D Center(51.0f, Size.Y * 0.5f);
+		constexpr float Radius = 33.0f;
+
+		FSlateDrawElement::MakeBox(
+			OutDrawElements,
+			LayerId,
+			AllottedGeometry.ToPaintGeometry(),
+			WhiteBrush,
+			DrawEffects,
+			FLinearColor(0.035f, 0.006f, 0.006f, 0.76f) * Tint);
+
+		for (int32 SegmentIndex = 0; SegmentIndex < 32; ++SegmentIndex)
+		{
+			const float SegmentAlpha = static_cast<float>(SegmentIndex) / 32.0f;
+			const float WrappedAlpha = FMath::Fmod(SegmentAlpha - Sweep + 1.0f, 1.0f);
+			const float SegmentOpacity = FMath::Clamp(1.0f - WrappedAlpha * 1.35f, 0.08f, 1.0f);
+			const float Angle = SegmentAlpha * UE_TWO_PI;
+			const FVector2D Direction(FMath::Cos(Angle), FMath::Sin(Angle));
+			const FVector2D Start = Center + Direction * (Radius - 7.5f);
+			const FVector2D End = Center + Direction * (Radius + 7.5f);
+
+			TArray<FVector2D> SegmentLine;
+			SegmentLine.Add(Start);
+			SegmentLine.Add(End);
+			FSlateDrawElement::MakeLines(
+				OutDrawElements,
+				LayerId + 1,
+				AllottedGeometry.ToPaintGeometry(),
+				SegmentLine,
+				DrawEffects,
+				FLinearColor(1.0f, 0.02f, 0.02f, SegmentOpacity) * Tint,
+				true,
+				6.6f);
+		}
+
+		const float CoreSize = FMath::Lerp(15.0f, 22.5f, Pulse);
+		FSlateDrawElement::MakeBox(
+			OutDrawElements,
+			LayerId + 2,
+			AllottedGeometry.ToPaintGeometry(FVector2D(CoreSize, CoreSize), FSlateLayoutTransform(Center - FVector2D(CoreSize * 0.5f))),
+			WhiteBrush,
+			DrawEffects,
+			FLinearColor(1.0f, 0.0f, 0.0f, FMath::Lerp(0.55f, 0.95f, Pulse)) * Tint);
+
+		FSlateDrawElement::MakeText(
+			OutDrawElements,
+			LayerId + 3,
+			AllottedGeometry.ToPaintGeometry(FVector2D(250.0f, 62.0f), FSlateLayoutTransform(FVector2D(108.0f, 20.0f))),
+			FText::FromString(TEXT("REC...")),
+			FCoreStyle::GetDefaultFontStyle("Bold", 40),
+			DrawEffects,
+			FLinearColor(1.0f, 0.03f, 0.03f, TextOpacity) * Tint);
+
+		return LayerId + 4;
+	}
+};
 
 static TSharedRef<SWidget> BuildProfilingSlateOverlay()
 {
@@ -2209,6 +2550,21 @@ static TSharedRef<SWidget> BuildProfilingSlateOverlay()
 			}))
 			[
 				MakeProfilingSlateButtonRow()
+			]
+		]
+		+ SOverlay::Slot()
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Center)
+		[
+			SNew(SBox)
+			.Visibility(TAttribute<EVisibility>::CreateLambda([]()
+			{
+				return GCaptureActive ? EVisibility::HitTestInvisible : EVisibility::Collapsed;
+			}))
+			.WidthOverride(384.0f)
+			.HeightOverride(102.0f)
+			[
+				SNew(SProfilingRecordingIndicator)
 			]
 		];
 }
@@ -2818,11 +3174,14 @@ static void HandleEndPIE(const bool bIsSimulating)
 	GMaterialReplayPlaying = false;
 	GMaterialReplayScrubbing = false;
 	GMaterialReplayCurrentRows.Reset();
+	GMaterialReplayCurrentRowsAll.Reset();
 	GMaterialReplayDebugRows.Reset();
 	GMaterialReplayCurrentTimeSeconds = 0.0;
 	GMaterialReplayLastTickSeconds = -1.0;
 	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
 	GMaterialReplayCharacterSamples.Reset();
+	GMaterialReplayFrameGpuMs.Reset();
+	GMaterialReplayFrameGpuMsMax = 0.0f;
 	GLastDebugMaterialCount = GCachedDebugRows.Num();
 	GLastDebugComponentCount = CountUniqueDebugComponents(GCachedDebugRows);
 	StopMaterialReplayTicker();
@@ -2963,6 +3322,7 @@ static void StartCapture(UWorld* World, FCommonViewportClient* ViewportClient)
 	ClearCaptureState();
 
 	GCachedRows.Reset();
+	GCachedRowsAll.Reset();
 	GLastAnalysisMessage = TEXT("Recording Insights trace...");
 	CVarDebug->Set(0);
 	CVarObjectDebug->Set(0);
@@ -3020,11 +3380,13 @@ static void EndCapture(UWorld* World, FCommonViewportClient* ViewportClient)
 	}
 	RestoreInsightsMaterialCaptureCvars();
 	GCachedRows.Reset();
+	GCachedRowsAll.Reset();
 	GCachedDebugRows.Reset();
 	const bool bBuiltTraceRows = BuildRowsFromInsightsTrace(World);
 	if (!bBuiltTraceRows)
 	{
 		GCachedRows.Reset();
+		GCachedRowsAll.Reset();
 		GCachedDebugRows.Reset();
 		GLastDebugMaterialCount = 0;
 		GLastDebugComponentCount = 0;
@@ -3053,6 +3415,9 @@ static void EndCapture(UWorld* World, FCommonViewportClient* ViewportClient)
 		*GTraceFilePath,
 		bStoppedTrace ? TEXT("true") : TEXT("false"),
 		*GLastAnalysisMessage);
+
+	GMaterialCaptureEndGuardActive = true;
+	GMaterialCaptureEndGuardReleaseSeconds = FPlatformTime::Seconds() + MaterialCaptureEndGuardDebounceSeconds;
 }
 
 static void SetDebugViewEnabled(UWorld* World, FCommonViewportClient* ViewportClient, bool bEnable)
@@ -3124,6 +3489,13 @@ static bool ToggleStat(UWorld* World, FCommonViewportClient* ViewportClient, con
 	Args.TrimStartAndEndInline();
 
 	const TCHAR* Cmd = *Args;
+	const FString FullCommand = FString::Printf(TEXT("stat %s %s"), *StatName, *Args);
+	if (ShouldBlockMaterialCaptureCommand(FullCommand))
+	{
+		UE_LOG(LogOptimizationPreviewTools, Verbose, TEXT("Material GPU Preview capture command ignored during post-end guard: %s"), *Args);
+		return true;
+	}
+
 	if (FParse::Command(&Cmd, TEXT("0")))
 	{
 		SetDebugViewEnabled(World, ViewportClient, false);
@@ -3168,6 +3540,7 @@ static bool ToggleStat(UWorld* World, FCommonViewportClient* ViewportClient, con
 		RestoreInsightsMaterialCaptureCvars();
 		ClearCaptureState();
 		GCachedRows.Reset();
+		GCachedRowsAll.Reset();
 		GLastAnalysisMessage.Reset();
 		DisableActorColoration(World, ViewportClient);
 		ClearCachedDebugOverlay(World);
@@ -3406,6 +3779,8 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 
 	TMap<FString, FTraceMaterialAggregate> AggregatesByMaterial;
 	TMap<uint32, FMaterialGpuReplayFrameSample> ReplaySamplesByFrame;
+	TMap<uint32, TArray<FFrameGpuInterval>> FrameGpuIntervalsByFrame;
+	TArray<FMaterialReplayUnitGpuSample> CounterUnitGpuSamples;
 	TArray<FString> TraceDiagnosticSamples;
 	TSet<FString> SeenTraceDiagnosticSamples;
 	uint64 FrameCount = 0;
@@ -3436,6 +3811,26 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 		FrameCount = FMath::Max<uint64>(FrameCount, 1);
 		GLastTraceFrameCount = FrameCount;
 
+		auto AddTotalGpuInterval = [&](uint32 FrameIndex, double EventStartTime, double EventEndTime)
+		{
+			const TraceServices::FFrame* Frame = FrameProvider.GetFrame(FrameType, FrameIndex);
+			if (!Frame)
+			{
+				return;
+			}
+
+			const double ClippedStartTime = FMath::Max(EventStartTime, Frame->StartTime);
+			const double ClippedEndTime = FMath::Min(EventEndTime, Frame->EndTime);
+			if (ClippedEndTime <= ClippedStartTime)
+			{
+				return;
+			}
+
+			FFrameGpuInterval& Interval = FrameGpuIntervalsByFrame.FindOrAdd(FrameIndex).AddDefaulted_GetRef();
+			Interval.StartTimeSeconds = ClippedStartTime;
+			Interval.EndTimeSeconds = ClippedEndTime;
+		};
+
 		TimingProfilerProvider->ReadTimers(
 			[&](const TraceServices::ITimingProfilerTimerReader& TimerReader)
 			{
@@ -3459,6 +3854,20 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 							}
 
 							const double DurationMs = (EventEndTime - EventStartTime) * 1000.0;
+							const uint32 FrameIndex = FrameProvider.GetFrameNumberForTimestamp(FrameType, EventStartTime);
+							const uint32 EndFrameIndex = FrameProvider.GetFrameNumberForTimestamp(FrameType, FMath::Max(EventStartTime, EventEndTime - 0.000000001));
+							if (EndFrameIndex >= FrameIndex && EndFrameIndex - FrameIndex <= 512)
+							{
+								for (uint32 SplitFrameIndex = FrameIndex; SplitFrameIndex <= EndFrameIndex; ++SplitFrameIndex)
+								{
+									AddTotalGpuInterval(SplitFrameIndex, EventStartTime, EventEndTime);
+								}
+							}
+							else
+							{
+								AddTotalGpuInterval(FrameIndex, EventStartTime, EventEndTime);
+							}
+
 							InspectedGpuEventCount++;
 							if (TraceDiagnosticSamples.Num() < 24)
 							{
@@ -3475,7 +3884,6 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 								return TraceServices::EEventEnumerate::Continue;
 							}
 
-							const uint32 FrameIndex = FrameProvider.GetFrameNumberForTimestamp(FrameType, EventStartTime);
 							const FString MaterialKey = NormalizeTraceLookupKey(MaterialName);
 							FTraceMaterialAggregate& Aggregate = AggregatesByMaterial.FindOrAdd(MaterialKey);
 							if (Aggregate.MaterialName.IsEmpty())
@@ -3540,14 +3948,41 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 						AccumulateTimelineIndex(QueueInfo.WorkTimelineIndex);
 					});
 			});
+
+		const TraceServices::ICounterProvider& CounterProvider = TraceServices::ReadCounterProvider(*Session);
+		CounterProvider.EnumerateCounters(
+			[&](uint32 CounterId, const TraceServices::ICounter& Counter)
+			{
+				if (!Counter.IsFloatingPoint() || FCString::Stricmp(Counter.GetName(), TEXT("MaterialGPU/UnitGPU")) != 0)
+				{
+					return;
+				}
+
+				Counter.EnumerateFloatValues(0.0, Session->GetDurationSeconds(), true,
+					[&](double TimeSeconds, double Value)
+					{
+						if (!FMath::IsFinite(TimeSeconds) || !FMath::IsFinite(Value) || Value <= 0.0)
+						{
+							return;
+						}
+
+						FMaterialReplayUnitGpuSample& Sample = CounterUnitGpuSamples.AddDefaulted_GetRef();
+						Sample.TimeSeconds = TimeSeconds;
+						Sample.GpuMs = static_cast<float>(Value);
+						Sample.bFromStatUnitData = true;
+					});
+			});
 	}
 
 	if (AggregatesByMaterial.Num() == 0)
 	{
 		GMaterialReplaySamples.Reset();
 		GMaterialReplayCurrentRows.Reset();
+		GMaterialReplayCurrentRowsAll.Reset();
 		GMaterialReplayDebugRows.Reset();
 		GMaterialReplayCharacterSamples.Reset();
+		GMaterialReplayFrameGpuMs.Reset();
+		GMaterialReplayFrameGpuMsMax = 0.0f;
 		GMaterialReplayActive = false;
 		GMaterialReplayPlaying = false;
 		GLastAnalysisMessage = FString::Printf(TEXT("No material GPU scopes found. Trace=%s Queues=%d InspectedEvents=%d MaterialDrawEvents=%d MatchedEvents=%d SceneMaterials=%d"),
@@ -3573,6 +4008,15 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 		}
 
 		return false;
+	}
+
+	for (TPair<uint32, FMaterialGpuReplayFrameSample>& Pair : ReplaySamplesByFrame)
+	{
+		if (TArray<FFrameGpuInterval>* Intervals = FrameGpuIntervalsByFrame.Find(Pair.Key))
+		{
+			Pair.Value.TotalFrameGpuMs = static_cast<float>(CalculateMergedGpuIntervalDurationMs(*Intervals));
+			Pair.Value.bHasTotalFrameGpuMs = Pair.Value.TotalFrameGpuMs > 0.0f;
+		}
 	}
 
 	TArray<FTraceMaterialAggregate> TraceAggregates;
@@ -3612,6 +4056,23 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 		}
 		return A.TraceFrameIndex < B.TraceFrameIndex;
 	});
+	if (CounterUnitGpuSamples.Num() > 0)
+	{
+		CounterUnitGpuSamples.Sort([](const FMaterialReplayUnitGpuSample& A, const FMaterialReplayUnitGpuSample& B)
+		{
+			return A.TimeSeconds < B.TimeSeconds;
+		});
+
+		for (FMaterialGpuReplayFrameSample& Sample : GMaterialReplaySamples)
+		{
+			const float CounterGpuMs = FindNearestMaterialReplayUnitGpuMs(CounterUnitGpuSamples, Sample.TimeSeconds);
+			if (CounterGpuMs > 0.0f)
+			{
+				Sample.TotalFrameGpuMs = CounterGpuMs;
+				Sample.bHasTotalFrameGpuMs = true;
+			}
+		}
+	}
 	if (GMaterialReplaySamples.Num() > 0)
 	{
 		const double ReplayStartTime = GMaterialReplaySamples[0].TimeSeconds;
@@ -3633,7 +4094,21 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 			}
 		}
 	}
+	if (GMaterialReplayUnitGpuSamples.Num() > 0)
+	{
+		for (FMaterialGpuReplayFrameSample& Sample : GMaterialReplaySamples)
+		{
+			const float StatUnitGpuMs = GetMaterialReplayUnitGpuMsForTime(Sample.TimeSeconds);
+			if (StatUnitGpuMs > 0.0f)
+			{
+				Sample.TotalFrameGpuMs = StatUnitGpuMs;
+				Sample.bHasTotalFrameGpuMs = true;
+			}
+		}
+	}
+	RebuildMaterialReplayFrameGpuMs();
 	GMaterialReplayCurrentRows.Reset();
+	GMaterialReplayCurrentRowsAll.Reset();
 	GMaterialReplayDebugRows.Reset();
 	GMaterialReplayActive = false;
 	GMaterialReplayPlaying = false;
@@ -3643,6 +4118,7 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
 
 	GCachedRows.Reset();
+	GCachedRowsAll.Reset();
 	GCachedDebugRows.Reset();
 	const int32 TopN = FMath::Clamp(CVarTopN.GetValueOnGameThread(), 1, 50);
 	for (int32 Index = 0; Index < TraceAggregates.Num(); ++Index)
@@ -3666,9 +4142,13 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 		Row.MaxGpuMs = static_cast<float>(Aggregate.PeakFrameGpuMs);
 		Row.AvgGpuMs = static_cast<float>(Aggregate.AverageFrameGpuMs);
 		Row.TraceDrawEvents = Aggregate.DrawEvents;
-		if (bMatchedSceneMaterial && GCachedRows.Num() < TopN)
+		if (bMatchedSceneMaterial)
 		{
-			GCachedRows.Add(Row);
+			GCachedRowsAll.Add(Row);
+			if (GCachedRows.Num() < TopN)
+			{
+				GCachedRows.Add(Row);
+			}
 		}
 		if (bMatchedSceneMaterial)
 		{
@@ -3679,16 +4159,18 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 	GLastDebugMaterialCount = GCachedDebugRows.Num();
 	GLastDebugComponentCount = CountUniqueDebugComponents(GCachedDebugRows);
 
-	GLastAnalysisMessage = FString::Printf(TEXT("Insights rows=%d debugMaterials=%d debugComps=%d frames=%llu materialEvents=%d trace=%s"),
+	GLastAnalysisMessage = FString::Printf(TEXT("Insights rows=%d/%d debugMaterials=%d debugComps=%d frames=%llu materialEvents=%d trace=%s"),
 		GCachedRows.Num(),
+		GCachedRowsAll.Num(),
 		GLastDebugMaterialCount,
 		GLastDebugComponentCount,
 		static_cast<unsigned long long>(FrameCount),
 		MaterialDrawEventCount,
 		*GTraceFilePath);
 
-	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Material GPU Preview trace analysis complete. Rows=%d TraceMaterials=%d DebugMaterials=%d DebugComponents=%d InspectedEvents=%d MaterialDrawEvents=%d MatchedEvents=%d Frames=%llu Queues=%d Analyze=%.2fs Trace=%s"),
+	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Material GPU Preview trace analysis complete. Rows=%d/%d TraceMaterials=%d DebugMaterials=%d DebugComponents=%d InspectedEvents=%d MaterialDrawEvents=%d MatchedEvents=%d Frames=%llu Queues=%d Analyze=%.2fs Trace=%s"),
 		GCachedRows.Num(),
+		GCachedRowsAll.Num(),
 		TraceAggregates.Num(),
 		GLastDebugMaterialCount,
 		GLastDebugComponentCount,
@@ -3882,6 +4364,27 @@ static bool CaptureMaterialReplayCharacterSample(UWorld* World, double TimeSecon
 	return true;
 }
 
+static void CaptureMaterialReplayUnitGpuSample(UWorld* World, double TimeSeconds)
+{
+	bool bFromStatUnitData = false;
+	const float GpuMs = ReadCurrentStatUnitGpuMs(World, bFromStatUnitData);
+	if (!FMath::IsFinite(GpuMs) || GpuMs <= 0.0f)
+	{
+		return;
+	}
+
+	FMaterialReplayUnitGpuSample Sample;
+	Sample.TimeSeconds = FMath::Max(0.0, TimeSeconds);
+	Sample.GpuMs = GpuMs;
+	Sample.bFromStatUnitData = bFromStatUnitData;
+	GMaterialReplayUnitGpuSamples.Add(Sample);
+
+	if (ShouldEmitMaterialGPUUnitGpuCounter())
+	{
+		TRACE_COUNTER_SET_ALWAYS(MaterialGPUUnitGPU, static_cast<double>(GpuMs));
+	}
+}
+
 static bool TickMaterialReplayCameraCapture(float DeltaTime)
 {
 	UWorld* World = GMaterialReplayCameraCaptureWorld.Get();
@@ -3894,6 +4397,7 @@ static bool TickMaterialReplayCameraCapture(float DeltaTime)
 	const double CaptureTimeSeconds = FPlatformTime::Seconds() - GCaptureStartTime;
 	CaptureMaterialReplayCameraSample(World, CaptureTimeSeconds);
 	CaptureMaterialReplayCharacterSample(World, CaptureTimeSeconds);
+	CaptureMaterialReplayUnitGpuSample(World, CaptureTimeSeconds);
 	return true;
 }
 
@@ -3913,6 +4417,7 @@ static void StopMaterialReplayCameraCaptureTicker()
 			const double CaptureTimeSeconds = EndTime - GCaptureStartTime;
 			CaptureMaterialReplayCameraSample(World, CaptureTimeSeconds);
 			CaptureMaterialReplayCharacterSample(World, CaptureTimeSeconds);
+			CaptureMaterialReplayUnitGpuSample(World, CaptureTimeSeconds);
 		}
 	}
 
@@ -3924,6 +4429,7 @@ static void StartMaterialReplayCameraCapture(UWorld* World)
 	StopMaterialReplayCameraCaptureTicker();
 	GMaterialReplayCameraSamples.Reset();
 	GMaterialReplayCharacterSamples.Reset();
+	GMaterialReplayUnitGpuSamples.Reset();
 	GMaterialReplayCameraCaptureWorld = World;
 	if (!World || GCaptureStartTime < 0.0)
 	{
@@ -3932,6 +4438,7 @@ static void StartMaterialReplayCameraCapture(UWorld* World)
 
 	CaptureMaterialReplayCameraSample(World, 0.0);
 	CaptureMaterialReplayCharacterSample(World, 0.0);
+	CaptureMaterialReplayUnitGpuSample(World, 0.0);
 	GMaterialReplayCameraCaptureTickerHandle = FTSTicker::GetCoreTicker().AddTicker(
 		FTickerDelegate::CreateStatic(&TickMaterialReplayCameraCapture),
 		0.0f);
@@ -4252,6 +4759,64 @@ static float GetMaterialReplayNormalizedValue()
 	return FMath::Clamp(static_cast<float>(GMaterialReplayCurrentTimeSeconds / Duration), 0.0f, 1.0f);
 }
 
+static void RebuildMaterialReplayFrameGpuMs()
+{
+	GMaterialReplayFrameGpuMs.Reset();
+	GMaterialReplayFrameGpuMsMax = 0.0f;
+	GMaterialReplayFrameGpuMs.Reserve(GMaterialReplaySamples.Num());
+
+	for (const FMaterialGpuReplayFrameSample& Sample : GMaterialReplaySamples)
+	{
+		float FrameGpuMs = Sample.bHasTotalFrameGpuMs ? FMath::Max(Sample.TotalFrameGpuMs, 0.0f) : 0.0f;
+		if (!Sample.bHasTotalFrameGpuMs)
+		{
+			for (const TPair<FString, float>& Pair : Sample.MaterialGpuMsByKey)
+			{
+				FrameGpuMs += FMath::Max(Pair.Value, 0.0f);
+			}
+		}
+
+		GMaterialReplayFrameGpuMs.Add(FrameGpuMs);
+		GMaterialReplayFrameGpuMsMax = FMath::Max(GMaterialReplayFrameGpuMsMax, FrameGpuMs);
+	}
+}
+
+static float GetMaterialReplayCurrentFrameGpuMs()
+{
+	const int32 SampleIndex = GMaterialReplayCurrentSampleIndex != INDEX_NONE
+		? GMaterialReplayCurrentSampleIndex
+		: FindMaterialReplaySampleIndexForTime(GMaterialReplayCurrentTimeSeconds);
+	return GMaterialReplayFrameGpuMs.IsValidIndex(SampleIndex) ? GMaterialReplayFrameGpuMs[SampleIndex] : 0.0f;
+}
+
+static float GetMaterialReplayUnitGpuMsForTime(double TimeSeconds)
+{
+	return FindNearestMaterialReplayUnitGpuMs(GMaterialReplayUnitGpuSamples, TimeSeconds);
+}
+
+static float FindNearestMaterialReplayUnitGpuMs(const TArray<FMaterialReplayUnitGpuSample>& Samples, double TimeSeconds)
+{
+	if (Samples.Num() == 0)
+	{
+		return 0.0f;
+	}
+
+	const double ClampedTime = FMath::Max(0.0, TimeSeconds);
+	int32 BestIndex = 0;
+	double BestDistance = TNumericLimits<double>::Max();
+	for (int32 SampleIndex = 0; SampleIndex < Samples.Num(); ++SampleIndex)
+	{
+		const double Distance = FMath::Abs(Samples[SampleIndex].TimeSeconds - ClampedTime);
+		if (Distance < BestDistance)
+		{
+			BestDistance = Distance;
+			BestIndex = SampleIndex;
+		}
+	}
+
+	return Samples.IsValidIndex(BestIndex) ? Samples[BestIndex].GpuMs : 0.0f;
+}
+
 static int32 FindMaterialReplaySampleIndexForTime(double TimeSeconds)
 {
 	if (GMaterialReplaySamples.Num() == 0)
@@ -4340,6 +4905,7 @@ static void GetMaterialReplaySampleValuesForRow(
 static void BuildMaterialReplayRowsForSample(int32 SampleIndex)
 {
 	GMaterialReplayCurrentRows.Reset();
+	GMaterialReplayCurrentRowsAll.Reset();
 	GMaterialReplayDebugRows.Reset();
 
 	if (!GMaterialReplaySamples.IsValidIndex(SampleIndex))
@@ -4383,7 +4949,8 @@ static void BuildMaterialReplayRowsForSample(int32 SampleIndex)
 	});
 
 	GMaterialReplayDebugRows = Rows;
-	GMaterialReplayCurrentRows = Rows;
+	GMaterialReplayCurrentRowsAll = Rows;
+	GMaterialReplayCurrentRows = GMaterialReplayCurrentRowsAll;
 	const int32 TopN = FMath::Clamp(CVarTopN.GetValueOnGameThread(), 1, 50);
 	if (GMaterialReplayCurrentRows.Num() > TopN)
 	{
@@ -4540,6 +5107,8 @@ static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClie
 	constexpr float OuterPaddingBottom = 50.0f;
 	constexpr float BorderPaddingX = 10.0f;
 	constexpr float BorderPaddingY = 7.0f;
+	constexpr float GraphHeight = 76.0f;
+	constexpr float GraphGap = 7.0f;
 	constexpr float ButtonWidth = 76.0f;
 	constexpr float ButtonHeight = 30.0f;
 	constexpr float TimeSlotLeftPadding = 14.0f;
@@ -4550,10 +5119,10 @@ static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClie
 
 	const float OuterLeft = OuterPaddingX;
 	const float OuterRight = FMath::Max(OuterLeft + 1.0f, ViewportSize.X - OuterPaddingX);
-	const float OuterTop = FMath::Max(0.0f, ViewportSize.Y - OuterPaddingBottom - ButtonHeight - BorderPaddingY * 2.0f);
+	const float OuterTop = FMath::Max(0.0f, ViewportSize.Y - OuterPaddingBottom - GraphHeight - GraphGap - ButtonHeight - BorderPaddingY * 2.0f);
 	const float InnerLeft = OuterLeft + BorderPaddingX;
 	const float InnerRight = FMath::Max(InnerLeft + 1.0f, OuterRight - BorderPaddingX);
-	const float ControlTop = OuterTop + BorderPaddingY;
+	const float ControlTop = OuterTop + BorderPaddingY + GraphHeight + GraphGap;
 
 	if (!bHasPlayButtonRect)
 	{
@@ -4699,6 +5268,258 @@ static TSharedRef<SWidget> MakeMaterialReplayButton(
 	return ButtonWidget;
 }
 
+class SMaterialReplayGpuGraph final : public SLeafWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SMaterialReplayGpuGraph) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs)
+	{
+		SetCanTick(false);
+	}
+
+	virtual FVector2D ComputeDesiredSize(float LayoutScaleMultiplier) const override
+	{
+		return FVector2D(240.0f, 76.0f);
+	}
+
+	virtual int32 OnPaint(
+		const FPaintArgs& Args,
+		const FGeometry& AllottedGeometry,
+		const FSlateRect& MyCullingRect,
+		FSlateWindowElementList& OutDrawElements,
+		int32 LayerId,
+		const FWidgetStyle& InWidgetStyle,
+		bool bParentEnabled) const override
+	{
+		const bool bEnabled = ShouldBeEnabled(bParentEnabled);
+		const ESlateDrawEffect DrawEffects = bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
+		const FVector2D Size = AllottedGeometry.GetLocalSize();
+		const FSlateBrush* WhiteBrush = FCoreStyle::Get().GetBrush("WhiteBrush");
+
+		FSlateDrawElement::MakeBox(
+			OutDrawElements,
+			LayerId,
+			AllottedGeometry.ToPaintGeometry(),
+			WhiteBrush,
+			DrawEffects,
+			FLinearColor(0.018f, 0.020f, 0.023f, 0.88f) * InWidgetStyle.GetColorAndOpacityTint());
+
+		if (Size.X < 8.0f || Size.Y < 8.0f)
+		{
+			return LayerId + 1;
+		}
+
+		constexpr float PaddingLeft = 8.0f;
+		constexpr float PaddingRight = 8.0f;
+		constexpr float PaddingTop = 8.0f;
+		constexpr float PaddingBottom = 16.0f;
+		const FVector2D PlotMin(PaddingLeft, PaddingTop);
+		const FVector2D PlotMax(FMath::Max(PaddingLeft + 1.0f, Size.X - PaddingRight), FMath::Max(PaddingTop + 1.0f, Size.Y - PaddingBottom));
+		const FVector2D PlotSize = PlotMax - PlotMin;
+		const FLinearColor Tint = InWidgetStyle.GetColorAndOpacityTint();
+		constexpr float LowGraphMaxMs = 8.0f;
+		constexpr float MidGraphMaxMs = 17.0f;
+		constexpr float DefaultGraphMaxMs = 33.0f;
+		constexpr float FrameBudgetGuideMs = 16.0f;
+		const float PeakGpuMs = FMath::Max(0.0f, GMaterialReplayFrameGpuMsMax);
+		float GraphMaxMs = LowGraphMaxMs;
+		if (PeakGpuMs > DefaultGraphMaxMs)
+		{
+			GraphMaxMs = PeakGpuMs;
+		}
+		else if (PeakGpuMs > MidGraphMaxMs)
+		{
+			GraphMaxMs = DefaultGraphMaxMs;
+		}
+		else if (PeakGpuMs > LowGraphMaxMs)
+		{
+			GraphMaxMs = MidGraphMaxMs;
+		}
+
+		for (int32 GridIndex = 0; GridIndex < 3; ++GridIndex)
+		{
+			const float Alpha = static_cast<float>(GridIndex) / 2.0f;
+			const float Y = FMath::Lerp(PlotMin.Y, PlotMax.Y, Alpha);
+			TArray<FVector2D> GridLine;
+			GridLine.Add(FVector2D(PlotMin.X, Y));
+			GridLine.Add(FVector2D(PlotMax.X, Y));
+			FSlateDrawElement::MakeLines(
+				OutDrawElements,
+				LayerId + 1,
+				AllottedGeometry.ToPaintGeometry(),
+				GridLine,
+				DrawEffects,
+				FLinearColor(0.20f, 0.23f, 0.25f, 0.50f) * Tint,
+				true,
+				1.0f);
+		}
+
+		auto DrawMsGuide = [&](float GuideMs)
+		{
+			if (GraphMaxMs <= KINDA_SMALL_NUMBER || GuideMs > GraphMaxMs)
+			{
+				return;
+			}
+
+			const bool bFrameBudgetGuide = FMath::IsNearlyEqual(GuideMs, FrameBudgetGuideMs);
+			const float GuideAlpha = FMath::Clamp(GuideMs / GraphMaxMs, 0.0f, 1.0f);
+			const float GuideY = FMath::Lerp(PlotMax.Y, PlotMin.Y, GuideAlpha);
+			const FLinearColor GuideColor = bFrameBudgetGuide
+				? FLinearColor(1.0f, 0.58f, 0.12f, 0.86f)
+				: FLinearColor(0.38f, 0.44f, 0.47f, 0.58f);
+
+			if (bFrameBudgetGuide)
+			{
+				constexpr float DashLength = 7.0f;
+				constexpr float DashGap = 5.0f;
+				for (float DashX = PlotMin.X; DashX < PlotMax.X; DashX += DashLength + DashGap)
+				{
+					TArray<FVector2D> DashLine;
+					DashLine.Add(FVector2D(DashX, GuideY));
+					DashLine.Add(FVector2D(FMath::Min(DashX + DashLength, PlotMax.X), GuideY));
+					FSlateDrawElement::MakeLines(
+						OutDrawElements,
+						LayerId + 2,
+						AllottedGeometry.ToPaintGeometry(),
+						DashLine,
+						DrawEffects,
+						GuideColor * Tint,
+						true,
+						1.0f);
+				}
+			}
+			else
+			{
+				TArray<FVector2D> GuideLine;
+				GuideLine.Add(FVector2D(PlotMin.X, GuideY));
+				GuideLine.Add(FVector2D(PlotMax.X, GuideY));
+				FSlateDrawElement::MakeLines(
+					OutDrawElements,
+					LayerId + 2,
+					AllottedGeometry.ToPaintGeometry(),
+					GuideLine,
+					DrawEffects,
+					GuideColor * Tint,
+					true,
+					1.0f);
+			}
+
+			const FString GuideLabel = FString::Printf(TEXT("%.0fms"), GuideMs);
+			FSlateDrawElement::MakeText(
+				OutDrawElements,
+				LayerId + 3,
+				AllottedGeometry.ToPaintGeometry(FVector2D(34.0f, 12.0f), FSlateLayoutTransform(FVector2D(PaddingLeft + 2.0f, FMath::Clamp(GuideY - 12.0f, PaddingTop, PlotMax.Y - 12.0f)))),
+				FText::FromString(GuideLabel),
+				FCoreStyle::GetDefaultFontStyle("Regular", 8),
+				DrawEffects,
+				(bFrameBudgetGuide ? FLinearColor(1.0f, 0.68f, 0.18f, 0.94f) : FLinearColor(0.68f, 0.75f, 0.78f, 0.90f)) * Tint);
+		};
+
+		constexpr float GuideLabelsMs[] = { 8.0f, 16.0f, 33.0f };
+		for (const float GuideMs : GuideLabelsMs)
+		{
+			DrawMsGuide(GuideMs);
+		}
+
+		const FString ScaleLabel = FString::Printf(TEXT("%.0fms"), GraphMaxMs);
+		FSlateDrawElement::MakeText(
+			OutDrawElements,
+			LayerId + 3,
+			AllottedGeometry.ToPaintGeometry(FVector2D(48.0f, 12.0f), FSlateLayoutTransform(FVector2D(FMath::Max(PaddingLeft, Size.X - PaddingRight - 48.0f), PaddingTop))),
+			FText::FromString(ScaleLabel),
+			FCoreStyle::GetDefaultFontStyle("Regular", 8),
+			DrawEffects,
+			FLinearColor(0.66f, 0.72f, 0.76f, 0.92f) * Tint);
+
+		if (GMaterialReplayFrameGpuMs.Num() == 0 || GMaterialReplayFrameGpuMsMax <= KINDA_SMALL_NUMBER)
+		{
+			FSlateDrawElement::MakeText(
+				OutDrawElements,
+				LayerId + 2,
+				AllottedGeometry.ToPaintGeometry(FVector2D(180.0f, 16.0f), FSlateLayoutTransform(FVector2D(PaddingLeft, PaddingTop + 6.0f))),
+				FText::FromString(TEXT("No GPU frame data")),
+				FCoreStyle::GetDefaultFontStyle("Regular", 9),
+				DrawEffects,
+				FLinearColor(0.58f, 0.64f, 0.68f, 0.86f) * Tint);
+		}
+		else
+		{
+			TArray<FVector2D> Points;
+			const int32 SampleCount = GMaterialReplayFrameGpuMs.Num();
+			const int32 PointCount = SampleCount == 1 ? 2 : FMath::Clamp(FMath::FloorToInt(PlotSize.X), 2, SampleCount);
+			Points.Reserve(PointCount);
+
+			for (int32 PointIndex = 0; PointIndex < PointCount; ++PointIndex)
+			{
+				const float StartAlpha = static_cast<float>(PointIndex) / static_cast<float>(PointCount);
+				const float EndAlpha = static_cast<float>(PointIndex + 1) / static_cast<float>(PointCount);
+				const int32 StartSample = FMath::Clamp(FMath::FloorToInt(StartAlpha * static_cast<float>(SampleCount)), 0, SampleCount - 1);
+				const int32 EndSample = SampleCount == 1 ? 1 : FMath::Clamp(FMath::CeilToInt(EndAlpha * static_cast<float>(SampleCount)), StartSample + 1, SampleCount);
+
+				float BucketGpuMs = 0.0f;
+				for (int32 SampleIndex = StartSample; SampleIndex < EndSample; ++SampleIndex)
+				{
+					BucketGpuMs = FMath::Max(BucketGpuMs, GMaterialReplayFrameGpuMs[SampleIndex]);
+				}
+
+				const float ValueAlpha = FMath::Clamp(BucketGpuMs / GraphMaxMs, 0.0f, 1.0f);
+				const float X = FMath::Lerp(PlotMin.X, PlotMax.X, PointCount > 1 ? static_cast<float>(PointIndex) / static_cast<float>(PointCount - 1) : 0.0f);
+				const float Y = FMath::Lerp(PlotMax.Y, PlotMin.Y, ValueAlpha);
+				Points.Add(FVector2D(X, Y));
+			}
+
+			FSlateDrawElement::MakeLines(
+				OutDrawElements,
+				LayerId + 2,
+				AllottedGeometry.ToPaintGeometry(),
+				Points,
+				DrawEffects,
+				FLinearColor(0.12f, 0.82f, 0.92f, 0.94f) * Tint,
+				true,
+				1.6f);
+
+			const FString MaxLabel = FString::Printf(TEXT("peak %.2fms"), GMaterialReplayFrameGpuMsMax);
+			FSlateDrawElement::MakeText(
+				OutDrawElements,
+				LayerId + 3,
+				AllottedGeometry.ToPaintGeometry(FVector2D(86.0f, 12.0f), FSlateLayoutTransform(FVector2D(PaddingLeft, Size.Y - 14.0f))),
+				FText::FromString(MaxLabel),
+				FCoreStyle::GetDefaultFontStyle("Regular", 8),
+				DrawEffects,
+				FLinearColor(0.58f, 0.66f, 0.70f, 0.90f) * Tint);
+		}
+
+		const float CursorX = FMath::Lerp(PlotMin.X, PlotMax.X, GetMaterialReplayNormalizedValue());
+		TArray<FVector2D> CursorLine;
+		CursorLine.Add(FVector2D(CursorX, PlotMin.Y));
+		CursorLine.Add(FVector2D(CursorX, PlotMax.Y));
+		FSlateDrawElement::MakeLines(
+			OutDrawElements,
+			LayerId + 4,
+			AllottedGeometry.ToPaintGeometry(),
+			CursorLine,
+			DrawEffects,
+			FLinearColor(1.0f, 0.86f, 0.24f, 0.95f) * Tint,
+			true,
+			1.2f);
+
+		const FString CurrentLabel = FString::Printf(TEXT("%.2fms"), GetMaterialReplayCurrentFrameGpuMs());
+		const float LabelX = FMath::Clamp(CursorX + 5.0f, PaddingLeft, FMath::Max(PaddingLeft, Size.X - 48.0f));
+		FSlateDrawElement::MakeText(
+			OutDrawElements,
+			LayerId + 5,
+			AllottedGeometry.ToPaintGeometry(FVector2D(48.0f, 14.0f), FSlateLayoutTransform(FVector2D(LabelX, PaddingTop))),
+			FText::FromString(CurrentLabel),
+			FCoreStyle::GetDefaultFontStyle("Regular", 9),
+			DrawEffects,
+			FLinearColor(1.0f, 0.88f, 0.34f, 0.98f) * Tint);
+
+		return LayerId + 6;
+	}
+};
+
 static TSharedRef<SWidget> BuildMaterialReplayOverlay()
 {
 	return SNew(SOverlay)
@@ -4713,68 +5534,102 @@ static TSharedRef<SWidget> BuildMaterialReplayOverlay()
 			.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
 			.BorderBackgroundColor(FLinearColor(0.025f, 0.026f, 0.028f, 0.82f))
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(0.0f, 0.0f, 0.0f, 7.0f))
 				[
-					MakeMaterialReplayButton(TAttribute<FText>::CreateLambda([]()
-					{
-						return FText::FromString(GMaterialReplayPlaying ? TEXT("STOP") : TEXT("PLAY"));
-					}), []()
-					{
-						return ToggleMaterialReplayPlayback();
-					}, &GMaterialReplayPlayButtonWidget)
-				]
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(FMargin(14.0f, 0.0f, 12.0f, 0.0f))
-				.VAlign(VAlign_Center)
-				[
-					SNew(SBox)
-					.WidthOverride(118.0f)
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
 					[
-						SNew(STextBlock)
-						.Text(TAttribute<FText>::CreateLambda([]()
-						{
-							return FText::FromString(GetMaterialReplayTimeLabel());
-						}))
-						.ColorAndOpacity(FSlateColor(FLinearColor(0.70f, 0.78f, 0.84f, 1.0f)))
+						SNew(SBox)
+						.WidthOverride(76.0f)
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(FMargin(14.0f, 0.0f, 12.0f, 0.0f))
+					[
+						SNew(SBox)
+						.WidthOverride(118.0f)
+					]
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					[
+						SNew(SBox)
+						.HeightOverride(76.0f)
+						.Visibility(EVisibility::HitTestInvisible)
+						[
+							SNew(SMaterialReplayGpuGraph)
+						]
 					]
 				]
-				+ SHorizontalBox::Slot()
-				.FillWidth(1.0f)
-				.VAlign(VAlign_Center)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
 				[
-					SAssignNew(GMaterialReplaySliderWidget, SSlider)
-					.Value(TAttribute<float>::CreateLambda([]()
-					{
-						return GetMaterialReplayNormalizedValue();
-					}))
-					.StepSize(0.0f)
-					.MouseUsesStep(false)
-					.IsFocusable(false)
-					.SliderBarColor(FLinearColor(0.14f, 0.76f, 0.86f, 0.78f))
-					.SliderHandleColor(FLinearColor(0.92f, 0.96f, 0.98f, 1.0f))
-					.OnMouseCaptureBegin_Lambda([]()
-					{
-						GMaterialReplayDraggingSlider = false;
-						GMaterialReplayPlaying = false;
-						GMaterialReplayScrubbing = true;
-						GMaterialReplayLastTickSeconds = -1.0;
-					})
-					.OnMouseCaptureEnd_Lambda([]()
-					{
-						GMaterialReplayDraggingSlider = false;
-						GMaterialReplayScrubbing = false;
-						GMaterialReplayLastTickSeconds = -1.0;
-					})
-					.OnValueChanged_Lambda([](float NewValue)
-					{
-						UGameViewportClient* GameViewportClient = GMaterialReplayOverlayViewport.Get();
-						UWorld* World = GameViewportClient ? GameViewportClient->GetWorld() : GWorld;
-						FCommonViewportClient* ViewportClient = GameViewportClient;
-						SetMaterialReplayScrubNormalized(World, ViewportClient, NewValue);
-					})
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						MakeMaterialReplayButton(TAttribute<FText>::CreateLambda([]()
+						{
+							return FText::FromString(GMaterialReplayPlaying ? TEXT("STOP") : TEXT("PLAY"));
+						}), []()
+						{
+							return ToggleMaterialReplayPlayback();
+						}, &GMaterialReplayPlayButtonWidget)
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(FMargin(14.0f, 0.0f, 12.0f, 0.0f))
+					.VAlign(VAlign_Center)
+					[
+						SNew(SBox)
+						.WidthOverride(118.0f)
+						[
+							SNew(STextBlock)
+							.Text(TAttribute<FText>::CreateLambda([]()
+							{
+								return FText::FromString(GetMaterialReplayTimeLabel());
+							}))
+							.ColorAndOpacity(FSlateColor(FLinearColor(0.70f, 0.78f, 0.84f, 1.0f)))
+						]
+					]
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					.VAlign(VAlign_Center)
+					[
+						SAssignNew(GMaterialReplaySliderWidget, SSlider)
+						.Value(TAttribute<float>::CreateLambda([]()
+						{
+							return GetMaterialReplayNormalizedValue();
+						}))
+						.StepSize(0.0f)
+						.MouseUsesStep(false)
+						.IsFocusable(false)
+						.SliderBarColor(FLinearColor(0.14f, 0.76f, 0.86f, 0.78f))
+						.SliderHandleColor(FLinearColor(0.92f, 0.96f, 0.98f, 1.0f))
+						.OnMouseCaptureBegin_Lambda([]()
+						{
+							GMaterialReplayDraggingSlider = false;
+							GMaterialReplayPlaying = false;
+							GMaterialReplayScrubbing = true;
+							GMaterialReplayLastTickSeconds = -1.0;
+						})
+						.OnMouseCaptureEnd_Lambda([]()
+						{
+							GMaterialReplayDraggingSlider = false;
+							GMaterialReplayScrubbing = false;
+							GMaterialReplayLastTickSeconds = -1.0;
+						})
+						.OnValueChanged_Lambda([](float NewValue)
+						{
+							UGameViewportClient* GameViewportClient = GMaterialReplayOverlayViewport.Get();
+							UWorld* World = GameViewportClient ? GameViewportClient->GetWorld() : GWorld;
+							FCommonViewportClient* ViewportClient = GameViewportClient;
+							SetMaterialReplayScrubNormalized(World, ViewportClient, NewValue);
+						})
+					]
 				]
 			]
 		];
@@ -4869,6 +5724,10 @@ static void StartMaterialReplay(UWorld* World, FCommonViewportClient* ViewportCl
 
 	CVarObjectDebug->Set(0);
 	SetObjectViewportStatEnabled(ViewportClient, false);
+	if (GMaterialReplayFrameGpuMs.Num() != GMaterialReplaySamples.Num())
+	{
+		RebuildMaterialReplayFrameGpuMs();
+	}
 	GMaterialReplayActive = true;
 	GMaterialReplayPlaying = false;
 	GMaterialReplayScrubbing = false;
@@ -4893,6 +5752,7 @@ static void StopMaterialReplay(UWorld* World, FCommonViewportClient* ViewportCli
 	GMaterialReplayPlaying = false;
 	GMaterialReplayScrubbing = false;
 	GMaterialReplayCurrentRows.Reset();
+	GMaterialReplayCurrentRowsAll.Reset();
 	GMaterialReplayDebugRows.Reset();
 	GMaterialReplayCurrentTimeSeconds = 0.0;
 	GMaterialReplayLastTickSeconds = -1.0;
@@ -6218,7 +7078,9 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 	const float RowHeight = 16.0f;
 	const float BottomPadding = 10.0f;
 	const TArray<FMaterialAccumulator>& DisplayRows = GMaterialReplayActive ? GMaterialReplayCurrentRows : GCachedRows;
-	const int32 VisibleRows = DisplayRows.Num() > 0 ? DisplayRows.Num() : 1;
+	const TArray<FMaterialAccumulator>& AllRows = GMaterialReplayActive ? GMaterialReplayCurrentRowsAll : GCachedRowsAll;
+	const bool bHasMaterialRows = DisplayRows.Num() > 0;
+	const int32 VisibleRows = bHasMaterialRows ? DisplayRows.Num() + 1 : 1;
 	const float PanelHeight = PaddingX + TitleHeight + StatusHeight + HeaderHeight + static_cast<float>(VisibleRows) * RowHeight + BottomPadding;
 	const float TableX = PanelX + PaddingX;
 	const float TableY = PanelY + PaddingX + TitleHeight + StatusHeight;
@@ -6246,10 +7108,12 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 			GetMaterialReplayDurationSeconds())
 		: FString::Printf(TEXT("Replay %s"), GMaterialReplaySamples.Num() > 0 ? TEXT("Ready") : TEXT("Off"));
 	const FString TitleText = TEXT("MATERIAL GPU PREVIEW");
-	const FString StatusText = FString::Printf(TEXT("Insights %s %.1fs | Frames %llu | Targets %d | Debug %s | %s"),
+	const FString StatusText = FString::Printf(TEXT("Insights %s %.1fs | Frames %llu | Materials %d/%d | DebugComps %d | Debug %s | %s"),
 		CaptureState,
 		GetCaptureDurationSeconds(),
 		static_cast<unsigned long long>(GLastTraceFrameCount),
+		DisplayRows.Num(),
+		AllRows.Num(),
 		GLastDebugComponentCount,
 		*GetMaterialDebugModeLabel(),
 		*ReplayState);
@@ -6265,7 +7129,7 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 	TextItem.SetColor(FLinearColor(1.0f, 0.63f, 0.18f, 1.0f));
 	TextItem.Text = FText::FromString(TEXT("Material"));
 	Canvas->DrawItem(TextItem, FVector2D(MaterialX, TableY + 2.0f));
-	TextItem.Text = FText::FromString(TEXT("AvgMS"));
+	TextItem.Text = FText::FromString(TEXT("GPU(ms)"));
 	Canvas->DrawItem(TextItem, FVector2D(AvgX, TableY + 2.0f));
 	TextItem.Text = FText::FromString(TEXT("DrawEv/F"));
 	Canvas->DrawItem(TextItem, FVector2D(DrawEventsX, TableY + 2.0f));
@@ -6277,7 +7141,7 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 	Canvas->DrawItem(TextItem, FVector2D(TrisX, TableY + 2.0f));
 
 	float RowY = TableY + HeaderHeight;
-	if (DisplayRows.Num() == 0)
+	if (!bHasMaterialRows)
 	{
 		DrawStatTile(Canvas, FVector2D(PanelX, RowY), FVector2D(PanelWidth, RowHeight), FLinearColor(0.10f, 0.10f, 0.10f, 0.62f));
 		TextItem.SetColor(FLinearColor::Yellow);
@@ -6289,6 +7153,21 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 		return static_cast<int32>(PanelY + PanelHeight + 4.0f);
 	}
 
+	const float TotalGpuMs = GMaterialReplayActive ? GetMaterialReplayCurrentFrameGpuMs() : GMaterialReplayFrameGpuMsMax;
+	DrawStatTile(Canvas, FVector2D(PanelX, RowY), FVector2D(PanelWidth, RowHeight), FLinearColor(0.08f, 0.12f, 0.14f, 0.78f));
+	TextItem.SetColor(GetMaterialGpuPreviewColor(TotalGpuMs));
+	TextItem.Text = FText::FromString(TEXT("TOTAL"));
+	Canvas->DrawItem(TextItem, FVector2D(MaterialX, RowY + 1.0f));
+	TextItem.Text = FText::FromString(FString::Printf(TEXT("%7.2f"), TotalGpuMs));
+	Canvas->DrawItem(TextItem, FVector2D(AvgX, RowY + 1.0f));
+	TextItem.SetColor(FLinearColor(0.52f, 0.60f, 0.64f, 0.92f));
+	TextItem.Text = FText::FromString(TEXT("-"));
+	Canvas->DrawItem(TextItem, FVector2D(DrawEventsX, RowY + 1.0f));
+	Canvas->DrawItem(TextItem, FVector2D(CompsX, RowY + 1.0f));
+	Canvas->DrawItem(TextItem, FVector2D(BlendX, RowY + 1.0f));
+	Canvas->DrawItem(TextItem, FVector2D(TrisX, RowY + 1.0f));
+	RowY += RowHeight;
+
 	for (int32 RowIndex = 0; RowIndex < DisplayRows.Num(); ++RowIndex)
 	{
 		const FMaterialAccumulator& Row = DisplayRows[RowIndex];
@@ -6297,7 +7176,7 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 			? static_cast<double>(Row.TraceDrawEvents)
 			: static_cast<double>(Row.TraceDrawEvents) / static_cast<double>(FMath::Max<uint64>(GLastTraceFrameCount, 1));
 		const FLinearColor RowColor = GetMaterialGpuPreviewColor(DisplayMs);
-		const FLinearColor BandColor = (RowIndex % 2) == 0
+		const FLinearColor BandColor = ((RowIndex + 1) % 2) == 0
 			? FLinearColor(0.11f, 0.11f, 0.11f, 0.66f)
 			: FLinearColor(0.18f, 0.18f, 0.18f, 0.66f);
 
@@ -6306,7 +7185,7 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 		TextItem.Text = FText::FromString(GetMaterialTableName(Row, MaterialNameChars));
 		Canvas->DrawItem(TextItem, FVector2D(MaterialX, RowY + 1.0f));
 
-		TextItem.Text = FText::FromString(FString::Printf(TEXT("%5.2f"), Row.AvgGpuMs));
+		TextItem.Text = FText::FromString(FString::Printf(TEXT("%7.2f"), Row.MaxGpuMs));
 		Canvas->DrawItem(TextItem, FVector2D(AvgX, RowY + 1.0f));
 		TextItem.Text = FText::FromString(FString::Printf(TEXT("%7.2f"), DrawEventsPerFrame));
 		Canvas->DrawItem(TextItem, FVector2D(DrawEventsX, RowY + 1.0f));

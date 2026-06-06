@@ -665,6 +665,38 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Verification: `git diff --check` passed with only CRLF warnings. `StylizedCubelessEditor Win64 Development` build succeeded.
 - Notion capture fallback: Notion search/update tools were not available in this session, so this local work-log entry is the durable capture.
 
+## OptimizationPreviewTools Material Replay GPU Graph
+
+- Date: 2026-06-06 20:53 KST
+- Scope: `Plugins/OptimizationPreviewTools/Source/OptimizationPreviewTools/Private/MaterialGPUPreview.cpp`.
+- Change: Material Replay now caches per-frame GPU ms by summing each replay sample's material GPU values.
+- Change: the replay overlay now draws a read-only GPU frame cost graph above the existing play/time/slider row.
+- Change: the graph draws grid lines, a GPU ms line, max/current ms labels, and a vertical cursor line at the current replay slider position.
+- Input rule: the graph is hit-test invisible, so existing replay play button and slider input handling remain the only interactive controls.
+- Verification: `git diff --check` passed with only CRLF warnings. `StylizedCubelessEditor Win64 Development` build succeeded.
+- Notion capture fallback: Notion search/update tools were not available in this session, so this local work-log entry is the durable capture.
+
+## OptimizationPreviewTools Recording Indicator
+
+- Date: 2026-06-06 21:00 KST
+- Scope: `Plugins/OptimizationPreviewTools/Source/OptimizationPreviewTools/Private/MaterialGPUPreview.cpp` and project agent rules.
+- Decision: the user approved OptimizationPreviewTools plugin C++ as an always-approved plugin exception, matching UnrealMCP and GFur.
+- Change: `AGENTS.md` now records OptimizationPreviewTools C++ as a no-repeat-approval exception.
+- Change: `stat profiling` now shows a hit-test-invisible recording indicator at the full viewport center while `stat mat start` capture is active.
+- Change: the indicator is drawn in Slate with an animated red SDF-style spinner and red `REC...` text, without creating Unreal asset files; the final indicator is about three times larger than the initial button-row version.
+- Change: `REC...` text now flickers during recording.
+- Change: after `stat mat end`, material capture commands enter a post-end guard. A short debounce window blocks start/end/stop, then the next intentional `stat mat start` clears the guard and starts recording while end/stop remain ignored during the guard.
+- Change: the replay GPU graph now uses the same horizontal spacer layout as the replay slider row, so the graph fill area aligns with the slider area rather than spanning over the play button and time label.
+- Change: the replay GPU graph now uses a stepped vertical scale: 8ms, 17ms, 33ms, or exact peak above 33ms; the dashed 16ms guide remains visible whenever it fits the current scale.
+- Change: the replay GPU graph now labels standard y-axis guide levels at 8ms, 16ms, and 33ms whenever those levels fit the current graph scale. The 16ms guide remains highlighted as a dashed budget line.
+- Change: the replay GPU graph now plots per-frame total GPU busy time from Insights GPU timelines, using merged frame intervals to avoid double-counting nested GPU events. Material row data remains material-scope based.
+- Change: the `stat mat` table now keeps full material row data separately from the TopN display rows, renames `AvgMS` to `GPU(ms)`, and draws a top `TOTAL` row that shows total frame GPU ms without consuming a material TopN slot.
+- Change: because Insights GPU timeline interval totals can diverge heavily from `stat unit`, material capture now records `stat unit` GPU samples during `stat mat start`. Replay graph/TOTAL rows prefer `FStatUnitData::GPUFrameTime[0]` samples, with `RHIGetGPUFrameCycles(0)` as a fallback.
+- Change: default MaterialGPU trace channels are now `gpu,frame,counters` instead of enabling broad `stats`. When `EmitUnitGpuCounter=True`, capture emits a focused `MaterialGPU/UnitGPU` float counter so Insights can inspect the same stat-unit-style GPU value without the full stats channel.
+- Change: trace analysis reads `MaterialGPU/UnitGPU` from the Counters provider as a fallback source for replay total GPU ms when live samples are unavailable. Existing GPU timeline interval totals remain the final fallback.
+- Verification: `git diff --check` passed with only CRLF warnings. `StylizedCubelessEditor Win64 Development` build succeeded.
+- Notion capture fallback: Notion search/update tools were not available in this session, so this local work-log entry is the durable capture.
+
 - Date: 2026-06-06 14:01 KST
 - Decision: `/Content/_MCP_Sample/` is reserved for local MCP learning/sample resources.
 - Git rule: `/Content/_MCP_Sample/` is now gitignored by default and must not be staged or committed unless the user explicitly asks to version a specific sample asset.

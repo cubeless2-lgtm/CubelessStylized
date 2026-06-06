@@ -109,7 +109,8 @@ This project uses three named agent roles. The Korean names are display names; t
 - Creating or modifying C++ code requires explicit user approval first.
 - Exception: C++ code inside the UnrealMCP plugin may be created or modified directly without asking again.
 - Exception: C++ code inside the GFur plugin may also be created or modified directly without asking again.
-- Outside the UnrealMCP and GFur plugin exceptions, if C++ appears necessary, explain why and ask before writing it.
+- Exception: C++ code inside the OptimizationPreviewTools plugin may also be created or modified directly without asking again.
+- Outside the UnrealMCP, GFur, and OptimizationPreviewTools plugin exceptions, if C++ appears necessary, explain why and ask before writing it.
 - When executing a plan from 이에타, treat the visible `티브렛에게 전달할 지시` section as the source of truth.
 
 ### 케일란 - Image Generation Agent
