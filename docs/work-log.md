@@ -626,6 +626,15 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Change: the profiling command bar now has four buttons: material capture toggle, material replay, material color mode toggle, and object snapshot toggle.
 - Verification: `StylizedCubelessEditor Win64 Development -NoLiveCoding` build succeeded after the button consolidation.
 
+## OptimizationPreviewTools Profiling Button Centering
+
+- Date: 2026-06-06 16:42 KST
+- Scope: `Plugins/OptimizationPreviewTools` stat profiling command button Slate layout.
+- Change: `stat profiling` now centers its button/toggle row against the actual Slate viewport width instead of mixing canvas, viewport, and render-target widths.
+- Change: the top command row now uses a viewport-filling Slate overlay with an `HAlign_Center` slot instead of left padding, and the layout resolver also considers `UGameViewportClient::Viewport` size before falling back to canvas size.
+- Change: mouse/touch hit rectangles are refreshed from the centered Slate geometry so visual placement and input handling stay aligned.
+- Verification: `StylizedCubelessEditor Win64 Development -NoLiveCoding` build succeeded after the centering fix, then succeeded again after the direct Slate-center alignment fix.
+
 - Date: 2026-06-06 14:01 KST
 - Decision: `/Content/_MCP_Sample/` is reserved for local MCP learning/sample resources.
 - Git rule: `/Content/_MCP_Sample/` is now gitignored by default and must not be staged or committed unless the user explicitly asks to version a specific sample asset.

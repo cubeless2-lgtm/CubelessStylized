@@ -1510,6 +1510,129 @@ static UGameViewportClient* ResolveProfilingGameViewport(FCommonViewportClient* 
 	return nullptr;
 }
 
+struct FProfilingViewportLayout
+{
+	float ViewMinX = 0.0f;
+	float ViewMinY = 0.0f;
+	float ViewWidth = 1280.0f;
+	float ViewHeight = 720.0f;
+};
+
+static FProfilingViewportLayout ResolveProfilingViewportLayout(FViewport* Viewport, FCanvas* Canvas, FCommonViewportClient* ViewportClient)
+{
+	FProfilingViewportLayout Layout;
+	const FIntRect CanvasViewRect = Canvas ? Canvas->GetViewRect() : FIntRect(0, 0, 0, 0);
+	const FIntPoint RenderTargetSize = (Canvas && Canvas->GetRenderTarget()) ? Canvas->GetRenderTarget()->GetSizeXY() : FIntPoint(1280, 720);
+	const FIntPoint RawViewportSize = Viewport ? Viewport->GetSizeXY() : RenderTargetSize;
+	const int32 FallbackWidth = RawViewportSize.X > 0 ? RawViewportSize.X : RenderTargetSize.X;
+	const int32 FallbackHeight = RawViewportSize.Y > 0 ? RawViewportSize.Y : RenderTargetSize.Y;
+	const float DPIScale = Canvas ? FMath::Max(Canvas->GetDPIScale(), 0.01f) : 1.0f;
+
+	Layout.ViewWidth = FMath::Max(320.0f, static_cast<float>(CanvasViewRect.Width() > 0 ? CanvasViewRect.Width() : FallbackWidth) / DPIScale);
+	Layout.ViewHeight = FMath::Max(240.0f, static_cast<float>(CanvasViewRect.Height() > 0 ? CanvasViewRect.Height() : FallbackHeight) / DPIScale);
+	Layout.ViewMinX = CanvasViewRect.Min.X > 0 ? static_cast<float>(CanvasViewRect.Min.X) / DPIScale : 0.0f;
+	Layout.ViewMinY = CanvasViewRect.Min.Y > 0 ? static_cast<float>(CanvasViewRect.Min.Y) / DPIScale : 0.0f;
+
+	if (UGameViewportClient* GameViewportClient = ResolveProfilingGameViewport(ViewportClient))
+	{
+		if (GameViewportClient->Viewport)
+		{
+			const FIntPoint GameViewportSize = GameViewportClient->Viewport->GetSizeXY();
+			if (GameViewportSize.X > 0 && GameViewportSize.Y > 0)
+			{
+				Layout.ViewMinX = 0.0f;
+				Layout.ViewMinY = 0.0f;
+				Layout.ViewWidth = FMath::Max(320.0f, static_cast<float>(GameViewportSize.X) / DPIScale);
+				Layout.ViewHeight = FMath::Max(240.0f, static_cast<float>(GameViewportSize.Y) / DPIScale);
+			}
+		}
+
+		if (TSharedPtr<SViewport> ViewportWidget = GameViewportClient->GetGameViewportWidget())
+		{
+			const FVector2D SlateViewportSize = ViewportWidget->GetCachedGeometry().GetLocalSize();
+			if (SlateViewportSize.X >= 320.0f && SlateViewportSize.Y >= 120.0f)
+			{
+				Layout.ViewMinX = 0.0f;
+				Layout.ViewMinY = 0.0f;
+				Layout.ViewWidth = SlateViewportSize.X;
+				Layout.ViewHeight = FMath::Max(240.0f, SlateViewportSize.Y);
+			}
+		}
+	}
+
+	return Layout;
+}
+
+static float GetCenteredProfilingCommandWidth(float ViewWidth)
+{
+	constexpr float OuterPadding = 10.0f;
+	const float AvailableWidth = FMath::Max(1.0f, ViewWidth - OuterPadding * 2.0f);
+	return FMath::Min(FMath::Clamp(AvailableWidth, 320.0f, 760.0f), FMath::Max(1.0f, ViewWidth));
+}
+
+static void SetCenteredProfilingCommandLayout(
+	const FProfilingViewportLayout& Layout,
+	float TopPadding,
+	FVector2D& OutButtonPosition,
+	FVector2D& OutButtonSize)
+{
+	constexpr float OuterPadding = 10.0f;
+	const float ButtonWidth = GetCenteredProfilingCommandWidth(Layout.ViewWidth);
+	const float ButtonX = Layout.ViewMinX + FMath::Max(0.0f, (Layout.ViewWidth - ButtonWidth) * 0.5f);
+	const float ButtonY = Layout.ViewMinY + TopPadding;
+
+	GProfilingSlateDrawPanel = false;
+	GProfilingSlateButtonHeight = ProfilingCommandButtonHeight;
+	GProfilingSlateButtonGap = ProfilingCommandButtonGap;
+	GProfilingSlateOverlayLeft = FMath::Max(0.0f, ButtonX);
+	GProfilingSlateOverlayTop = FMath::Max(0.0f, ButtonY);
+	GProfilingSlateOverlayWidth = ButtonWidth;
+	GProfilingSlateOverlayHeight = ProfilingCommandButtonHeight;
+	GProfilingSlateViewportWidth = FMath::Max(Layout.ViewMinX + Layout.ViewWidth, ButtonX + ButtonWidth + OuterPadding);
+	GProfilingSlateViewportHeight = FMath::Max(Layout.ViewMinY + Layout.ViewHeight, ButtonY + ProfilingCommandButtonHeight + OuterPadding);
+	GProfilingCommandHitLeft = ButtonX;
+	GProfilingCommandHitTop = ButtonY;
+	GProfilingCommandHitWidth = ButtonWidth;
+	GProfilingCommandHitHeight = ProfilingCommandButtonHeight;
+	GProfilingCommandHitButtonGap = ProfilingCommandButtonGap;
+
+	OutButtonPosition = FVector2D(ButtonX, ButtonY);
+	OutButtonSize = FVector2D(ButtonWidth, ProfilingCommandButtonHeight);
+}
+
+static void UpdateProfilingCommandHitRectFromSlate()
+{
+	UGameViewportClient* GameViewportClient = GProfilingSlateOverlayViewport.Get();
+	if (!GameViewportClient)
+	{
+		return;
+	}
+
+	TSharedPtr<SViewport> ViewportWidget = GameViewportClient->GetGameViewportWidget();
+	if (!ViewportWidget.IsValid())
+	{
+		return;
+	}
+
+	const int32 ButtonCount = UE_ARRAY_COUNT(GProfilingCommandButtons);
+	const float SingleButtonWidth = (GProfilingSlateOverlayWidth - ProfilingCommandButtonGap * static_cast<float>(ButtonCount - 1)) / static_cast<float>(ButtonCount);
+	if (ButtonCount <= 0 || SingleButtonWidth <= 0.0f)
+	{
+		return;
+	}
+
+	const FGeometry& ViewportGeometry = ViewportWidget->GetCachedGeometry();
+	const FVector2D AbsoluteTopLeft = ViewportGeometry.LocalToAbsolute(FVector2D(GProfilingSlateOverlayLeft, GProfilingSlateOverlayTop));
+	const FVector2D AbsoluteBottomRight = ViewportGeometry.LocalToAbsolute(FVector2D(GProfilingSlateOverlayLeft + GProfilingSlateOverlayWidth, GProfilingSlateOverlayTop + GProfilingSlateOverlayHeight));
+	const FVector2D AbsoluteButtonRight = ViewportGeometry.LocalToAbsolute(FVector2D(GProfilingSlateOverlayLeft + SingleButtonWidth, GProfilingSlateOverlayTop));
+	const FVector2D AbsoluteSlotRight = ViewportGeometry.LocalToAbsolute(FVector2D(GProfilingSlateOverlayLeft + SingleButtonWidth + ProfilingCommandButtonGap, GProfilingSlateOverlayTop));
+	GProfilingCommandHitLeft = AbsoluteTopLeft.X;
+	GProfilingCommandHitTop = AbsoluteTopLeft.Y;
+	GProfilingCommandHitWidth = FMath::Max(1.0f, AbsoluteBottomRight.X - AbsoluteTopLeft.X);
+	GProfilingCommandHitHeight = FMath::Max(1.0f, AbsoluteBottomRight.Y - AbsoluteTopLeft.Y);
+	GProfilingCommandHitButtonGap = FMath::Max(0.0f, AbsoluteSlotRight.X - AbsoluteButtonRight.X);
+}
+
 static FString GetProfilingButtonCommand(int32 ButtonIndex)
 {
 	if (ButtonIndex < 0 || ButtonIndex >= static_cast<int32>(UE_ARRAY_COUNT(GProfilingCommandButtons)))
@@ -1933,114 +2056,110 @@ static TSharedRef<SWidget> MakeProfilingSlateButtonRow()
 
 static TSharedRef<SWidget> BuildProfilingSlateOverlay()
 {
-	return SNew(SBox)
+	return SNew(SOverlay)
 		.Visibility(EVisibility::SelfHitTestInvisible)
-		.WidthOverride(TAttribute<FOptionalSize>::CreateLambda([]()
+		+ SOverlay::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Top)
+		.Padding(TAttribute<FMargin>::CreateLambda([]()
 		{
-			return FOptionalSize(GProfilingSlateViewportWidth);
-		}))
-		.HeightOverride(TAttribute<FOptionalSize>::CreateLambda([]()
-		{
-			return FOptionalSize(GProfilingSlateViewportHeight);
+			return FMargin(GProfilingSlateOverlayLeft, GProfilingSlateOverlayTop, 0.0f, 0.0f);
 		}))
 		[
-			SNew(SOverlay)
-			.Visibility(EVisibility::SelfHitTestInvisible)
-			+ SOverlay::Slot()
-			.HAlign(HAlign_Left)
-			.VAlign(VAlign_Top)
-			.Padding(TAttribute<FMargin>::CreateLambda([]()
+			SNew(SBox)
+			.Visibility(TAttribute<EVisibility>::CreateLambda([]()
 			{
-				return FMargin(GProfilingSlateOverlayLeft, GProfilingSlateOverlayTop, 0.0f, 0.0f);
+				return GProfilingSlateDrawPanel ? EVisibility::SelfHitTestInvisible : EVisibility::Collapsed;
+			}))
+			.WidthOverride(TAttribute<FOptionalSize>::CreateLambda([]()
+			{
+				return FOptionalSize(FMath::Max(240.0f, GProfilingSlateOverlayWidth));
+			}))
+			.HeightOverride(TAttribute<FOptionalSize>::CreateLambda([]()
+			{
+				return FOptionalSize(GProfilingSlateOverlayHeight);
 			}))
 			[
-				SNew(SBox)
-				.WidthOverride(TAttribute<FOptionalSize>::CreateLambda([]()
-				{
-					return FOptionalSize(FMath::Max(240.0f, GProfilingSlateOverlayWidth));
-				}))
-				.HeightOverride(TAttribute<FOptionalSize>::CreateLambda([]()
-				{
-					return FOptionalSize(GProfilingSlateOverlayHeight);
-				}))
+				SNew(SBorder)
+				.Padding(0.0f)
+				.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
+				.BorderBackgroundColor(FLinearColor(0.025f, 0.026f, 0.028f, 0.78f))
 				[
-					SNew(SOverlay)
-					+ SOverlay::Slot()
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(FMargin(18.0f, 8.0f, 18.0f, 0.0f))
+					[
+						SNew(STextBlock)
+						.Text(FText::FromString(TEXT("OPTIMIZATION PROFILING")))
+						.ColorAndOpacity(FSlateColor(FLinearColor(0.95f, 0.95f, 0.92f, 1.0f)))
+					]
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(FMargin(18.0f, 2.0f, 18.0f, 0.0f))
+					[
+						SNew(STextBlock)
+						.Text(FText::FromString(TEXT("Plugin Commands")))
+						.ColorAndOpacity(FSlateColor(FLinearColor(0.62f, 0.72f, 0.82f, 1.0f)))
+					]
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(FMargin(0.0f, 30.0f, 0.0f, 0.0f))
 					[
 						SNew(SBorder)
-						.Visibility(TAttribute<EVisibility>::CreateLambda([]()
-						{
-							return GProfilingSlateDrawPanel ? EVisibility::SelfHitTestInvisible : EVisibility::Collapsed;
-						}))
 						.Padding(0.0f)
 						.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
-						.BorderBackgroundColor(FLinearColor(0.025f, 0.026f, 0.028f, 0.78f))
+						.BorderBackgroundColor(FLinearColor(0.46f, 0.46f, 0.43f, 0.55f))
 						[
-							SNew(SVerticalBox)
-							+ SVerticalBox::Slot()
-							.AutoHeight()
-							.Padding(FMargin(18.0f, 8.0f, 18.0f, 0.0f))
-							[
-								SNew(STextBlock)
-								.Text(FText::FromString(TEXT("OPTIMIZATION PROFILING")))
-								.ColorAndOpacity(FSlateColor(FLinearColor(0.95f, 0.95f, 0.92f, 1.0f)))
-							]
-							+ SVerticalBox::Slot()
-							.AutoHeight()
-							.Padding(FMargin(18.0f, 2.0f, 18.0f, 0.0f))
-							[
-								SNew(STextBlock)
-								.Text(FText::FromString(TEXT("Plugin Commands")))
-								.ColorAndOpacity(FSlateColor(FLinearColor(0.62f, 0.72f, 0.82f, 1.0f)))
-							]
-							+ SVerticalBox::Slot()
-							.AutoHeight()
-							.Padding(FMargin(0.0f, 30.0f, 0.0f, 0.0f))
-							[
-								SNew(SBorder)
-								.Padding(0.0f)
-								.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
-								.BorderBackgroundColor(FLinearColor(0.46f, 0.46f, 0.43f, 0.55f))
-								[
-									SNew(SBox)
-									.HeightOverride(1.0f)
-								]
-							]
-							+ SVerticalBox::Slot()
-							.AutoHeight()
-							.Padding(FMargin(18.0f, 10.0f, 18.0f, 0.0f))
-							[
-								MakeProfilingSlateButtonRow()
-							]
-							+ SVerticalBox::Slot()
-							.FillHeight(1.0f)
-							[
-								SNew(SSpacer)
-							]
-							+ SVerticalBox::Slot()
-							.AutoHeight()
-							.Padding(FMargin(18.0f, 0.0f, 18.0f, 10.0f))
-							[
-								SNew(STextBlock)
-								.Text(FText::FromString(TEXT("Commands: stat mat start/end/replay/0 | stat matmode 0/1 | stat obj/0")))
-								.ColorAndOpacity(FSlateColor(FLinearColor(0.50f, 0.58f, 0.64f, 0.95f)))
-							]
+							SNew(SBox)
+							.HeightOverride(1.0f)
 						]
 					]
-					+ SOverlay::Slot()
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(FMargin(18.0f, 10.0f, 18.0f, 0.0f))
 					[
-						SNew(SVerticalBox)
-						.Visibility(TAttribute<EVisibility>::CreateLambda([]()
-						{
-							return GProfilingSlateDrawPanel ? EVisibility::Collapsed : EVisibility::SelfHitTestInvisible;
-						}))
-						+ SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							MakeProfilingSlateButtonRow()
-						]
+						MakeProfilingSlateButtonRow()
+					]
+					+ SVerticalBox::Slot()
+					.FillHeight(1.0f)
+					[
+						SNew(SSpacer)
+					]
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(FMargin(18.0f, 0.0f, 18.0f, 10.0f))
+					[
+						SNew(STextBlock)
+						.Text(FText::FromString(TEXT("Commands: stat mat start/end/replay/0 | stat matmode 0/1 | stat obj/0")))
+						.ColorAndOpacity(FSlateColor(FLinearColor(0.50f, 0.58f, 0.64f, 0.95f)))
 					]
 				]
+			]
+		]
+		+ SOverlay::Slot()
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Top)
+		.Padding(TAttribute<FMargin>::CreateLambda([]()
+		{
+			return FMargin(0.0f, GProfilingSlateOverlayTop, 0.0f, 0.0f);
+		}))
+		[
+			SNew(SBox)
+			.Visibility(TAttribute<EVisibility>::CreateLambda([]()
+			{
+				return GProfilingSlateDrawPanel ? EVisibility::Collapsed : EVisibility::SelfHitTestInvisible;
+			}))
+			.WidthOverride(TAttribute<FOptionalSize>::CreateLambda([]()
+			{
+				return FOptionalSize(FMath::Max(240.0f, GProfilingSlateOverlayWidth));
+			}))
+			.HeightOverride(TAttribute<FOptionalSize>::CreateLambda([]()
+			{
+				return FOptionalSize(GProfilingSlateOverlayHeight);
+			}))
+			[
+				MakeProfilingSlateButtonRow()
 			]
 		];
 }
@@ -4822,25 +4941,20 @@ static float DrawProfilingCommandBar(FCanvas* Canvas, UFont* Font, float PanelX,
 	const float BarHeight = GetProfilingCommandBarHeight();
 	const float ButtonsHeight = GetProfilingCommandButtonsHeight();
 	const float PaddingX = 18.0f;
-	const float InnerX = PanelX + PaddingX;
 	const float ButtonY = ToolbarY + ProfilingCommandAreaPadding;
-	const float ButtonWidth = FMath::Max(240.0f, PanelWidth - PaddingX * 2.0f);
-	const FIntRect CanvasViewRect = Canvas->GetViewRect();
-	const FIntPoint FallbackViewSize = Canvas->GetRenderTarget() ? Canvas->GetRenderTarget()->GetSizeXY() : FIntPoint(1280, 720);
-	const float DPIScale = FMath::Max(Canvas->GetDPIScale(), 0.01f);
-	const float ViewWidth = FMath::Max(320.0f, static_cast<float>(CanvasViewRect.Width() > 0 ? CanvasViewRect.Width() : FallbackViewSize.X) / DPIScale);
-	const float ViewHeight = FMath::Max(240.0f, static_cast<float>(CanvasViewRect.Height() > 0 ? CanvasViewRect.Height() : FallbackViewSize.Y) / DPIScale);
-	const float ViewMinX = CanvasViewRect.Min.X > 0 ? static_cast<float>(CanvasViewRect.Min.X) / DPIScale : 0.0f;
-	const float ViewMinY = CanvasViewRect.Min.Y > 0 ? static_cast<float>(CanvasViewRect.Min.Y) / DPIScale : 0.0f;
+	const FProfilingViewportLayout ViewLayout = ResolveProfilingViewportLayout(nullptr, Canvas, nullptr);
+	const float ButtonWidth = GetCenteredProfilingCommandWidth(ViewLayout.ViewWidth);
+	const float CenteredButtonX = ViewLayout.ViewMinX + FMath::Max(0.0f, (ViewLayout.ViewWidth - ButtonWidth) * 0.5f);
+	GProfilingSlateDrawPanel = false;
 	GProfilingSlateButtonHeight = ProfilingCommandButtonHeight;
 	GProfilingSlateButtonGap = ProfilingCommandButtonGap;
-	GProfilingSlateOverlayLeft = FMath::Max(0.0f, InnerX + ViewMinX);
-	GProfilingSlateOverlayTop = FMath::Max(0.0f, ButtonY + ViewMinY);
+	GProfilingSlateOverlayLeft = FMath::Max(0.0f, CenteredButtonX);
+	GProfilingSlateOverlayTop = FMath::Max(0.0f, ButtonY);
 	GProfilingSlateOverlayWidth = ButtonWidth;
 	GProfilingSlateOverlayHeight = ButtonsHeight;
-	GProfilingSlateViewportWidth = FMath::Max(4096.0f, GProfilingSlateOverlayLeft + GProfilingSlateOverlayWidth + 8.0f);
-	GProfilingSlateViewportHeight = FMath::Max(4096.0f, GProfilingSlateOverlayTop + GProfilingSlateOverlayHeight + 8.0f);
-	GProfilingCommandHitLeft = InnerX;
+	GProfilingSlateViewportWidth = FMath::Max(ViewLayout.ViewMinX + ViewLayout.ViewWidth, CenteredButtonX + ButtonWidth + PaddingX);
+	GProfilingSlateViewportHeight = FMath::Max(ViewLayout.ViewMinY + ViewLayout.ViewHeight, ButtonY + ButtonsHeight + PaddingX);
+	GProfilingCommandHitLeft = CenteredButtonX;
 	GProfilingCommandHitTop = ButtonY;
 	GProfilingCommandHitWidth = ButtonWidth;
 	GProfilingCommandHitHeight = ButtonsHeight;
@@ -4854,7 +4968,7 @@ static float DrawProfilingCommandBar(FCanvas* Canvas, UFont* Font, float PanelX,
 	const float SingleButtonWidth = (ButtonWidth - ProfilingCommandButtonGap * static_cast<float>(ButtonCount - 1)) / static_cast<float>(ButtonCount);
 	for (int32 ButtonIndex = 0; ButtonIndex < ButtonCount; ++ButtonIndex)
 	{
-		const float ButtonX = InnerX + static_cast<float>(ButtonIndex) * (SingleButtonWidth + ProfilingCommandButtonGap);
+		const float ButtonX = CenteredButtonX + static_cast<float>(ButtonIndex) * (SingleButtonWidth + ProfilingCommandButtonGap);
 		const FVector2D ButtonPosition(ButtonX, ButtonY);
 		const FVector2D ButtonSize(SingleButtonWidth, ButtonsHeight);
 		DrawStatTile(Canvas, ButtonPosition, ButtonSize, FLinearColor(0.54f, 0.56f, 0.55f, 0.70f));
@@ -4873,7 +4987,7 @@ static float DrawProfilingCommandBar(FCanvas* Canvas, UFont* Font, float PanelX,
 	}
 
 	const float CommandY = ButtonY + ButtonsHeight + 6.0f;
-	FCanvasTextItem CommandTextItem(FVector2D(InnerX, CommandY), FText::FromString(TEXT("Commands: stat mat start/end/replay/0 | stat matmode 0/1 | stat obj/0")), Font, FLinearColor(0.50f, 0.58f, 0.64f, 0.95f));
+	FCanvasTextItem CommandTextItem(FVector2D(CenteredButtonX, CommandY), FText::FromString(TEXT("Commands: stat mat start/end/replay/0 | stat matmode 0/1 | stat obj/0")), Font, FLinearColor(0.50f, 0.58f, 0.64f, 0.95f));
 	CommandTextItem.EnableShadow(FLinearColor::Black);
 	Canvas->DrawItem(CommandTextItem);
 
@@ -5829,56 +5943,16 @@ static int32 RenderProfilingStat(UWorld* World, FViewport* Viewport, FCanvas* Ca
 		return Y;
 	}
 
-	const FIntRect CanvasViewRect = Canvas->GetViewRect();
-	const FIntPoint FallbackViewSize = Canvas->GetRenderTarget() ? Canvas->GetRenderTarget()->GetSizeXY() : FIntPoint(1280, 720);
-	const FIntPoint ViewportSize = Viewport ? Viewport->GetSizeXY() : FallbackViewSize;
-	const float DPIScale = FMath::Max(Canvas->GetDPIScale(), 0.01f);
-	const float ViewWidth = FMath::Max(320.0f, static_cast<float>(FMath::Max3(CanvasViewRect.Width(), ViewportSize.X, FallbackViewSize.X)) / DPIScale);
-	const float ViewMinX = CanvasViewRect.Min.X > 0 ? static_cast<float>(CanvasViewRect.Min.X) / DPIScale : 0.0f;
-	const float ViewMinY = CanvasViewRect.Min.Y > 0 ? static_cast<float>(CanvasViewRect.Min.Y) / DPIScale : 0.0f;
-
 	constexpr float OuterPadding = 10.0f;
-	const float ButtonWidth = FMath::Clamp(ViewWidth - OuterPadding * 2.0f, 320.0f, 760.0f);
-	const float ButtonX = ViewMinX + FMath::Max(OuterPadding, (ViewWidth - ButtonWidth) * 0.5f);
-	const float ButtonY = ViewMinY + OuterPadding;
-
-	GProfilingSlateDrawPanel = false;
-	GProfilingSlateButtonHeight = ProfilingCommandButtonHeight;
-	GProfilingSlateButtonGap = ProfilingCommandButtonGap;
-	GProfilingSlateOverlayLeft = FMath::Max(0.0f, ButtonX);
-	GProfilingSlateOverlayTop = FMath::Max(0.0f, ButtonY);
-	GProfilingSlateOverlayWidth = ButtonWidth;
-	GProfilingSlateOverlayHeight = ProfilingCommandButtonHeight;
-	GProfilingSlateViewportWidth = FMath::Max(4096.0f, GProfilingSlateOverlayLeft + GProfilingSlateOverlayWidth + 8.0f);
-	GProfilingSlateViewportHeight = FMath::Max(4096.0f, GProfilingSlateOverlayTop + GProfilingSlateOverlayHeight + 8.0f);
+	const FProfilingViewportLayout ViewLayout = ResolveProfilingViewportLayout(Viewport, Canvas, RenderingViewportClient);
+	FVector2D ButtonPosition = FVector2D::ZeroVector;
+	FVector2D ButtonSize = FVector2D::ZeroVector;
+	SetCenteredProfilingCommandLayout(ViewLayout, OuterPadding, ButtonPosition, ButtonSize);
 	EnsureProfilingSlateOverlay(RenderingViewportClient);
 	RefreshProfilingSlateOverlayIfLayoutChanged();
+	UpdateProfilingCommandHitRectFromSlate();
 
-	const int32 ButtonCount = UE_ARRAY_COUNT(GProfilingCommandButtons);
-	GProfilingCommandHitLeft = ButtonX;
-	GProfilingCommandHitTop = ButtonY;
-	GProfilingCommandHitWidth = ButtonWidth;
-	GProfilingCommandHitHeight = ProfilingCommandButtonHeight;
-	GProfilingCommandHitButtonGap = ProfilingCommandButtonGap;
-	if (UGameViewportClient* GameViewportClient = GProfilingSlateOverlayViewport.Get())
-	{
-		if (TSharedPtr<SViewport> ViewportWidget = GameViewportClient->GetGameViewportWidget())
-		{
-			const FGeometry& ViewportGeometry = ViewportWidget->GetCachedGeometry();
-			const float SingleButtonWidth = (ButtonWidth - ProfilingCommandButtonGap * static_cast<float>(ButtonCount - 1)) / static_cast<float>(ButtonCount);
-			const FVector2D AbsoluteTopLeft = ViewportGeometry.LocalToAbsolute(FVector2D(ButtonX, ButtonY));
-			const FVector2D AbsoluteBottomRight = ViewportGeometry.LocalToAbsolute(FVector2D(ButtonX + ButtonWidth, ButtonY + ProfilingCommandButtonHeight));
-			const FVector2D AbsoluteButtonRight = ViewportGeometry.LocalToAbsolute(FVector2D(ButtonX + SingleButtonWidth, ButtonY));
-			const FVector2D AbsoluteSlotRight = ViewportGeometry.LocalToAbsolute(FVector2D(ButtonX + SingleButtonWidth + ProfilingCommandButtonGap, ButtonY));
-			GProfilingCommandHitLeft = AbsoluteTopLeft.X;
-			GProfilingCommandHitTop = AbsoluteTopLeft.Y;
-			GProfilingCommandHitWidth = FMath::Max(1.0f, AbsoluteBottomRight.X - AbsoluteTopLeft.X);
-			GProfilingCommandHitHeight = FMath::Max(1.0f, AbsoluteBottomRight.Y - AbsoluteTopLeft.Y);
-			GProfilingCommandHitButtonGap = FMath::Max(0.0f, AbsoluteSlotRight.X - AbsoluteButtonRight.X);
-		}
-	}
-
-	return FMath::Max(Y, static_cast<int32>(ButtonY + ProfilingCommandButtonHeight + 4.0f));
+	return FMath::Max(Y, static_cast<int32>(ButtonPosition.Y + ButtonSize.Y + 4.0f));
 }
 
 static int32 RenderObjectStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation, const FRotator* ViewRotation)
