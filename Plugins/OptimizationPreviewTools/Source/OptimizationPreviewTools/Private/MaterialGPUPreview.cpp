@@ -111,8 +111,8 @@ struct FProfilingCommandButtonSpec
 
 static const FProfilingCommandButtonSpec GProfilingCommandButtons[] =
 {
-	{ TEXT("MAT START"), TEXT("stat mat start") },
-	{ TEXT("MAT REPLAY"), TEXT("stat mat replay") },
+	{ TEXT("GPU START"), TEXT("stat mat start") },
+	{ TEXT("GPU REPLAY"), TEXT("stat mat replay") },
 	{ TEXT("COLOR ON"), TEXT("stat matmode") },
 	{ TEXT("OBJ SNAP"), TEXT("stat obj") }
 };
@@ -1930,9 +1930,9 @@ static FString GetProfilingButtonLabel(int32 ButtonIndex)
 	{
 		if (!GCaptureActive && IsMaterialCaptureCommandLocked())
 		{
-			return TEXT("MAT WAIT");
+			return TEXT("GPU WAIT");
 		}
-		return GCaptureActive ? TEXT("MAT END") : TEXT("MAT START");
+		return GCaptureActive ? TEXT("GPU END") : TEXT("GPU START");
 	}
 
 	if (DefaultCommand.Equals(TEXT("stat matmode"), ESearchCase::IgnoreCase))
@@ -1942,7 +1942,7 @@ static FString GetProfilingButtonLabel(int32 ButtonIndex)
 
 	if (DefaultCommand.Equals(TEXT("stat mat replay"), ESearchCase::IgnoreCase))
 	{
-		return GMaterialReplayActive ? TEXT("REPLAY OFF") : TEXT("MAT REPLAY");
+		return GMaterialReplayActive ? TEXT("GPU REPLAY OFF") : TEXT("GPU REPLAY");
 	}
 
 	if (DefaultCommand.Equals(TEXT("stat obj"), ESearchCase::IgnoreCase))
