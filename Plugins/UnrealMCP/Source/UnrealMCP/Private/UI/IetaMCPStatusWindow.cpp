@@ -37,10 +37,7 @@ void FIetaMCPStatusWindow::Show(const FString& CommandType)
         const TSharedPtr<SWindow> ExistingWindow = StatusWindow;
         LastShowTime = FPlatformTime::Seconds();
         SetProcessingStatus(CommandType);
-        ExistingWindow->ShowWindow();
-        PositionWindowAtBottomRight(ExistingWindow.ToSharedRef());
-        ExistingWindow->BringToFront();
-        FlushSlateWindowNow(ExistingWindow.ToSharedRef());
+        PresentStatusWindow(ExistingWindow.ToSharedRef());
         return;
     }
 
@@ -83,7 +80,7 @@ void FIetaMCPStatusWindow::Show(const FString& CommandType)
         .SupportsMaximize(false)
         .SupportsMinimize(false)
         .HasCloseButton(true)
-        .IsTopmostWindow(false)
+        .IsTopmostWindow(true)
         .FocusWhenFirstShown(false)
         [
             SNew(SBorder)
@@ -140,10 +137,7 @@ void FIetaMCPStatusWindow::Show(const FString& CommandType)
     LastShowTime = FPlatformTime::Seconds();
     AddStatusWindow(Window);
     SetProcessingStatus(CommandType);
-    Window->ShowWindow();
-    PositionWindowAtBottomRight(Window);
-    Window->BringToFront();
-    FlushSlateWindowNow(Window);
+    PresentStatusWindow(Window);
 }
 
 void FIetaMCPStatusWindow::UpdateStatus(const FString& StatusText, const FString& CommandType)
@@ -170,7 +164,7 @@ void FIetaMCPStatusWindow::UpdateStatus(const FString& StatusText, const FString
     LastShowTime = FPlatformTime::Seconds();
     if (StatusWindow.IsValid())
     {
-        FlushSlateWindowNow(StatusWindow.ToSharedRef());
+        PresentStatusWindow(StatusWindow.ToSharedRef());
     }
 }
 
@@ -214,7 +208,7 @@ FString FIetaMCPStatusWindow::BuildEditorLogStatusText()
     TArray<FString> Lines;
     if (!FPaths::FileExists(EditorLogPath) || !FFileHelper::LoadFileToStringArray(Lines, *EditorLogPath))
     {
-        return TEXT("로그는 아직 확인하지 못했어. 나중에 다시 볼게.");
+        return FString();
     }
 
     int32 ErrorLineCount = 0;
@@ -287,14 +281,15 @@ void FIetaMCPStatusWindow::PositionWindowAtBottomRight(const TSharedRef<SWindow>
 void FIetaMCPStatusWindow::AddStatusWindow(const TSharedRef<SWindow>& Window)
 {
     FSlateApplication& SlateApplication = FSlateApplication::Get();
-    const TSharedPtr<SWindow> ParentWindow = GetTargetParentWindow();
-    if (ParentWindow.IsValid())
-    {
-        SlateApplication.AddWindowAsNativeChild(Window, ParentWindow.ToSharedRef(), false);
-        return;
-    }
-
     SlateApplication.AddWindow(Window, false);
+}
+
+void FIetaMCPStatusWindow::PresentStatusWindow(const TSharedRef<SWindow>& Window)
+{
+    Window->ShowWindow();
+    PositionWindowAtBottomRight(Window);
+    Window->BringToFront();
+    FlushSlateWindowNow(Window);
 }
 
 FSlateRect FIetaMCPStatusWindow::GetTargetWorkArea()

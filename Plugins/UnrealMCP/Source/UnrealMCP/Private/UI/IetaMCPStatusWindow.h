@@ -21,6 +21,7 @@ private:
     static FVector2D GetFinalWindowPosition();
     static void PositionWindowAtBottomRight(const TSharedRef<class SWindow>& Window);
     static void AddStatusWindow(const TSharedRef<class SWindow>& Window);
+    static void PresentStatusWindow(const TSharedRef<class SWindow>& Window);
     static FSlateRect GetTargetWorkArea();
     static TSharedPtr<class SWindow> GetTargetParentWindow();
     static void CloseStatusWindow(uint64 RequestedGeneration);
@@ -28,7 +29,7 @@ private:
     static void ResetWindowReferences();
     static void OnStatusWindowClosed(const TSharedRef<class SWindow>& ClosedWindow);
 
-    static constexpr double CompletionVisibleSeconds = 3.0;
+    static constexpr double CompletionVisibleSeconds = 5.0;
     static constexpr float WindowWidth = 520.0f;
     static constexpr float WindowHeight = 170.0f;
     static constexpr float ScreenMargin = 24.0f;

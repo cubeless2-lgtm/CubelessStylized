@@ -255,10 +255,13 @@ void UUnrealMCPBridge::ScheduleStartupIetaStatusSequence()
                     *WeakThis->ServerAddress.ToString(),
                     WeakThis->Port)
                 : TEXT("현재 접속된 MCP: 없음");
-            const FString LogStatusText = FString::Printf(
-                TEXT("%s\n%s"),
-                *MCPStatusText,
-                *FIetaMCPStatusWindow::BuildEditorLogStatusText());
+            const FString EditorLogStatusText = FIetaMCPStatusWindow::BuildEditorLogStatusText();
+            const FString LogStatusText = EditorLogStatusText.IsEmpty()
+                ? MCPStatusText
+                : FString::Printf(
+                    TEXT("%s\n%s"),
+                    *MCPStatusText,
+                    *EditorLogStatusText);
             const FString StatusText = bConnected
                 ? FString::Printf(TEXT("연결 완료야. Unreal MCP 준비됐어.\n%s"), *LogStatusText)
                 : FString::Printf(TEXT("연결 실패야. 서버가 안 떠 있어. 이 창은 닫지 않을게.\n%s"), *LogStatusText);
