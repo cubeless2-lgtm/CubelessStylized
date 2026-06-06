@@ -1,11 +1,14 @@
 #include "OptimizationPreviewTools.h"
 
 #include "CanvasItem.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/CameraTypes.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/LineBatchComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/SkinnedMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Containers/Ticker.h"
@@ -20,6 +23,8 @@
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/ActorPrimitiveColorHandler.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/FileManager.h"
@@ -78,10 +83,12 @@ namespace OptimizationPreviewTools
 {
 static const FString StatName = TEXT("Material");
 static const FString StatAliasName = TEXT("Mat");
+static const FString MaterialModeStatName = TEXT("MatMode");
 static const FString ObjectStatName = TEXT("Obj");
 static const FString ProfilingStatName = TEXT("Profiling");
 static const FName EngineStatName(TEXT("STAT_Material"));
 static const FName EngineStatAliasName(TEXT("STAT_Mat"));
+static const FName MaterialModeEngineStatName(TEXT("STAT_MatMode"));
 static const FName ObjectEngineStatName(TEXT("STAT_Obj"));
 static const FName ProfilingEngineStatName(TEXT("STAT_Profiling"));
 static const FName EngineStatCategory(TEXT("STATCAT_Engine"));
@@ -98,11 +105,9 @@ struct FProfilingCommandButtonSpec
 static const FProfilingCommandButtonSpec GProfilingCommandButtons[] =
 {
 	{ TEXT("MAT START"), TEXT("stat mat start") },
-	{ TEXT("MAT END"), TEXT("stat mat end") },
 	{ TEXT("MAT REPLAY"), TEXT("stat mat replay") },
-	{ TEXT("MAT OFF"), TEXT("stat mat 0") },
-	{ TEXT("OBJ SNAP"), TEXT("stat obj") },
-	{ TEXT("OBJ OFF"), TEXT("stat obj 0") }
+	{ TEXT("COLOR ON"), TEXT("stat matmode") },
+	{ TEXT("OBJ SNAP"), TEXT("stat obj") }
 };
 
 static constexpr float ProfilingCommandButtonHeight = 34.0f;
@@ -119,6 +124,12 @@ static TAutoConsoleVariable<int32> CVarDebug(
 	TEXT("materialgpu.Debug"),
 	0,
 	TEXT("Show the last Insights material capture using Actor Coloration when r.ForceDebugViewModes=1, otherwise collision-shaped debug overlays."),
+	ECVF_Default);
+
+static TAutoConsoleVariable<int32> CVarMaterialDebugMode(
+	TEXT("materialgpu.DebugMode"),
+	1,
+	TEXT("Use Material GPU Preview debug colors. 0 keeps the original scene colors while the stat/replay UI remains visible."),
 	ECVF_Default);
 
 static TAutoConsoleVariable<int32> CVarDebugAlpha(
@@ -296,6 +307,23 @@ struct FMaterialReplayCameraSample
 	FMinimalViewInfo ViewInfo;
 };
 
+struct FMaterialReplayCharacterSample
+{
+	double TimeSeconds = 0.0;
+	TWeakObjectPtr<ACharacter> Character;
+	FTransform Transform = FTransform::Identity;
+	FVector Velocity = FVector::ZeroVector;
+	FRotator ControlRotation = FRotator::ZeroRotator;
+	TEnumAsByte<EMovementMode> MovementMode = MOVE_None;
+	uint8 CustomMovementMode = 0;
+	TWeakObjectPtr<UAnimMontage> ActiveMontage;
+	float MontagePosition = 0.0f;
+	float MontagePlayRate = 1.0f;
+	bool bHasMovementMode = false;
+	bool bHasMontage = false;
+	bool bHasControlRotation = false;
+};
+
 struct FObjectMemorySnapshotRow
 {
 	TWeakObjectPtr<UObject> Object;
@@ -382,6 +410,7 @@ static TArray<FMaterialAccumulator> GMaterialReplayDebugRows;
 static TArray<FMaterialAccumulator> GMaterialReplaySceneRows;
 static TArray<FMaterialGpuReplayFrameSample> GMaterialReplaySamples;
 static TArray<FMaterialReplayCameraSample> GMaterialReplayCameraSamples;
+static TArray<FMaterialReplayCharacterSample> GMaterialReplayCharacterSamples;
 static TArray<FObjectMemorySnapshotRow> GCachedObjectRows;
 static TArray<FObjectMemorySnapshotRow> GCachedObjectDebugRows;
 static TArray<FDebugOverlayEntry> GCachedDebugEntries;
@@ -432,14 +461,16 @@ static TWeakObjectPtr<ACameraActor> GMaterialReplayCameraActor;
 static TWeakObjectPtr<UCameraComponent> GMaterialReplaySourceCameraComponent;
 static TWeakObjectPtr<APlayerController> GMaterialReplayViewPlayerController;
 static TWeakObjectPtr<AActor> GMaterialReplayPreviousViewTarget;
-static TWeakObjectPtr<APlayerController> GMaterialReplayLookInputPlayerController;
+static TWeakObjectPtr<APlayerController> GMaterialReplayInputPlayerController;
 static TWeakObjectPtr<UWorld> GMaterialReplayCameraCaptureWorld;
 static FOverrideInputKeyHandler GPreviousProfilingInputOverride;
 static FDelegateHandle GProfilingInputOverrideHandle;
 static FTSTicker::FDelegateHandle GMaterialReplayTickerHandle;
 static FTSTicker::FDelegateHandle GMaterialReplayCameraCaptureTickerHandle;
 static bool GHadPreviousProfilingInputOverride = false;
-static bool GMaterialReplayLookInputLocked = false;
+static bool GMaterialReplayInputLocked = false;
+static bool GMaterialReplayPreviousLookInputIgnored = false;
+static bool GMaterialReplayPreviousMoveInputIgnored = false;
 static double GMaterialReplayCurrentTimeSeconds = 0.0;
 static double GMaterialReplayLastTickSeconds = -1.0;
 static int32 GMaterialReplayCurrentSampleIndex = INDEX_NONE;
@@ -542,6 +573,7 @@ static void ClearCaptureState()
 	GMaterialReplaySceneLookup.Reset();
 	GMaterialReplaySamples.Reset();
 	GMaterialReplayCameraSamples.Reset();
+	GMaterialReplayCharacterSamples.Reset();
 	GMaterialReplayCurrentTimeSeconds = 0.0;
 	GMaterialReplayLastTickSeconds = -1.0;
 	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
@@ -1097,6 +1129,21 @@ static FLinearColor GetObjectMemorySnapshotColor(float TotalMB, float Alpha = 1.
 	return GetComplexityPreviewColorForRange(TotalMB, GetObjectDebugGreenMaxMB(), GetObjectDebugWhiteMB(), Alpha);
 }
 
+static bool IsMaterialDebugColorModeEnabled()
+{
+	return CVarMaterialDebugMode.GetValueOnGameThread() != 0;
+}
+
+static FString GetMaterialDebugModeLabel()
+{
+	if (CVarDebug.GetValueOnGameThread() == 0 && !GMaterialReplayActive)
+	{
+		return TEXT("Off");
+	}
+
+	return IsMaterialDebugColorModeEnabled() ? TEXT("Color") : TEXT("Original");
+}
+
 static int32 GetDebugSeverity(float MaxGpuMs)
 {
 	if (MaxGpuMs >= GetDebugWhiteMs())
@@ -1463,6 +1510,53 @@ static UGameViewportClient* ResolveProfilingGameViewport(FCommonViewportClient* 
 	return nullptr;
 }
 
+static FString GetProfilingButtonCommand(int32 ButtonIndex)
+{
+	if (ButtonIndex < 0 || ButtonIndex >= static_cast<int32>(UE_ARRAY_COUNT(GProfilingCommandButtons)))
+	{
+		return FString();
+	}
+
+	const FString DefaultCommand(GProfilingCommandButtons[ButtonIndex].Command);
+	if (DefaultCommand.Equals(TEXT("stat mat start"), ESearchCase::IgnoreCase))
+	{
+		return GCaptureActive ? TEXT("stat mat end") : TEXT("stat mat start");
+	}
+
+	if (DefaultCommand.Equals(TEXT("stat obj"), ESearchCase::IgnoreCase))
+	{
+		return CVarObjectDebug.GetValueOnGameThread() != 0 ? TEXT("stat obj 0") : TEXT("stat obj");
+	}
+
+	return DefaultCommand;
+}
+
+static FString GetProfilingButtonLabel(int32 ButtonIndex)
+{
+	if (ButtonIndex < 0 || ButtonIndex >= static_cast<int32>(UE_ARRAY_COUNT(GProfilingCommandButtons)))
+	{
+		return FString();
+	}
+
+	const FString DefaultCommand(GProfilingCommandButtons[ButtonIndex].Command);
+	if (DefaultCommand.Equals(TEXT("stat mat start"), ESearchCase::IgnoreCase))
+	{
+		return GCaptureActive ? TEXT("MAT END") : TEXT("MAT START");
+	}
+
+	if (DefaultCommand.Equals(TEXT("stat matmode"), ESearchCase::IgnoreCase))
+	{
+		return IsMaterialDebugColorModeEnabled() ? TEXT("COLOR ON") : TEXT("COLOR OFF");
+	}
+
+	if (DefaultCommand.Equals(TEXT("stat obj"), ESearchCase::IgnoreCase))
+	{
+		return CVarObjectDebug.GetValueOnGameThread() != 0 ? TEXT("OBJ OFF") : TEXT("OBJ SNAP");
+	}
+
+	return GProfilingCommandButtons[ButtonIndex].Label;
+}
+
 static bool TryGetProfilingCommandAtRectPosition(
 	const FVector2D& Position,
 	float RectLeft,
@@ -1494,7 +1588,7 @@ static bool TryGetProfilingCommandAtRectPosition(
 		const float ButtonLeft = static_cast<float>(ButtonIndex) * (ButtonWidth + ButtonGap);
 		if (LocalX >= ButtonLeft && LocalX <= ButtonLeft + ButtonWidth)
 		{
-			OutCommand = GProfilingCommandButtons[ButtonIndex].Command;
+			OutCommand = GetProfilingButtonCommand(ButtonIndex);
 			return true;
 		}
 	}
@@ -1565,7 +1659,7 @@ static bool TryGetProfilingCommandAtWidgetPosition(const FVector2D& ScreenPositi
 		if (SetInputScreenRectFromWidget(GProfilingSlateButtonWidgets[ButtonIndex], 2.0f, 4.0f, ButtonRect)
 			&& ButtonRect.Contains(ScreenPosition))
 		{
-			OutCommand = GProfilingCommandButtons[ButtonIndex].Command;
+			OutCommand = GetProfilingButtonCommand(ButtonIndex);
 			return true;
 		}
 	}
@@ -1763,7 +1857,7 @@ static void InstallProfilingInputOverride(UGameViewportClient* GameViewportClien
 	GProfilingInputOverrideHandle = OverrideInputKey.GetHandle();
 }
 
-static TSharedRef<SWidget> MakeProfilingSlateButton(int32 ButtonIndex, const TCHAR* Label, const TCHAR* Command)
+static TSharedRef<SWidget> MakeProfilingSlateButton(int32 ButtonIndex)
 {
 	TSharedPtr<SBox> ButtonBox;
 	TSharedRef<SWidget> ButtonWidget = SAssignNew(ButtonBox, SBox)
@@ -1790,13 +1884,16 @@ static TSharedRef<SWidget> MakeProfilingSlateButton(int32 ButtonIndex, const TCH
 					.ClickMethod(EButtonClickMethod::MouseDown)
 					.TouchMethod(EButtonTouchMethod::Down)
 					.IsFocusable(false)
-					.OnClicked_Lambda([CommandString = FString(Command)]()
+					.OnClicked_Lambda([ButtonIndex]()
 					{
-						return ExecuteProfilingSlateCommand(CommandString);
+						return ExecuteProfilingSlateCommand(GetProfilingButtonCommand(ButtonIndex));
 					})
 					[
 						SNew(STextBlock)
-						.Text(FText::FromString(Label))
+						.Text(TAttribute<FText>::CreateLambda([ButtonIndex]()
+						{
+							return FText::FromString(GetProfilingButtonLabel(ButtonIndex));
+						}))
 						.ColorAndOpacity(FSlateColor(FLinearColor(0.94f, 0.94f, 0.90f, 1.0f)))
 						.Justification(ETextJustify::Center)
 					]
@@ -1827,7 +1924,7 @@ static TSharedRef<SWidget> MakeProfilingSlateButtonRow()
 			return FMargin(bHasLeftGap ? GProfilingSlateButtonGap : 0.0f, 0.0f, 0.0f, 0.0f);
 		}))
 		[
-			MakeProfilingSlateButton(ButtonIndex, GProfilingCommandButtons[ButtonIndex].Label, GProfilingCommandButtons[ButtonIndex].Command)
+			MakeProfilingSlateButton(ButtonIndex)
 		];
 	}
 
@@ -1925,7 +2022,7 @@ static TSharedRef<SWidget> BuildProfilingSlateOverlay()
 							.Padding(FMargin(18.0f, 0.0f, 18.0f, 10.0f))
 							[
 								SNew(STextBlock)
-								.Text(FText::FromString(TEXT("Commands: stat mat start/end/replay/0 | stat obj/0")))
+								.Text(FText::FromString(TEXT("Commands: stat mat start/end/replay/0 | stat matmode 0/1 | stat obj/0")))
 								.ColorAndOpacity(FSlateColor(FLinearColor(0.50f, 0.58f, 0.64f, 0.95f)))
 							]
 						]
@@ -2233,6 +2330,7 @@ static bool IsPluginViewportStatName(const FString& InStatName)
 	const FString StatNameToCheck = NormalizeViewportStatName(InStatName);
 	return StatNameToCheck.Equals(StatName, ESearchCase::IgnoreCase)
 		|| StatNameToCheck.Equals(StatAliasName, ESearchCase::IgnoreCase)
+		|| StatNameToCheck.Equals(MaterialModeStatName, ESearchCase::IgnoreCase)
 		|| StatNameToCheck.Equals(ObjectStatName, ESearchCase::IgnoreCase)
 		|| StatNameToCheck.Equals(ProfilingStatName, ESearchCase::IgnoreCase);
 }
@@ -2514,6 +2612,9 @@ static void RegisterConsoleAutoComplete()
 	RegisterConsoleAutoCompleteCommand(TEXT("stat mat 0"), TEXT("Hide Material GPU Preview panel and debug visualization."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat mat 1"), TEXT("Show last Material GPU Preview Insights result."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat mat clear"), TEXT("Clear Material GPU Preview capture state and overlay."));
+	RegisterConsoleAutoCompleteCommand(TEXT("stat matmode"), TEXT("Toggle Material GPU Preview debug colors without hiding the stat or replay UI."));
+	RegisterConsoleAutoCompleteCommand(TEXT("stat matmode 0"), TEXT("Use original scene colors for Material GPU Preview."));
+	RegisterConsoleAutoCompleteCommand(TEXT("stat matmode 1"), TEXT("Use Material GPU Preview debug colors."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat material"), TEXT("Toggle Material GPU Preview result panel."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat material start"), TEXT("Start Material GPU Preview Insights trace capture."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat material end"), TEXT("Stop trace, analyze utrace, and show the result."));
@@ -2553,6 +2654,7 @@ static void HandleEndPIE(const bool bIsSimulating)
 	GMaterialReplayCurrentTimeSeconds = 0.0;
 	GMaterialReplayLastTickSeconds = -1.0;
 	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
+	GMaterialReplayCharacterSamples.Reset();
 	GLastDebugMaterialCount = GCachedDebugRows.Num();
 	GLastDebugComponentCount = CountUniqueDebugComponents(GCachedDebugRows);
 	StopMaterialReplayTicker();
@@ -2590,6 +2692,34 @@ static void UnregisterEditorDelegates()
 
 static void UpdateDebugOverlay(UWorld* World);
 static bool BuildRowsFromInsightsTrace(UWorld* World);
+
+static void ApplyMaterialDebugVisualization(UWorld* World, FCommonViewportClient* ViewportClient)
+{
+	if (!World || CVarDebug.GetValueOnGameThread() == 0)
+	{
+		DisableActorColoration(World, ViewportClient);
+		ClearCachedDebugOverlay(World);
+		return;
+	}
+
+	if (!IsMaterialDebugColorModeEnabled())
+	{
+		DisableActorColoration(World, ViewportClient);
+		ClearCachedDebugOverlay(World);
+		RefreshActorColorationViewports(ViewportClient);
+		return;
+	}
+
+	if (ShouldUseActorColorationBackend())
+	{
+		ApplyActorColorationViewMode(World, ViewportClient);
+	}
+	else
+	{
+		DisableActorColoration(World, ViewportClient);
+		UpdateDebugOverlay(World);
+	}
+}
 
 static bool StartInsightsGpuTrace()
 {
@@ -2735,16 +2865,15 @@ static void EndCapture(UWorld* World, FCommonViewportClient* ViewportClient)
 	}
 	else
 	{
-		CVarDebug->Set(1);
-		SetViewportStatEnabled(ViewportClient, true);
-		if (ShouldUseActorColorationBackend())
+		if (GMaterialReplaySamples.Num() > 0)
 		{
-			ApplyActorColorationViewMode(World, ViewportClient);
+			StartMaterialReplay(World, ViewportClient);
 		}
 		else
 		{
-			DisableActorColoration(World, ViewportClient);
-			UpdateDebugOverlay(World);
+			CVarDebug->Set(1);
+			SetViewportStatEnabled(ViewportClient, true);
+			ApplyMaterialDebugVisualization(World, ViewportClient);
 		}
 	}
 
@@ -2785,15 +2914,37 @@ static void SetDebugViewEnabled(UWorld* World, FCommonViewportClient* ViewportCl
 	}
 
 	CVarDebug->Set(1);
-	if (ShouldUseActorColorationBackend())
+	ApplyMaterialDebugVisualization(World, ViewportClient);
+}
+
+static void SetMaterialDebugColorModeEnabled(UWorld* World, FCommonViewportClient* ViewportClient, bool bEnable)
+{
+	CVarMaterialDebugMode->Set(bEnable ? 1 : 0, ECVF_SetByConsole);
+	ApplyMaterialDebugVisualization(World, ViewportClient);
+	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Material GPU Preview debug color mode %s."),
+		bEnable ? TEXT("enabled") : TEXT("disabled"));
+}
+
+static bool ToggleMaterialModeStat(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream)
+{
+	FString Args(Stream ? Stream : TEXT(""));
+	Args.TrimStartAndEndInline();
+
+	const TCHAR* Cmd = *Args;
+	if (FParse::Command(&Cmd, TEXT("0")) || FParse::Command(&Cmd, TEXT("off")))
 	{
-		ApplyActorColorationViewMode(World, ViewportClient);
+		SetMaterialDebugColorModeEnabled(World, ViewportClient, false);
+		return true;
 	}
-	else
+
+	if (FParse::Command(&Cmd, TEXT("1")) || FParse::Command(&Cmd, TEXT("on")))
 	{
-		DisableActorColoration(World, ViewportClient);
-		UpdateDebugOverlay(World);
+		SetMaterialDebugColorModeEnabled(World, ViewportClient, true);
+		return true;
 	}
+
+	SetMaterialDebugColorModeEnabled(World, ViewportClient, !IsMaterialDebugColorModeEnabled());
+	return true;
 }
 
 static bool ToggleStat(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream)
@@ -3218,6 +3369,7 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 		GMaterialReplaySamples.Reset();
 		GMaterialReplayCurrentRows.Reset();
 		GMaterialReplayDebugRows.Reset();
+		GMaterialReplayCharacterSamples.Reset();
 		GMaterialReplayActive = false;
 		GMaterialReplayPlaying = false;
 		GLastAnalysisMessage = FString::Printf(TEXT("No material GPU scopes found. Trace=%s Queues=%d InspectedEvents=%d MaterialDrawEvents=%d MatchedEvents=%d SceneMaterials=%d"),
@@ -3447,6 +3599,16 @@ static UCameraComponent* FindMaterialReplaySourceCamera(UWorld* World, APlayerCo
 	return nullptr;
 }
 
+static ACharacter* FindMaterialReplayCharacter(UWorld* World, APlayerController* PlayerController)
+{
+	if (!World || !PlayerController)
+	{
+		return nullptr;
+	}
+
+	return Cast<ACharacter>(PlayerController->GetPawn());
+}
+
 static void CopyMaterialReplayCameraSettings(UCameraComponent* SourceCamera, UCameraComponent* TargetCamera)
 {
 	if (!SourceCamera || !TargetCamera)
@@ -3499,6 +3661,49 @@ static bool CaptureMaterialReplayCameraSample(UWorld* World, double TimeSeconds)
 	return true;
 }
 
+static bool CaptureMaterialReplayCharacterSample(UWorld* World, double TimeSeconds)
+{
+	APlayerController* PlayerController = FindMaterialReplayPlayerController(World);
+	ACharacter* Character = FindMaterialReplayCharacter(World, PlayerController);
+	if (!World || !PlayerController || !Character)
+	{
+		return false;
+	}
+
+	FMaterialReplayCharacterSample Sample;
+	Sample.TimeSeconds = FMath::Max(0.0, TimeSeconds);
+	Sample.Character = Character;
+	Sample.Transform = Character->GetActorTransform();
+	Sample.Velocity = Character->GetVelocity();
+	Sample.ControlRotation = PlayerController->GetControlRotation();
+	Sample.bHasControlRotation = true;
+
+	if (UCharacterMovementComponent* CharacterMovement = Character->GetCharacterMovement())
+	{
+		Sample.Velocity = CharacterMovement->Velocity;
+		Sample.MovementMode = CharacterMovement->MovementMode;
+		Sample.CustomMovementMode = CharacterMovement->CustomMovementMode;
+		Sample.bHasMovementMode = true;
+	}
+
+	if (USkeletalMeshComponent* MeshComponent = Character->GetMesh())
+	{
+		if (UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance())
+		{
+			if (UAnimMontage* ActiveMontage = AnimInstance->GetCurrentActiveMontage())
+			{
+				Sample.ActiveMontage = ActiveMontage;
+				Sample.MontagePosition = AnimInstance->Montage_GetPosition(ActiveMontage);
+				Sample.MontagePlayRate = AnimInstance->Montage_GetPlayRate(ActiveMontage);
+				Sample.bHasMontage = true;
+			}
+		}
+	}
+
+	GMaterialReplayCharacterSamples.Add(MoveTemp(Sample));
+	return true;
+}
+
 static bool TickMaterialReplayCameraCapture(float DeltaTime)
 {
 	UWorld* World = GMaterialReplayCameraCaptureWorld.Get();
@@ -3508,7 +3713,9 @@ static bool TickMaterialReplayCameraCapture(float DeltaTime)
 		return false;
 	}
 
-	CaptureMaterialReplayCameraSample(World, FPlatformTime::Seconds() - GCaptureStartTime);
+	const double CaptureTimeSeconds = FPlatformTime::Seconds() - GCaptureStartTime;
+	CaptureMaterialReplayCameraSample(World, CaptureTimeSeconds);
+	CaptureMaterialReplayCharacterSample(World, CaptureTimeSeconds);
 	return true;
 }
 
@@ -3525,7 +3732,9 @@ static void StopMaterialReplayCameraCaptureTicker()
 		const double EndTime = GCaptureEndTime >= 0.0 ? GCaptureEndTime : FPlatformTime::Seconds();
 		if (GCaptureStartTime >= 0.0)
 		{
-			CaptureMaterialReplayCameraSample(World, EndTime - GCaptureStartTime);
+			const double CaptureTimeSeconds = EndTime - GCaptureStartTime;
+			CaptureMaterialReplayCameraSample(World, CaptureTimeSeconds);
+			CaptureMaterialReplayCharacterSample(World, CaptureTimeSeconds);
 		}
 	}
 
@@ -3536,6 +3745,7 @@ static void StartMaterialReplayCameraCapture(UWorld* World)
 {
 	StopMaterialReplayCameraCaptureTicker();
 	GMaterialReplayCameraSamples.Reset();
+	GMaterialReplayCharacterSamples.Reset();
 	GMaterialReplayCameraCaptureWorld = World;
 	if (!World || GCaptureStartTime < 0.0)
 	{
@@ -3543,6 +3753,7 @@ static void StartMaterialReplayCameraCapture(UWorld* World)
 	}
 
 	CaptureMaterialReplayCameraSample(World, 0.0);
+	CaptureMaterialReplayCharacterSample(World, 0.0);
 	GMaterialReplayCameraCaptureTickerHandle = FTSTicker::GetCoreTicker().AddTicker(
 		FTickerDelegate::CreateStatic(&TickMaterialReplayCameraCapture),
 		0.0f);
@@ -3589,35 +3800,146 @@ static bool ApplyMaterialReplayCameraSample(ACameraActor* CameraActor, double Ti
 	return true;
 }
 
-static void LockMaterialReplayLookInput(APlayerController* PlayerController)
+static int32 FindMaterialReplayCharacterSampleIndexForTime(double TimeSeconds)
 {
-	if (!PlayerController || GMaterialReplayLookInputLocked)
+	if (GMaterialReplayCharacterSamples.Num() == 0)
+	{
+		return INDEX_NONE;
+	}
+
+	const double ClampedTime = FMath::Max(0.0, TimeSeconds);
+	int32 BestIndex = 0;
+	for (int32 SampleIndex = 0; SampleIndex < GMaterialReplayCharacterSamples.Num(); ++SampleIndex)
+	{
+		if (GMaterialReplayCharacterSamples[SampleIndex].TimeSeconds > ClampedTime)
+		{
+			break;
+		}
+		BestIndex = SampleIndex;
+	}
+
+	return BestIndex;
+}
+
+static bool ApplyMaterialReplayCharacterSample(UWorld* World, double TimeSeconds)
+{
+	if (!World || GMaterialReplayCharacterSamples.Num() == 0)
+	{
+		return false;
+	}
+
+	const int32 SampleIndex = FindMaterialReplayCharacterSampleIndexForTime(TimeSeconds);
+	if (!GMaterialReplayCharacterSamples.IsValidIndex(SampleIndex))
+	{
+		return false;
+	}
+
+	const FMaterialReplayCharacterSample& Sample = GMaterialReplayCharacterSamples[SampleIndex];
+	APlayerController* PlayerController = FindMaterialReplayPlayerController(World);
+	ACharacter* Character = Sample.Character.Get();
+	if (!Character || Character->GetWorld() != World)
+	{
+		Character = FindMaterialReplayCharacter(World, PlayerController);
+	}
+
+	if (!Character)
+	{
+		return false;
+	}
+
+	Character->SetActorTransform(Sample.Transform, false, nullptr, ETeleportType::TeleportPhysics);
+
+	if (PlayerController && PlayerController->GetPawn() == Character && Sample.bHasControlRotation)
+	{
+		PlayerController->SetControlRotation(Sample.ControlRotation);
+	}
+
+	if (UCharacterMovementComponent* CharacterMovement = Character->GetCharacterMovement())
+	{
+		if (Sample.bHasMovementMode)
+		{
+			CharacterMovement->SetMovementMode(Sample.MovementMode.GetValue(), Sample.CustomMovementMode);
+		}
+		CharacterMovement->Velocity = Sample.Velocity;
+		CharacterMovement->UpdateComponentVelocity();
+	}
+
+	if (USkeletalMeshComponent* MeshComponent = Character->GetMesh())
+	{
+		if (UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance())
+		{
+			UAnimMontage* ActiveMontage = Sample.ActiveMontage.Get();
+			if (Sample.bHasMontage && ActiveMontage)
+			{
+				if (!AnimInstance->Montage_IsPlaying(ActiveMontage))
+				{
+					AnimInstance->Montage_Play(
+						ActiveMontage,
+						FMath::Max(Sample.MontagePlayRate, 0.001f),
+						EMontagePlayReturnType::MontageLength,
+						Sample.MontagePosition,
+						true);
+				}
+				AnimInstance->Montage_SetPlayRate(ActiveMontage, Sample.MontagePlayRate);
+				AnimInstance->Montage_SetPosition(ActiveMontage, Sample.MontagePosition);
+			}
+			else if (AnimInstance->GetCurrentActiveMontage())
+			{
+				AnimInstance->Montage_Stop(0.0f);
+			}
+		}
+	}
+
+	return true;
+}
+
+static void LockMaterialReplayPlayerInput(APlayerController* PlayerController)
+{
+	if (!PlayerController || GMaterialReplayInputLocked)
 	{
 		return;
 	}
 
-	PlayerController->SetIgnoreLookInput(true);
-	GMaterialReplayLookInputLocked = true;
-	GMaterialReplayLookInputPlayerController = PlayerController;
+	GMaterialReplayPreviousLookInputIgnored = PlayerController->IsLookInputIgnored();
+	GMaterialReplayPreviousMoveInputIgnored = PlayerController->IsMoveInputIgnored();
+	if (!GMaterialReplayPreviousLookInputIgnored)
+	{
+		PlayerController->SetIgnoreLookInput(true);
+	}
+	if (!GMaterialReplayPreviousMoveInputIgnored)
+	{
+		PlayerController->SetIgnoreMoveInput(true);
+	}
+	GMaterialReplayInputLocked = true;
+	GMaterialReplayInputPlayerController = PlayerController;
 }
 
-static void UnlockMaterialReplayLookInput()
+static void UnlockMaterialReplayPlayerInput()
 {
-	if (GMaterialReplayLookInputLocked)
+	if (GMaterialReplayInputLocked)
 	{
-		if (APlayerController* PlayerController = GMaterialReplayLookInputPlayerController.Get())
+		if (APlayerController* PlayerController = GMaterialReplayInputPlayerController.Get())
 		{
-			PlayerController->SetIgnoreLookInput(false);
+			if (!GMaterialReplayPreviousLookInputIgnored)
+			{
+				PlayerController->SetIgnoreLookInput(false);
+			}
+			if (!GMaterialReplayPreviousMoveInputIgnored)
+			{
+				PlayerController->SetIgnoreMoveInput(false);
+			}
 		}
 	}
 
-	GMaterialReplayLookInputLocked = false;
-	GMaterialReplayLookInputPlayerController = nullptr;
+	GMaterialReplayInputLocked = false;
+	GMaterialReplayPreviousLookInputIgnored = false;
+	GMaterialReplayPreviousMoveInputIgnored = false;
+	GMaterialReplayInputPlayerController = nullptr;
 }
 
 static void DestroyMaterialReplayCamera()
 {
-	UnlockMaterialReplayLookInput();
+	UnlockMaterialReplayPlayerInput();
 
 	APlayerController* PlayerController = GMaterialReplayViewPlayerController.Get();
 	ACameraActor* CameraActor = GMaterialReplayCameraActor.Get();
@@ -3723,7 +4045,7 @@ static bool EnsureMaterialReplayCamera(UWorld* World)
 	{
 		PlayerController->SetViewTarget(CameraActor);
 	}
-	LockMaterialReplayLookInput(PlayerController);
+	LockMaterialReplayPlayerInput(PlayerController);
 
 	return true;
 }
@@ -3904,10 +4226,12 @@ static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* Viewpo
 	GMaterialReplayCurrentTimeSeconds = FMath::Clamp(TimeSeconds, 0.0, GetMaterialReplayDurationSeconds());
 	const int32 SampleIndex = FindMaterialReplaySampleIndexForTime(GMaterialReplayCurrentTimeSeconds);
 	const bool bNeedsActorColorationRefresh = ShouldUseActorColorationBackend()
+		&& IsMaterialDebugColorModeEnabled()
 		&& (!GActorColorationActive || GActorColorationColors.Num() == 0);
 	if (!bForceRefresh && SampleIndex == GMaterialReplayCurrentSampleIndex && !bNeedsActorColorationRefresh)
 	{
 		ApplyMaterialReplayCameraSample(GMaterialReplayCameraActor.Get(), GMaterialReplayCurrentTimeSeconds);
+		ApplyMaterialReplayCharacterSample(World, GMaterialReplayCurrentTimeSeconds);
 		return;
 	}
 
@@ -3915,18 +4239,10 @@ static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* Viewpo
 	BuildMaterialReplayRowsForSample(SampleIndex);
 	CVarDebug->Set(1);
 	SetViewportStatEnabled(ViewportClient, true);
-
-	if (ShouldUseActorColorationBackend())
-	{
-		ApplyActorColorationViewMode(World, ViewportClient);
-	}
-	else
-	{
-		DisableActorColoration(World, ViewportClient);
-		UpdateDebugOverlay(World);
-	}
+	ApplyMaterialDebugVisualization(World, ViewportClient);
 
 	ApplyMaterialReplayCameraSample(GMaterialReplayCameraActor.Get(), GMaterialReplayCurrentTimeSeconds);
+	ApplyMaterialReplayCharacterSample(World, GMaterialReplayCurrentTimeSeconds);
 }
 
 static void RemoveMaterialReplayOverlay()
@@ -3989,6 +4305,13 @@ static FReply ToggleMaterialReplayPlayback()
 	}
 	else
 	{
+		const double Duration = GetMaterialReplayDurationSeconds();
+		if (Duration > 0.0 && GMaterialReplayCurrentTimeSeconds >= Duration - KINDA_SMALL_NUMBER)
+		{
+			UGameViewportClient* GameViewportClient = GMaterialReplayOverlayViewport.Get();
+			UWorld* World = GameViewportClient ? GameViewportClient->GetWorld() : GWorld;
+			ApplyMaterialReplayTime(World, GameViewportClient, 0.0, true);
+		}
 		GMaterialReplayPlaying = true;
 	}
 
@@ -4379,8 +4702,9 @@ static void StartMaterialReplay(UWorld* World, FCommonViewportClient* ViewportCl
 	EnsureMaterialReplayCamera(World);
 	EnsureMaterialReplayOverlay(ViewportClient);
 	EnsureMaterialReplayTicker();
-	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Material GPU Preview replay ready. Samples=%d Duration=%.2fs"),
+	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Material GPU Preview replay ready. Samples=%d CharacterSamples=%d Duration=%.2fs"),
 		GMaterialReplaySamples.Num(),
+		GMaterialReplayCharacterSamples.Num(),
 		GetMaterialReplayDurationSeconds());
 }
 
@@ -4536,7 +4860,7 @@ static float DrawProfilingCommandBar(FCanvas* Canvas, UFont* Font, float PanelX,
 		DrawStatTile(Canvas, ButtonPosition, ButtonSize, FLinearColor(0.54f, 0.56f, 0.55f, 0.70f));
 		DrawStatTile(Canvas, ButtonPosition + FVector2D(1.0f, 1.0f), ButtonSize - FVector2D(2.0f, 2.0f), FLinearColor(0.055f, 0.058f, 0.062f, 0.96f));
 
-		const FString Label(GProfilingCommandButtons[ButtonIndex].Label);
+		const FString Label = GetProfilingButtonLabel(ButtonIndex);
 		const float TextWidth = static_cast<float>(Label.Len()) * 7.0f;
 		const float TextHeight = 14.0f;
 		FCanvasTextItem ButtonTextItem(
@@ -4549,7 +4873,7 @@ static float DrawProfilingCommandBar(FCanvas* Canvas, UFont* Font, float PanelX,
 	}
 
 	const float CommandY = ButtonY + ButtonsHeight + 6.0f;
-	FCanvasTextItem CommandTextItem(FVector2D(InnerX, CommandY), FText::FromString(TEXT("Commands: stat mat start/end/replay/0 | stat obj/0")), Font, FLinearColor(0.50f, 0.58f, 0.64f, 0.95f));
+	FCanvasTextItem CommandTextItem(FVector2D(InnerX, CommandY), FText::FromString(TEXT("Commands: stat mat start/end/replay/0 | stat matmode 0/1 | stat obj/0")), Font, FLinearColor(0.50f, 0.58f, 0.64f, 0.95f));
 	CommandTextItem.EnableShadow(FLinearColor::Black);
 	Canvas->DrawItem(CommandTextItem);
 
@@ -4907,7 +5231,7 @@ static void DrawDebugOverlayEntry(UWorld* World, const FDebugOverlayEntry& Entry
 
 static void UpdateDebugOverlay(UWorld* World)
 {
-	if (!World || CVarDebug.GetValueOnGameThread() == 0 || GActorColorationActive)
+	if (!World || CVarDebug.GetValueOnGameThread() == 0 || GActorColorationActive || !IsMaterialDebugColorModeEnabled())
 	{
 		ClearCachedDebugOverlay(World);
 		return;
@@ -5773,7 +6097,7 @@ static int32 RenderStat(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int
 		GetCaptureDurationSeconds(),
 		static_cast<unsigned long long>(GLastTraceFrameCount),
 		GLastDebugComponentCount,
-		CVarDebug.GetValueOnGameThread() != 0 ? TEXT("On") : TEXT("Off"),
+		*GetMaterialDebugModeLabel(),
 		*ReplayState);
 
 	TextItem.SetColor(FLinearColor(0.95f, 0.95f, 0.92f, 1.0f));
@@ -5897,6 +6221,14 @@ void FOptimizationPreviewToolsModule::RegisterStat()
 		false);
 
 	GEngine->AddEngineStat(
+		OptimizationPreviewTools::MaterialModeEngineStatName,
+		OptimizationPreviewTools::EngineStatCategory,
+		LOCTEXT("MaterialGPUPreviewModeDescription", "Toggle Material GPU Preview debug colors without hiding the stat or replay UI."),
+		UEngine::FEngineStatRender(),
+		UEngine::FEngineStatToggle::CreateStatic(&OptimizationPreviewTools::ToggleMaterialModeStat),
+		false);
+
+	GEngine->AddEngineStat(
 		OptimizationPreviewTools::ObjectEngineStatName,
 		OptimizationPreviewTools::EngineStatCategory,
 		LOCTEXT("ObjectMemorySnapshotDescription", "Create and display a memreport-style Object Memory Snapshot for the current world."),
@@ -5927,6 +6259,7 @@ void FOptimizationPreviewToolsModule::UnregisterStat()
 	{
 		GEngine->RemoveEngineStat(OptimizationPreviewTools::EngineStatName);
 		GEngine->RemoveEngineStat(OptimizationPreviewTools::EngineStatAliasName);
+		GEngine->RemoveEngineStat(OptimizationPreviewTools::MaterialModeEngineStatName);
 		GEngine->RemoveEngineStat(OptimizationPreviewTools::ObjectEngineStatName);
 		GEngine->RemoveEngineStat(OptimizationPreviewTools::ProfilingEngineStatName);
 	}

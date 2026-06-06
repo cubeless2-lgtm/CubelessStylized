@@ -597,6 +597,35 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Change: replay camera samples are captured during `stat mat start/end`, and replay mode keeps the player view target bound to the transient replay camera while disabling look input until replay teardown.
 - Verification: `StylizedCubelessEditor Win64 Development -NoLiveCoding` build succeeded after the input and camera changes, then succeeded again after the non-finite replay duration guard.
 
+## OptimizationPreviewTools Material Replay Character State Samples
+
+- Date: 2026-06-06 15:58 KST
+- Scope: `Plugins/OptimizationPreviewTools` Material GPU Preview replay.
+- Change: `stat mat start/end` now samples the local player character transform, velocity, movement mode, custom movement mode, control rotation, and current active montage position/play rate alongside camera samples.
+- Change: `stat mat replay` applies the nearest character sample for the current replay time, keeps move/look input ignored during replay, and restores the previous input-ignore state on replay teardown.
+- Limit: this is the middle-weight replay path for the local player character only. It does not serialize all actors, all AnimBP state-machine internals, or full UE DemoNetDriver state.
+- Verification: `StylizedCubelessEditor Win64 Development -NoLiveCoding` build succeeded after the character state replay changes.
+
+## OptimizationPreviewTools Material Debug Mode Toggle
+
+- Date: 2026-06-06 16:18 KST
+- Scope: `Plugins/OptimizationPreviewTools` Material GPU Preview debug visualization and profiling buttons.
+- Change: added `stat matmode` with `stat matmode 0/1`; default is enabled through `materialgpu.DebugMode=1`.
+- Change: `stat profiling` replaces the old `MAT OFF` button with a `COLOR ON/OFF` button that toggles Material GPU Preview debug colors without hiding the stat panel or replay UI.
+- Change: actor-coloration and collision fallback debug overlays now both respect `matmode`; disabled mode clears plugin debug color overlays and keeps the original scene colors.
+- Change: successful `stat mat end` now starts Material GPU Preview replay immediately when replay samples exist instead of falling back to static `stat mat 1` display.
+- Change: replay `PLAY` starts from `0.0s` when pressed at the end of the replay timeline.
+- Verification: `git diff --check` passed with only CRLF warnings. `StylizedCubelessEditor Win64 Development -NoLiveCoding` build succeeded after the Live Coding lock cleared.
+
+## OptimizationPreviewTools Profiling Button Consolidation
+
+- Date: 2026-06-06 16:27 KST
+- Scope: `Plugins/OptimizationPreviewTools` stat profiling command buttons.
+- Change: consolidated `MAT START` and `MAT END` into one dynamic button. It shows and runs `MAT START` while idle, then switches to `MAT END` during active Insights capture.
+- Change: consolidated `OBJ SNAP` and `OBJ OFF` into one dynamic button. It runs `stat obj` while hidden and `stat obj 0` while object debug output is visible.
+- Change: the profiling command bar now has four buttons: material capture toggle, material replay, material color mode toggle, and object snapshot toggle.
+- Verification: `StylizedCubelessEditor Win64 Development -NoLiveCoding` build succeeded after the button consolidation.
+
 - Date: 2026-06-06 14:01 KST
 - Decision: `/Content/_MCP_Sample/` is reserved for local MCP learning/sample resources.
 - Git rule: `/Content/_MCP_Sample/` is now gitignored by default and must not be staged or committed unless the user explicitly asks to version a specific sample asset.
