@@ -99,6 +99,7 @@ This project uses three named agent roles. The Korean names are display names; t
 - For build files, check module dependencies, plugin boundaries, editor-only dependencies, include hygiene, circular dependencies, and whether a runtime module accidentally depends on editor modules.
 - Verification expectations should be Unreal-specific: mention whether the change needs `UnrealBuildTool` build, editor restart, PIE/editor smoke test, MCP bridge test, or targeted log review.
 - Do not request or run heavy static analysis tools such as `clang-tidy`, CodeQL, or MSVC analysis by default. Suggest them only when the C++ change size or repeated bug pattern justifies the setup cost.
+- Apply the project Unreal C++ convention baseline in `docs/unreal-cpp-conventions.md` when reviewing naming, file structure, UObject ownership, module boundaries, Slate/editor UI, async/socket work, and verification expectations.
 
 ### 티브렛 - Builder Agent
 
@@ -121,6 +122,9 @@ This project uses three named agent roles. The Korean names are display names; t
 - For 3D or PBR texture source images, generate neutral, shadow-free source art by default: no cast shadows, no baked ambient occlusion/contact shadows, no directional key/fill lighting, no reflection/specular highlights, and no final beauty lighting unless the user explicitly asks for a lit preview.
 - For modeling/reference concept art, keep each view, part callout, material sample, trim strip, and optional preview render clearly separated with enough margin. Do not allow overlapping, occlusion, cropping, or tangency between reference elements, because those overlaps can contaminate later UV fitting, masking, or texture extraction.
 - Keep BaseColor/albedo source imagery separable from lighting. Normal, Roughness, Metallic, Height, and AO maps should be derived or authored as material data, not baked into the BaseColor image.
+- For material sample textures and material effect source images such as glitch, dissolve, breakup, distortion, flow/noise, scratches, dust, scanline dirt, impact, energy, or stylized mask sources, Ieta must first explain the final material/shader purpose to Keilan before image generation.
+- When Keilan receives a material/effect image request, prioritize image quality while preserving the stated shader purpose. Do not turn data or mask source art into a final beauty-lit image unless the user explicitly asks for a preview-only beauty image.
+- Channel packing for material effect and mask textures is case-specific. Ieta defines channel meanings per request before handoff, and Tivret packs/imports the result only after the requested channel roles are clear.
 - Do not modify Unreal assets directly. Provide source image intent, prompt notes, channel-packing notes, preview expectations, and any risks for Ieta to document and for Tivret to implement/import.
 - Image generation must still follow the project cost-control rules: do not use `OPENAI_API_KEY`, the OpenAI Images API, or any user-billed API path unless the user explicitly approves that billing route.
 - Ieta is responsible for organizing Keilan's output into project docs, Notion summaries, source-art paths, texture packing notes, and handoff instructions.
@@ -150,6 +154,17 @@ This project uses three named agent roles. The Korean names are display names; t
 - When the user asks for a texture to be drawn or generated for a mesh, default to a PBR texture set rather than a single lit beauty image unless the user explicitly asks for a preview-only concept image.
 - Do not skip the preview-and-review gate for selected Static Mesh texture work unless the user explicitly says to apply directly without review.
 
+## Unreal C++ Convention Baseline
+
+- Manage Unreal C++ convention through 이에타 by default. 이에타 keeps the rule source current, applies it during C++ reviews, and updates project documentation when the rule changes.
+- Use this source priority when convention sources disagree: Epic official Unreal C++ coding standard first, then Unreal Engine/Lyra local style, then CubelessStylized project-specific rules, then third-party checklists as supporting references only.
+- Treat `docs/unreal-cpp-conventions.md` as the project-facing checklist for C++ and Unreal build review. Keep `AGENTS.md` concise and put detailed examples in that docs page.
+- Do not mass-format the repository just because a convention rule is added. Style enforcement starts with review and newly touched code; broad formatting requires a separate explicit request.
+- `.editorconfig` may define safe editor defaults such as UTF-8, line endings, final newline, and trailing whitespace trimming. Do not force indentation style globally until the current codebase style has been sampled per module.
+- `.clang-format` is optional and must be trialed on a small sample or temporary copy before adoption. Do not run `.clang-format` across existing Unreal source without explicit approval.
+- For project source, prefer Unreal's normal naming and reflection patterns: `U/A/F/S/I/E` type prefixes, `b` bool prefixes, PascalCase symbols, `generated.h` last, reflected UObject references protected with `UPROPERTY`/`TObjectPtr` where ownership or GC tracking matters, and editor-only code kept behind the correct module or `WITH_EDITOR` boundary.
+- For third-party plugin code such as GFur, preserve upstream style unless a change is needed for correctness, build compatibility, crash prevention, or project integration.
+
 ## Unreal MCP Asset Editing
 
 - When debugging, modifying, or creating Blueprints, PCG graphs, Animation Blueprints, Control Rigs, or related Unreal assets through Unreal MCP, do not add or generate C++ code by default.
@@ -161,6 +176,38 @@ This project uses three named agent roles. The Korean names are display names; t
 - Treat `/Content/_MCP_Temp/` as the shared temporary output root for MCP-recreated content and validation artifacts. Use package paths such as `/Game/_MCP_Temp/<SourceName>_MCP` for recreate/validation targets.
 - `_MCP_Temp` outputs are disposable generated artifacts that may change on every validation run. They are gitignored and must not be staged or committed unless the user explicitly asks to version a specific generated asset.
 - This `_MCP_Temp` rule is shared by 이에타, 케일란, and 티브렛. Use `/Content/MCPTestFixtures/` only for deliberate stable test fixtures, not for ordinary temporary MCP output.
+- Treat `/Content/_MCP_Sample/` as a local learning/sample resource folder for MCP-related study assets. It is gitignored by default and must not be staged or committed unless the user explicitly asks to version a specific sample asset.
+
+## Unreal Packaging Output Rules
+
+- Treat the repository-local `Build/` folder under `CubelessStylized` as the default packaging output root.
+- When the user asks `안드로이드 패키징 해줘`, package Android output into `Build/Android/`.
+- When the user asks `윈도우 패키징 해줘`, package Windows output into `Build/Windows/`.
+- Use platform-specific subfolders under `Build/` so Android and Windows package outputs do not overwrite or mix with each other.
+- Do not run packaging for rule-only requests such as "룰만 적용해줘" or "아직 패키징은 안해도 돼".
+- Treat package outputs under `Build/` as generated artifacts. Do not stage or commit them unless the user explicitly asks to version a specific packaging artifact or configuration file.
+
+## Android Packaging Toolchain Rules
+
+- For UE_5.7 Android packaging, treat `C:\Program Files\Epic Games\UE_5.7\Engine\Config\Android\Android_SDK.json` as the source of truth for SDK package versions.
+- Current UE_5.7 Android SDK requirements are `platforms;android-34`, `build-tools;35.0.1`, `cmake;3.22.1`, and `ndk;27.2.12479018`.
+- On the user's current machine, Android Studio is installed at `C:\Program Files\Android\Android Studio`, the Android SDK root is `C:\Users\cubel\AppData\Local\Android\Sdk`, and `JAVA_HOME` should point at Android Studio's `jbr`.
+- The user will manually install the Unreal/Epic Android platform support package. Do not attempt to install Epic Launcher engine components automatically.
+- If Unreal Turnkey lists only `Win64` or reports no Android platform despite the Android SDK/NDK being installed, check whether `C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Android\UnrealGame.target` exists and report the missing Unreal Android platform package as the blocker.
+
+## Material Analysis and Authoring Workflow
+
+- Default material authoring principle: build Unreal materials with native Material Expression nodes as much as practical, and isolate only the difficult or unreadable parts into small Custom nodes.
+- Default to a hybrid material workflow for material analysis, shader conversion, and material authoring.
+- Keep material semantics and user-facing controls in native Material Expression nodes: `TextureCoordinate`, `Time`, scalar/vector parameters, texture samples, material functions, color constants, palette/parameter blending, final clamps, and root material property connections.
+- Use `MaterialExpressionCustom` only for difficult math islands that are impractical or unreadable as native nodes, especially source-shader `if`/`for` blocks, hash/noise functions, repeated SDF formulas, matrix-style coordinate transforms, sampler-heavy helper logic, warp/glitch/halftone loops, and compact branch-heavy formulas.
+- Do not convert a whole material into one opaque Custom node by default. Custom nodes should be small, named, isolated, and have explicit validated inputs and output types.
+- Do not force node-only conversion unless the user explicitly asks for a node-only test or a native-only graph. Node-only expansion is allowed for verification, but production material work should prefer the hybrid approach.
+- When converting public GLSL/HLSL or Unity/Godot shader code, first classify which parts should stay as native nodes and which parts require Custom-node isolation. Preserve render-state, material-domain, shading-model, parameter, texture, and root-property meaning in the Unreal graph.
+- When material work needs sample textures or effect images, classify the texture purpose first. Use Keilan/image generation for organic or stylized source art where visual quality matters, and use procedural generation for exact numeric data, UV test grids, deterministic gradients, LUTs, or strict channel validation patterns.
+- For packed effect textures, define the channel roles per request before generation or packing; do not assume a fixed RGBA layout except where a specific workflow, such as Ultra Dynamic Sky static clouds, already defines one.
+- Always verify hybrid material work through UnrealMCP after creation or modification: list material nodes, confirm Custom-node count and connected inputs, compile with structured error reporting, confirm `compile_error_count=0`, and save only after compile success unless the user asked for a draft asset.
+- If a Custom node compile error, unconnected input, editor crash, or MCP graph-editing failure occurs, fix the MCP/editor scripting issue or isolate the failing shader logic before continuing the batch or asset work.
 
 ## Image Generation Cost Control
 

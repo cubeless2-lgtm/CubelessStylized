@@ -53,6 +53,9 @@ SourceArt/**/*.tga
 # MCP temporary generated/validation content
 /Content/_MCP_Temp/
 
+# MCP learning/sample resources
+/Content/_MCP_Sample/
+
 # Binary Files
 Binaries/*
 Plugins/**/Binaries/*
