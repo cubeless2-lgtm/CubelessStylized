@@ -871,3 +871,14 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Validation: Section 78 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
 - Git: sibling commit `67b3825 Add durable canary live command dispatch release contract`; no push was performed.
 - Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 79 Durable Canary Live Command Execution Release
+
+- Date: 2026-06-07 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling and release boundary report; no Unreal asset, C++, live bridge probe, live read-only retry, live runner start, live command dispatch, live command plan emission, live command execution, live canary rehearsal, save, delete, rename, or cleanup was performed.
+- Change: added a durable canary live command execution release contract that defines the future execution release record schema, durable-command-execution-only scope, explicit execution authorization, and no-save/delete/rename acknowledgement before execution evidence admission could be considered.
+- Safety decision: current release boundary has no Section 78 dispatch inputs satisfied, no valid dispatch release record, no execution release record, and no separate execution evidence admission. Therefore execution release, live command dispatch, command plan emission, live command execution, live canary rehearsal, creation, save, cleanup, durable executor opening, durable authoring, and save/delete/rename all remain `0`. Execution records containing forbidden authorizations are rejected.
+- Release boundary: report schema advanced to `section_79_bp_authoring_release_boundary_v21`; release boundary status remains `passed`, failed blocking rows `0`, durable authoring remains disabled, and final durable release readiness remains `false`.
+- Validation: Section 79 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
+- Git: sibling commit `073bb56 Add durable canary live command execution release contract`; no push was performed.
+- Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
