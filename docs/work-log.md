@@ -805,3 +805,14 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Validation: Section 72 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
 - Git: sibling commit `f72fbd2 Add durable canary read-only retry envelope contract`; no push was performed.
 - Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 73 Durable Canary Read-Only Retry Result Admission
+
+- Date: 2026-06-07 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling and release boundary report; no Unreal asset, C++, live bridge probe, live read-only retry, save, delete, rename, or cleanup was performed.
+- Change: added a durable canary read-only retry result admission contract that validates a future retry result's schema, explicit read-only retry authorization, `EditorAssetLibrary.does_asset_exist` command, passed read-only status, asset-exists check, and absence of authoring/save/delete/rename/cleanup/canary execution attempts.
+- Safety decision: no live retry result is currently admitted. Missing result and missing explicit live read-only retry authorization keep `read_only_result_admitted`, canary execution, durable executor opening, authoring commands, save/delete/rename, and cleanup at `0`. Unsafe future retry results are rejected and fail the admission summary.
+- Release boundary: report schema advanced to `section_73_bp_authoring_release_boundary_v15`; release boundary status remains `passed`, failed blocking rows `0`, durable authoring remains disabled, and final durable release readiness remains `false`.
+- Validation: Section 73 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
+- Git: sibling commit `223fe6e Add durable read-only retry result admission contract`; no push was performed.
+- Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
