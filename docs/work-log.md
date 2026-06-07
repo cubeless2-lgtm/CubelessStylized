@@ -794,3 +794,14 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Validation: Section 71 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
 - Git: sibling commit `edb444a Add durable bridge recovery readiness contract`; no push was performed.
 - Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 72 Durable Canary Read-Only Retry Envelope
+
+- Date: 2026-06-07 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling and release boundary report; no Unreal asset, C++, live bridge probe, live read-only retry, save, delete, rename, or cleanup was performed.
+- Change: added a durable canary read-only retry envelope contract for the future post-recovery read-only `EditorAssetLibrary.does_asset_exist` retry path.
+- Safety decision: the retry envelope is defined only as an offline contract. Bridge reachability and explicit live read-only retry authorization remain missing prerequisites, so `live_read_only_retry_allowed`, `live_read_only_retry_performed`, `live_read_only_result_recorded`, canary execution, durable executor opening, authoring commands, save/delete, and cleanup all remain `0`.
+- Release boundary: report schema advanced to `section_72_bp_authoring_release_boundary_v14`; release boundary status remains `passed`, failed blocking rows `0`, durable authoring remains disabled, and final durable release readiness remains `false`.
+- Validation: Section 72 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
+- Git: sibling commit `f72fbd2 Add durable canary read-only retry envelope contract`; no push was performed.
+- Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
