@@ -838,3 +838,14 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Validation: Section 75 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
 - Git: sibling commit `158f0de Add durable canary rehearsal execution release contract`; no push was performed.
 - Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 76 Durable Canary Live Runner Envelope
+
+- Date: 2026-06-07 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling and release boundary report; no Unreal asset, C++, live bridge probe, live read-only retry, live runner start, live canary rehearsal, save, delete, rename, or cleanup was performed.
+- Change: added a durable canary live runner envelope contract that defines the future runner plan schema and allowed rehearsal command names while keeping save/delete/rename/cleanup/general durable authoring forbidden.
+- Safety decision: no valid Section 75 execution release, no live runner release, no runner plan, and no separate operator runner start are present. Therefore runner start, live command plan emission, live canary rehearsal, creation, save, cleanup, durable executor opening, durable authoring, and save/delete/rename all remain `0`. Runner plans containing forbidden commands are rejected.
+- Release boundary: report schema advanced to `section_76_bp_authoring_release_boundary_v18`; release boundary status remains `passed`, failed blocking rows `0`, durable authoring remains disabled, and final durable release readiness remains `false`.
+- Validation: Section 76 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
+- Git: sibling commit `2fea8f2 Add durable canary live runner envelope contract`; no push was performed.
+- Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
