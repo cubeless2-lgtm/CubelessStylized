@@ -98,6 +98,14 @@
 			"Enabled": true
 		},
 		{
+			"Name": "GFur",
+			"Enabled": true,
+			"PlatformDenyList": [
+				"Android",
+				"IOS"
+			]
+		},
+		{
 			"Name": "AnimToTexture",
 			"Enabled": true
 		},
@@ -118,6 +126,14 @@
 		},
 		{
 			"Name": "OptimizationPreviewTools",
+			"Enabled": true,
+			"PlatformDenyList": [
+				"Android",
+				"IOS"
+			]
+		},
+		{
+			"Name": "Volumetrics",
 			"Enabled": true
 		}
 	]
