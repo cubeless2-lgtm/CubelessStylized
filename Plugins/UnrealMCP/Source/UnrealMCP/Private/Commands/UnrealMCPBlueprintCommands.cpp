@@ -104,7 +104,7 @@ TArray<TSharedPtr<FJsonValue>> RotatorToJsonArray(const FRotator& Value)
     return Array;
 }
 
-FString ObjectPathOrEmpty(const UObject* Object)
+FString BlueprintObjectPathOrEmpty(const UObject* Object)
 {
     return Object ? Object->GetPathName() : FString();
 }
@@ -165,7 +165,7 @@ TSharedPtr<FJsonValue> PropertyValueToJsonValue(FProperty* Property, const void*
     }
     if (FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(Property))
     {
-        return MakeShared<FJsonValueString>(ObjectPathOrEmpty(ObjectProperty->GetObjectPropertyValue(ValuePtr)));
+        return MakeShared<FJsonValueString>(BlueprintObjectPathOrEmpty(ObjectProperty->GetObjectPropertyValue(ValuePtr)));
     }
 
     FString ExportedValue;
@@ -833,7 +833,7 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleListBlueprintComponen
             ComponentObject->SetStringField(TEXT("component_class"), Node->ComponentClass ? Node->ComponentClass->GetName() : FString());
             ComponentObject->SetStringField(TEXT("component_class_path"), Node->ComponentClass ? Node->ComponentClass->GetPathName() : FString());
             ComponentObject->SetStringField(TEXT("template_name"), ComponentTemplate ? ComponentTemplate->GetName() : FString());
-            ComponentObject->SetStringField(TEXT("template_path"), ObjectPathOrEmpty(ComponentTemplate));
+            ComponentObject->SetStringField(TEXT("template_path"), BlueprintObjectPathOrEmpty(ComponentTemplate));
 
             USCS_Node* ParentNode = Blueprint->SimpleConstructionScript->FindParentNode(Node);
             ComponentObject->SetStringField(TEXT("parent_component_name"), ParentNode ? ParentNode->GetVariableName().ToString() : FString());
@@ -850,7 +850,7 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleListBlueprintComponen
             if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(ComponentTemplate))
             {
                 UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh();
-                ComponentObject->SetStringField(TEXT("static_mesh"), ObjectPathOrEmpty(StaticMesh));
+                ComponentObject->SetStringField(TEXT("static_mesh"), BlueprintObjectPathOrEmpty(StaticMesh));
             }
 
             Components.Add(MakeShared<FJsonValueObject>(ComponentObject));
