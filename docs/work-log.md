@@ -937,3 +937,14 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Validation: Section 84 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
 - Git: sibling commit `a156be4 Add durable canary authoring enable contract`; no push was performed.
 - Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 85 Durable Canary Authoring Command
+
+- Date: 2026-06-07 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling and release boundary report; no Unreal asset, C++, live bridge probe, live command dispatch, live command execution, live evidence capture, durable promotion, durable executor activation/open, durable authoring enablement, durable authoring command dispatch/execution, save, delete, rename, or cleanup was performed.
+- Change: added a durable canary authoring command contract that defines the future command record schema, durable-canary-authoring-command-only scope, allowed non-save command names, explicit command authorization, and no-save/delete/rename acknowledgement before durable command dispatch could be considered.
+- Safety decision: current release boundary has no Section 84 authoring enable inputs satisfied, no valid authoring-enable record, no Section 51 reconfirmation counts, no command record, and no separate durable authoring command dispatch contract. Therefore durable authoring command dispatch/execution, durable authoring, save/delete/rename, cleanup, and live command action counters remain `0`. Command records containing save/delete/rename/cleanup/live dispatch/live execution commands are rejected.
+- Release boundary: report schema advanced to `section_85_bp_authoring_release_boundary_v27`; release boundary status remains `passed`, failed blocking rows `0`, durable authoring remains disabled, and final durable release readiness remains `false`.
+- Validation: Section 85 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
+- Git: sibling commit `8ed4908 Add durable canary authoring command contract`; no push was performed.
+- Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
