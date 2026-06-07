@@ -816,3 +816,14 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Validation: Section 73 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
 - Git: sibling commit `223fe6e Add durable read-only retry result admission contract`; no push was performed.
 - Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 74 Durable Canary Rehearsal Promotion Barrier
+
+- Date: 2026-06-07 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling and release boundary report; no Unreal asset, C++, live bridge probe, live read-only retry, live canary rehearsal, save, delete, rename, or cleanup was performed.
+- Change: added a durable canary rehearsal promotion barrier contract that prevents an admitted read-only retry result from promoting itself into live canary rehearsal or durable authoring execution.
+- Safety decision: current release boundary has no admitted read-only retry result and lacks live rehearsal readiness, marker write/readback proof, cleanup proof, durable save readiness, explicit live rehearsal authorization, and a separate durable rehearsal execution release. Therefore promotion, live canary rehearsal, creation, save, cleanup, durable executor opening, authoring commands, and save/delete/rename all remain `0`.
+- Release boundary: report schema advanced to `section_74_bp_authoring_release_boundary_v16`; release boundary status remains `passed`, failed blocking rows `0`, durable authoring remains disabled, and final durable release readiness remains `false`.
+- Validation: Section 74 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
+- Git: sibling commit `75c553f Add durable canary rehearsal promotion barrier contract`; no push was performed.
+- Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
