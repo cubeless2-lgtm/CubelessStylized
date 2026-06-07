@@ -697,6 +697,77 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Verification: `git diff --check` passed with only CRLF warnings. `StylizedCubelessEditor Win64 Development` build succeeded.
 - Notion capture fallback: Notion search/update tools were not available in this session, so this local work-log entry is the durable capture.
 
+## UnrealMCP Section 9.6 Event Dispatcher Bind MVP
+
+- Date: 2026-06-06 19:31 KST
+- Scope: `Plugins/UnrealMCP` and sibling `D:\Git\unreal-mcp-cubeless` analysis tooling.
+- Change: added MCP Blueprint authoring support for custom event nodes and Blueprint Event Dispatcher bind nodes, alongside the existing dispatcher declaration/call path.
+- Validation: `StylizedCubelessEditor Win64 Development` build succeeded; live BP authoring quality gate created a temporary Blueprint, declared/called/bound `OnQualityGateTriggered`, compiled with `compile_error_count=0`, produced `new_log_errors=0`, and deleted the temp asset.
+- Lyra result: read-only Lyra reports were regenerated from `D:\Git\LyraStarterGame`; current safe scope now includes binding Blueprint Event Dispatchers to signature-compatible custom events, but generic delegate assign/unbind/clear, native lifecycle delegates, and async proxy callback topology remain reinforcement candidates.
+- Notion capture fallback: Notion enhanced markdown spec fetch failed with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 9.7 Event Dispatcher Lifecycle Nodes
+
+- Date: 2026-06-06 19:52 KST
+- Scope: `Plugins/UnrealMCP` and sibling `D:\Git\unreal-mcp-cubeless` analysis tooling.
+- Change: added MCP Blueprint authoring support for Event Dispatcher assign, unbind, and clear nodes on top of declaration, call, custom event, and bind support.
+- Validation: `StylizedCubelessEditor Win64 Development` build succeeded after fixing local C++ declaration-order issues; live BP authoring quality gate created a temporary Blueprint, ran `bind -> assign -> call -> unbind -> clear`, compiled with `compile_error_count=0`, produced `new_log_errors=0`, and deleted the temp asset.
+- Lyra result: read-only Lyra reports were regenerated from `D:\Git\LyraStarterGame`; current safe scope now includes assign/unbind/clear for Blueprint Event Dispatchers. Remaining reinforcement candidates are generic delegate lifecycle for non-Event-Dispatcher targets, native/arbitrary delegate lifecycle classification, and async proxy callback topology.
+- Notion capture fallback: Notion enhanced markdown spec fetch failed with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 9.8 Native/Arbitrary Delegate Lifecycle Classifier
+
+- Date: 2026-06-06 20:17 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling and docs; no UnrealMCP C++ changes were needed.
+- Change: added a line-level delegate lifecycle classifier that buckets Lyra delegate sites as Blueprint Event Dispatcher candidates, explicit-unbind-policy requirements, wrapper API requirements, native-required sites, async/AbilityTask callback sites, and cleanup inventory.
+- Validation: analyzer smoke tests passed, Lyra delegate and combined readiness reports were regenerated read-only, `git diff --check` passed with CRLF warnings only, and generated `__pycache__` files were removed.
+- Lyra result: classifier found `263` delegate lifecycle sites: `12` BP Event Dispatcher candidates, `8` explicit unbind policy gaps, `76` wrapper API sites, `60` native-required sites, `10` async/AbilityTask sites, and `97` cleanup inventory sites.
+- Notion capture fallback: Notion enhanced markdown spec fetch failed with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 9.9 Async Proxy Callback Inventory
+
+- Date: 2026-06-06 20:20 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling and docs; no UnrealMCP C++ changes were needed.
+- Change: added async proxy callback inventory for `UBlueprintAsyncActionBase`, `UCancellableAsyncAction`, `UAbilityTask`, and `UK2Node_AsyncAction` classes, including callback delegates, factory functions, `Activate()` methods, broadcasts, cleanup signals, and authoring policy.
+- Change: updated the Lyra delegate/latent/async report, combined readiness report, smoke tests, default Lyra path handling, and added `Docs/Analysis/async_proxy_callback_policy.md`.
+- Validation: all five analysis smoke tests passed, default project resolution now uses `D:\Git\LyraStarterGame`, Lyra delegate and combined reports were regenerated read-only, `git diff --check` passed with CRLF warnings only, and generated `__pycache__` files were removed.
+- Lyra result: async proxy inventory found `13` classes: `6` cancellable async actions, `3` Blueprint async actions, `3` AbilityTasks, and `1` custom K2 async node. All `13` require callback exec modeling or native/domain policy before BP graph authoring.
+- Notion capture fallback: Notion enhanced markdown spec fetch failed with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 9 Closure Review
+
+- Date: 2026-06-06 20:26 KST
+- Scope: Section 9.6 through 9.9 closure review across `Plugins/UnrealMCP`, sibling `D:\Git\unreal-mcp-cubeless` analysis tooling, and Lyra read-only reports.
+- Review: UnrealMCP C++ Event Dispatcher declaration/call/custom-event/bind/assign/unbind/clear paths were reviewed for graph compatibility checks, node allocation order, Blueprint modified state, command routing, and Unreal editor-thread assumptions. No blocking C++ issue was found.
+- Review: analyzer/docs/report changes were reviewed for Lyra read-only boundaries, actual path usage, async proxy inventory policy, and stale wording. The Event Dispatcher docs were corrected to reflect that assign, unbind, and clear tools now exist.
+- Validation: `StylizedCubelessEditor Win64 Development` UBT build succeeded as up to date; all five sibling analysis smoke tests passed; Lyra combined report was regenerated after smoke; `git diff --check` passed in both repos with CRLF warnings only; non-venv `__pycache__` cleanup was clean.
+- Residual risk: latest editor log still contains four stale `LogAutomationTest: Error: Condition failed` lines from 2026-06-06 19:46 KST during editor startup, near unrelated TextureGraph/Slate warnings. No new error came from the final UBT build or analyzer smoke pass.
+- Closure verdict: Section 9 is complete at the planned scope. Current safe BP authoring ceiling is Blueprint shell/simple graph glue plus Blueprint Event Dispatcher lifecycle nodes. Native/arbitrary delegates, async proxy callback exec pins, AbilityTasks, custom K2 async nodes, CommonUI structure, GAS, AnimBP, replication, and GameFeature architecture remain future reinforcement candidates.
+
+## UnrealMCP Section 10 BP Authoring Quality Planner
+
+- Date: 2026-06-06 20:41 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling and docs; no UnrealMCP C++ changes were needed.
+- Change: added `bp_authoring_planner.py`, which classifies BP authoring requests as `safe_to_author`, `requires_review`, or `blocked_until_reinforced` using Section 9 readiness and quality-gate policy.
+- Change: added planner smoke coverage for simple Actor BP, component/function glue, Event Dispatcher lifecycle, async proxy callback exec, GAS/replication, CommonUI, unknown requests, Blueprint Event Dispatcher delegate scope, and native delegate lifecycle blocking.
+- Change: added `Docs/Analysis/BPAuthoringPlanner/bp_authoring_quality_planner_report.*` and `Docs/Analysis/bp_authoring_planner_policy.md`.
+- Validation: all six sibling analysis smoke tests passed, Lyra combined report and BP authoring planner report were regenerated, `git diff --check` passed in both repos with CRLF warnings only, and generated non-venv `__pycache__` cleanup was clean.
+- Result: default planner samples classify `3` requests as `safe_to_author` and `3` as `blocked_until_reinforced`; no unknown or blocked native/async/GAS/CommonUI request is treated as safe.
+- Notion capture fallback: Notion enhanced markdown spec fetch failed with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 11 Planner-driven Live BP Authoring Smoke
+
+- Date: 2026-06-06 21:05 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling, docs, and smoke reports; no UnrealMCP C++ changes were needed.
+- Change: added `planner_driven_bp_authoring_smoke.py`, which routes candidate requests through `bp_authoring_planner.py` before any live UnrealMCP authoring command is allowed.
+- Change: safe plans only are executed under `/Game/_MCP_Temp/PlannerDrivenSmoke`; `requires_review` and `blocked_until_reinforced` plans are recorded as prevented with `authoring_attempted=false`.
+- Change: added offline smoke coverage proving only safe plans enter the live runner, custom temp package paths are reflected in reports, and review/blocked requests never call the safe execution path.
+- Validation: Section 11 offline smoke passed; live smoke against `StylizedCubeless.uproject` on bridge `127.0.0.1:55557` passed with `2` safe executions, `4` prevented non-safe requests, `compile_error_count=0`, generated leftovers `0`, and `new_log_errors=0` after the final run.
+- Validation: quality gate, planner, planner-driven smoke, Lyra readiness, Blueprint ancestry, delegate/latent/async, and combined readiness smoke tests passed; Lyra reports, combined readiness, BP planner, and planner-driven smoke reports were regenerated from `D:\Git\LyraStarterGame`.
+- Fix during validation: the first live run exposed an Unreal Python JSON serialization issue when dumping `EditorAssetLibrary.list_assets()` results; the smoke now converts assets to strings before JSON output, and the final live run passed.
+- Residual risk: the latest editor log still contains the fixed first-run `TypeError: Object of type Array is not JSON serializable` and older automation-test error lines, but the final live smoke snapshot recorded no new errors.
+- Result: Section 11 closes the planned loop from readiness analysis to planner gating to live BP authoring smoke. The current automatic BP authoring ceiling remains simple Blueprint shell/component/variable/graph glue plus Blueprint Event Dispatcher lifecycle nodes; UMG widget authoring requires review, while async proxy callback exec, GAS/replication, and CommonUI structure stay blocked until reinforced.
+
 - Date: 2026-06-06 14:01 KST
 - Decision: `/Content/_MCP_Sample/` is reserved for local MCP learning/sample resources.
 - Git rule: `/Content/_MCP_Sample/` is now gitignored by default and must not be staged or committed unless the user explicitly asks to version a specific sample asset.

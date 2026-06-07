@@ -21,6 +21,7 @@
 #include "Engine/SCS_Node.h"
 #include "UObject/Field.h"
 #include "UObject/FieldPath.h"
+#include "UObject/UnrealType.h"
 #include "EditorAssetLibrary.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "GameFramework/Actor.h"
@@ -78,6 +79,98 @@ bool IsCompilerErrorSeverity(EMessageSeverity::Type Severity)
 bool IsCompilerWarningSeverity(EMessageSeverity::Type Severity)
 {
     return Severity == EMessageSeverity::Warning || Severity == EMessageSeverity::PerformanceWarning;
+}
+
+TSharedPtr<FJsonValue> NumberJsonValue(double Value)
+{
+    return MakeShared<FJsonValueNumber>(Value);
+}
+
+TArray<TSharedPtr<FJsonValue>> VectorToJsonArray(const FVector& Value)
+{
+    TArray<TSharedPtr<FJsonValue>> Array;
+    Array.Add(NumberJsonValue(Value.X));
+    Array.Add(NumberJsonValue(Value.Y));
+    Array.Add(NumberJsonValue(Value.Z));
+    return Array;
+}
+
+TArray<TSharedPtr<FJsonValue>> RotatorToJsonArray(const FRotator& Value)
+{
+    TArray<TSharedPtr<FJsonValue>> Array;
+    Array.Add(NumberJsonValue(Value.Pitch));
+    Array.Add(NumberJsonValue(Value.Yaw));
+    Array.Add(NumberJsonValue(Value.Roll));
+    return Array;
+}
+
+FString ObjectPathOrEmpty(const UObject* Object)
+{
+    return Object ? Object->GetPathName() : FString();
+}
+
+TSharedPtr<FJsonValue> PropertyValueToJsonValue(FProperty* Property, const void* Container)
+{
+    if (!Property || !Container)
+    {
+        return MakeShared<FJsonValueNull>();
+    }
+
+    const void* ValuePtr = Property->ContainerPtrToValuePtr<void>(Container);
+    if (FBoolProperty* BoolProperty = CastField<FBoolProperty>(Property))
+    {
+        return MakeShared<FJsonValueBoolean>(BoolProperty->GetPropertyValue(ValuePtr));
+    }
+    if (FNumericProperty* NumericProperty = CastField<FNumericProperty>(Property))
+    {
+        const double Value = NumericProperty->IsInteger()
+            ? static_cast<double>(NumericProperty->GetSignedIntPropertyValue(ValuePtr))
+            : NumericProperty->GetFloatingPointPropertyValue(ValuePtr);
+        return NumberJsonValue(Value);
+    }
+    if (FStrProperty* StringProperty = CastField<FStrProperty>(Property))
+    {
+        return MakeShared<FJsonValueString>(StringProperty->GetPropertyValue(ValuePtr));
+    }
+    if (FNameProperty* NameProperty = CastField<FNameProperty>(Property))
+    {
+        return MakeShared<FJsonValueString>(NameProperty->GetPropertyValue(ValuePtr).ToString());
+    }
+    if (FTextProperty* TextProperty = CastField<FTextProperty>(Property))
+    {
+        return MakeShared<FJsonValueString>(TextProperty->GetPropertyValue(ValuePtr).ToString());
+    }
+    if (FEnumProperty* EnumProperty = CastField<FEnumProperty>(Property))
+    {
+        const int64 Value = EnumProperty->GetUnderlyingProperty()->GetSignedIntPropertyValue(ValuePtr);
+        UEnum* Enum = EnumProperty->GetEnum();
+        return MakeShared<FJsonValueString>(Enum ? Enum->GetNameStringByValue(Value) : FString::FromInt(Value));
+    }
+    if (FByteProperty* ByteProperty = CastField<FByteProperty>(Property))
+    {
+        const uint8 Value = ByteProperty->GetPropertyValue(ValuePtr);
+        UEnum* Enum = ByteProperty->Enum;
+        return Enum ? MakeShared<FJsonValueString>(Enum->GetNameStringByValue(Value)) : NumberJsonValue(Value);
+    }
+    if (FStructProperty* StructProperty = CastField<FStructProperty>(Property))
+    {
+        if (StructProperty->Struct == TBaseStructure<FVector>::Get())
+        {
+            return MakeShared<FJsonValueArray>(VectorToJsonArray(*static_cast<const FVector*>(ValuePtr)));
+        }
+        if (StructProperty->Struct == TBaseStructure<FRotator>::Get())
+        {
+            return MakeShared<FJsonValueArray>(RotatorToJsonArray(*static_cast<const FRotator*>(ValuePtr)));
+        }
+    }
+    if (FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(Property))
+    {
+        return MakeShared<FJsonValueString>(ObjectPathOrEmpty(ObjectProperty->GetObjectPropertyValue(ValuePtr)));
+    }
+
+    FString ExportedValue;
+    Property->ExportTextItem_Direct(ExportedValue, ValuePtr, nullptr, nullptr, PPF_None);
+    return MakeShared<FJsonValueString>(ExportedValue);
 }
 
 FString GetCompilerPinDirectionName(const UEdGraphPin* Pin)
@@ -360,9 +453,17 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleCommand(const FString
     {
         return HandleAddComponentToBlueprint(Params);
     }
+    else if (CommandType == TEXT("list_blueprint_components"))
+    {
+        return HandleListBlueprintComponents(Params);
+    }
     else if (CommandType == TEXT("set_component_property"))
     {
         return HandleSetComponentProperty(Params);
+    }
+    else if (CommandType == TEXT("get_component_property"))
+    {
+        return HandleGetComponentProperty(Params);
     }
     else if (CommandType == TEXT("set_physics_properties"))
     {
@@ -567,11 +668,18 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleAddComponentToBluepri
         return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'name' parameter"));
     }
 
+    FString ParentComponentName;
+    Params->TryGetStringField(TEXT("parent_component_name"), ParentComponentName);
+
     // Find the blueprint
     UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindBlueprint(BlueprintName);
     if (!Blueprint)
     {
         return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+    }
+    if (!Blueprint->SimpleConstructionScript)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("SimpleConstructionScript not found for blueprint: %s"), *BlueprintName));
     }
 
     // Create the component - dynamically find the component class by name
@@ -607,6 +715,30 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleAddComponentToBluepri
         return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Unknown component type: %s"), *ComponentType));
     }
 
+    USCS_Node* ParentNodeForAttachment = nullptr;
+    if (!ParentComponentName.IsEmpty())
+    {
+        ParentNodeForAttachment = Blueprint->SimpleConstructionScript->FindSCSNode(FName(*ParentComponentName));
+        if (!ParentNodeForAttachment)
+        {
+            return FUnrealMCPCommonUtils::CreateErrorResponse(
+                FString::Printf(TEXT("Parent component not found: %s"), *ParentComponentName)
+            );
+        }
+        if (!Cast<USceneComponent>(ParentNodeForAttachment->ComponentTemplate))
+        {
+            return FUnrealMCPCommonUtils::CreateErrorResponse(
+                FString::Printf(TEXT("Parent attachment requires a scene component parent: %s"), *ParentComponentName)
+            );
+        }
+        if (!ComponentClass->IsChildOf(USceneComponent::StaticClass()))
+        {
+            return FUnrealMCPCommonUtils::CreateErrorResponse(
+                FString::Printf(TEXT("Parent attachment requires a scene component child class: %s"), *ComponentType)
+            );
+        }
+    }
+
     // Add the component to the blueprint
     USCS_Node* NewNode = Blueprint->SimpleConstructionScript->CreateNode(ComponentClass, *ComponentName);
     if (NewNode)
@@ -629,8 +761,20 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleAddComponentToBluepri
             }
         }
 
-        // Add to root if no parent specified
-        Blueprint->SimpleConstructionScript->AddNode(NewNode);
+        if (!ParentComponentName.IsEmpty())
+        {
+            if (!Cast<USceneComponent>(NewNode->ComponentTemplate))
+            {
+                return FUnrealMCPCommonUtils::CreateErrorResponse(
+                    FString::Printf(TEXT("Parent attachment requires a scene component child: %s"), *ComponentName)
+                );
+            }
+            ParentNodeForAttachment->AddChildNode(NewNode);
+        }
+        else
+        {
+            Blueprint->SimpleConstructionScript->AddNode(NewNode);
+        }
 
         // Compile the blueprint
         FKismetEditorUtilities::CompileBlueprint(Blueprint);
@@ -638,10 +782,87 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleAddComponentToBluepri
         TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
         ResultObj->SetStringField(TEXT("component_name"), ComponentName);
         ResultObj->SetStringField(TEXT("component_type"), ComponentType);
+        ResultObj->SetStringField(TEXT("parent_component_name"), ParentComponentName);
         return ResultObj;
     }
 
     return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to add component to blueprint"));
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleListBlueprintComponents(const TSharedPtr<FJsonObject>& Params)
+{
+    FString BlueprintName;
+    if (!Params->TryGetStringField(TEXT("blueprint_name"), BlueprintName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'blueprint_name' parameter"));
+    }
+
+    FString ComponentNameFilter;
+    Params->TryGetStringField(TEXT("component_name"), ComponentNameFilter);
+
+    UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindBlueprint(BlueprintName);
+    if (!Blueprint)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+    }
+
+    TArray<TSharedPtr<FJsonValue>> Components;
+    const bool bHasSCS = Blueprint->SimpleConstructionScript != nullptr;
+
+    if (bHasSCS)
+    {
+        const TArray<USCS_Node*>& Nodes = Blueprint->SimpleConstructionScript->GetAllNodes();
+        for (USCS_Node* Node : Nodes)
+        {
+            if (!Node)
+            {
+                continue;
+            }
+
+            const FString VariableName = Node->GetVariableName().ToString();
+            if (!ComponentNameFilter.IsEmpty() && VariableName != ComponentNameFilter)
+            {
+                continue;
+            }
+
+            UActorComponent* ComponentTemplate = Node->ComponentTemplate;
+            TSharedPtr<FJsonObject> ComponentObject = MakeShared<FJsonObject>();
+            ComponentObject->SetStringField(TEXT("component_name"), VariableName);
+            ComponentObject->SetStringField(TEXT("variable_name"), VariableName);
+            ComponentObject->SetStringField(TEXT("node_guid"), Node->VariableGuid.ToString());
+            ComponentObject->SetStringField(TEXT("component_class"), Node->ComponentClass ? Node->ComponentClass->GetName() : FString());
+            ComponentObject->SetStringField(TEXT("component_class_path"), Node->ComponentClass ? Node->ComponentClass->GetPathName() : FString());
+            ComponentObject->SetStringField(TEXT("template_name"), ComponentTemplate ? ComponentTemplate->GetName() : FString());
+            ComponentObject->SetStringField(TEXT("template_path"), ObjectPathOrEmpty(ComponentTemplate));
+
+            USCS_Node* ParentNode = Blueprint->SimpleConstructionScript->FindParentNode(Node);
+            ComponentObject->SetStringField(TEXT("parent_component_name"), ParentNode ? ParentNode->GetVariableName().ToString() : FString());
+
+            if (USceneComponent* SceneComponent = Cast<USceneComponent>(ComponentTemplate))
+            {
+                TSharedPtr<FJsonObject> TransformObject = MakeShared<FJsonObject>();
+                TransformObject->SetArrayField(TEXT("location"), VectorToJsonArray(SceneComponent->GetRelativeLocation()));
+                TransformObject->SetArrayField(TEXT("rotation"), RotatorToJsonArray(SceneComponent->GetRelativeRotation()));
+                TransformObject->SetArrayField(TEXT("scale"), VectorToJsonArray(SceneComponent->GetRelativeScale3D()));
+                ComponentObject->SetObjectField(TEXT("relative_transform"), TransformObject);
+            }
+
+            if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(ComponentTemplate))
+            {
+                UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh();
+                ComponentObject->SetStringField(TEXT("static_mesh"), ObjectPathOrEmpty(StaticMesh));
+            }
+
+            Components.Add(MakeShared<FJsonValueObject>(ComponentObject));
+        }
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetStringField(TEXT("blueprint_name"), BlueprintName);
+    ResultObj->SetBoolField(TEXT("has_simple_construction_script"), bHasSCS);
+    ResultObj->SetNumberField(TEXT("component_count"), Components.Num());
+    ResultObj->SetArrayField(TEXT("components"), Components);
+    return ResultObj;
 }
 
 TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleSetComponentProperty(const TSharedPtr<FJsonObject>& Params)
@@ -1131,6 +1352,69 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleSetComponentProperty(
 
     UE_LOG(LogTemp, Error, TEXT("SetComponentProperty - Missing 'property_value' parameter"));
     return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'property_value' parameter"));
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleGetComponentProperty(const TSharedPtr<FJsonObject>& Params)
+{
+    FString BlueprintName;
+    if (!Params->TryGetStringField(TEXT("blueprint_name"), BlueprintName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'blueprint_name' parameter"));
+    }
+
+    FString ComponentName;
+    if (!Params->TryGetStringField(TEXT("component_name"), ComponentName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'component_name' parameter"));
+    }
+
+    FString PropertyName;
+    if (!Params->TryGetStringField(TEXT("property_name"), PropertyName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'property_name' parameter"));
+    }
+
+    UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindBlueprint(BlueprintName);
+    if (!Blueprint)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+    }
+    if (!Blueprint->SimpleConstructionScript)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("SimpleConstructionScript not found for blueprint: %s"), *BlueprintName));
+    }
+
+    USCS_Node* ComponentNode = nullptr;
+    for (USCS_Node* Node : Blueprint->SimpleConstructionScript->GetAllNodes())
+    {
+        if (Node && Node->GetVariableName().ToString() == ComponentName)
+        {
+            ComponentNode = Node;
+            break;
+        }
+    }
+    if (!ComponentNode || !ComponentNode->ComponentTemplate)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Component not found: %s"), *ComponentName));
+    }
+
+    UActorComponent* ComponentTemplate = ComponentNode->ComponentTemplate;
+    FProperty* Property = FindFProperty<FProperty>(ComponentTemplate->GetClass(), *PropertyName);
+    if (!Property)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(
+            FString::Printf(TEXT("Property %s not found on component %s"), *PropertyName, *ComponentName)
+        );
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetStringField(TEXT("component_name"), ComponentName);
+    ResultObj->SetStringField(TEXT("component_class"), ComponentTemplate->GetClass()->GetName());
+    ResultObj->SetStringField(TEXT("property_name"), PropertyName);
+    ResultObj->SetStringField(TEXT("property_type"), Property->GetCPPType());
+    ResultObj->SetField(TEXT("property_value"), PropertyValueToJsonValue(Property, ComponentTemplate));
+    ResultObj->SetBoolField(TEXT("success"), true);
+    return ResultObj;
 }
 
 TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleSetPhysicsProperties(const TSharedPtr<FJsonObject>& Params)

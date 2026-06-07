@@ -17,6 +17,12 @@
 #include "K2Node_ExecutionSequence.h"
 #include "K2Node_FunctionResult.h"
 #include "K2Node_DynamicCast.h"
+#include "K2Node_AddDelegate.h"
+#include "K2Node_AssignDelegate.h"
+#include "K2Node_CallDelegate.h"
+#include "K2Node_ClearDelegate.h"
+#include "K2Node_CustomEvent.h"
+#include "K2Node_RemoveDelegate.h"
 #include "K2Node_EnumLiteral.h"
 #include "K2Node_SwitchEnum.h"
 #include "K2Node_SwitchInteger.h"
@@ -1786,6 +1792,196 @@ TSharedPtr<FJsonObject> GraphToJson(const UBlueprint* Blueprint, const UEdGraph*
     return GraphObject;
 }
 
+FMulticastDelegateProperty* FindBlueprintMulticastDelegateProperty(UBlueprint* Blueprint, const FName& DispatcherName)
+{
+    if (!Blueprint || DispatcherName.IsNone())
+    {
+        return nullptr;
+    }
+
+    TArray<UClass*> CandidateClasses;
+    if (Blueprint->SkeletonGeneratedClass)
+    {
+        CandidateClasses.Add(Blueprint->SkeletonGeneratedClass);
+    }
+    if (Blueprint->GeneratedClass)
+    {
+        CandidateClasses.Add(Blueprint->GeneratedClass);
+    }
+    if (Blueprint->ParentClass)
+    {
+        CandidateClasses.Add(Blueprint->ParentClass);
+    }
+
+    for (UClass* CandidateClass : CandidateClasses)
+    {
+        if (!CandidateClass)
+        {
+            continue;
+        }
+
+        if (FMulticastDelegateProperty* DelegateProperty = FindFProperty<FMulticastDelegateProperty>(CandidateClass, DispatcherName))
+        {
+            return DelegateProperty;
+        }
+    }
+
+    return nullptr;
+}
+
+bool IsSelfContextForDelegateProperty(const UBlueprint* Blueprint, const FMulticastDelegateProperty* DelegateProperty)
+{
+    if (!Blueprint || !DelegateProperty)
+    {
+        return false;
+    }
+
+    const UClass* VariableSourceClass = DelegateProperty->GetOwnerClass();
+    return VariableSourceClass == nullptr ||
+        (Blueprint->SkeletonGeneratedClass && Blueprint->SkeletonGeneratedClass->IsChildOf(VariableSourceClass));
+}
+
+UEdGraph* ResolveBlueprintGraphForNodeCommand(UBlueprint* Blueprint, const TSharedPtr<FJsonObject>& Params, FString& OutError);
+void AddGraphField(TSharedPtr<FJsonObject> ResultObj, const UBlueprint* Blueprint, const UEdGraph* Graph);
+
+struct FEventDispatcherNodeRequest
+{
+    FString BlueprintName;
+    FString DispatcherName;
+    FVector2D NodePosition = FVector2D(0.0f, 0.0f);
+    UBlueprint* Blueprint = nullptr;
+    UEdGraph* TargetGraph = nullptr;
+    FMulticastDelegateProperty* DelegateProperty = nullptr;
+};
+
+bool ResolveEventDispatcherNodeRequest(
+    const TSharedPtr<FJsonObject>& Params,
+    const TCHAR* ActionName,
+    FEventDispatcherNodeRequest& OutRequest,
+    FString& OutError)
+{
+    if (!Params->TryGetStringField(TEXT("blueprint_name"), OutRequest.BlueprintName))
+    {
+        OutError = TEXT("Missing 'blueprint_name' parameter");
+        return false;
+    }
+
+    if (!Params->TryGetStringField(TEXT("dispatcher_name"), OutRequest.DispatcherName) &&
+        !Params->TryGetStringField(TEXT("event_dispatcher_name"), OutRequest.DispatcherName) &&
+        !Params->TryGetStringField(TEXT("delegate_name"), OutRequest.DispatcherName))
+    {
+        OutError = TEXT("Missing 'dispatcher_name' parameter");
+        return false;
+    }
+
+    OutRequest.DispatcherName.TrimStartAndEndInline();
+    if (OutRequest.DispatcherName.IsEmpty())
+    {
+        OutError = TEXT("'dispatcher_name' cannot be empty");
+        return false;
+    }
+
+    if (Params->HasField(TEXT("node_position")))
+    {
+        OutRequest.NodePosition = FUnrealMCPCommonUtils::GetVector2DFromJson(Params, TEXT("node_position"));
+    }
+
+    OutRequest.Blueprint = FUnrealMCPCommonUtils::FindBlueprint(OutRequest.BlueprintName);
+    if (!OutRequest.Blueprint)
+    {
+        OutError = FString::Printf(TEXT("Blueprint not found: %s"), *OutRequest.BlueprintName);
+        return false;
+    }
+
+    FString GraphError;
+    OutRequest.TargetGraph = ResolveBlueprintGraphForNodeCommand(OutRequest.Blueprint, Params, GraphError);
+    if (!OutRequest.TargetGraph)
+    {
+        OutError = GraphError;
+        return false;
+    }
+
+    OutRequest.DelegateProperty = FindBlueprintMulticastDelegateProperty(OutRequest.Blueprint, FName(*OutRequest.DispatcherName));
+    if (!OutRequest.DelegateProperty)
+    {
+        OutError = FString::Printf(TEXT("Event dispatcher property not found: %s. Compile or recreate the dispatcher before adding a %s node."), *OutRequest.DispatcherName, ActionName);
+        return false;
+    }
+    if (!OutRequest.DelegateProperty->HasAllPropertyFlags(CPF_BlueprintAssignable))
+    {
+        OutError = FString::Printf(TEXT("Event dispatcher is not BlueprintAssignable: %s"), *OutRequest.DispatcherName);
+        return false;
+    }
+    if (!OutRequest.DelegateProperty->SignatureFunction)
+    {
+        OutError = FString::Printf(TEXT("Event dispatcher signature is not available: %s"), *OutRequest.DispatcherName);
+        return false;
+    }
+
+    return true;
+}
+
+template <typename NodeType>
+TSharedPtr<FJsonObject> CreateEventDispatcherLifecycleNode(
+    const FEventDispatcherNodeRequest& Request,
+    const TCHAR* NodeKind,
+    bool bAllocatePinsBeforePostPlaced,
+    bool bReconstructAfterPostPlaced,
+    bool bMarkStructurallyModified)
+{
+    NodeType* LifecycleNode = NewObject<NodeType>(Request.TargetGraph);
+    if (!LifecycleNode)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Failed to create Event Dispatcher %s node"), NodeKind));
+    }
+
+    LifecycleNode->SetFromProperty(
+        Request.DelegateProperty,
+        IsSelfContextForDelegateProperty(Request.Blueprint, Request.DelegateProperty),
+        Request.DelegateProperty->GetOwnerClass());
+    if (!LifecycleNode->IsCompatibleWithGraph(Request.TargetGraph))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Event Dispatcher %s nodes are not supported in this graph"), NodeKind));
+    }
+
+    LifecycleNode->NodePosX = Request.NodePosition.X;
+    LifecycleNode->NodePosY = Request.NodePosition.Y;
+    Request.TargetGraph->AddNode(LifecycleNode, true);
+    LifecycleNode->CreateNewGuid();
+
+    if (bAllocatePinsBeforePostPlaced)
+    {
+        LifecycleNode->AllocateDefaultPins();
+        LifecycleNode->PostPlacedNewNode();
+    }
+    else
+    {
+        LifecycleNode->PostPlacedNewNode();
+        LifecycleNode->AllocateDefaultPins();
+    }
+
+    if (bReconstructAfterPostPlaced)
+    {
+        LifecycleNode->ReconstructNode();
+    }
+
+    if (bMarkStructurallyModified)
+    {
+        FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Request.Blueprint);
+    }
+    else
+    {
+        FBlueprintEditorUtils::MarkBlueprintAsModified(Request.Blueprint);
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = NodeToJson(LifecycleNode, true);
+    ResultObj->SetStringField(TEXT("dispatcher_name"), Request.DispatcherName);
+    ResultObj->SetStringField(TEXT("node_kind"), NodeKind);
+    ResultObj->SetStringField(TEXT("signature_function"), Request.DelegateProperty->SignatureFunction->GetPathName());
+    AddGraphField(ResultObj, Request.Blueprint, Request.TargetGraph);
+    return ResultObj;
+}
+
 UEdGraph* CreateBlueprintFunctionGraph(UBlueprint* Blueprint, const FString& RequestedGraphName, FString& OutError)
 {
     if (!Blueprint)
@@ -2055,6 +2251,34 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleCommand(const FSt
     else if (CommandType == TEXT("add_blueprint_variable"))
     {
         return HandleAddBlueprintVariable(Params);
+    }
+    else if (CommandType == TEXT("add_blueprint_event_dispatcher"))
+    {
+        return HandleAddBlueprintEventDispatcher(Params);
+    }
+    else if (CommandType == TEXT("add_blueprint_event_dispatcher_call_node"))
+    {
+        return HandleAddBlueprintEventDispatcherCallNode(Params);
+    }
+    else if (CommandType == TEXT("add_blueprint_custom_event_node"))
+    {
+        return HandleAddBlueprintCustomEventNode(Params);
+    }
+    else if (CommandType == TEXT("add_blueprint_event_dispatcher_bind_node"))
+    {
+        return HandleAddBlueprintEventDispatcherBindNode(Params);
+    }
+    else if (CommandType == TEXT("add_blueprint_event_dispatcher_unbind_node"))
+    {
+        return HandleAddBlueprintEventDispatcherUnbindNode(Params);
+    }
+    else if (CommandType == TEXT("add_blueprint_event_dispatcher_clear_node"))
+    {
+        return HandleAddBlueprintEventDispatcherClearNode(Params);
+    }
+    else if (CommandType == TEXT("add_blueprint_event_dispatcher_assign_node"))
+    {
+        return HandleAddBlueprintEventDispatcherAssignNode(Params);
     }
     else if (CommandType == TEXT("add_blueprint_function_parameter"))
     {
@@ -3064,6 +3288,555 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintVaria
     ResultObj->SetStringField(TEXT("default_value"), DefaultValue);
     ResultObj->SetObjectField(TEXT("pin_type"), PinTypeToJson(PinType));
     return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintEventDispatcher(const TSharedPtr<FJsonObject>& Params)
+{
+    FString BlueprintName;
+    if (!Params->TryGetStringField(TEXT("blueprint_name"), BlueprintName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'blueprint_name' parameter"));
+    }
+
+    FString DispatcherName;
+    if (!Params->TryGetStringField(TEXT("dispatcher_name"), DispatcherName) &&
+        !Params->TryGetStringField(TEXT("event_dispatcher_name"), DispatcherName) &&
+        !Params->TryGetStringField(TEXT("delegate_name"), DispatcherName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'dispatcher_name' parameter"));
+    }
+
+    DispatcherName.TrimStartAndEndInline();
+    if (DispatcherName.IsEmpty())
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("'dispatcher_name' cannot be empty"));
+    }
+
+    UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindBlueprint(BlueprintName);
+    if (!Blueprint)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+    }
+
+    const FName DispatcherFName(*DispatcherName);
+    if (DispatcherFName.IsNone())
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("'dispatcher_name' must resolve to a valid FName"));
+    }
+
+    if (FBlueprintEditorUtils::FindNewVariableIndex(Blueprint, DispatcherFName) != INDEX_NONE)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Event dispatcher already exists: %s"), *DispatcherName));
+    }
+    if (FindBlueprintGraph(Blueprint, FString(), DispatcherName, TEXT("any")))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint graph already exists with dispatcher name: %s"), *DispatcherName));
+    }
+
+    const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+    if (!K2Schema)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("K2 schema is unavailable"));
+    }
+
+    FEdGraphPinType DelegateType;
+    DelegateType.PinCategory = UEdGraphSchema_K2::PC_MCDelegate;
+    if (!FBlueprintEditorUtils::AddMemberVariable(Blueprint, DispatcherFName, DelegateType))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Failed to add event dispatcher variable: %s"), *DispatcherName));
+    }
+
+    UEdGraph* NewGraph = FBlueprintEditorUtils::CreateNewGraph(Blueprint, DispatcherFName, UEdGraph::StaticClass(), UEdGraphSchema_K2::StaticClass());
+    auto RollbackDispatcher = [&]()
+    {
+        if (NewGraph)
+        {
+            FBlueprintEditorUtils::RemoveGraph(Blueprint, NewGraph);
+            NewGraph = nullptr;
+        }
+        FBlueprintEditorUtils::RemoveMemberVariable(Blueprint, DispatcherFName);
+    };
+
+    if (!NewGraph)
+    {
+        RollbackDispatcher();
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Failed to create event dispatcher signature graph: %s"), *DispatcherName));
+    }
+
+    NewGraph->bEditable = false;
+    K2Schema->CreateDefaultNodesForGraph(*NewGraph);
+    K2Schema->CreateFunctionGraphTerminators(*NewGraph, (UClass*)nullptr);
+    K2Schema->AddExtraFunctionFlags(NewGraph, FUNC_BlueprintCallable | FUNC_BlueprintEvent | FUNC_Public);
+    K2Schema->MarkFunctionEntryAsEditable(NewGraph, true);
+    Blueprint->DelegateSignatureGraphs.Add(NewGraph);
+
+    UK2Node_FunctionEntry* EntryNode = Cast<UK2Node_FunctionEntry>(FBlueprintEditorUtils::GetEntryNode(NewGraph));
+    if (!EntryNode)
+    {
+        RollbackDispatcher();
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Event dispatcher signature entry node not found"));
+    }
+
+    TArray<TSharedPtr<FJsonValue>> InputValues;
+    const TArray<TSharedPtr<FJsonValue>>* InputValuesPtr = nullptr;
+    if (Params->TryGetArrayField(TEXT("inputs"), InputValuesPtr) && InputValuesPtr)
+    {
+        InputValues = *InputValuesPtr;
+    }
+    else if (Params->TryGetArrayField(TEXT("parameters"), InputValuesPtr) && InputValuesPtr)
+    {
+        InputValues = *InputValuesPtr;
+    }
+
+    TArray<TSharedPtr<FJsonValue>> CreatedInputs;
+    for (int32 InputIndex = 0; InputIndex < InputValues.Num(); ++InputIndex)
+    {
+        const TSharedPtr<FJsonObject>* InputObject = nullptr;
+        if (!InputValues[InputIndex].IsValid() || !InputValues[InputIndex]->TryGetObject(InputObject) || !InputObject || !InputObject->IsValid())
+        {
+            RollbackDispatcher();
+            return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Event dispatcher input %d must be an object"), InputIndex));
+        }
+
+        FString ParameterName;
+        if (!(*InputObject)->TryGetStringField(TEXT("parameter_name"), ParameterName) &&
+            !(*InputObject)->TryGetStringField(TEXT("name"), ParameterName))
+        {
+            RollbackDispatcher();
+            return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Missing input name for event dispatcher input %d"), InputIndex));
+        }
+        ParameterName.TrimStartAndEndInline();
+        if (ParameterName.IsEmpty())
+        {
+            RollbackDispatcher();
+            return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Event dispatcher input %d name cannot be empty"), InputIndex));
+        }
+
+        FString ParameterType;
+        if (!(*InputObject)->TryGetStringField(TEXT("parameter_type"), ParameterType) &&
+            !(*InputObject)->TryGetStringField(TEXT("type"), ParameterType))
+        {
+            RollbackDispatcher();
+            return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Missing input type for event dispatcher input '%s'"), *ParameterName));
+        }
+
+        FEdGraphPinType PinType;
+        FString TypeError;
+        if (!BuildPinTypeFromDescriptor(ParameterType, *InputObject, TEXT("type_object"), PinType, TypeError))
+        {
+            RollbackDispatcher();
+            return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Invalid input type for event dispatcher input '%s': %s"), *ParameterName, *TypeError));
+        }
+
+        const FName ParameterFName(*ParameterName);
+        if (ParameterFName.IsNone())
+        {
+            RollbackDispatcher();
+            return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Invalid input name for event dispatcher input %d"), InputIndex));
+        }
+        if (FUnrealMCPCommonUtils::FindPin(EntryNode, ParameterName, EGPD_Output))
+        {
+            RollbackDispatcher();
+            return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Event dispatcher input already exists: %s"), *ParameterName));
+        }
+
+        FText PinError;
+        if (!EntryNode->CanCreateUserDefinedPin(PinType, EGPD_Output, PinError))
+        {
+            RollbackDispatcher();
+            return FUnrealMCPCommonUtils::CreateErrorResponse(PinError.ToString());
+        }
+
+        UEdGraphPin* NewPin = EntryNode->CreateUserDefinedPin(ParameterFName, PinType, EGPD_Output, false);
+        if (!NewPin)
+        {
+            RollbackDispatcher();
+            return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Failed to add event dispatcher input: %s"), *ParameterName));
+        }
+
+        TSharedPtr<FJsonObject> CreatedInput = MakeShared<FJsonObject>();
+        CreatedInput->SetStringField(TEXT("parameter_name"), ParameterName);
+        CreatedInput->SetStringField(TEXT("parameter_type"), ParameterType);
+        CreatedInput->SetObjectField(TEXT("pin_type"), PinTypeToJson(PinType));
+        CreatedInputs.Add(MakeShared<FJsonValueObject>(CreatedInput));
+    }
+
+    if (CreatedInputs.Num() > 0)
+    {
+        EntryNode->ReconstructNode();
+    }
+
+    FBPVariableDescription* DispatcherVariable = nullptr;
+    for (FBPVariableDescription& Variable : Blueprint->NewVariables)
+    {
+        if (Variable.VarName == DispatcherFName)
+        {
+            DispatcherVariable = &Variable;
+            break;
+        }
+    }
+
+    if (DispatcherVariable)
+    {
+        if (Params->HasField(TEXT("category")))
+        {
+            const FString Category = GetStringParam(Params, TEXT("category"));
+            DispatcherVariable->Category = FText::FromString(Category);
+            FBlueprintEditorUtils::SetBlueprintVariableCategory(Blueprint, DispatcherFName, nullptr, DispatcherVariable->Category, true);
+        }
+        if (Params->HasField(TEXT("tooltip")))
+        {
+            const FString Tooltip = GetStringParam(Params, TEXT("tooltip"));
+            DispatcherVariable->SetMetaData(TEXT("Tooltip"), Tooltip);
+            FBlueprintEditorUtils::SetBlueprintVariableMetaData(Blueprint, DispatcherFName, nullptr, TEXT("Tooltip"), Tooltip);
+        }
+        if (Params->HasField(TEXT("friendly_name")))
+        {
+            DispatcherVariable->FriendlyName = GetStringParam(Params, TEXT("friendly_name"));
+        }
+    }
+
+    FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetStringField(TEXT("dispatcher_name"), DispatcherName);
+    ResultObj->SetObjectField(TEXT("pin_type"), PinTypeToJson(DelegateType));
+    ResultObj->SetObjectField(TEXT("signature_graph"), GraphToJson(Blueprint, NewGraph));
+    ResultObj->SetArrayField(TEXT("inputs"), CreatedInputs);
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintEventDispatcherCallNode(const TSharedPtr<FJsonObject>& Params)
+{
+    FString BlueprintName;
+    if (!Params->TryGetStringField(TEXT("blueprint_name"), BlueprintName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'blueprint_name' parameter"));
+    }
+
+    FString DispatcherName;
+    if (!Params->TryGetStringField(TEXT("dispatcher_name"), DispatcherName) &&
+        !Params->TryGetStringField(TEXT("event_dispatcher_name"), DispatcherName) &&
+        !Params->TryGetStringField(TEXT("delegate_name"), DispatcherName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'dispatcher_name' parameter"));
+    }
+
+    DispatcherName.TrimStartAndEndInline();
+    if (DispatcherName.IsEmpty())
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("'dispatcher_name' cannot be empty"));
+    }
+
+    FVector2D NodePosition(0.0f, 0.0f);
+    if (Params->HasField(TEXT("node_position")))
+    {
+        NodePosition = FUnrealMCPCommonUtils::GetVector2DFromJson(Params, TEXT("node_position"));
+    }
+
+    UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindBlueprint(BlueprintName);
+    if (!Blueprint)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+    }
+
+    FString GraphError;
+    UEdGraph* TargetGraph = ResolveBlueprintGraphForNodeCommand(Blueprint, Params, GraphError);
+    if (!TargetGraph)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(GraphError);
+    }
+
+    FMulticastDelegateProperty* DelegateProperty = FindBlueprintMulticastDelegateProperty(Blueprint, FName(*DispatcherName));
+    if (!DelegateProperty)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Event dispatcher property not found: %s. Compile or recreate the dispatcher before adding a call node."), *DispatcherName));
+    }
+    if (!DelegateProperty->HasAllPropertyFlags(CPF_BlueprintCallable))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Event dispatcher is not BlueprintCallable: %s"), *DispatcherName));
+    }
+    if (!DelegateProperty->SignatureFunction)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Event dispatcher signature is not available: %s"), *DispatcherName));
+    }
+
+    UK2Node_CallDelegate* CallNode = NewObject<UK2Node_CallDelegate>(TargetGraph);
+    if (!CallNode)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to create Event Dispatcher call node"));
+    }
+
+    const bool bSelfContext = IsSelfContextForDelegateProperty(Blueprint, DelegateProperty);
+    CallNode->SetFromProperty(DelegateProperty, bSelfContext, DelegateProperty->GetOwnerClass());
+    if (!CallNode->IsCompatibleWithGraph(TargetGraph))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Event Dispatcher call nodes are only supported in event or function graphs"));
+    }
+
+    CallNode->NodePosX = NodePosition.X;
+    CallNode->NodePosY = NodePosition.Y;
+    TargetGraph->AddNode(CallNode, true);
+    CallNode->CreateNewGuid();
+    CallNode->PostPlacedNewNode();
+    CallNode->AllocateDefaultPins();
+    CallNode->ReconstructNode();
+
+    FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
+
+    TSharedPtr<FJsonObject> ResultObj = NodeToJson(CallNode, true);
+    ResultObj->SetStringField(TEXT("dispatcher_name"), DispatcherName);
+    ResultObj->SetStringField(TEXT("signature_function"), DelegateProperty->SignatureFunction->GetPathName());
+    AddGraphField(ResultObj, Blueprint, TargetGraph);
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintCustomEventNode(const TSharedPtr<FJsonObject>& Params)
+{
+    FString BlueprintName;
+    if (!Params->TryGetStringField(TEXT("blueprint_name"), BlueprintName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'blueprint_name' parameter"));
+    }
+
+    FString CustomEventName;
+    if (!Params->TryGetStringField(TEXT("custom_event_name"), CustomEventName) &&
+        !Params->TryGetStringField(TEXT("event_name"), CustomEventName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'custom_event_name' parameter"));
+    }
+
+    CustomEventName.TrimStartAndEndInline();
+    if (CustomEventName.IsEmpty())
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("'custom_event_name' cannot be empty"));
+    }
+
+    FVector2D NodePosition(0.0f, 0.0f);
+    if (Params->HasField(TEXT("node_position")))
+    {
+        NodePosition = FUnrealMCPCommonUtils::GetVector2DFromJson(Params, TEXT("node_position"));
+    }
+
+    UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindBlueprint(BlueprintName);
+    if (!Blueprint)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+    }
+
+    FString GraphError;
+    UEdGraph* TargetGraph = ResolveBlueprintGraphForNodeCommand(Blueprint, Params, GraphError);
+    if (!TargetGraph)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(GraphError);
+    }
+
+    if (GetBlueprintGraphType(Blueprint, TargetGraph) != TEXT("event"))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Custom event nodes are only supported in event graphs"));
+    }
+
+    const FName CustomEventFName(*CustomEventName);
+    TArray<UK2Node_CustomEvent*> ExistingCustomEvents;
+    FBlueprintEditorUtils::GetAllNodesOfClass<UK2Node_CustomEvent>(Blueprint, ExistingCustomEvents);
+    for (const UK2Node_CustomEvent* ExistingCustomEvent : ExistingCustomEvents)
+    {
+        if (ExistingCustomEvent && ExistingCustomEvent->CustomFunctionName == CustomEventFName)
+        {
+            return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Custom event already exists: %s"), *CustomEventName));
+        }
+    }
+
+    FString SignatureSourceDispatcherName;
+    Params->TryGetStringField(TEXT("signature_source_dispatcher_name"), SignatureSourceDispatcherName);
+    SignatureSourceDispatcherName.TrimStartAndEndInline();
+
+    const UFunction* SignatureFunction = nullptr;
+    if (!SignatureSourceDispatcherName.IsEmpty())
+    {
+        FMulticastDelegateProperty* DelegateProperty = FindBlueprintMulticastDelegateProperty(Blueprint, FName(*SignatureSourceDispatcherName));
+        if (!DelegateProperty)
+        {
+            return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Signature source Event Dispatcher property not found: %s"), *SignatureSourceDispatcherName));
+        }
+        SignatureFunction = DelegateProperty->SignatureFunction;
+        if (!SignatureFunction)
+        {
+            return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Signature source Event Dispatcher signature is not available: %s"), *SignatureSourceDispatcherName));
+        }
+    }
+
+    UK2Node_CustomEvent* CustomEventNode = nullptr;
+    if (SignatureFunction)
+    {
+        CustomEventNode = UK2Node_CustomEvent::CreateFromFunction(NodePosition, TargetGraph, CustomEventName, SignatureFunction, false);
+    }
+    else
+    {
+        CustomEventNode = NewObject<UK2Node_CustomEvent>(TargetGraph);
+        if (CustomEventNode)
+        {
+            CustomEventNode->CustomFunctionName = CustomEventFName;
+            CustomEventNode->SetFlags(RF_Transactional);
+            CustomEventNode->NodePosX = NodePosition.X;
+            CustomEventNode->NodePosY = NodePosition.Y;
+            TargetGraph->Modify();
+            TargetGraph->AddNode(CustomEventNode, true, false);
+            CustomEventNode->CreateNewGuid();
+            CustomEventNode->PostPlacedNewNode();
+            CustomEventNode->AllocateDefaultPins();
+        }
+    }
+
+    if (!CustomEventNode)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Failed to create custom event node: %s"), *CustomEventName));
+    }
+
+    CustomEventNode->ReconstructNode();
+    FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+
+    TSharedPtr<FJsonObject> ResultObj = NodeToJson(CustomEventNode, true);
+    ResultObj->SetStringField(TEXT("custom_event_name"), CustomEventName);
+    ResultObj->SetStringField(TEXT("signature_source_dispatcher_name"), SignatureSourceDispatcherName);
+    ResultObj->SetStringField(TEXT("signature_function"), SignatureFunction ? SignatureFunction->GetPathName() : FString());
+    AddGraphField(ResultObj, Blueprint, TargetGraph);
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintEventDispatcherBindNode(const TSharedPtr<FJsonObject>& Params)
+{
+    FString BlueprintName;
+    if (!Params->TryGetStringField(TEXT("blueprint_name"), BlueprintName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'blueprint_name' parameter"));
+    }
+
+    FString DispatcherName;
+    if (!Params->TryGetStringField(TEXT("dispatcher_name"), DispatcherName) &&
+        !Params->TryGetStringField(TEXT("event_dispatcher_name"), DispatcherName) &&
+        !Params->TryGetStringField(TEXT("delegate_name"), DispatcherName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'dispatcher_name' parameter"));
+    }
+
+    DispatcherName.TrimStartAndEndInline();
+    if (DispatcherName.IsEmpty())
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("'dispatcher_name' cannot be empty"));
+    }
+
+    FVector2D NodePosition(0.0f, 0.0f);
+    if (Params->HasField(TEXT("node_position")))
+    {
+        NodePosition = FUnrealMCPCommonUtils::GetVector2DFromJson(Params, TEXT("node_position"));
+    }
+
+    UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindBlueprint(BlueprintName);
+    if (!Blueprint)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+    }
+
+    FString GraphError;
+    UEdGraph* TargetGraph = ResolveBlueprintGraphForNodeCommand(Blueprint, Params, GraphError);
+    if (!TargetGraph)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(GraphError);
+    }
+
+    FMulticastDelegateProperty* DelegateProperty = FindBlueprintMulticastDelegateProperty(Blueprint, FName(*DispatcherName));
+    if (!DelegateProperty)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Event dispatcher property not found: %s. Compile or recreate the dispatcher before adding a bind node."), *DispatcherName));
+    }
+    if (!DelegateProperty->HasAllPropertyFlags(CPF_BlueprintAssignable))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Event dispatcher is not BlueprintAssignable: %s"), *DispatcherName));
+    }
+    if (!DelegateProperty->SignatureFunction)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Event dispatcher signature is not available: %s"), *DispatcherName));
+    }
+
+    UK2Node_AddDelegate* BindNode = NewObject<UK2Node_AddDelegate>(TargetGraph);
+    if (!BindNode)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to create Event Dispatcher bind node"));
+    }
+
+    BindNode->SetFromProperty(DelegateProperty, IsSelfContextForDelegateProperty(Blueprint, DelegateProperty), DelegateProperty->GetOwnerClass());
+    if (!BindNode->IsCompatibleWithGraph(TargetGraph))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Event Dispatcher bind nodes are only supported in event or function graphs"));
+    }
+
+    BindNode->NodePosX = NodePosition.X;
+    BindNode->NodePosY = NodePosition.Y;
+    TargetGraph->AddNode(BindNode, true);
+    BindNode->CreateNewGuid();
+    BindNode->PostPlacedNewNode();
+    BindNode->AllocateDefaultPins();
+    BindNode->ReconstructNode();
+
+    FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
+
+    TSharedPtr<FJsonObject> ResultObj = NodeToJson(BindNode, true);
+    ResultObj->SetStringField(TEXT("dispatcher_name"), DispatcherName);
+    ResultObj->SetStringField(TEXT("signature_function"), DelegateProperty->SignatureFunction->GetPathName());
+    AddGraphField(ResultObj, Blueprint, TargetGraph);
+    return ResultObj;
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintEventDispatcherUnbindNode(const TSharedPtr<FJsonObject>& Params)
+{
+    FEventDispatcherNodeRequest Request;
+    FString Error;
+    if (!ResolveEventDispatcherNodeRequest(Params, TEXT("unbind"), Request, Error))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(Error);
+    }
+
+    return CreateEventDispatcherLifecycleNode<UK2Node_RemoveDelegate>(
+        Request,
+        TEXT("unbind"),
+        false,
+        true,
+        false);
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintEventDispatcherClearNode(const TSharedPtr<FJsonObject>& Params)
+{
+    FEventDispatcherNodeRequest Request;
+    FString Error;
+    if (!ResolveEventDispatcherNodeRequest(Params, TEXT("clear"), Request, Error))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(Error);
+    }
+
+    return CreateEventDispatcherLifecycleNode<UK2Node_ClearDelegate>(
+        Request,
+        TEXT("clear"),
+        false,
+        true,
+        false);
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintEventDispatcherAssignNode(const TSharedPtr<FJsonObject>& Params)
+{
+    FEventDispatcherNodeRequest Request;
+    FString Error;
+    if (!ResolveEventDispatcherNodeRequest(Params, TEXT("assign"), Request, Error))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(Error);
+    }
+
+    return CreateEventDispatcherLifecycleNode<UK2Node_AssignDelegate>(
+        Request,
+        TEXT("assign"),
+        true,
+        false,
+        true);
 }
 
 TSharedPtr<FJsonObject> FUnrealMCPBlueprintNodeCommands::HandleAddBlueprintFunctionParameter(const TSharedPtr<FJsonObject>& Params)

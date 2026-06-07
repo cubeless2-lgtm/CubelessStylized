@@ -347,9 +347,11 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
             }
             // Blueprint Commands
             else if (CommandType == TEXT("create_blueprint") || 
-                     CommandType == TEXT("add_component_to_blueprint") || 
+                     CommandType == TEXT("add_component_to_blueprint") ||
+                     CommandType == TEXT("list_blueprint_components") ||
                      CommandType == TEXT("set_component_property") || 
-                     CommandType == TEXT("set_physics_properties") || 
+                     CommandType == TEXT("get_component_property") ||
+                     CommandType == TEXT("set_physics_properties") ||
                      CommandType == TEXT("compile_blueprint") || 
                      CommandType == TEXT("compile_and_save_blueprint") ||
                      CommandType == TEXT("compile_and_validate_blueprint") ||
@@ -383,6 +385,13 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                      CommandType == TEXT("add_blueprint_call_function_node") ||
                      CommandType == TEXT("add_blueprint_variable_get_node") ||
                      CommandType == TEXT("add_blueprint_variable_set_node") ||
+                     CommandType == TEXT("add_blueprint_event_dispatcher") ||
+                     CommandType == TEXT("add_blueprint_event_dispatcher_call_node") ||
+                     CommandType == TEXT("add_blueprint_custom_event_node") ||
+                     CommandType == TEXT("add_blueprint_event_dispatcher_bind_node") ||
+                     CommandType == TEXT("add_blueprint_event_dispatcher_unbind_node") ||
+                     CommandType == TEXT("add_blueprint_event_dispatcher_clear_node") ||
+                     CommandType == TEXT("add_blueprint_event_dispatcher_assign_node") ||
                      CommandType == TEXT("add_blueprint_math_node") ||
                      CommandType == TEXT("add_blueprint_compare_node") ||
                      CommandType == TEXT("add_blueprint_boolean_node") ||
