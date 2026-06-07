@@ -893,3 +893,14 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Validation: Section 80 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
 - Git: sibling commit `68391fa Add durable canary live command execution evidence admission contract`; no push was performed.
 - Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 81 Durable Canary Release Promotion Decision
+
+- Date: 2026-06-07 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling and release boundary report; no Unreal asset, C++, live bridge probe, live command dispatch, live command execution, live evidence capture, durable promotion, durable executor activation, save, delete, rename, or cleanup was performed.
+- Change: added a durable canary release promotion decision contract that defines the future promotion decision record schema, durable-canary-release-promotion-only scope, explicit promotion authorization, and no-save/delete/rename acknowledgement before durable executor activation could be considered.
+- Safety decision: current release boundary has no Section 80 admitted execution evidence, no allowed evidence observed, no no-forbidden-evidence proof, no promotion decision record, and no separate durable executor activation contract. Therefore release promotion, durable executor opening, durable authoring, save/delete/rename, cleanup, and live command action counters remain `0`. Promotion decisions authorizing executor activation, durable authoring, save/delete/rename, or cleanup are rejected.
+- Release boundary: report schema advanced to `section_81_bp_authoring_release_boundary_v23`; release boundary status remains `passed`, failed blocking rows `0`, durable authoring remains disabled, and final durable release readiness remains `false`.
+- Validation: Section 81 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
+- Git: sibling commit `ec51a93 Add durable canary release promotion decision contract`; no push was performed.
+- Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
