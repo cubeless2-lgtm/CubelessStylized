@@ -783,3 +783,14 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Live note: UnrealMCP bridge `127.0.0.1:55557` was not reachable during final status check, so live canary verification remains refresh-pending and read-only only.
 - Git: sibling `unreal-mcp-cubeless` now has Section 61-70 commits through `fa0ece6 Add durable release decision contract`; no push was performed.
 - Notion capture fallback: Notion enhanced markdown spec fetch failed with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 71 Durable Bridge Recovery Readiness
+
+- Date: 2026-06-07 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling and release boundary report; no Unreal asset, C++, live bridge probe, save, delete, or rename was performed.
+- Change: added a bridge recovery readiness contract that verifies `.mcp.json` server `unrealMCP`, `uv`, `../unreal-mcp-cubeless/Python`, Python `3.11`, and `unreal_mcp_server.py` are locally ready before any future live read-only retry.
+- Release boundary: report schema advanced to `section_71_bp_authoring_release_boundary_v13`; release boundary status remains `passed`, failed blocking rows `0`, and durable executor opening remains `0`.
+- Safety decision: Section 71 does not probe `127.0.0.1:55557`, does not allow read-only canary retry by itself, and keeps durable authoring/save/delete/rename disabled.
+- Validation: Section 71 targeted smoke, release boundary smoke, regenerated release boundary report, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, and `python -m compileall -q Python\scripts\analysis` all passed.
+- Git: sibling commit `edb444a Add durable bridge recovery readiness contract`; no push was performed.
+- Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
