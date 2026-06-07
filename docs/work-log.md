@@ -772,3 +772,14 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Decision: `/Content/_MCP_Sample/` is reserved for local MCP learning/sample resources.
 - Git rule: `/Content/_MCP_Sample/` is now gitignored by default and must not be staged or committed unless the user explicitly asks to version a specific sample asset.
 - Agent rule: 이에타 treats this folder as a learning-resource area, separate from disposable `_MCP_Temp` validation output and stable `/Content/MCPTestFixtures/` fixtures.
+## UnrealMCP Section 61-70 Durable Authoring Release Decision
+
+- Date: 2026-06-07 KST
+- Scope: sibling `D:\Git\unreal-mcp-cubeless` analysis tooling and reports; no Unreal asset save/delete/rename or C++ change was performed.
+- Change: implemented Sections 61-70 as durable Blueprint authoring safety contracts: bridge refresh, live evidence refresh, executor implementation review, canary command allowlist, canary creation boundary, ownership marker write/readback proof, rollback cleanup proof, save gate final review, live canary rehearsal readiness, and final durable release decision.
+- Release decision: temporary planner-safe Blueprint authoring remains MVP-ready, but durable Blueprint authoring remains disabled. `save=true`, `save_asset`, `delete_asset`, `rename_asset`, live canary creation, cleanup, and durable executor opening all remain blocked.
+- Validation: each section was verified with targeted smoke tests, regenerated release boundary reports, `git diff --check`, `bp_authoring_release_boundary_report.py --no-write`, the full `Python/scripts/analysis/test_*.py` suite, and `python -m compileall -q Python\scripts\analysis`.
+- Final report: `Docs/Analysis/BPAuthoringReleaseBoundary/bp_authoring_release_boundary_report.json` uses `section_70_bp_authoring_release_boundary_v12`, status `passed`, failed blocking rows `0`, `durable_authoring_enabled=false`, and `final_durable_release_ready=false`.
+- Live note: UnrealMCP bridge `127.0.0.1:55557` was not reachable during final status check, so live canary verification remains refresh-pending and read-only only.
+- Git: sibling `unreal-mcp-cubeless` now has Section 61-70 commits through `fa0ece6 Add durable release decision contract`; no push was performed.
+- Notion capture fallback: Notion enhanced markdown spec fetch failed with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
