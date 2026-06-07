@@ -86,3 +86,8 @@ DerivedDataCache/*
 
 # Local documentation/search indexes
 docs/index.bleve/
+
+# Local screenshots and Codex attachment cache
+/Screenshots/
+/_screenshots/
+/.codex-remote-attachments/
