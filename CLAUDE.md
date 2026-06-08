@@ -1,9 +1,16 @@
 # Claude Project Instructions
 
-## Unreal MCP Asset Editing
+@AGENTS.md
 
-- When debugging, modifying, or creating Blueprints, PCG graphs, Animation Blueprints, Control Rigs, or related Unreal assets through Unreal MCP, do not add or generate C++ code by default.
-- Prefer fixing the issue inside the existing Unreal asset/class: Blueprint graph, AnimBP graph, Control Rig graph, PCG graph, asset defaults, component settings, level instance settings, or editor-exposed properties.
-- If an Unreal asset cannot be safely modified through MCP or editor scripting, provide a concrete manual edit guide instead of adding C++.
-- Add or modify C++ only when the user explicitly asks for a code/C++ implementation.
-- Before considering C++ for an Unreal MCP task, state the non-C++ approach being attempted or why MCP/editor-asset editing is blocked.
+## Claude Code Handoff
+
+- Treat `AGENTS.md` as the project source of truth. If these Claude-specific notes conflict with `AGENTS.md`, follow `AGENTS.md`.
+- Start from `D:\Git\CubelessStylized` unless the user says otherwise.
+- The sibling managed workspace is `D:\Git\unreal-mcp-cubeless`. If Claude Code cannot access it, restart from the project root with `claude --add-dir D:\Git\unreal-mcp-cubeless`.
+- At the start of work, check `CubelessStylized` and `unreal-mcp-cubeless` separately:
+  - `git fetch --prune`
+  - `git status --short --branch --untracked-files=all`
+  - `git rev-list --left-right --count 'HEAD...@{u}'`
+- Keep Git operations separate between the two repositories. Do not mix status, diffs, staging, commits, pushes, or summaries.
+- Do not stage ignored or generated outputs unless the user explicitly asks for a specific artifact. This includes `_MCP_Temp`, `_MCP_Sample`, packaging outputs under `Build/`, and ordinary Unreal/editor temporary assets.
+- If Unreal MCP, editor bridge, Ieta Slate, Notion, or other Codex-specific tooling is unavailable in Claude Code, report the blocker. Do not pretend that Unreal assets or external records were modified.
