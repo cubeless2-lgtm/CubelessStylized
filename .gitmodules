@@ -1,0 +1,3 @@
+[submodule "Plugins/UnrealMCP"]
+	path = Plugins/UnrealMCP
+	url = git@github.com:cubeless2-lgtm/UnrealMCPPlugin.git
