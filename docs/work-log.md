@@ -1773,3 +1773,16 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Validation: Section 160 targeted smoke, release boundary smoke, regenerated release boundary report, `bp_authoring_release_boundary_report.py --no-write`, full `Python/scripts/analysis/test_*.py`, `git diff --check`, `git diff --cached --check`, and `python -m compileall -q Python\scripts\analysis` all passed.
 - Git: sibling commit `e60ff40 Add durable executor authoring enable after open contract`; no push was performed.
 - Notion capture fallback: Notion enhanced markdown spec fetch was unavailable earlier with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## UnrealMCP Section 217-224 Live Actual Save Execution
+
+- Date: 2026-06-08 KST
+- Scope: approved final checkpoint execution for the target-scoped temp Blueprint save at `/Game/_MCP_Temp/DurableSaveGate/BP_DurableSaveGatePrep`.
+- Live result: primary UnrealMCP bridge `127.0.0.1:55557` was connected, Ieta Slate calls succeeded, a temp Actor Blueprint was created, compiled with `BlueprintEditorLibrary.compile_blueprint`, saved with `EditorAssetLibrary.save_asset`, and read back successfully.
+- Saved asset: `Content/_MCP_Temp/DurableSaveGate/BP_DurableSaveGatePrep.uasset`, 24133 bytes. The path is gitignored and was not staged.
+- Recovery note: an initial compile helper probe used `KismetEditorUtilities`, which is not exposed in UE 5.7 Python. The flow recovered with `BlueprintEditorLibrary.compile_blueprint`, then compiled, saved, and cleared dirty packages.
+- Release boundary: report schema advanced to `section_217_224_bp_authoring_release_boundary_v132`; status `passed`, failed blocking rows `0`, `live_actual_save_execution_ready=true`, `actual_save_final_checkpoint_satisfied=true`, `save_command_dispatched=true`, `save_command_executed=true`, `save_asset_allowed=true`, `save_true_allowed=true`, `compile_save_allowed=true`, and `final_durable_release_ready=true`.
+- Still blocked: `save_delete_rename_allowed=false`, `delete_asset_allowed=false`, and `rename_asset_allowed=false`; cleanup/delete remains a separate gate.
+- Validation: targeted live actual save execution contract test, release boundary smoke, regenerated release boundary report, `bp_authoring_release_boundary_report.py --no-write`, full analysis loop of 150 tests, `python -m compileall Python\scripts\analysis`, `git diff --check`, and staged diff check all passed.
+- Git: sibling commit `df3b719 Add sections 217-224 live save execution`; no push was performed. Primary tracked files are clean except this fallback work-log entry, and sibling `main` is ahead of `origin/main` by 25 commits.
+- Notion capture fallback: Notion update failed twice with a transport deserialize error, so this local work-log entry is the durable capture.
