@@ -6,6 +6,7 @@
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/CameraTypes.h"
+#include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/LineBatchComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -34,6 +35,14 @@
 #include "InputCoreTypes.h"
 #include "Framework/Application/IInputProcessor.h"
 #include "Framework/Application/SlateApplication.h"
+#include "FoliageType_InstancedStaticMesh.h"
+#include "InstancedFoliageActor.h"
+#include "LandscapeComponent.h"
+#include "LandscapeGrassType.h"
+#include "LandscapeProxy.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialExpressionLandscapeGrassOutput.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "Misc/DateTime.h"
 #include "Misc/ConfigCacheIni.h"
@@ -58,6 +67,7 @@
 #include "TraceServices/Model/Frames.h"
 #include "TraceServices/Model/TimingProfiler.h"
 #include "UObject/ObjectKey.h"
+#include "UObject/Package.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/WeakObjectPtrTemplates.h"
 #include "UnrealClient.h"
@@ -145,6 +155,12 @@ static TAutoConsoleVariable<int32> CVarMaterialDebugMode(
 	TEXT("Use Material GPU Preview debug colors. 0 keeps the original scene colors while the stat/replay UI remains visible."),
 	ECVF_Default);
 
+static TAutoConsoleVariable<int32> CVarDebugMaterialOverrideFallback(
+	TEXT("materialgpu.DebugMaterialOverrideFallback"),
+	1,
+	TEXT("Temporarily override non-opaque target materials with solid debug materials when Actor Coloration cannot reliably color them. Restored when debug mode is disabled."),
+	ECVF_Default);
+
 static TAutoConsoleVariable<int32> CVarDebugAlpha(
 	TEXT("materialgpu.DebugAlpha"),
 	72,
@@ -202,10 +218,19 @@ static TAutoConsoleVariable<int32> CVarObjectMaxDebugComponents(
 static const TCHAR* MaterialGPUPreviewConfigName = TEXT("OptimizationPreviewTools");
 static const TCHAR* MaterialGPUPreviewConfigSection = TEXT("MaterialGPUPreview");
 static const TCHAR* ObjectMemorySnapshotConfigSection = TEXT("ObjectMemorySnapshot");
-static constexpr float DefaultDebugGreenMaxMs = 0.3f;
-static constexpr float DefaultDebugWhiteMs = 0.6f;
+static constexpr float DefaultDebugGreenMs = 0.5f;
+static constexpr float DefaultDebugRedMs = 1.5f;
+static constexpr float DefaultDebugPinkMs = 3.0f;
+static constexpr float DefaultDebugWhiteMs = 6.0f;
 static constexpr float DefaultObjectDebugGreenMaxMB = 5.0f;
 static constexpr float DefaultObjectDebugWhiteMB = 10.0f;
+
+struct FMaterialSourceUsage
+{
+	FString Label;
+	int32 InstanceCount = 0;
+	int32 ComponentCount = 0;
+};
 
 struct FMaterialAccumulator
 {
@@ -218,7 +243,14 @@ struct FMaterialAccumulator
 	int32 TraceDrawEvents = 0;
 	int32 ComponentCount = 0;
 	int64 Triangles = 0;
+	TArray<FMaterialSourceUsage> SourceUsages;
 	TArray<TWeakObjectPtr<UPrimitiveComponent>> Components;
+};
+
+struct FComponentSourceInfo
+{
+	FString Label;
+	int32 InstanceCount = 0;
 };
 
 struct FDebugOverlayEntry
@@ -345,6 +377,28 @@ struct FMaterialReplayCharacterSample
 	bool bHasControlRotation = false;
 };
 
+struct FMaterialReplayAnimationState
+{
+	TWeakObjectPtr<USkeletalMeshComponent> MeshComponent;
+	bool bPauseAnims = false;
+	float GlobalAnimRateScale = 1.0f;
+};
+
+struct FMaterialDebugMaterialOverrideState
+{
+	TWeakObjectPtr<UPrimitiveComponent> Component;
+	TArray<TWeakObjectPtr<UMaterialInterface>> OriginalMaterials;
+	TArray<int32> OverriddenSlots;
+	TWeakObjectPtr<UPackage> Package;
+	bool bPackageWasDirty = false;
+};
+
+struct FMaterialReplayRowsCacheEntry
+{
+	TArray<FMaterialAccumulator> Rows;
+	int32 DebugComponentCount = 0;
+};
+
 struct FMaterialReplayUnitGpuSample
 {
 	double TimeSeconds = 0.0;
@@ -441,13 +495,19 @@ static TArray<FMaterialAccumulator> GMaterialReplaySceneRows;
 static TArray<FMaterialGpuReplayFrameSample> GMaterialReplaySamples;
 static TArray<FMaterialReplayCameraSample> GMaterialReplayCameraSamples;
 static TArray<FMaterialReplayCharacterSample> GMaterialReplayCharacterSamples;
+static TMap<FObjectKey, FMaterialReplayAnimationState> GMaterialReplayAnimationStates;
 static TArray<FMaterialReplayUnitGpuSample> GMaterialReplayUnitGpuSamples;
 static TArray<float> GMaterialReplayFrameGpuMs;
 static float GMaterialReplayFrameGpuMsMax = 0.0f;
+static TArray<int32> GMaterialReplayPeakIndices;
+static bool GMaterialReplayPeakIndicesDirty = true;
+static TMap<int32, FMaterialReplayRowsCacheEntry> GMaterialReplayRowsCache;
+static TArray<int32> GMaterialReplayRowsCacheLru;
 static TArray<FObjectMemorySnapshotRow> GCachedObjectRows;
 static TArray<FObjectMemorySnapshotRow> GCachedObjectDebugRows;
 static TArray<FDebugOverlayEntry> GCachedDebugEntries;
 static TMap<FObjectKey, FLinearColor> GActorColorationColors;
+static TMap<FObjectKey, FMaterialDebugMaterialOverrideState> GMaterialDebugMaterialOverrides;
 static TMap<FString, int32> GMaterialReplaySceneLookup;
 static double GCaptureStartTime = -1.0;
 static double GCaptureEndTime = -1.0;
@@ -491,6 +551,9 @@ static TWeakObjectPtr<UGameViewportClient> GProfilingSlateOverlayViewport;
 static TWeakObjectPtr<UGameViewportClient> GProfilingInputOverrideViewport;
 static TSharedPtr<SWidget> GMaterialReplayOverlayWidget;
 static TSharedPtr<SWidget> GMaterialReplayPlayButtonWidget;
+static TSharedPtr<SWidget> GMaterialReplayPreviousPeakButtonWidget;
+static TSharedPtr<SWidget> GMaterialReplayMaxPeakButtonWidget;
+static TSharedPtr<SWidget> GMaterialReplayNextPeakButtonWidget;
 static TSharedPtr<SSlider> GMaterialReplaySliderWidget;
 static TWeakObjectPtr<UGameViewportClient> GMaterialReplayOverlayViewport;
 static TWeakObjectPtr<ACameraActor> GMaterialReplayCameraActor;
@@ -530,6 +593,9 @@ static float GLastProfilingSlateOverlayTop = -1.0f;
 static float GLastProfilingSlateOverlayWidth = -1.0f;
 static float GLastProfilingSlateOverlayHeight = -1.0f;
 static FInputScreenRect GMaterialReplayPlayButtonRect;
+static FInputScreenRect GMaterialReplayPreviousPeakButtonRect;
+static FInputScreenRect GMaterialReplayMaxPeakButtonRect;
+static FInputScreenRect GMaterialReplayNextPeakButtonRect;
 static FInputScreenRect GMaterialReplaySliderRect;
 static bool GMaterialReplayDraggingSlider = false;
 static uint32 GMaterialReplayDraggingPointerIndex = 0;
@@ -644,10 +710,16 @@ static void StartMaterialReplayCameraCapture(UWorld* World);
 static void DestroyMaterialReplayCamera();
 static void StartMaterialReplay(UWorld* World, FCommonViewportClient* ViewportClient);
 static void StopMaterialReplay(UWorld* World, FCommonViewportClient* ViewportClient);
+static void RestoreMaterialReplayAnimationStates();
+static void RestoreMaterialDebugMaterialOverrides();
+static void ClearMaterialReplayDerivedCaches();
+static UWorld* FindCurrentPreviewWorld();
+static void BuildFoliageComponentsBySourceLabel(UWorld* World, TMap<FString, TArray<UPrimitiveComponent*>>& OutComponentsBySourceLabel);
 static int32 FindMaterialReplaySampleIndexForTime(double TimeSeconds);
 static float FindNearestMaterialReplayUnitGpuMs(const TArray<FMaterialReplayUnitGpuSample>& Samples, double TimeSeconds);
 static float GetMaterialReplayUnitGpuMsForTime(double TimeSeconds);
 static void RebuildMaterialReplayFrameGpuMs();
+static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* ViewportClient, double TimeSeconds, bool bForceRefresh = false);
 static bool IsMaterialCaptureCommandLocked();
 static bool IsMaterialCaptureCommand(const FString& Command);
 static bool ShouldBlockMaterialCaptureCommand(const FString& Command);
@@ -665,6 +737,14 @@ static float GetCaptureDurationSeconds()
 
 	const double EndTime = GCaptureActive ? FPlatformTime::Seconds() : GCaptureEndTime;
 	return static_cast<float>(FMath::Max(0.0, EndTime - GCaptureStartTime));
+}
+
+static void ClearMaterialReplayDerivedCaches()
+{
+	GMaterialReplayPeakIndices.Reset();
+	GMaterialReplayPeakIndicesDirty = true;
+	GMaterialReplayRowsCache.Reset();
+	GMaterialReplayRowsCacheLru.Reset();
 }
 
 static void ClearCaptureState()
@@ -697,12 +777,15 @@ static void ClearCaptureState()
 	GMaterialReplayUnitGpuSamples.Reset();
 	GMaterialReplayFrameGpuMs.Reset();
 	GMaterialReplayFrameGpuMsMax = 0.0f;
+	ClearMaterialReplayDerivedCaches();
 	GMaterialReplayCurrentTimeSeconds = 0.0;
 	GMaterialReplayLastTickSeconds = -1.0;
 	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
 	StopMaterialReplayTicker();
 	StopMaterialReplayCameraCaptureTicker();
 	RemoveMaterialReplayOverlay();
+	RestoreMaterialReplayAnimationStates();
+	RestoreMaterialDebugMaterialOverrides();
 	DestroyMaterialReplayCamera();
 }
 
@@ -1098,6 +1181,43 @@ static FString FindMaterialNameForTraceEvent(
 	return FString();
 }
 
+static FString FindMaterialNameForTraceEventCached(
+	const TArray<FMaterialAccumulator>& SceneRows,
+	const TMap<FString, int32>& SceneLookup,
+	const FString& TraceEventName,
+	const FString& BaseTimerName,
+	TMap<FString, FString>& ResolvedMaterialNameCache,
+	TSet<FString>& UnresolvedMaterialNameCache,
+	int32& OutResolveCacheHits,
+	int32& OutResolveCacheMisses)
+{
+	const FString CacheKey = FString::Printf(TEXT("%s\n%s"), *BaseTimerName, *TraceEventName);
+	if (const FString* CachedMaterialName = ResolvedMaterialNameCache.Find(CacheKey))
+	{
+		OutResolveCacheHits++;
+		return *CachedMaterialName;
+	}
+
+	if (UnresolvedMaterialNameCache.Contains(CacheKey))
+	{
+		OutResolveCacheHits++;
+		return FString();
+	}
+
+	OutResolveCacheMisses++;
+	const FString MaterialName = FindMaterialNameForTraceEvent(SceneRows, SceneLookup, TraceEventName, BaseTimerName);
+	if (MaterialName.IsEmpty())
+	{
+		UnresolvedMaterialNameCache.Add(CacheKey);
+	}
+	else
+	{
+		ResolvedMaterialNameCache.Add(CacheKey, MaterialName);
+	}
+
+	return MaterialName;
+}
+
 static float GetSeverityMs(const FMaterialAccumulator& Row)
 {
 	return Row.MaxGpuMs;
@@ -1123,6 +1243,21 @@ static float ReadMaterialGPUPreviewConfigFloat(const TCHAR* Key, float DefaultVa
 		if (!ConfigFile.IsEmpty())
 		{
 			GConfig->GetFloat(MaterialGPUPreviewConfigSection, Key, Value, ConfigFile);
+		}
+	}
+
+	return Value;
+}
+
+static float ReadMaterialGPUPreviewConfigFloatWithLegacyKey(const TCHAR* Key, const TCHAR* LegacyKey, float DefaultValue)
+{
+	float Value = DefaultValue;
+	if (GConfig)
+	{
+		const FString& ConfigFile = GetOptimizationPreviewToolsIni();
+		if (!ConfigFile.IsEmpty() && !GConfig->GetFloat(MaterialGPUPreviewConfigSection, Key, Value, ConfigFile) && LegacyKey)
+		{
+			GConfig->GetFloat(MaterialGPUPreviewConfigSection, LegacyKey, Value, ConfigFile);
 		}
 	}
 
@@ -1187,14 +1322,24 @@ static FString GetMaterialGPUTraceChannels()
 	return ReadMaterialGPUPreviewConfigString(TEXT("TraceChannels"), DefaultMaterialGPUTraceChannels);
 }
 
-static float GetDebugGreenMaxMs()
+static float GetDebugGreenMs()
 {
-	return FMath::Max(ReadMaterialGPUPreviewConfigFloat(TEXT("DebugGreenMaxMs"), DefaultDebugGreenMaxMs), 0.001f);
+	return FMath::Max(ReadMaterialGPUPreviewConfigFloatWithLegacyKey(TEXT("DebugGreenMs"), TEXT("DebugGreenMaxMs"), DefaultDebugGreenMs), 0.001f);
+}
+
+static float GetDebugRedMs()
+{
+	return FMath::Max(ReadMaterialGPUPreviewConfigFloat(TEXT("DebugRedMs"), DefaultDebugRedMs), GetDebugGreenMs() + 0.001f);
+}
+
+static float GetDebugPinkMs()
+{
+	return FMath::Max(ReadMaterialGPUPreviewConfigFloat(TEXT("DebugPinkMs"), DefaultDebugPinkMs), GetDebugRedMs() + 0.001f);
 }
 
 static float GetDebugWhiteMs()
 {
-	return FMath::Max(ReadMaterialGPUPreviewConfigFloat(TEXT("DebugWhiteMs"), DefaultDebugWhiteMs), GetDebugGreenMaxMs() + 0.001f);
+	return FMath::Max(ReadMaterialGPUPreviewConfigFloat(TEXT("DebugWhiteMs"), DefaultDebugWhiteMs), GetDebugPinkMs() + 0.001f);
 }
 
 static bool ShouldEmitMaterialGPUUnitGpuCounter()
@@ -1212,92 +1357,78 @@ static float GetObjectDebugWhiteMB()
 	return FMath::Max(ReadObjectMemorySnapshotConfigFloat(TEXT("DebugWhiteMB"), DefaultObjectDebugWhiteMB), GetObjectDebugGreenMaxMB() + 0.001f);
 }
 
-static FLinearColor SampleColorRange(const TArray<FLinearColor>& Colors, int32 StartIndex, int32 EndIndex, float Alpha)
+static FLinearColor GetTwoPointDebugColorForRange(float Value, float GreenMax, float White)
 {
-	if (Colors.Num() == 0)
-	{
-		return FLinearColor::White;
-	}
+	const FLinearColor LowColor(0.0f, 1.0f, 0.0f, 1.0f);
+	const FLinearColor MidColor(1.0f, 0.0f, 0.0f, 1.0f);
+	const FLinearColor HighColor(1.0f, 0.0f, 1.0f, 1.0f);
 
-	StartIndex = FMath::Clamp(StartIndex, 0, Colors.Num() - 1);
-	EndIndex = FMath::Clamp(EndIndex, 0, Colors.Num() - 1);
-	if (StartIndex == EndIndex)
-	{
-		return Colors[StartIndex];
-	}
-
-	const float RangePosition = FMath::Clamp(Alpha, 0.0f, 1.0f) * static_cast<float>(EndIndex - StartIndex);
-	const int32 LowerIndex = StartIndex + FMath::FloorToInt(RangePosition);
-	const int32 UpperIndex = FMath::Min(LowerIndex + 1, EndIndex);
-	const float Blend = RangePosition - FMath::FloorToFloat(RangePosition);
-	return FMath::Lerp(Colors[LowerIndex], Colors[UpperIndex], Blend);
-}
-
-static FLinearColor GetFallbackComplexityColorForRange(float Value, float GreenMax, float White)
-{
 	if (Value >= White)
 	{
-		return FLinearColor(1.0f, 0.9f, 0.9f, 1.0f);
+		return HighColor;
 	}
 
 	if (Value < GreenMax)
 	{
 		return FMath::Lerp(
-			FLinearColor(0.0f, 1.0f, 0.127f, 1.0f),
-			FLinearColor(0.046f, 0.52f, 0.0f, 1.0f),
+			LowColor,
+			MidColor,
 			FMath::Clamp(Value / GreenMax, 0.0f, 1.0f));
 	}
 
 	return FMath::Lerp(
-		FLinearColor(0.52f, 0.046f, 0.0f, 1.0f),
-		FLinearColor(1.0f, 0.9f, 0.9f, 1.0f),
+		MidColor,
+		HighColor,
 		FMath::Clamp((Value - GreenMax) / (White - GreenMax), 0.0f, 1.0f));
 }
 
-static FLinearColor GetComplexityPreviewColorForRange(float Value, float GreenMax, float White, float Alpha = 1.0f)
+static float GetSmoothDebugRampAlpha(float Value, float Start, float End)
 {
-	if (Value <= KINDA_SMALL_NUMBER)
-	{
-		return FLinearColor(0.0f, 1.0f, 0.0f, Alpha);
-	}
-
-	FLinearColor Color = GetFallbackComplexityColorForRange(Value, GreenMax, White);
-	if (GEngine && GEngine->ShaderComplexityColors.Num() > 0)
-	{
-		const TArray<FLinearColor>& Colors = GEngine->ShaderComplexityColors;
-		if (Value >= White)
-		{
-			Color = Colors.Last();
-		}
-		else if (Value < GreenMax)
-		{
-			const int32 GreenEndIndex = FMath::Min(2, Colors.Num() - 1);
-			Color = SampleColorRange(Colors, 0, GreenEndIndex, Value / GreenMax);
-		}
-		else
-		{
-			const int32 RedStartIndex = FMath::Min(4, Colors.Num() - 1);
-			Color = SampleColorRange(Colors, RedStartIndex, Colors.Num() - 1, (Value - GreenMax) / (White - GreenMax));
-		}
-	}
-
-	Color.A = Alpha;
-	return Color;
+	return FMath::SmoothStep(0.0f, 1.0f, FMath::Clamp((Value - Start) / (End - Start), 0.0f, 1.0f));
 }
 
-static FLinearColor GetFallbackComplexityColor(float MaxGpuMs)
+static FLinearColor GetFourPointDebugColorForRange(float Value, float GreenMs, float RedMs, float PinkMs, float WhiteMs)
 {
-	return GetFallbackComplexityColorForRange(MaxGpuMs, GetDebugGreenMaxMs(), GetDebugWhiteMs());
+	const FLinearColor GreenColor(0.0f, 1.0f, 0.0f, 1.0f);
+	const FLinearColor RedColor(1.0f, 0.0f, 0.0f, 1.0f);
+	const FLinearColor PinkColor(1.0f, 0.0f, 1.0f, 1.0f);
+	const FLinearColor WhiteColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+	if (Value <= GreenMs)
+	{
+		return GreenColor;
+	}
+
+	if (Value < RedMs)
+	{
+		return FMath::Lerp(GreenColor, RedColor, GetSmoothDebugRampAlpha(Value, GreenMs, RedMs));
+	}
+
+	if (Value < PinkMs)
+	{
+		return FMath::Lerp(RedColor, PinkColor, GetSmoothDebugRampAlpha(Value, RedMs, PinkMs));
+	}
+
+	if (Value < WhiteMs)
+	{
+		return FMath::Lerp(PinkColor, WhiteColor, GetSmoothDebugRampAlpha(Value, PinkMs, WhiteMs));
+	}
+
+	return WhiteColor;
 }
 
 static FLinearColor GetMaterialGpuPreviewColor(float MaxGpuMs, float Alpha = 1.0f)
 {
-	return GetComplexityPreviewColorForRange(MaxGpuMs, GetDebugGreenMaxMs(), GetDebugWhiteMs(), Alpha);
+	FLinearColor Color = GetFourPointDebugColorForRange(MaxGpuMs, GetDebugGreenMs(), GetDebugRedMs(), GetDebugPinkMs(), GetDebugWhiteMs());
+	Color.A = Alpha;
+	return Color;
 }
 
 static FLinearColor GetObjectMemorySnapshotColor(float TotalMB, float Alpha = 1.0f)
 {
-	return GetComplexityPreviewColorForRange(TotalMB, GetObjectDebugGreenMaxMB(), GetObjectDebugWhiteMB(), Alpha);
+	FLinearColor Color = GetTwoPointDebugColorForRange(TotalMB, GetObjectDebugGreenMaxMB(), GetObjectDebugWhiteMB());
+	Color.A = Alpha;
+	return Color;
 }
 
 static bool IsMaterialDebugColorModeEnabled()
@@ -1329,10 +1460,15 @@ static int32 GetDebugSeverity(float MaxGpuMs)
 {
 	if (MaxGpuMs >= GetDebugWhiteMs())
 	{
+		return 4;
+	}
+
+	if (MaxGpuMs >= GetDebugPinkMs())
+	{
 		return 3;
 	}
 
-	if (MaxGpuMs >= GetDebugGreenMaxMs())
+	if (MaxGpuMs >= GetDebugRedMs())
 	{
 		return 2;
 	}
@@ -1482,9 +1618,280 @@ struct FActorColorationTarget
 	FLinearColor Color = FLinearColor::Black;
 };
 
+static bool IsDebugTargetComponent(const UPrimitiveComponent* Component);
+static bool CanApplyMaterialDebugOverrideFallbackToComponent(const UPrimitiveComponent* Component);
+
+static UPackage* GetMaterialDebugOverridePackage(UPrimitiveComponent* Component)
+{
+	return Component ? Component->GetOutermost() : nullptr;
+}
+
+static void RestoreMaterialDebugOverridePackageDirtyFlag(const FMaterialDebugMaterialOverrideState& State)
+{
+	if (UPackage* Package = State.Package.Get())
+	{
+		Package->SetDirtyFlag(State.bPackageWasDirty);
+	}
+}
+
+static bool ShouldUseMaterialDebugOverrideFallback(UMaterialInterface* Material)
+{
+	if (!Material)
+	{
+		return false;
+	}
+
+	return Material->GetBlendMode() != BLEND_Opaque;
+}
+
+static bool ApplyMaterialDebugColorParameters(UMaterialInstanceDynamic* Material, const FLinearColor& Color)
+{
+	if (!Material)
+	{
+		return false;
+	}
+
+	FLinearColor DebugColor = Color;
+	DebugColor.A = 1.0f;
+
+	bool bAppliedColorParameter = false;
+	auto IsColorLikeParameterName = [](FName ParameterName)
+	{
+		const FString Name = ParameterName.ToString();
+		return Name.Contains(TEXT("Color"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Tint"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Albedo"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Diffuse"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Emissive"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Gradient"), ESearchCase::IgnoreCase);
+	};
+
+	TArray<FMaterialParameterInfo> VectorParameterInfos;
+	TArray<FGuid> VectorParameterIds;
+	Material->GetAllVectorParameterInfo(VectorParameterInfos, VectorParameterIds);
+	for (const FMaterialParameterInfo& ParameterInfo : VectorParameterInfos)
+	{
+		if (IsColorLikeParameterName(ParameterInfo.Name))
+		{
+			Material->SetVectorParameterValueByInfo(ParameterInfo, DebugColor);
+			bAppliedColorParameter = true;
+		}
+	}
+
+	static const FName CommonColorParameterNames[] =
+	{
+		TEXT("Color"),
+		TEXT("BaseColor"),
+		TEXT("Base Color"),
+		TEXT("Tint"),
+		TEXT("TintColor"),
+		TEXT("Tint Color"),
+		TEXT("Albedo"),
+		TEXT("Diffuse"),
+		TEXT("Emissive"),
+		TEXT("EmissiveColor"),
+		TEXT("Emissive Color"),
+		TEXT("DebugColor"),
+		TEXT("Debug Color")
+	};
+
+	for (const FName& ParameterName : CommonColorParameterNames)
+	{
+		int32 ParameterIndex = INDEX_NONE;
+		if (Material->InitializeVectorParameterAndGetIndex(ParameterName, DebugColor, ParameterIndex))
+		{
+			bAppliedColorParameter = true;
+		}
+	}
+
+	return bAppliedColorParameter;
+}
+
+static UMaterialInterface* GetMaterialDebugOverrideMaterial(const FLinearColor& Color, UMaterialInterface* OriginalMaterial)
+{
+	if (OriginalMaterial && OriginalMaterial->GetBlendMode() == BLEND_Masked)
+	{
+		UMaterialInstanceDynamic* MaskedMaterial = UMaterialInstanceDynamic::Create(OriginalMaterial, GetTransientPackage());
+		if (MaskedMaterial)
+		{
+			MaskedMaterial->SetFlags(RF_Transient);
+			if (ApplyMaterialDebugColorParameters(MaskedMaterial, Color))
+			{
+				return MaskedMaterial;
+			}
+		}
+	}
+
+	if (!GEngine || !GEngine->ShadedLevelColorationUnlitMaterial)
+	{
+		return nullptr;
+	}
+
+	UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(
+		GEngine->ShadedLevelColorationUnlitMaterial,
+		GetTransientPackage());
+	if (!Material)
+	{
+		return nullptr;
+	}
+
+	Material->SetFlags(RF_Transient);
+	Material->SetVectorParameterValue(TEXT("Color"), Color);
+	return Material;
+}
+
+static UMaterialInterface* GetOriginalMaterialForDebugOverride(
+	UPrimitiveComponent* Component,
+	const FMaterialDebugMaterialOverrideState* ExistingState,
+	int32 SlotIndex)
+{
+	if (ExistingState && ExistingState->OriginalMaterials.IsValidIndex(SlotIndex))
+	{
+		return ExistingState->OriginalMaterials[SlotIndex].Get();
+	}
+
+	return Component ? Component->GetMaterial(SlotIndex) : nullptr;
+}
+
+static void RestoreMaterialDebugMaterialOverrideState(const FObjectKey& ComponentKey, FMaterialDebugMaterialOverrideState& State)
+{
+	UPrimitiveComponent* Component = State.Component.Get();
+	if (!Component)
+	{
+		return;
+	}
+
+	for (int32 SlotIndex : State.OverriddenSlots)
+	{
+		if (State.OriginalMaterials.IsValidIndex(SlotIndex))
+		{
+			Component->SetMaterial(SlotIndex, State.OriginalMaterials[SlotIndex].Get());
+		}
+	}
+
+	Component->MarkRenderStateDirty();
+	RestoreMaterialDebugOverridePackageDirtyFlag(State);
+}
+
+static void RestoreMaterialDebugMaterialOverrides()
+{
+	for (TPair<FObjectKey, FMaterialDebugMaterialOverrideState>& Pair : GMaterialDebugMaterialOverrides)
+	{
+		RestoreMaterialDebugMaterialOverrideState(Pair.Key, Pair.Value);
+	}
+
+	GMaterialDebugMaterialOverrides.Reset();
+}
+
+static void ApplyMaterialDebugMaterialOverrides(const TArray<FActorColorationTarget>& Targets)
+{
+	if (CVarDebugMaterialOverrideFallback.GetValueOnGameThread() == 0)
+	{
+		RestoreMaterialDebugMaterialOverrides();
+		return;
+	}
+
+	TSet<FObjectKey> DesiredOverrideComponents;
+	for (const FActorColorationTarget& Target : Targets)
+	{
+		UPrimitiveComponent* Component = Target.Component.Get();
+		if (!IsDebugTargetComponent(Component) || !CanApplyMaterialDebugOverrideFallbackToComponent(Component))
+		{
+			continue;
+		}
+
+		const int32 NumMaterials = Component->GetNumMaterials();
+		if (NumMaterials <= 0)
+		{
+			continue;
+		}
+
+		const FObjectKey ComponentKey(Component);
+		FMaterialDebugMaterialOverrideState* ExistingState = GMaterialDebugMaterialOverrides.Find(ComponentKey);
+		TArray<int32> OverrideSlots;
+		for (int32 SlotIndex = 0; SlotIndex < NumMaterials; ++SlotIndex)
+		{
+			UMaterialInterface* OriginalMaterial = GetOriginalMaterialForDebugOverride(Component, ExistingState, SlotIndex);
+			if (ShouldUseMaterialDebugOverrideFallback(OriginalMaterial))
+			{
+				OverrideSlots.Add(SlotIndex);
+			}
+		}
+
+		if (OverrideSlots.Num() == 0)
+		{
+			continue;
+		}
+
+		TMap<int32, UMaterialInterface*> DebugMaterialsBySlot;
+		for (int32 SlotIndex : OverrideSlots)
+		{
+			UMaterialInterface* OriginalMaterial = GetOriginalMaterialForDebugOverride(Component, ExistingState, SlotIndex);
+			if (UMaterialInterface* DebugMaterial = GetMaterialDebugOverrideMaterial(Target.Color, OriginalMaterial))
+			{
+				DebugMaterialsBySlot.Add(SlotIndex, DebugMaterial);
+			}
+		}
+
+		if (DebugMaterialsBySlot.Num() == 0)
+		{
+			continue;
+		}
+
+		DesiredOverrideComponents.Add(ComponentKey);
+		FMaterialDebugMaterialOverrideState& State = GMaterialDebugMaterialOverrides.FindOrAdd(ComponentKey);
+		if (!State.Component.IsValid())
+		{
+			State.Component = Component;
+			State.Package = GetMaterialDebugOverridePackage(Component);
+			if (UPackage* Package = State.Package.Get())
+			{
+				State.bPackageWasDirty = Package->IsDirty();
+			}
+			State.OriginalMaterials.SetNum(NumMaterials);
+			for (int32 SlotIndex = 0; SlotIndex < NumMaterials; ++SlotIndex)
+			{
+				State.OriginalMaterials[SlotIndex] = Component->GetMaterial(SlotIndex);
+			}
+		}
+
+		State.OverriddenSlots.Reset();
+		for (const TPair<int32, UMaterialInterface*>& Pair : DebugMaterialsBySlot)
+		{
+			State.OverriddenSlots.Add(Pair.Key);
+			Component->SetMaterial(Pair.Key, Pair.Value);
+		}
+		Component->MarkRenderStateDirty();
+		RestoreMaterialDebugOverridePackageDirtyFlag(State);
+	}
+
+	TArray<FObjectKey> ComponentsToRestore;
+	for (const TPair<FObjectKey, FMaterialDebugMaterialOverrideState>& Pair : GMaterialDebugMaterialOverrides)
+	{
+		if (!DesiredOverrideComponents.Contains(Pair.Key))
+		{
+			ComponentsToRestore.Add(Pair.Key);
+		}
+	}
+
+	for (const FObjectKey& ComponentKey : ComponentsToRestore)
+	{
+		if (FMaterialDebugMaterialOverrideState* State = GMaterialDebugMaterialOverrides.Find(ComponentKey))
+		{
+			RestoreMaterialDebugMaterialOverrideState(ComponentKey, *State);
+		}
+		GMaterialDebugMaterialOverrides.Remove(ComponentKey);
+	}
+}
+
 static bool IsDebugTargetComponent(const UPrimitiveComponent* Component)
 {
 	return Component && Component->IsRegistered() && Component->IsVisible();
+}
+
+static bool CanApplyMaterialDebugOverrideFallbackToComponent(const UPrimitiveComponent* Component)
+{
+	return Component && Component->IsA<UStaticMeshComponent>();
 }
 
 static int32 GetDebugComponentLimit()
@@ -1514,11 +1921,43 @@ static const TArray<FMaterialAccumulator>& GetActiveMaterialDebugRows()
 	return GMaterialReplayActive ? GMaterialReplayDebugRows : GCachedDebugRows;
 }
 
+static void AddActorColorationTarget(
+	TMap<UPrimitiveComponent*, FActorColorationTarget>& TargetsByComponent,
+	UPrimitiveComponent* Component,
+	float DebugMs,
+	int32 Severity,
+	const FLinearColor& Color)
+{
+	if (!IsDebugTargetComponent(Component))
+	{
+		return;
+	}
+
+	FActorColorationTarget* ExistingTarget = TargetsByComponent.Find(Component);
+	if (ExistingTarget && ExistingTarget->MaxGpuMs >= DebugMs)
+	{
+		return;
+	}
+
+	FActorColorationTarget Target;
+	Target.Component = Component;
+	Target.MaxGpuMs = DebugMs;
+	Target.Severity = Severity;
+	Target.Color = Color;
+	TargetsByComponent.Add(Component, Target);
+}
+
 static void RebuildActorColorationColorMap()
 {
 	GActorColorationColors.Reset();
 
 	const int32 MaxDebugComponents = GetDebugComponentLimit();
+
+	TMap<FString, TArray<UPrimitiveComponent*>> FoliageComponentsBySourceLabel;
+	if (UWorld* World = FindCurrentPreviewWorld())
+	{
+		BuildFoliageComponentsBySourceLabel(World, FoliageComponentsBySourceLabel);
+	}
 
 	TMap<UPrimitiveComponent*, FActorColorationTarget> TargetsByComponent;
 	for (const FMaterialAccumulator& Row : GetActiveMaterialDebugRows())
@@ -1529,24 +1968,23 @@ static void RebuildActorColorationColorMap()
 
 		for (const TWeakObjectPtr<UPrimitiveComponent>& WeakComponent : Row.Components)
 		{
-			UPrimitiveComponent* Component = WeakComponent.Get();
-			if (!IsDebugTargetComponent(Component))
+			AddActorColorationTarget(TargetsByComponent, WeakComponent.Get(), DebugMs, Severity, Color);
+		}
+
+		for (const FMaterialSourceUsage& SourceUsage : Row.SourceUsages)
+		{
+			if (SourceUsage.Label.IsEmpty())
 			{
 				continue;
 			}
 
-			FActorColorationTarget* ExistingTarget = TargetsByComponent.Find(Component);
-			if (ExistingTarget && ExistingTarget->MaxGpuMs >= DebugMs)
+			if (const TArray<UPrimitiveComponent*>* CurrentFoliageComponents = FoliageComponentsBySourceLabel.Find(SourceUsage.Label))
 			{
-				continue;
+				for (UPrimitiveComponent* Component : *CurrentFoliageComponents)
+				{
+					AddActorColorationTarget(TargetsByComponent, Component, DebugMs, Severity, Color);
+				}
 			}
-
-			FActorColorationTarget Target;
-			Target.Component = Component;
-			Target.MaxGpuMs = DebugMs;
-			Target.Severity = Severity;
-			Target.Color = Color;
-			TargetsByComponent.Add(Component, Target);
 		}
 	}
 
@@ -1581,6 +2019,8 @@ static void RebuildActorColorationColorMap()
 			GActorColorationColors.Add(FObjectKey(Component), Target.Color);
 		}
 	}
+
+	ApplyMaterialDebugMaterialOverrides(Targets);
 }
 
 static UGameViewportClient* FindGameViewportClient(FCommonViewportClient* ViewportClient)
@@ -1842,6 +2282,37 @@ static FString GetProfilingButtonCommand(int32 ButtonIndex)
 static bool IsMaterialCaptureCommandLocked()
 {
 	return GMaterialCaptureEndGuardActive && FPlatformTime::Seconds() < GMaterialCaptureEndGuardReleaseSeconds;
+}
+
+static UWorld* FindCurrentPreviewWorld()
+{
+	if (GEngine && GEngine->GameViewport)
+	{
+		if (UWorld* World = GEngine->GameViewport->GetWorld())
+		{
+			return World;
+		}
+	}
+
+#if WITH_EDITOR
+	if (GEditor)
+	{
+		for (FEditorViewportClient* ViewportClient : GEditor->GetAllViewportClients())
+		{
+			if (ViewportClient && ViewportClient->GetWorld())
+			{
+				return ViewportClient->GetWorld();
+			}
+		}
+
+		if (UWorld* World = GEditor->GetEditorWorldContext().World())
+		{
+			return World;
+		}
+	}
+#endif
+
+	return GWorld;
 }
 
 static bool GetMaterialCaptureCommandVerb(const FString& Command, FString& OutVerb)
@@ -2736,6 +3207,8 @@ static void ApplyActorColorationViewMode(UWorld* World, FCommonViewportClient* V
 static void DisableActorColoration(UWorld* World, FCommonViewportClient* ViewportClient)
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	RestoreMaterialDebugMaterialOverrides();
+
 	UWorld* TargetWorld = World ? World : GActorColorationWorld.Get();
 	if (!TargetWorld)
 	{
@@ -3147,6 +3620,7 @@ static void RegisterConsoleAutoComplete()
 	RegisterConsoleAutoCompleteCommand(TEXT("stat obj 0"), TEXT("Hide Object Memory Snapshot panel and debug visualization."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat profiling"), TEXT("Show Optimization Preview Tools command buttons under the active Top 10 stat panel."));
 	RegisterConsoleAutoCompleteCommand(TEXT("stat profiling 0"), TEXT("Hide Optimization Preview Tools command buttons."));
+	RegisterConsoleAutoCompleteCommand(TEXT("materialgpu.DumpLandscapeGrass"), TEXT("Dump Landscape Grass source labels, instance counts, and current debug-row coverage."));
 }
 
 static void UnregisterConsoleAutoComplete()
@@ -3182,11 +3656,13 @@ static void HandleEndPIE(const bool bIsSimulating)
 	GMaterialReplayCharacterSamples.Reset();
 	GMaterialReplayFrameGpuMs.Reset();
 	GMaterialReplayFrameGpuMsMax = 0.0f;
+	ClearMaterialReplayDerivedCaches();
 	GLastDebugMaterialCount = GCachedDebugRows.Num();
 	GLastDebugComponentCount = CountUniqueDebugComponents(GCachedDebugRows);
 	StopMaterialReplayTicker();
 	StopMaterialReplayCameraCaptureTicker();
 	RemoveMaterialReplayOverlay();
+	RestoreMaterialReplayAnimationStates();
 	DestroyMaterialReplayCamera();
 	CVarDebug->Set(0);
 	CVarObjectDebug->Set(0);
@@ -3571,6 +4047,289 @@ static bool ShouldIncludeComponent(const UPrimitiveComponent* Component)
 	return Component && Component->IsRegistered() && Component->IsVisible();
 }
 
+#if WITH_EDITOR
+static FName FindLandscapeGrassOutputSlotName(UMaterialInterface* LandscapeMaterial, const ULandscapeGrassType* GrassType)
+{
+	if (!LandscapeMaterial || !GrassType)
+	{
+		return NAME_None;
+	}
+
+	const UMaterial* BaseMaterial = LandscapeMaterial->GetMaterial();
+	if (!BaseMaterial)
+	{
+		return NAME_None;
+	}
+
+	for (const TObjectPtr<UMaterialExpression>& Expression : BaseMaterial->GetExpressions())
+	{
+		const UMaterialExpressionLandscapeGrassOutput* GrassOutput = Cast<UMaterialExpressionLandscapeGrassOutput>(Expression.Get());
+		if (!GrassOutput)
+		{
+			continue;
+		}
+
+		for (const FGrassInput& GrassInput : GrassOutput->GrassTypes)
+		{
+			if (GrassInput.GrassType.Get() == GrassType)
+			{
+				return GrassInput.Name;
+			}
+		}
+	}
+
+	return NAME_None;
+}
+#endif
+
+static FString BuildLandscapeGrassSourceLabel(ULandscapeComponent* LandscapeComponent, ULandscapeGrassType* GrassType, int32 VarietyIndex)
+{
+	FString SourceName = GrassType ? GrassType->GetName() : FString(TEXT("UnknownGrass"));
+
+#if WITH_EDITOR
+	if (LandscapeComponent)
+	{
+		const FName SlotName = FindLandscapeGrassOutputSlotName(LandscapeComponent->GetLandscapeMaterial(), GrassType);
+		if (!SlotName.IsNone())
+		{
+			SourceName = SlotName.ToString();
+		}
+	}
+#endif
+
+	FString VarietyName;
+	if (GrassType && GrassType->GrassVarieties.IsValidIndex(VarietyIndex))
+	{
+		const FGrassVariety& Variety = GrassType->GrassVarieties[VarietyIndex];
+		if (Variety.GrassMesh)
+		{
+			VarietyName = Variety.GrassMesh->GetName();
+		}
+	}
+
+	if (!VarietyName.IsEmpty())
+	{
+		return FString::Printf(TEXT("Grass:%s/%s"), *SourceName, *VarietyName);
+	}
+
+	if (VarietyIndex >= 0)
+	{
+		return FString::Printf(TEXT("Grass:%s#%d"), *SourceName, VarietyIndex);
+	}
+
+	return FString::Printf(TEXT("Grass:%s"), *SourceName);
+}
+
+static FString BuildInstancedFoliageSourceLabel(UFoliageType* FoliageType)
+{
+	const UFoliageType_InstancedStaticMesh* InstancedFoliageType = Cast<UFoliageType_InstancedStaticMesh>(FoliageType);
+	UStaticMesh* StaticMesh = InstancedFoliageType ? InstancedFoliageType->GetStaticMesh() : nullptr;
+	UObject* Source = FoliageType ? FoliageType->GetSource() : nullptr;
+
+	const FString MeshName = StaticMesh ? StaticMesh->GetName() : FString(TEXT("UnknownMesh"));
+	const FString SourceName = Source ? Source->GetName() : FString();
+	if (!SourceName.IsEmpty() && SourceName != MeshName)
+	{
+		return FString::Printf(TEXT("Foliage:%s/%s"), *SourceName, *MeshName);
+	}
+
+	return FString::Printf(TEXT("Foliage:%s"), *MeshName);
+}
+
+static void AddFoliageSourceInfo(
+	TMap<FObjectKey, FComponentSourceInfo>& OutSourceInfo,
+	UHierarchicalInstancedStaticMeshComponent* Component,
+	const FString& SourceLabel,
+	int32 FallbackInstanceCount = 0)
+{
+	if (!Component || SourceLabel.IsEmpty())
+	{
+		return;
+	}
+
+	FComponentSourceInfo& ExistingInfo = OutSourceInfo.FindOrAdd(FObjectKey(Component));
+	if (ExistingInfo.Label.IsEmpty())
+	{
+		ExistingInfo.Label = SourceLabel;
+	}
+	else if (!ExistingInfo.Label.Contains(SourceLabel))
+	{
+		ExistingInfo.Label += TEXT(", ");
+		ExistingInfo.Label += SourceLabel;
+	}
+
+	ExistingInfo.InstanceCount += FMath::Max(Component->GetNumRenderInstances(), FallbackInstanceCount);
+}
+
+static void BuildLandscapeGrassSourceInfo(UWorld* World, TMap<FObjectKey, FComponentSourceInfo>& OutSourceInfo)
+{
+	OutSourceInfo.Reset();
+	if (!World)
+	{
+		return;
+	}
+
+	for (TActorIterator<ALandscapeProxy> ProxyIt(World); ProxyIt; ++ProxyIt)
+	{
+		ALandscapeProxy* Proxy = *ProxyIt;
+		if (!Proxy)
+		{
+			continue;
+		}
+
+		for (const FCachedLandscapeFoliage::FGrassComp& GrassComp : Proxy->FoliageCache.CachedGrassComps)
+		{
+			ULandscapeComponent* LandscapeComponent = GrassComp.Key.BasedOn.Get();
+			ULandscapeGrassType* GrassType = GrassComp.Key.GrassType.Get();
+			const FString SourceLabel = BuildLandscapeGrassSourceLabel(LandscapeComponent, GrassType, GrassComp.Key.VarietyIndex);
+
+			AddFoliageSourceInfo(OutSourceInfo, GrassComp.Foliage.Get(), SourceLabel);
+			AddFoliageSourceInfo(OutSourceInfo, GrassComp.PreviousFoliage.Get(), SourceLabel);
+		}
+	}
+}
+
+static void AppendInstancedFoliageSourceInfo(UWorld* World, TMap<FObjectKey, FComponentSourceInfo>& InOutSourceInfo)
+{
+	if (!World)
+	{
+		return;
+	}
+
+	for (TActorIterator<AInstancedFoliageActor> ActorIt(World); ActorIt; ++ActorIt)
+	{
+		AInstancedFoliageActor* FoliageActor = *ActorIt;
+		if (!FoliageActor)
+		{
+			continue;
+		}
+
+		for (const TPair<UFoliageType*, TUniqueObj<FFoliageInfo>>& FoliagePair : FoliageActor->GetFoliageInfos())
+		{
+			UFoliageType* FoliageType = FoliagePair.Key;
+			const FFoliageInfo& FoliageInfo = FoliagePair.Value.Get();
+			UHierarchicalInstancedStaticMeshComponent* Component = FoliageInfo.GetComponent();
+			const FString SourceLabel = BuildInstancedFoliageSourceLabel(FoliageType);
+			AddFoliageSourceInfo(InOutSourceInfo, Component, SourceLabel, FoliageInfo.GetPlacedInstanceCount());
+		}
+	}
+}
+
+static void BuildFoliageSourceInfo(UWorld* World, TMap<FObjectKey, FComponentSourceInfo>& OutSourceInfo)
+{
+	BuildLandscapeGrassSourceInfo(World, OutSourceInfo);
+	AppendInstancedFoliageSourceInfo(World, OutSourceInfo);
+}
+
+static void BuildFoliageComponentsBySourceLabel(UWorld* World, TMap<FString, TArray<UPrimitiveComponent*>>& OutComponentsBySourceLabel)
+{
+	OutComponentsBySourceLabel.Reset();
+	if (!World)
+	{
+		return;
+	}
+
+	TMap<FObjectKey, FComponentSourceInfo> ComponentSourceInfo;
+	BuildFoliageSourceInfo(World, ComponentSourceInfo);
+	for (TActorIterator<ALandscapeProxy> ProxyIt(World); ProxyIt; ++ProxyIt)
+	{
+		ALandscapeProxy* Proxy = *ProxyIt;
+		if (!Proxy)
+		{
+			continue;
+		}
+
+		for (const FCachedLandscapeFoliage::FGrassComp& GrassComp : Proxy->FoliageCache.CachedGrassComps)
+		{
+			UHierarchicalInstancedStaticMeshComponent* Components[] =
+			{
+				GrassComp.Foliage.Get(),
+				GrassComp.PreviousFoliage.Get()
+			};
+
+			for (UHierarchicalInstancedStaticMeshComponent* Component : Components)
+			{
+				if (!Component || !Component->IsVisible())
+				{
+					continue;
+				}
+
+				const FComponentSourceInfo* SourceInfo = ComponentSourceInfo.Find(FObjectKey(Component));
+				if (!SourceInfo || SourceInfo->Label.IsEmpty())
+				{
+					continue;
+				}
+
+				OutComponentsBySourceLabel.FindOrAdd(SourceInfo->Label).AddUnique(Component);
+			}
+		}
+	}
+
+	for (TActorIterator<AInstancedFoliageActor> ActorIt(World); ActorIt; ++ActorIt)
+	{
+		AInstancedFoliageActor* FoliageActor = *ActorIt;
+		if (!FoliageActor)
+		{
+			continue;
+		}
+
+		for (const TPair<UFoliageType*, TUniqueObj<FFoliageInfo>>& FoliagePair : FoliageActor->GetFoliageInfos())
+		{
+			UHierarchicalInstancedStaticMeshComponent* Component = FoliagePair.Value.Get().GetComponent();
+			if (!Component || !Component->IsVisible())
+			{
+				continue;
+			}
+
+			const FComponentSourceInfo* SourceInfo = ComponentSourceInfo.Find(FObjectKey(Component));
+			if (!SourceInfo || SourceInfo->Label.IsEmpty())
+			{
+				continue;
+			}
+
+			OutComponentsBySourceLabel.FindOrAdd(SourceInfo->Label).AddUnique(Component);
+		}
+	}
+}
+
+static void AddMaterialSourceUsage(FMaterialAccumulator& Accumulator, const FComponentSourceInfo& SourceInfo)
+{
+	if (SourceInfo.Label.IsEmpty())
+	{
+		return;
+	}
+
+	FMaterialSourceUsage* Usage = Accumulator.SourceUsages.FindByPredicate([&SourceInfo](const FMaterialSourceUsage& ExistingUsage)
+	{
+		return ExistingUsage.Label == SourceInfo.Label;
+	});
+
+	if (!Usage)
+	{
+		Usage = &Accumulator.SourceUsages.AddDefaulted_GetRef();
+		Usage->Label = SourceInfo.Label;
+	}
+
+	Usage->InstanceCount += SourceInfo.InstanceCount;
+	Usage->ComponentCount++;
+}
+
+static void SortMaterialSourceUsages(TArray<FMaterialSourceUsage>& SourceUsages)
+{
+	SourceUsages.Sort([](const FMaterialSourceUsage& A, const FMaterialSourceUsage& B)
+	{
+		if (A.InstanceCount != B.InstanceCount)
+		{
+			return A.InstanceCount > B.InstanceCount;
+		}
+		if (A.ComponentCount != B.ComponentCount)
+		{
+			return A.ComponentCount > B.ComponentCount;
+		}
+		return A.Label < B.Label;
+	});
+}
+
 static FMaterialAccumulator& FindOrAddAccumulator(TArray<FMaterialAccumulator>& Accumulators, UMaterialInterface* Material)
 {
 	check(Material);
@@ -3592,7 +4351,13 @@ static FMaterialAccumulator& FindOrAddAccumulator(TArray<FMaterialAccumulator>& 
 	return NewAccumulator;
 }
 
-static void AddUsage(TArray<FMaterialAccumulator>& Accumulators, UPrimitiveComponent* Component, UMaterialInterface* Material, int64 Triangles, int64 Instances)
+static void AddUsage(
+	TArray<FMaterialAccumulator>& Accumulators,
+	UPrimitiveComponent* Component,
+	UMaterialInterface* Material,
+	int64 Triangles,
+	int64 Instances,
+	const TMap<FObjectKey, FComponentSourceInfo>& ComponentSourceInfo)
 {
 	if (!Component || !Material)
 	{
@@ -3612,12 +4377,20 @@ static void AddUsage(TArray<FMaterialAccumulator>& Accumulators, UPrimitiveCompo
 
 	if (!Accumulator.Components.Contains(Component))
 	{
+		if (const FComponentSourceInfo* SourceInfo = ComponentSourceInfo.Find(FObjectKey(Component)))
+		{
+			AddMaterialSourceUsage(Accumulator, *SourceInfo);
+		}
+
 		Accumulator.Components.Add(Component);
 		Accumulator.ComponentCount++;
 	}
 }
 
-static void AccumulateStaticMeshComponent(TArray<FMaterialAccumulator>& Accumulators, UStaticMeshComponent* Component)
+static void AccumulateStaticMeshComponent(
+	TArray<FMaterialAccumulator>& Accumulators,
+	UStaticMeshComponent* Component,
+	const TMap<FObjectKey, FComponentSourceInfo>& ComponentSourceInfo)
 {
 	UStaticMesh* StaticMesh = Component ? Component->GetStaticMesh() : nullptr;
 	const FStaticMeshRenderData* RenderData = StaticMesh ? StaticMesh->GetRenderData() : nullptr;
@@ -3627,24 +4400,27 @@ static void AccumulateStaticMeshComponent(TArray<FMaterialAccumulator>& Accumula
 		Component->GetUsedMaterials(Materials);
 		for (UMaterialInterface* Material : Materials)
 		{
-			AddUsage(Accumulators, Component, Material, 1, 1);
+			AddUsage(Accumulators, Component, Material, 1, 1, ComponentSourceInfo);
 		}
 		return;
 	}
 
 	const int64 InstanceCount = Component->IsA<UInstancedStaticMeshComponent>()
-		? static_cast<int64>(CastChecked<UInstancedStaticMeshComponent>(Component)->GetInstanceCount())
+		? static_cast<int64>(CastChecked<UInstancedStaticMeshComponent>(Component)->GetNumRenderInstances())
 		: 1;
 
 	const FStaticMeshLODResources& LOD = RenderData->LODResources[0];
 	for (const FStaticMeshSection& Section : LOD.Sections)
 	{
 		UMaterialInterface* Material = Component->GetMaterial(Section.MaterialIndex);
-		AddUsage(Accumulators, Component, Material, Section.NumTriangles, InstanceCount);
+		AddUsage(Accumulators, Component, Material, Section.NumTriangles, InstanceCount, ComponentSourceInfo);
 	}
 }
 
-static void AccumulateSkinnedMeshComponent(TArray<FMaterialAccumulator>& Accumulators, USkinnedMeshComponent* Component)
+static void AccumulateSkinnedMeshComponent(
+	TArray<FMaterialAccumulator>& Accumulators,
+	USkinnedMeshComponent* Component,
+	const TMap<FObjectKey, FComponentSourceInfo>& ComponentSourceInfo)
 {
 	FSkeletalMeshRenderData* RenderData = Component ? Component->GetSkeletalMeshRenderData() : nullptr;
 	if (!RenderData || RenderData->LODRenderData.Num() == 0)
@@ -3653,7 +4429,7 @@ static void AccumulateSkinnedMeshComponent(TArray<FMaterialAccumulator>& Accumul
 		Component->GetUsedMaterials(Materials);
 		for (UMaterialInterface* Material : Materials)
 		{
-			AddUsage(Accumulators, Component, Material, 1, 1);
+			AddUsage(Accumulators, Component, Material, 1, 1, ComponentSourceInfo);
 		}
 		return;
 	}
@@ -3667,21 +4443,24 @@ static void AccumulateSkinnedMeshComponent(TArray<FMaterialAccumulator>& Accumul
 		}
 
 		UMaterialInterface* Material = Component->GetMaterial(Section.MaterialIndex);
-		AddUsage(Accumulators, Component, Material, Section.NumTriangles, 1);
+		AddUsage(Accumulators, Component, Material, Section.NumTriangles, 1, ComponentSourceInfo);
 	}
 }
 
-static void AccumulatePrimitiveComponent(TArray<FMaterialAccumulator>& Accumulators, UPrimitiveComponent* Component)
+static void AccumulatePrimitiveComponent(
+	TArray<FMaterialAccumulator>& Accumulators,
+	UPrimitiveComponent* Component,
+	const TMap<FObjectKey, FComponentSourceInfo>& ComponentSourceInfo)
 {
 	if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(Component))
 	{
-		AccumulateStaticMeshComponent(Accumulators, StaticMeshComponent);
+		AccumulateStaticMeshComponent(Accumulators, StaticMeshComponent, ComponentSourceInfo);
 		return;
 	}
 
 	if (USkinnedMeshComponent* SkinnedMeshComponent = Cast<USkinnedMeshComponent>(Component))
 	{
-		AccumulateSkinnedMeshComponent(Accumulators, SkinnedMeshComponent);
+		AccumulateSkinnedMeshComponent(Accumulators, SkinnedMeshComponent, ComponentSourceInfo);
 		return;
 	}
 
@@ -3689,7 +4468,107 @@ static void AccumulatePrimitiveComponent(TArray<FMaterialAccumulator>& Accumulat
 	Component->GetUsedMaterials(Materials);
 	for (UMaterialInterface* Material : Materials)
 	{
-		AddUsage(Accumulators, Component, Material, 1, 1);
+		AddUsage(Accumulators, Component, Material, 1, 1, ComponentSourceInfo);
+	}
+}
+
+static void AccumulatePrimitiveComponentOnce(
+	TArray<FMaterialAccumulator>& Accumulators,
+	UPrimitiveComponent* Component,
+	const TMap<FObjectKey, FComponentSourceInfo>& ComponentSourceInfo,
+	TSet<FObjectKey>& ProcessedComponents)
+{
+	if (!ShouldIncludeComponent(Component))
+	{
+		return;
+	}
+
+	const FObjectKey ComponentKey(Component);
+	if (ProcessedComponents.Contains(ComponentKey))
+	{
+		return;
+	}
+
+	ProcessedComponents.Add(ComponentKey);
+	AccumulatePrimitiveComponent(Accumulators, Component, ComponentSourceInfo);
+}
+
+static bool IsFoliageTargetComponent(const UPrimitiveComponent* Component)
+{
+	return Component && Component->IsVisible();
+}
+
+static void AccumulateFoliageComponentOnce(
+	TArray<FMaterialAccumulator>& Accumulators,
+	UPrimitiveComponent* Component,
+	const TMap<FObjectKey, FComponentSourceInfo>& ComponentSourceInfo,
+	TSet<FObjectKey>& ProcessedComponents)
+{
+	if (!IsFoliageTargetComponent(Component))
+	{
+		return;
+	}
+
+	const FObjectKey ComponentKey(Component);
+	if (ProcessedComponents.Contains(ComponentKey))
+	{
+		return;
+	}
+
+	ProcessedComponents.Add(ComponentKey);
+	AccumulatePrimitiveComponent(Accumulators, Component, ComponentSourceInfo);
+}
+
+static void AccumulateLandscapeGrassComponents(
+	UWorld* World,
+	TArray<FMaterialAccumulator>& Accumulators,
+	const TMap<FObjectKey, FComponentSourceInfo>& ComponentSourceInfo,
+	TSet<FObjectKey>& ProcessedComponents)
+{
+	if (!World)
+	{
+		return;
+	}
+
+	for (TActorIterator<ALandscapeProxy> ProxyIt(World); ProxyIt; ++ProxyIt)
+	{
+		ALandscapeProxy* Proxy = *ProxyIt;
+		if (!Proxy)
+		{
+			continue;
+		}
+
+		for (const FCachedLandscapeFoliage::FGrassComp& GrassComp : Proxy->FoliageCache.CachedGrassComps)
+		{
+			AccumulateFoliageComponentOnce(Accumulators, GrassComp.Foliage.Get(), ComponentSourceInfo, ProcessedComponents);
+			AccumulateFoliageComponentOnce(Accumulators, GrassComp.PreviousFoliage.Get(), ComponentSourceInfo, ProcessedComponents);
+		}
+	}
+}
+
+static void AccumulateInstancedFoliageComponents(
+	UWorld* World,
+	TArray<FMaterialAccumulator>& Accumulators,
+	const TMap<FObjectKey, FComponentSourceInfo>& ComponentSourceInfo,
+	TSet<FObjectKey>& ProcessedComponents)
+{
+	if (!World)
+	{
+		return;
+	}
+
+	for (TActorIterator<AInstancedFoliageActor> ActorIt(World); ActorIt; ++ActorIt)
+	{
+		AInstancedFoliageActor* FoliageActor = *ActorIt;
+		if (!FoliageActor)
+		{
+			continue;
+		}
+
+		for (const TPair<UFoliageType*, TUniqueObj<FFoliageInfo>>& FoliagePair : FoliageActor->GetFoliageInfos())
+		{
+			AccumulateFoliageComponentOnce(Accumulators, FoliagePair.Value.Get().GetComponent(), ComponentSourceInfo, ProcessedComponents);
+		}
 	}
 }
 
@@ -3700,6 +4579,10 @@ static void BuildSceneMaterialAccumulators(UWorld* World, TArray<FMaterialAccumu
 	{
 		return;
 	}
+
+	TMap<FObjectKey, FComponentSourceInfo> ComponentSourceInfo;
+	BuildFoliageSourceInfo(World, ComponentSourceInfo);
+	TSet<FObjectKey> ProcessedComponents;
 
 	for (TActorIterator<AActor> ActorIt(World); ActorIt; ++ActorIt)
 	{
@@ -3713,11 +4596,16 @@ static void BuildSceneMaterialAccumulators(UWorld* World, TArray<FMaterialAccumu
 		Actor->GetComponents(Components);
 		for (UPrimitiveComponent* Component : Components)
 		{
-			if (ShouldIncludeComponent(Component))
-			{
-				AccumulatePrimitiveComponent(OutAccumulators, Component);
-			}
+			AccumulatePrimitiveComponentOnce(OutAccumulators, Component, ComponentSourceInfo, ProcessedComponents);
 		}
+	}
+
+	AccumulateLandscapeGrassComponents(World, OutAccumulators, ComponentSourceInfo, ProcessedComponents);
+	AccumulateInstancedFoliageComponents(World, OutAccumulators, ComponentSourceInfo, ProcessedComponents);
+
+	for (FMaterialAccumulator& Accumulator : OutAccumulators)
+	{
+		SortMaterialSourceUsages(Accumulator.SourceUsages);
 	}
 }
 
@@ -3732,6 +4620,119 @@ static void SortMaterialAccumulators(TArray<FMaterialAccumulator>& Accumulators)
 		return A.ComponentCount > B.ComponentCount;
 	});
 }
+
+static void AddFoliageDumpUsage(TMap<FString, FMaterialSourceUsage>& UsagesByLabel, const FComponentSourceInfo& SourceInfo)
+{
+	if (SourceInfo.Label.IsEmpty())
+	{
+		return;
+	}
+
+	FMaterialSourceUsage& Usage = UsagesByLabel.FindOrAdd(SourceInfo.Label);
+	Usage.Label = SourceInfo.Label;
+	Usage.InstanceCount += SourceInfo.InstanceCount;
+	Usage.ComponentCount++;
+}
+
+static void DumpLandscapeGrassDiagnostics()
+{
+	UWorld* World = FindCurrentPreviewWorld();
+	if (!World)
+	{
+		UE_LOG(LogOptimizationPreviewTools, Warning, TEXT("LandscapeGrass dump skipped: no current world."));
+		return;
+	}
+
+	TMap<FObjectKey, FComponentSourceInfo> ComponentSourceInfo;
+	BuildFoliageSourceInfo(World, ComponentSourceInfo);
+
+	TMap<FString, FMaterialSourceUsage> AllUsagesByLabel;
+	for (const TPair<FObjectKey, FComponentSourceInfo>& Pair : ComponentSourceInfo)
+	{
+		AddFoliageDumpUsage(AllUsagesByLabel, Pair.Value);
+	}
+
+	TSet<FObjectKey> DebugComponents;
+	TSet<FString> DebugSourceLabels;
+	TMap<FString, FMaterialSourceUsage> DebugUsagesByLabel;
+	for (const FMaterialAccumulator& Row : GetActiveMaterialDebugRows())
+	{
+		for (const TWeakObjectPtr<UPrimitiveComponent>& WeakComponent : Row.Components)
+		{
+			UPrimitiveComponent* Component = WeakComponent.Get();
+			if (!Component)
+			{
+				continue;
+			}
+
+			const FObjectKey ComponentKey(Component);
+			if (DebugComponents.Contains(ComponentKey))
+			{
+				continue;
+			}
+
+			if (const FComponentSourceInfo* SourceInfo = ComponentSourceInfo.Find(ComponentKey))
+			{
+				AddFoliageDumpUsage(DebugUsagesByLabel, *SourceInfo);
+				DebugComponents.Add(ComponentKey);
+			}
+		}
+
+		for (const FMaterialSourceUsage& RowSourceUsage : Row.SourceUsages)
+		{
+			if (RowSourceUsage.Label.IsEmpty() || DebugSourceLabels.Contains(RowSourceUsage.Label))
+			{
+				continue;
+			}
+
+			DebugSourceLabels.Add(RowSourceUsage.Label);
+			if (const FMaterialSourceUsage* CurrentUsage = AllUsagesByLabel.Find(RowSourceUsage.Label))
+			{
+				DebugUsagesByLabel.Add(RowSourceUsage.Label, *CurrentUsage);
+			}
+			else
+			{
+				DebugUsagesByLabel.Add(RowSourceUsage.Label, RowSourceUsage);
+			}
+		}
+	}
+
+	TArray<FMaterialSourceUsage> AllUsages;
+	AllUsagesByLabel.GenerateValueArray(AllUsages);
+	AllUsages.Sort([](const FMaterialSourceUsage& A, const FMaterialSourceUsage& B)
+	{
+		if (A.InstanceCount != B.InstanceCount)
+		{
+			return A.InstanceCount > B.InstanceCount;
+		}
+		return A.Label < B.Label;
+	});
+
+	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Foliage dump. World=%s Sources=%d Components=%d DebugSources=%d DebugComponents=%d"),
+		*World->GetName(),
+		AllUsages.Num(),
+		ComponentSourceInfo.Num(),
+		DebugUsagesByLabel.Num(),
+		DebugComponents.Num());
+
+	for (const FMaterialSourceUsage& Usage : AllUsages)
+	{
+		const FMaterialSourceUsage* DebugUsage = DebugUsagesByLabel.Find(Usage.Label);
+		const int32 DebugComponentsForSource = DebugUsage ? DebugUsage->ComponentCount : 0;
+		const int32 DebugInstancesForSource = DebugUsage ? DebugUsage->InstanceCount : 0;
+		UE_LOG(LogOptimizationPreviewTools, Display, TEXT("  %s | comps=%d instances=%d | debugComps=%d debugInstances=%d"),
+			*Usage.Label,
+			Usage.ComponentCount,
+			Usage.InstanceCount,
+			DebugComponentsForSource,
+			DebugInstancesForSource);
+	}
+}
+
+static FAutoConsoleCommand GDumpLandscapeGrassCommand(
+	TEXT("materialgpu.DumpLandscapeGrass"),
+	TEXT("Dump Landscape Grass and InstancedFoliageActor source labels, instance counts, and current Material GPU debug-row coverage."),
+	FConsoleCommandDelegate::CreateStatic(&DumpLandscapeGrassDiagnostics));
 
 static bool BuildRowsFromInsightsTrace(UWorld* World)
 {
@@ -3758,8 +4759,10 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 		return false;
 	}
 
+	ClearMaterialReplayDerivedCaches();
 	const double AnalyzeStartTime = FPlatformTime::Seconds();
 	TSharedPtr<const TraceServices::IAnalysisSession> Session = AnalysisService->Analyze(*GTraceFilePath);
+	const double TraceAnalyzeSeconds = FPlatformTime::Seconds() - AnalyzeStartTime;
 	if (!Session.IsValid())
 	{
 		GLastAnalysisMessage = FString::Printf(TEXT("Trace analysis failed: %s"), *GTraceFilePath);
@@ -3767,6 +4770,7 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 		return false;
 	}
 
+	const double SceneBuildStartTime = FPlatformTime::Seconds();
 	TArray<FMaterialAccumulator> SceneRows;
 	BuildSceneMaterialAccumulators(World, SceneRows);
 	SortMaterialAccumulators(SceneRows);
@@ -3776,6 +4780,7 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 	{
 		AddMaterialLookupKeys(SceneLookup, SceneRows[Index], Index);
 	}
+	const double SceneBuildSeconds = FPlatformTime::Seconds() - SceneBuildStartTime;
 
 	TMap<FString, FTraceMaterialAggregate> AggregatesByMaterial;
 	TMap<uint32, FMaterialGpuReplayFrameSample> ReplaySamplesByFrame;
@@ -3783,11 +4788,17 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 	TArray<FMaterialReplayUnitGpuSample> CounterUnitGpuSamples;
 	TArray<FString> TraceDiagnosticSamples;
 	TSet<FString> SeenTraceDiagnosticSamples;
+	TMap<FString, FString> ResolvedMaterialNameCache;
+	TSet<FString> UnresolvedMaterialNameCache;
 	uint64 FrameCount = 0;
 	int32 GpuQueueCount = 0;
 	int32 InspectedGpuEventCount = 0;
 	int32 MaterialDrawEventCount = 0;
 	int32 MatchedTraceEventCount = 0;
+	int32 MaterialResolveCacheHits = 0;
+	int32 MaterialResolveCacheMisses = 0;
+	double GpuEnumerateSeconds = 0.0;
+	double CounterEnumerateSeconds = 0.0;
 
 	{
 		TraceServices::FAnalysisSessionReadScope SessionReadScope(*Session);
@@ -3831,6 +4842,7 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 			Interval.EndTimeSeconds = ClippedEndTime;
 		};
 
+		const double GpuEnumerateStartTime = FPlatformTime::Seconds();
 		TimingProfilerProvider->ReadTimers(
 			[&](const TraceServices::ITimingProfilerTimerReader& TimerReader)
 			{
@@ -3878,7 +4890,15 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 									FString::Printf(TEXT("%s | %s | %.3fms"), *BaseTimerName, *TrimmedEventName, DurationMs));
 							}
 
-							const FString MaterialName = FindMaterialNameForTraceEvent(SceneRows, SceneLookup, TraceEventName, BaseTimerName);
+							const FString MaterialName = FindMaterialNameForTraceEventCached(
+								SceneRows,
+								SceneLookup,
+								TraceEventName,
+								BaseTimerName,
+								ResolvedMaterialNameCache,
+								UnresolvedMaterialNameCache,
+								MaterialResolveCacheHits,
+								MaterialResolveCacheMisses);
 							if (MaterialName.IsEmpty())
 							{
 								return TraceServices::EEventEnumerate::Continue;
@@ -3948,7 +4968,9 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 						AccumulateTimelineIndex(QueueInfo.WorkTimelineIndex);
 					});
 			});
+		GpuEnumerateSeconds = FPlatformTime::Seconds() - GpuEnumerateStartTime;
 
+		const double CounterEnumerateStartTime = FPlatformTime::Seconds();
 		const TraceServices::ICounterProvider& CounterProvider = TraceServices::ReadCounterProvider(*Session);
 		CounterProvider.EnumerateCounters(
 			[&](uint32 CounterId, const TraceServices::ICounter& Counter)
@@ -3972,6 +4994,7 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 						Sample.bFromStatUnitData = true;
 					});
 			});
+		CounterEnumerateSeconds = FPlatformTime::Seconds() - CounterEnumerateStartTime;
 	}
 
 	if (AggregatesByMaterial.Num() == 0)
@@ -3983,6 +5006,7 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 		GMaterialReplayCharacterSamples.Reset();
 		GMaterialReplayFrameGpuMs.Reset();
 		GMaterialReplayFrameGpuMsMax = 0.0f;
+		ClearMaterialReplayDerivedCaches();
 		GMaterialReplayActive = false;
 		GMaterialReplayPlaying = false;
 		GLastAnalysisMessage = FString::Printf(TEXT("No material GPU scopes found. Trace=%s Queues=%d InspectedEvents=%d MaterialDrawEvents=%d MatchedEvents=%d SceneMaterials=%d"),
@@ -4010,6 +5034,7 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 		return false;
 	}
 
+	const double PostProcessStartTime = FPlatformTime::Seconds();
 	for (TPair<uint32, FMaterialGpuReplayFrameSample>& Pair : ReplaySamplesByFrame)
 	{
 		if (TArray<FFrameGpuInterval>* Intervals = FrameGpuIntervalsByFrame.Find(Pair.Key))
@@ -4158,6 +5183,7 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 
 	GLastDebugMaterialCount = GCachedDebugRows.Num();
 	GLastDebugComponentCount = CountUniqueDebugComponents(GCachedDebugRows);
+	const double PostProcessSeconds = FPlatformTime::Seconds() - PostProcessStartTime;
 
 	GLastAnalysisMessage = FString::Printf(TEXT("Insights rows=%d/%d debugMaterials=%d debugComps=%d frames=%llu materialEvents=%d trace=%s"),
 		GCachedRows.Num(),
@@ -4166,6 +5192,16 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 		GLastDebugComponentCount,
 		static_cast<unsigned long long>(FrameCount),
 		MaterialDrawEventCount,
+		*GTraceFilePath);
+
+	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Material GPU Preview trace analysis timings. TraceAnalyze=%.2fs Scene=%.2fs GpuEvents=%.2fs Counters=%.2fs Post=%.2fs ResolveCache=%d/%d Trace=%s"),
+		TraceAnalyzeSeconds,
+		SceneBuildSeconds,
+		GpuEnumerateSeconds,
+		CounterEnumerateSeconds,
+		PostProcessSeconds,
+		MaterialResolveCacheHits,
+		MaterialResolveCacheHits + MaterialResolveCacheMisses,
 		*GTraceFilePath);
 
 	UE_LOG(LogOptimizationPreviewTools, Display, TEXT("Material GPU Preview trace analysis complete. Rows=%d/%d TraceMaterials=%d DebugMaterials=%d DebugComponents=%d InspectedEvents=%d MaterialDrawEvents=%d MatchedEvents=%d Frames=%llu Queues=%d Analyze=%.2fs Trace=%s"),
@@ -4430,6 +5466,7 @@ static void StartMaterialReplayCameraCapture(UWorld* World)
 	GMaterialReplayCameraSamples.Reset();
 	GMaterialReplayCharacterSamples.Reset();
 	GMaterialReplayUnitGpuSamples.Reset();
+	ClearMaterialReplayDerivedCaches();
 	GMaterialReplayCameraCaptureWorld = World;
 	if (!World || GCaptureStartTime < 0.0)
 	{
@@ -4485,6 +5522,52 @@ static bool ApplyMaterialReplayCameraSample(ACameraActor* CameraActor, double Ti
 	return true;
 }
 
+static FMaterialReplayAnimationState& FindOrAddMaterialReplayAnimationState(USkeletalMeshComponent* MeshComponent)
+{
+	FMaterialReplayAnimationState& State = GMaterialReplayAnimationStates.FindOrAdd(FObjectKey(MeshComponent));
+	if (!State.MeshComponent.IsValid())
+	{
+		State.MeshComponent = MeshComponent;
+		State.bPauseAnims = MeshComponent->bPauseAnims;
+		State.GlobalAnimRateScale = MeshComponent->GlobalAnimRateScale;
+	}
+	return State;
+}
+
+static void SetMaterialReplayMeshAnimationFrozen(USkeletalMeshComponent* MeshComponent, bool bFreezeAnimation)
+{
+	if (!MeshComponent)
+	{
+		return;
+	}
+
+	FMaterialReplayAnimationState& State = FindOrAddMaterialReplayAnimationState(MeshComponent);
+	if (bFreezeAnimation)
+	{
+		MeshComponent->GlobalAnimRateScale = 0.0f;
+		MeshComponent->bPauseAnims = true;
+	}
+	else
+	{
+		MeshComponent->GlobalAnimRateScale = State.GlobalAnimRateScale;
+		MeshComponent->bPauseAnims = State.bPauseAnims;
+	}
+}
+
+static void RestoreMaterialReplayAnimationStates()
+{
+	for (TPair<FObjectKey, FMaterialReplayAnimationState>& Pair : GMaterialReplayAnimationStates)
+	{
+		if (USkeletalMeshComponent* MeshComponent = Pair.Value.MeshComponent.Get())
+		{
+			MeshComponent->bPauseAnims = Pair.Value.bPauseAnims;
+			MeshComponent->GlobalAnimRateScale = Pair.Value.GlobalAnimRateScale;
+		}
+	}
+
+	GMaterialReplayAnimationStates.Reset();
+}
+
 static int32 FindMaterialReplayCharacterSampleIndexForTime(double TimeSeconds)
 {
 	if (GMaterialReplayCharacterSamples.Num() == 0)
@@ -4506,7 +5589,7 @@ static int32 FindMaterialReplayCharacterSampleIndexForTime(double TimeSeconds)
 	return BestIndex;
 }
 
-static bool ApplyMaterialReplayCharacterSample(UWorld* World, double TimeSeconds)
+static bool ApplyMaterialReplayCharacterSample(UWorld* World, double TimeSeconds, bool bSeedAnimationFromSample)
 {
 	if (!World || GMaterialReplayCharacterSamples.Num() == 0)
 	{
@@ -4551,26 +5634,31 @@ static bool ApplyMaterialReplayCharacterSample(UWorld* World, double TimeSeconds
 
 	if (USkeletalMeshComponent* MeshComponent = Character->GetMesh())
 	{
-		if (UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance())
+		SetMaterialReplayMeshAnimationFrozen(MeshComponent, false);
+		if (bSeedAnimationFromSample)
 		{
-			UAnimMontage* ActiveMontage = Sample.ActiveMontage.Get();
-			if (Sample.bHasMontage && ActiveMontage)
+			if (UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance())
 			{
-				if (!AnimInstance->Montage_IsPlaying(ActiveMontage))
+				UAnimMontage* ActiveMontage = Sample.ActiveMontage.Get();
+				if (Sample.bHasMontage && ActiveMontage)
 				{
-					AnimInstance->Montage_Play(
-						ActiveMontage,
-						FMath::Max(Sample.MontagePlayRate, 0.001f),
-						EMontagePlayReturnType::MontageLength,
-						Sample.MontagePosition,
-						true);
+					const float ReplayMontagePlayRate = FMath::Max(Sample.MontagePlayRate, 0.001f);
+					if (!AnimInstance->Montage_IsPlaying(ActiveMontage))
+					{
+						AnimInstance->Montage_Play(
+							ActiveMontage,
+							ReplayMontagePlayRate,
+							EMontagePlayReturnType::MontageLength,
+							Sample.MontagePosition,
+							true);
+					}
+					AnimInstance->Montage_SetPlayRate(ActiveMontage, ReplayMontagePlayRate);
+					AnimInstance->Montage_SetPosition(ActiveMontage, Sample.MontagePosition);
 				}
-				AnimInstance->Montage_SetPlayRate(ActiveMontage, Sample.MontagePlayRate);
-				AnimInstance->Montage_SetPosition(ActiveMontage, Sample.MontagePosition);
-			}
-			else if (AnimInstance->GetCurrentActiveMontage())
-			{
-				AnimInstance->Montage_Stop(0.0f);
+				else if (AnimInstance->GetCurrentActiveMontage())
+				{
+					AnimInstance->Montage_Stop(0.0f);
+				}
 			}
 		}
 	}
@@ -4763,6 +5851,8 @@ static void RebuildMaterialReplayFrameGpuMs()
 {
 	GMaterialReplayFrameGpuMs.Reset();
 	GMaterialReplayFrameGpuMsMax = 0.0f;
+	GMaterialReplayPeakIndices.Reset();
+	GMaterialReplayPeakIndicesDirty = true;
 	GMaterialReplayFrameGpuMs.Reserve(GMaterialReplaySamples.Num());
 
 	for (const FMaterialGpuReplayFrameSample& Sample : GMaterialReplaySamples)
@@ -4789,6 +5879,155 @@ static float GetMaterialReplayCurrentFrameGpuMs()
 	return GMaterialReplayFrameGpuMs.IsValidIndex(SampleIndex) ? GMaterialReplayFrameGpuMs[SampleIndex] : 0.0f;
 }
 
+enum class EMaterialReplayPeakJumpMode : uint8
+{
+	Previous,
+	Max,
+	Next
+};
+
+static double GetMaterialReplaySampleTimeForIndex(int32 SampleIndex)
+{
+	return GMaterialReplaySamples.IsValidIndex(SampleIndex)
+		? FMath::Max(0.0, GMaterialReplaySamples[SampleIndex].TimeSeconds)
+		: 0.0;
+}
+
+static void BuildMaterialReplayGpuPeakIndices(TArray<int32>& OutPeakIndices)
+{
+	OutPeakIndices.Reset();
+
+	if (GMaterialReplayFrameGpuMs.Num() != GMaterialReplaySamples.Num())
+	{
+		RebuildMaterialReplayFrameGpuMs();
+	}
+
+	if (!GMaterialReplayPeakIndicesDirty)
+	{
+		OutPeakIndices = GMaterialReplayPeakIndices;
+		return;
+	}
+
+	GMaterialReplayPeakIndices.Reset();
+	if (GMaterialReplayFrameGpuMs.Num() == 0 || GMaterialReplayFrameGpuMsMax <= KINDA_SMALL_NUMBER)
+	{
+		GMaterialReplayPeakIndicesDirty = false;
+		return;
+	}
+
+	constexpr float PeakMinRelativeToMax = 0.35f;
+	constexpr float PeakGpuMsEpsilon = 0.001f;
+	constexpr double PeakMergeSeconds = 0.12;
+	const float PeakThreshold = FMath::Max(GMaterialReplayFrameGpuMsMax * PeakMinRelativeToMax, PeakGpuMsEpsilon);
+
+	for (int32 SampleIndex = 0; SampleIndex < GMaterialReplayFrameGpuMs.Num(); ++SampleIndex)
+	{
+		const float GpuMs = GMaterialReplayFrameGpuMs[SampleIndex];
+		if (GpuMs < PeakThreshold)
+		{
+			continue;
+		}
+
+		const float PreviousGpuMs = GMaterialReplayFrameGpuMs.IsValidIndex(SampleIndex - 1)
+			? GMaterialReplayFrameGpuMs[SampleIndex - 1]
+			: -TNumericLimits<float>::Max();
+		const float NextGpuMs = GMaterialReplayFrameGpuMs.IsValidIndex(SampleIndex + 1)
+			? GMaterialReplayFrameGpuMs[SampleIndex + 1]
+			: -TNumericLimits<float>::Max();
+		if (GpuMs <= PreviousGpuMs + PeakGpuMsEpsilon || GpuMs < NextGpuMs - PeakGpuMsEpsilon)
+		{
+			continue;
+		}
+
+		if (GMaterialReplayPeakIndices.Num() > 0)
+		{
+			const int32 LastPeakIndex = GMaterialReplayPeakIndices.Last();
+			const double LastPeakTime = GetMaterialReplaySampleTimeForIndex(LastPeakIndex);
+			const double CandidateTime = GetMaterialReplaySampleTimeForIndex(SampleIndex);
+			if (CandidateTime - LastPeakTime <= PeakMergeSeconds)
+			{
+				if (GpuMs > GMaterialReplayFrameGpuMs[LastPeakIndex])
+				{
+					GMaterialReplayPeakIndices.Last() = SampleIndex;
+				}
+				continue;
+			}
+		}
+
+		GMaterialReplayPeakIndices.Add(SampleIndex);
+	}
+
+	GMaterialReplayPeakIndicesDirty = false;
+	OutPeakIndices = GMaterialReplayPeakIndices;
+}
+
+static int32 FindMaterialReplayGpuPeakIndex(EMaterialReplayPeakJumpMode Mode)
+{
+	TArray<int32> PeakIndices;
+	BuildMaterialReplayGpuPeakIndices(PeakIndices);
+	if (PeakIndices.Num() == 0)
+	{
+		return INDEX_NONE;
+	}
+
+	if (Mode == EMaterialReplayPeakJumpMode::Max)
+	{
+		int32 BestPeakIndex = PeakIndices[0];
+		for (const int32 PeakIndex : PeakIndices)
+		{
+			if (GMaterialReplayFrameGpuMs.IsValidIndex(PeakIndex)
+				&& GMaterialReplayFrameGpuMs[PeakIndex] > GMaterialReplayFrameGpuMs[BestPeakIndex])
+			{
+				BestPeakIndex = PeakIndex;
+			}
+		}
+		return BestPeakIndex;
+	}
+
+	constexpr double PeakTimeEpsilon = 0.001;
+	const double CurrentTime = GMaterialReplayCurrentTimeSeconds;
+	int32 BestPeakIndex = INDEX_NONE;
+	for (const int32 PeakIndex : PeakIndices)
+	{
+		const double PeakTime = GetMaterialReplaySampleTimeForIndex(PeakIndex);
+		if (Mode == EMaterialReplayPeakJumpMode::Previous)
+		{
+			if (PeakTime < CurrentTime - PeakTimeEpsilon)
+			{
+				BestPeakIndex = PeakIndex;
+			}
+			else
+			{
+				break;
+			}
+		}
+		else if (PeakTime > CurrentTime + PeakTimeEpsilon)
+		{
+			BestPeakIndex = PeakIndex;
+			break;
+		}
+	}
+
+	return BestPeakIndex;
+}
+
+static FReply JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode Mode)
+{
+	const int32 PeakIndex = FindMaterialReplayGpuPeakIndex(Mode);
+	if (!GMaterialReplaySamples.IsValidIndex(PeakIndex))
+	{
+		return FReply::Handled();
+	}
+
+	UGameViewportClient* GameViewportClient = GMaterialReplayOverlayViewport.Get();
+	UWorld* World = GameViewportClient ? GameViewportClient->GetWorld() : GWorld;
+	GMaterialReplayPlaying = false;
+	GMaterialReplayScrubbing = false;
+	GMaterialReplayLastTickSeconds = -1.0;
+	ApplyMaterialReplayTime(World, GameViewportClient, GetMaterialReplaySampleTimeForIndex(PeakIndex), true);
+	return FReply::Handled();
+}
+
 static float GetMaterialReplayUnitGpuMsForTime(double TimeSeconds)
 {
 	return FindNearestMaterialReplayUnitGpuMs(GMaterialReplayUnitGpuSamples, TimeSeconds);
@@ -4802,15 +6041,30 @@ static float FindNearestMaterialReplayUnitGpuMs(const TArray<FMaterialReplayUnit
 	}
 
 	const double ClampedTime = FMath::Max(0.0, TimeSeconds);
-	int32 BestIndex = 0;
-	double BestDistance = TNumericLimits<double>::Max();
-	for (int32 SampleIndex = 0; SampleIndex < Samples.Num(); ++SampleIndex)
+	int32 LowerBoundIndex = 0;
+	int32 UpperBoundIndex = Samples.Num();
+	while (LowerBoundIndex < UpperBoundIndex)
 	{
-		const double Distance = FMath::Abs(Samples[SampleIndex].TimeSeconds - ClampedTime);
-		if (Distance < BestDistance)
+		const int32 MiddleIndex = LowerBoundIndex + (UpperBoundIndex - LowerBoundIndex) / 2;
+		if (Samples[MiddleIndex].TimeSeconds < ClampedTime)
 		{
-			BestDistance = Distance;
-			BestIndex = SampleIndex;
+			LowerBoundIndex = MiddleIndex + 1;
+		}
+		else
+		{
+			UpperBoundIndex = MiddleIndex;
+		}
+	}
+
+	int32 BestIndex = FMath::Clamp(LowerBoundIndex, 0, Samples.Num() - 1);
+	if (LowerBoundIndex > 0)
+	{
+		const int32 PreviousIndex = LowerBoundIndex - 1;
+		const double CurrentDistance = FMath::Abs(Samples[BestIndex].TimeSeconds - ClampedTime);
+		const double PreviousDistance = FMath::Abs(Samples[PreviousIndex].TimeSeconds - ClampedTime);
+		if (PreviousDistance <= CurrentDistance)
+		{
+			BestIndex = PreviousIndex;
 		}
 	}
 
@@ -4902,6 +6156,52 @@ static void GetMaterialReplaySampleValuesForRow(
 	}
 }
 
+static void TouchMaterialReplayRowsCache(int32 SampleIndex)
+{
+	GMaterialReplayRowsCacheLru.Remove(SampleIndex);
+	GMaterialReplayRowsCacheLru.Add(SampleIndex);
+}
+
+static void AddMaterialReplayRowsCacheEntry(int32 SampleIndex, const TArray<FMaterialAccumulator>& Rows, int32 DebugComponentCount)
+{
+	constexpr int32 MaxReplayRowsCacheEntries = 64;
+
+	FMaterialReplayRowsCacheEntry& Entry = GMaterialReplayRowsCache.FindOrAdd(SampleIndex);
+	Entry.Rows = Rows;
+	Entry.DebugComponentCount = DebugComponentCount;
+	TouchMaterialReplayRowsCache(SampleIndex);
+
+	while (GMaterialReplayRowsCacheLru.Num() > MaxReplayRowsCacheEntries)
+	{
+		const int32 OldestSampleIndex = GMaterialReplayRowsCacheLru[0];
+		GMaterialReplayRowsCacheLru.RemoveAt(0, 1, EAllowShrinking::No);
+		GMaterialReplayRowsCache.Remove(OldestSampleIndex);
+	}
+}
+
+static bool ApplyMaterialReplayRowsCacheEntry(int32 SampleIndex)
+{
+	const FMaterialReplayRowsCacheEntry* Entry = GMaterialReplayRowsCache.Find(SampleIndex);
+	if (!Entry)
+	{
+		return false;
+	}
+
+	GMaterialReplayDebugRows = Entry->Rows;
+	GMaterialReplayCurrentRowsAll = Entry->Rows;
+	GMaterialReplayCurrentRows = GMaterialReplayCurrentRowsAll;
+	const int32 TopN = FMath::Clamp(CVarTopN.GetValueOnGameThread(), 1, 50);
+	if (GMaterialReplayCurrentRows.Num() > TopN)
+	{
+		GMaterialReplayCurrentRows.SetNum(TopN);
+	}
+
+	GLastDebugMaterialCount = GMaterialReplayDebugRows.Num();
+	GLastDebugComponentCount = Entry->DebugComponentCount;
+	TouchMaterialReplayRowsCache(SampleIndex);
+	return true;
+}
+
 static void BuildMaterialReplayRowsForSample(int32 SampleIndex)
 {
 	GMaterialReplayCurrentRows.Reset();
@@ -4912,6 +6212,11 @@ static void BuildMaterialReplayRowsForSample(int32 SampleIndex)
 	{
 		GLastDebugMaterialCount = 0;
 		GLastDebugComponentCount = 0;
+		return;
+	}
+
+	if (ApplyMaterialReplayRowsCacheEntry(SampleIndex))
+	{
 		return;
 	}
 
@@ -4959,9 +6264,10 @@ static void BuildMaterialReplayRowsForSample(int32 SampleIndex)
 
 	GLastDebugMaterialCount = GMaterialReplayDebugRows.Num();
 	GLastDebugComponentCount = CountUniqueDebugComponents(GMaterialReplayDebugRows);
+	AddMaterialReplayRowsCacheEntry(SampleIndex, GMaterialReplayDebugRows, GLastDebugComponentCount);
 }
 
-static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* ViewportClient, double TimeSeconds, bool bForceRefresh = false)
+static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* ViewportClient, double TimeSeconds, bool bForceRefresh)
 {
 	if (!World || GMaterialReplaySamples.Num() == 0)
 	{
@@ -4970,13 +6276,15 @@ static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* Viewpo
 
 	GMaterialReplayCurrentTimeSeconds = FMath::Clamp(TimeSeconds, 0.0, GetMaterialReplayDurationSeconds());
 	const int32 SampleIndex = FindMaterialReplaySampleIndexForTime(GMaterialReplayCurrentTimeSeconds);
+	const bool bSampleChanged = SampleIndex != GMaterialReplayCurrentSampleIndex;
+	const bool bSeedAnimationFromSample = bForceRefresh || bSampleChanged;
 	const bool bNeedsActorColorationRefresh = ShouldUseActorColorationBackend()
 		&& IsMaterialDebugColorModeEnabled()
 		&& (!GActorColorationActive || GActorColorationColors.Num() == 0);
 	if (!bForceRefresh && SampleIndex == GMaterialReplayCurrentSampleIndex && !bNeedsActorColorationRefresh)
 	{
 		ApplyMaterialReplayCameraSample(GMaterialReplayCameraActor.Get(), GMaterialReplayCurrentTimeSeconds);
-		ApplyMaterialReplayCharacterSample(World, GMaterialReplayCurrentTimeSeconds);
+		ApplyMaterialReplayCharacterSample(World, GMaterialReplayCurrentTimeSeconds, false);
 		return;
 	}
 
@@ -4987,7 +6295,7 @@ static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* Viewpo
 	ApplyMaterialDebugVisualization(World, ViewportClient);
 
 	ApplyMaterialReplayCameraSample(GMaterialReplayCameraActor.Get(), GMaterialReplayCurrentTimeSeconds);
-	ApplyMaterialReplayCharacterSample(World, GMaterialReplayCurrentTimeSeconds);
+	ApplyMaterialReplayCharacterSample(World, GMaterialReplayCurrentTimeSeconds, bSeedAnimationFromSample);
 }
 
 static void RemoveMaterialReplayOverlay()
@@ -5002,9 +6310,15 @@ static void RemoveMaterialReplayOverlay()
 
 	GMaterialReplayOverlayWidget.Reset();
 	GMaterialReplayPlayButtonWidget.Reset();
+	GMaterialReplayPreviousPeakButtonWidget.Reset();
+	GMaterialReplayMaxPeakButtonWidget.Reset();
+	GMaterialReplayNextPeakButtonWidget.Reset();
 	GMaterialReplaySliderWidget.Reset();
 	GMaterialReplayOverlayViewport = nullptr;
 	GMaterialReplayPlayButtonRect.Reset();
+	GMaterialReplayPreviousPeakButtonRect.Reset();
+	GMaterialReplayMaxPeakButtonRect.Reset();
+	GMaterialReplayNextPeakButtonRect.Reset();
 	GMaterialReplaySliderRect.Reset();
 	GMaterialReplayDraggingSlider = false;
 	GMaterialReplayScrubbing = false;
@@ -5076,6 +6390,9 @@ static void SetInputScreenRectFromLocal(
 static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClient)
 {
 	GMaterialReplayPlayButtonRect.Reset();
+	GMaterialReplayPreviousPeakButtonRect.Reset();
+	GMaterialReplayMaxPeakButtonRect.Reset();
+	GMaterialReplayNextPeakButtonRect.Reset();
 	GMaterialReplaySliderRect.Reset();
 
 	if (!GMaterialReplayActive || !GameViewportClient)
@@ -5084,8 +6401,11 @@ static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClie
 	}
 
 	const bool bHasPlayButtonRect = SetInputScreenRectFromWidget(GMaterialReplayPlayButtonWidget, 4.0f, 6.0f, GMaterialReplayPlayButtonRect);
+	const bool bHasPreviousPeakButtonRect = SetInputScreenRectFromWidget(GMaterialReplayPreviousPeakButtonWidget, 3.0f, 4.0f, GMaterialReplayPreviousPeakButtonRect);
+	const bool bHasMaxPeakButtonRect = SetInputScreenRectFromWidget(GMaterialReplayMaxPeakButtonWidget, 3.0f, 4.0f, GMaterialReplayMaxPeakButtonRect);
+	const bool bHasNextPeakButtonRect = SetInputScreenRectFromWidget(GMaterialReplayNextPeakButtonWidget, 3.0f, 4.0f, GMaterialReplayNextPeakButtonRect);
 	const bool bHasSliderRect = SetInputScreenRectFromWidget(GMaterialReplaySliderWidget, 4.0f, 14.0f, GMaterialReplaySliderRect);
-	if (bHasPlayButtonRect && bHasSliderRect)
+	if (bHasPlayButtonRect && bHasPreviousPeakButtonRect && bHasMaxPeakButtonRect && bHasNextPeakButtonRect && bHasSliderRect)
 	{
 		return;
 	}
@@ -5111,6 +6431,12 @@ static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClie
 	constexpr float GraphGap = 7.0f;
 	constexpr float ButtonWidth = 76.0f;
 	constexpr float ButtonHeight = 30.0f;
+	constexpr float PeakButtonGap = 4.0f;
+	constexpr float PeakButtonTopGap = 5.0f;
+	constexpr float PeakButtonHeight = 24.0f;
+	constexpr float PeakPreviousButtonWidth = 30.0f;
+	constexpr float PeakMaxButtonWidth = 56.0f;
+	constexpr float PeakNextButtonWidth = 30.0f;
 	constexpr float TimeSlotLeftPadding = 14.0f;
 	constexpr float TimeSlotWidth = 118.0f;
 	constexpr float TimeSlotRightPadding = 12.0f;
@@ -5119,10 +6445,11 @@ static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClie
 
 	const float OuterLeft = OuterPaddingX;
 	const float OuterRight = FMath::Max(OuterLeft + 1.0f, ViewportSize.X - OuterPaddingX);
-	const float OuterTop = FMath::Max(0.0f, ViewportSize.Y - OuterPaddingBottom - GraphHeight - GraphGap - ButtonHeight - BorderPaddingY * 2.0f);
+	const float OuterTop = FMath::Max(0.0f, ViewportSize.Y - OuterPaddingBottom - GraphHeight - GraphGap - ButtonHeight - PeakButtonTopGap - PeakButtonHeight - BorderPaddingY * 2.0f);
 	const float InnerLeft = OuterLeft + BorderPaddingX;
 	const float InnerRight = FMath::Max(InnerLeft + 1.0f, OuterRight - BorderPaddingX);
-	const float ControlTop = OuterTop + BorderPaddingY + GraphHeight + GraphGap;
+	const float PeakButtonTop = OuterTop + BorderPaddingY + GraphHeight + GraphGap;
+	const float ControlTop = PeakButtonTop + PeakButtonHeight + PeakButtonTopGap;
 
 	if (!bHasPlayButtonRect)
 	{
@@ -5131,6 +6458,34 @@ static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClie
 			FVector2D(InnerLeft, ControlTop),
 			FVector2D(InnerLeft + ButtonWidth, ControlTop + ButtonHeight),
 			GMaterialReplayPlayButtonRect);
+	}
+
+	float PeakButtonLeft = InnerLeft;
+	if (!bHasPreviousPeakButtonRect)
+	{
+		SetInputScreenRectFromLocal(
+			ViewportGeometry,
+			FVector2D(PeakButtonLeft, PeakButtonTop),
+			FVector2D(PeakButtonLeft + PeakPreviousButtonWidth, PeakButtonTop + PeakButtonHeight),
+			GMaterialReplayPreviousPeakButtonRect);
+	}
+	PeakButtonLeft += PeakPreviousButtonWidth + PeakButtonGap;
+	if (!bHasMaxPeakButtonRect)
+	{
+		SetInputScreenRectFromLocal(
+			ViewportGeometry,
+			FVector2D(PeakButtonLeft, PeakButtonTop),
+			FVector2D(PeakButtonLeft + PeakMaxButtonWidth, PeakButtonTop + PeakButtonHeight),
+			GMaterialReplayMaxPeakButtonRect);
+	}
+	PeakButtonLeft += PeakMaxButtonWidth + PeakButtonGap;
+	if (!bHasNextPeakButtonRect)
+	{
+		SetInputScreenRectFromLocal(
+			ViewportGeometry,
+			FVector2D(PeakButtonLeft, PeakButtonTop),
+			FVector2D(PeakButtonLeft + PeakNextButtonWidth, PeakButtonTop + PeakButtonHeight),
+			GMaterialReplayNextPeakButtonRect);
 	}
 
 	const float PreferredSliderLeft = InnerLeft + ButtonWidth + TimeSlotLeftPadding + TimeSlotWidth + TimeSlotRightPadding;
@@ -5159,6 +6514,27 @@ static bool TryHandleMaterialReplayPointerDown(const FPointerEvent& PointerEvent
 		GMaterialReplayDraggingSlider = false;
 		GMaterialReplayScrubbing = false;
 		ToggleMaterialReplayPlayback();
+		return true;
+	}
+
+	if (GMaterialReplayPreviousPeakButtonRect.Contains(ScreenPosition))
+	{
+		GMaterialReplayDraggingSlider = false;
+		JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode::Previous);
+		return true;
+	}
+
+	if (GMaterialReplayMaxPeakButtonRect.Contains(ScreenPosition))
+	{
+		GMaterialReplayDraggingSlider = false;
+		JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode::Max);
+		return true;
+	}
+
+	if (GMaterialReplayNextPeakButtonRect.Contains(ScreenPosition))
+	{
+		GMaterialReplayDraggingSlider = false;
+		JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode::Next);
 		return true;
 	}
 
@@ -5227,12 +6603,15 @@ static bool TryHandleMaterialReplayPointerUp(const FPointerEvent& PointerEvent)
 static TSharedRef<SWidget> MakeMaterialReplayButton(
 	const TAttribute<FText>& Label,
 	TFunction<FReply()> OnClicked,
-	TSharedPtr<SWidget>* OutHitWidget = nullptr)
+	TSharedPtr<SWidget>* OutHitWidget = nullptr,
+	float WidthOverride = 76.0f,
+	float HeightOverride = 30.0f,
+	const TAttribute<FText>& ToolTip = TAttribute<FText>())
 {
 	TSharedPtr<SBox> ButtonBox;
 	TSharedRef<SWidget> ButtonWidget = SAssignNew(ButtonBox, SBox)
-		.WidthOverride(76.0f)
-		.HeightOverride(30.0f)
+		.WidthOverride(WidthOverride)
+		.HeightOverride(HeightOverride)
 		[
 			SNew(SBorder)
 			.Padding(1.0f)
@@ -5247,6 +6626,7 @@ static TSharedRef<SWidget> MakeMaterialReplayButton(
 				.ClickMethod(EButtonClickMethod::MouseDown)
 				.TouchMethod(EButtonTouchMethod::Down)
 				.IsFocusable(false)
+				.ToolTipText(ToolTip)
 				.OnClicked_Lambda([OnClicked]()
 				{
 					return OnClicked();
@@ -5266,6 +6646,78 @@ static TSharedRef<SWidget> MakeMaterialReplayButton(
 	}
 
 	return ButtonWidget;
+}
+
+static TSharedRef<SWidget> MakeMaterialReplayPeakButtonRow()
+{
+	return SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			MakeMaterialReplayButton(
+				TAttribute<FText>::CreateLambda([]()
+				{
+					return FText::FromString(TEXT("<<"));
+				}),
+				[]()
+				{
+					return JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode::Previous);
+				},
+				&GMaterialReplayPreviousPeakButtonWidget,
+				30.0f,
+				24.0f,
+				TAttribute<FText>::CreateLambda([]()
+				{
+					return FText::FromString(TEXT("Previous GPU spike peak"));
+				}))
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
+		[
+			MakeMaterialReplayButton(
+				TAttribute<FText>::CreateLambda([]()
+				{
+					return FText::FromString(TEXT("Maxms"));
+				}),
+				[]()
+				{
+					return JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode::Max);
+				},
+				&GMaterialReplayMaxPeakButtonWidget,
+				56.0f,
+				24.0f,
+				TAttribute<FText>::CreateLambda([]()
+				{
+					return FText::FromString(TEXT("Jump to highest GPU spike peak"));
+				}))
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
+		[
+			MakeMaterialReplayButton(
+				TAttribute<FText>::CreateLambda([]()
+				{
+					return FText::FromString(TEXT(">>"));
+				}),
+				[]()
+				{
+					return JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode::Next);
+				},
+				&GMaterialReplayNextPeakButtonWidget,
+				30.0f,
+				24.0f,
+				TAttribute<FText>::CreateLambda([]()
+				{
+					return FText::FromString(TEXT("Next GPU spike peak"));
+				}))
+		]
+		+ SHorizontalBox::Slot()
+		.FillWidth(1.0f)
+		[
+			SNew(SSpacer)
+		];
 }
 
 class SMaterialReplayGpuGraph final : public SLeafWidget
@@ -5567,6 +7019,12 @@ static TSharedRef<SWidget> BuildMaterialReplayOverlay()
 				+ SVerticalBox::Slot()
 				.AutoHeight()
 				[
+					MakeMaterialReplayPeakButtonRow()
+				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(0.0f, 5.0f, 0.0f, 0.0f))
+				[
 					SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
 					.AutoWidth()
@@ -5759,6 +7217,7 @@ static void StopMaterialReplay(UWorld* World, FCommonViewportClient* ViewportCli
 	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
 	StopMaterialReplayTicker();
 	RemoveMaterialReplayOverlay();
+	RestoreMaterialReplayAnimationStates();
 	DestroyMaterialReplayCamera();
 
 	if (bWasActive)
@@ -5795,6 +7254,21 @@ static FString GetMaterialTableName(const FMaterialAccumulator& Row, int32 MaxLe
 	else if (Name.Split(TEXT("/"), &PackageName, &AssetName, ESearchCase::CaseSensitive, ESearchDir::FromEnd) && !AssetName.IsEmpty())
 	{
 		Name = AssetName;
+	}
+
+	if (Row.SourceUsages.Num() > 0)
+	{
+		const FMaterialSourceUsage& SourceUsage = Row.SourceUsages[0];
+		FString SourceLabel = SourceUsage.Label;
+		if (SourceUsage.InstanceCount > 0)
+		{
+			SourceLabel += FString::Printf(TEXT(" x%d"), SourceUsage.InstanceCount);
+		}
+		if (Row.SourceUsages.Num() > 1)
+		{
+			SourceLabel += FString::Printf(TEXT(" +%d"), Row.SourceUsages.Num() - 1);
+		}
+		Name += FString::Printf(TEXT(" [%s]"), *SourceLabel);
 	}
 
 	return CompactPath(Name, MaxLen);
