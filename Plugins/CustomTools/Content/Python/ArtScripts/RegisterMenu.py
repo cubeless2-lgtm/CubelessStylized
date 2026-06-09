@@ -172,7 +172,7 @@ def _register_menu():
         cubeless_menu,
         "Python.ApplyCubelessEDPCGSelector",
         "Cubeless ED : Apply PCG Selector",
-        "Apply selected BP_Cubeless_ED_PCGAuthoringSelector actors, or all selector actors if none are selected.",
+        "Apply selected Cubeless ED PCG selector or production candidate actors, or all selector actors if none are selected.",
         _python_command("apply_cubeless_ed_authoring_selector")
     )
 

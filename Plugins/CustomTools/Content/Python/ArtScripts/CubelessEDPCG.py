@@ -31,6 +31,10 @@ ECOSYSTEM_BLUEPRINT_CLASS_PATH = (
     "/Game/Cubeless/PCG/ElectricDreamsLearning/Blueprints/Authoring/"
     "BP_Cubeless_ED_PCGEcosystemSelector.BP_Cubeless_ED_PCGEcosystemSelector_C"
 )
+PRODUCTION_CANDIDATE_BLUEPRINT_CLASS_PATH = (
+    "/Game/Cubeless/PCG/ProductionCandidates/Blueprints/"
+    "BP_Cubeless_PCG_EcosystemCandidate.BP_Cubeless_PCG_EcosystemCandidate_C"
+)
 MATRIX_GRAPH_FOLDER = "/Game/Cubeless/PCG/ElectricDreamsLearning/DesignerMatrixCombos"
 PROFILE_MATRIX_GRAPH_FOLDER = "/Game/Cubeless/PCG/ElectricDreamsLearning/DesignerProfileMatrixCombos"
 STYLE_PROFILE_MATRIX_GRAPH_FOLDER = "/Game/Cubeless/PCG/ElectricDreamsLearning/DesignerStyleProfileMatrixCombos"
@@ -41,6 +45,8 @@ DYNAMIC_MATERIAL_AXIS_GRAPH_PATH = (
     "PCG_Cubeless_ED_DynamicMaterialAxis_ActorPropertySelector_Compat."
     "PCG_Cubeless_ED_DynamicMaterialAxis_ActorPropertySelector_Compat"
 )
+LANDSCAPE_TRACE_Z = 200000.0
+LANDSCAPE_CONFORM_LOCAL_XY_LIMIT = 5000.0
 TRUE_MATERIAL_STYLE_GRAPH_FOLDER = (
     "/Game/Cubeless/PCG/ElectricDreamsLearning/TrueMaterialApplied/DesignerStyleProfileMatrixCombos"
 )
@@ -146,6 +152,73 @@ ECOSYSTEM_MODES = {
     2: "TreeOnly",
     3: "Combined",
 }
+TREE_OVERRIDE_TO_AMOUNT = {
+    2: 1,
+    3: 2,
+    4: 3,
+}
+PRODUCTION_CANDIDATE_PRESETS = {
+    1: {
+        "label": "MixedMeadowDefault",
+        "ecosystem_mode": 3,
+        "visual_style_type": 3,
+        "profile_mode": 3,
+        "ground_amount_type": 2,
+        "ditch_amount_type": 1,
+        "tree_style_type": 1,
+        "tree_amount_type": 1,
+        "material_domain_type": 1,
+        "material_variant_type": 2,
+    },
+    2: {
+        "label": "DenseGroundFoliage",
+        "ecosystem_mode": 3,
+        "visual_style_type": 4,
+        "profile_mode": 3,
+        "ground_amount_type": 3,
+        "ditch_amount_type": 2,
+        "tree_style_type": 2,
+        "tree_amount_type": 2,
+        "material_domain_type": 1,
+        "material_variant_type": 3,
+    },
+    3: {
+        "label": "RockySparse",
+        "ecosystem_mode": 1,
+        "visual_style_type": 5,
+        "profile_mode": 1,
+        "ground_amount_type": 1,
+        "ditch_amount_type": 2,
+        "tree_style_type": 1,
+        "tree_amount_type": 1,
+        "material_domain_type": 2,
+        "material_variant_type": 3,
+    },
+    4: {
+        "label": "LightConiferEdge",
+        "ecosystem_mode": 3,
+        "visual_style_type": 1,
+        "profile_mode": 3,
+        "ground_amount_type": 2,
+        "ditch_amount_type": 1,
+        "tree_style_type": 3,
+        "tree_amount_type": 3,
+        "material_domain_type": 3,
+        "material_variant_type": 3,
+    },
+    5: {
+        "label": "ClassicGrassFill",
+        "ecosystem_mode": 1,
+        "visual_style_type": 1,
+        "profile_mode": 1,
+        "ground_amount_type": 3,
+        "ditch_amount_type": 2,
+        "tree_style_type": 1,
+        "tree_amount_type": 1,
+        "material_domain_type": 1,
+        "material_variant_type": 1,
+    },
+}
 
 
 def _get_actor_subsystem():
@@ -211,6 +284,10 @@ def _is_ecosystem_selector_actor(actor):
     return _is_actor_of_class(actor, ECOSYSTEM_BLUEPRINT_CLASS_PATH)
 
 
+def _is_production_candidate_actor(actor):
+    return _is_actor_of_class(actor, PRODUCTION_CANDIDATE_BLUEPRINT_CLASS_PATH)
+
+
 def _is_selector_actor(actor):
     return (
         _is_authoring_selector_actor(actor)
@@ -220,6 +297,7 @@ def _is_selector_actor(actor):
         or _is_tree_profile_selector_actor(actor)
         or _is_material_override_selector_actor(actor)
         or _is_ecosystem_selector_actor(actor)
+        or _is_production_candidate_actor(actor)
     )
 
 
@@ -358,6 +436,66 @@ def _get_ecosystem_axes(actor):
         tree_amount_type,
         material_domain_type,
         material_variant_type,
+    )
+
+
+def _normalize_profile_amounts(profile_mode, ground_type, ditch_type):
+    if profile_mode == 1:
+        return ground_type, 0
+    if profile_mode == 2:
+        return 0, ditch_type
+    return ground_type, ditch_type
+
+
+def _resolve_production_candidate_axes(
+    preset_type,
+    density_override=0,
+    tree_override=0,
+    material_mood=0,
+    debug_material_preview=False,
+):
+    preset_type = int(preset_type)
+    if preset_type not in PRODUCTION_CANDIDATE_PRESETS:
+        preset_type = 1
+    axes = dict(PRODUCTION_CANDIDATE_PRESETS[preset_type])
+
+    density_override = int(density_override)
+    if density_override in (1, 2, 3):
+        axes["ground_amount_type"] = density_override
+        axes["ditch_amount_type"] = density_override
+
+    tree_override = int(tree_override)
+    if tree_override == 1:
+        axes["ecosystem_mode"] = 1
+    elif tree_override in TREE_OVERRIDE_TO_AMOUNT:
+        axes["tree_amount_type"] = TREE_OVERRIDE_TO_AMOUNT[tree_override]
+        if axes["ecosystem_mode"] == 1:
+            axes["ecosystem_mode"] = 3
+
+    material_mood = int(material_mood)
+    if material_mood in (1, 2, 3):
+        axes["material_variant_type"] = material_mood
+
+    axes["ground_amount_type"], axes["ditch_amount_type"] = _normalize_profile_amounts(
+        int(axes["profile_mode"]),
+        _normalize_amount_axis(axes["ground_amount_type"]),
+        _normalize_amount_axis(axes["ditch_amount_type"]),
+    )
+    axes["preset_type"] = preset_type
+    axes["density_override"] = density_override if density_override in (0, 1, 2, 3) else 0
+    axes["tree_override"] = tree_override if tree_override in (0, 1, 2, 3, 4) else 0
+    axes["material_mood"] = material_mood if material_mood in (0, 1, 2, 3) else 0
+    axes["debug_material_preview"] = bool(debug_material_preview)
+    return axes
+
+
+def _get_production_candidate_axes(actor):
+    return _resolve_production_candidate_axes(
+        _get_int_property(actor, ("PresetType", "presettype"), 1),
+        _get_int_property(actor, ("DensityOverride", "densityoverride"), 0),
+        _get_int_property(actor, ("TreeOverride", "treeoverride"), 0),
+        _get_int_property(actor, ("MaterialMood", "materialmood"), 0),
+        _get_bool_property(actor, ("DebugMaterialPreview", "debugmaterialpreview"), False),
     )
 
 
@@ -774,6 +912,165 @@ def _prepare_component(component, graph, force):
     component.generate(bool(force))
 
 
+def _get_editor_world():
+    subsystem_cls = getattr(unreal, "UnrealEditorSubsystem", None)
+    if subsystem_cls:
+        try:
+            subsystem = unreal.get_editor_subsystem(subsystem_cls)
+            world = subsystem.get_editor_world() if subsystem else None
+            if world:
+                return world
+        except Exception:
+            pass
+    try:
+        return unreal.EditorLevelLibrary.get_editor_world()
+    except Exception:
+        return None
+
+
+def _is_landscape_actor(actor):
+    if not actor:
+        return False
+    try:
+        class_name = actor.get_class().get_name()
+    except Exception:
+        return False
+    return class_name == "Landscape" or "LandscapeStreamingProxy" in class_name
+
+
+def _trace_landscape_at_xy(x, y):
+    world = _get_editor_world()
+    if not world:
+        return None
+    try:
+        hit = unreal.SystemLibrary.line_trace_single(
+            world,
+            unreal.Vector(float(x), float(y), LANDSCAPE_TRACE_Z),
+            unreal.Vector(float(x), float(y), -LANDSCAPE_TRACE_Z),
+            unreal.TraceTypeQuery.TRACE_TYPE_QUERY1,
+            False,
+            [],
+            unreal.DrawDebugTrace.NONE,
+            True,
+        )
+        data = hit.to_tuple()
+        if not data or not data[0] or len(data) <= 9 or not _is_landscape_actor(data[9]):
+            return None
+        return data[4]
+    except Exception:
+        return None
+
+
+def _get_instance_transform(component, index):
+    transform = component.get_instance_transform(index, True)
+    if isinstance(transform, tuple):
+        return transform[0] if transform else None
+    return transform
+
+
+def _get_world_instance_location(actor, location):
+    actor_location = actor.get_actor_location()
+    world_xy_delta = max(abs(location.x - actor_location.x), abs(location.y - actor_location.y))
+    local_xy_delta = max(abs(location.x), abs(location.y))
+    if world_xy_delta <= LANDSCAPE_CONFORM_LOCAL_XY_LIMIT:
+        return location
+    if local_xy_delta > LANDSCAPE_CONFORM_LOCAL_XY_LIMIT:
+        return location
+    return unreal.Vector(
+        actor_location.x + location.x,
+        actor_location.y + location.y,
+        actor_location.z + location.z,
+    )
+
+
+def _conform_generated_ism_to_landscape(actor, vertical_offset_cache=None):
+    actor_location = actor.get_actor_location()
+    adjusted = 0
+    missed = 0
+    components = actor.get_components_by_class(unreal.InstancedStaticMeshComponent)
+    for component in components:
+        try:
+            count = int(component.get_instance_count())
+        except Exception:
+            continue
+        for index in range(count):
+            transform = _get_instance_transform(component, index)
+            if not transform:
+                missed += 1
+                continue
+            world_location = _get_world_instance_location(actor, transform.translation)
+            landscape_location = _trace_landscape_at_xy(world_location.x, world_location.y)
+            if not landscape_location:
+                missed += 1
+                continue
+            cache_key = (component.get_name(), index)
+            if vertical_offset_cache is not None and cache_key in vertical_offset_cache:
+                vertical_offset = vertical_offset_cache[cache_key]
+            else:
+                vertical_offset = world_location.z - actor_location.z
+                if vertical_offset_cache is not None:
+                    vertical_offset_cache[cache_key] = vertical_offset
+            world_location.z = landscape_location.z + vertical_offset
+            transform.translation = world_location
+            try:
+                component.update_instance_transform(index, transform, True, True, True)
+                adjusted += 1
+            except Exception:
+                missed += 1
+    return {
+        "landscape_conform_adjusted_instances": adjusted,
+        "landscape_conform_missed_instances": missed,
+    }
+
+
+def _schedule_landscape_conform(actor, vertical_offset_cache=None):
+    if vertical_offset_cache is None:
+        vertical_offset_cache = {}
+    state = {
+        "elapsed": 0.0,
+        "handle": None,
+        "last_attempt": 0.0,
+        "successful_passes": 0,
+    }
+
+    def _on_tick(delta_seconds):
+        state["elapsed"] += float(delta_seconds)
+        if state["elapsed"] < 0.15:
+            return
+        if (state["elapsed"] - state["last_attempt"]) < 0.25:
+            return
+        state["last_attempt"] = state["elapsed"]
+        try:
+            result = _conform_generated_ism_to_landscape(actor, vertical_offset_cache)
+            touched = int(result.get("landscape_conform_adjusted_instances", 0)) + int(
+                result.get("landscape_conform_missed_instances", 0)
+            )
+            if touched > 0:
+                state["successful_passes"] += 1
+            if state["successful_passes"] >= 3 or state["elapsed"] >= 5.0:
+                try:
+                    unreal.unregister_slate_post_tick_callback(state["handle"])
+                except Exception:
+                    pass
+        except Exception:
+            try:
+                unreal.unregister_slate_post_tick_callback(state["handle"])
+            except Exception:
+                pass
+            unreal.log_error("Cubeless production candidate landscape conform failed\n{}".format(traceback.format_exc()))
+
+    state["handle"] = unreal.register_slate_post_tick_callback(_on_tick)
+    return True
+
+
+def _set_actor_property_if_available(actor, prop_name, value):
+    try:
+        actor.set_editor_property(prop_name, value)
+        return True
+    except Exception:
+        return False
+
+
 def apply_ecosystem_selector(actor, force=True):
     (
         ecosystem_mode,
@@ -873,7 +1170,121 @@ def apply_ecosystem_selector(actor, force=True):
     }
 
 
+def apply_production_candidate_selector(actor, force=True):
+    axes = _get_production_candidate_axes(actor)
+    ecosystem_mode = int(axes["ecosystem_mode"])
+    style_type = int(axes["visual_style_type"])
+    profile_mode = int(axes["profile_mode"])
+    ground_type = int(axes["ground_amount_type"])
+    ditch_type = int(axes["ditch_amount_type"])
+    tree_style_type = int(axes["tree_style_type"])
+    tree_amount_type = int(axes["tree_amount_type"])
+    material_domain_type = int(axes["material_domain_type"])
+    material_variant_type = int(axes["material_variant_type"])
+    debug_material_preview = bool(axes["debug_material_preview"])
+
+    # The dynamic material preview graph reads these actor properties.
+    _set_actor_property_if_available(actor, "MaterialDomainType", material_domain_type)
+    _set_actor_property_if_available(actor, "MaterialVariantType", material_variant_type)
+
+    style_graph_path = _true_material_style_profile_matrix_graph_path(
+        style_type,
+        profile_mode,
+        ground_type,
+        ditch_type,
+        material_domain_type,
+        material_variant_type,
+    )
+    tree_graph_path = _true_material_tree_profile_graph_path(
+        tree_style_type,
+        tree_amount_type,
+        material_domain_type,
+        material_variant_type,
+    )
+    style_graph = unreal.EditorAssetLibrary.load_asset(style_graph_path)
+    tree_graph = unreal.EditorAssetLibrary.load_asset(tree_graph_path)
+    material_graph_path, material_graph, material_graph_mode = _load_material_override_graph(
+        material_domain_type,
+        material_variant_type,
+    )
+    if not style_graph:
+        raise RuntimeError("Missing production candidate style graph: {}".format(style_graph_path))
+    if not tree_graph:
+        raise RuntimeError("Missing production candidate tree graph: {}".format(tree_graph_path))
+
+    style_component = _find_named_pcg_component(actor, "PCG_Style")
+    tree_component = _find_named_pcg_component(actor, "PCG_Tree")
+    material_component = _find_named_pcg_component(actor, "PCG_MaterialPreview")
+    if not style_component or not tree_component or not material_component:
+        raise RuntimeError(
+            "Production candidate actor expected PCG_Style, PCG_Tree, and PCG_MaterialPreview: {}".format(
+                actor.get_actor_label()
+            )
+        )
+
+    for component in (style_component, tree_component, material_component):
+        component.cleanup(True)
+        component.deactivate()
+
+    if ecosystem_mode in (1, 3):
+        _prepare_component(style_component, style_graph, force)
+    else:
+        style_component.set_graph(style_graph)
+
+    if ecosystem_mode in (2, 3):
+        _prepare_component(tree_component, tree_graph, force)
+    else:
+        tree_component.set_graph(tree_graph)
+
+    if debug_material_preview:
+        _prepare_component(material_component, material_graph, force)
+    else:
+        material_component.set_graph(material_graph)
+
+    counts = _summarize_counts(actor)
+    deferred_material_regeneration = False
+    if (
+        debug_material_preview
+        and material_graph_mode == "dynamic_actor_property"
+        and counts.get(_component_key(material_component), 0) == 0
+    ):
+        deferred_material_regeneration = _schedule_component_regenerate(material_component, material_graph, force)
+        counts = _summarize_counts(actor)
+    landscape_conform_cache = {}
+    landscape_conform = _conform_generated_ism_to_landscape(actor, landscape_conform_cache)
+    landscape_conform["landscape_conform_scheduled"] = _schedule_landscape_conform(actor, landscape_conform_cache)
+
+    return {
+        "selector_type": "production_candidate",
+        "actor": actor.get_actor_label(),
+        "preset_type": axes["preset_type"],
+        "preset_label": axes["label"],
+        "density_override": axes["density_override"],
+        "tree_override": axes["tree_override"],
+        "material_mood": axes["material_mood"],
+        "ecosystem_mode": ecosystem_mode,
+        "visual_style_type": style_type,
+        "profile_mode": profile_mode,
+        "ground_amount_type": ground_type,
+        "ditch_amount_type": ditch_type,
+        "tree_style_type": tree_style_type,
+        "tree_amount_type": tree_amount_type,
+        "material_domain_type": material_domain_type,
+        "material_variant_type": material_variant_type,
+        "debug_material_preview": debug_material_preview,
+        "style_graph": style_graph_path,
+        "tree_graph": tree_graph_path,
+        "material_graph": material_graph_path,
+        "material_graph_mode": material_graph_mode,
+        "component_point_counts": counts,
+        "deferred_material_regeneration": deferred_material_regeneration,
+        "landscape_conform": landscape_conform,
+    }
+
+
 def apply_selector(actor, force=True):
+    if _is_production_candidate_actor(actor):
+        return apply_production_candidate_selector(actor, force=force)
     if _is_ecosystem_selector_actor(actor):
         return apply_ecosystem_selector(actor, force=force)
     if _is_material_override_selector_actor(actor):
@@ -917,7 +1328,21 @@ def _show_delayed_result(actors, selected_only):
         lines = []
         for actor in actors:
             try:
-                if _is_ecosystem_selector_actor(actor):
+                if _is_production_candidate_actor(actor):
+                    axes = _get_production_candidate_axes(actor)
+                    lines.append(
+                        "{} -> Candidate {} {} / Density Override {} / Tree Override {} / Material Mood {} / Debug Preview {} {}".format(
+                            actor.get_actor_label(),
+                            axes["preset_type"],
+                            axes["label"],
+                            axes["density_override"],
+                            axes["tree_override"],
+                            axes["material_mood"],
+                            axes["debug_material_preview"],
+                            _summarize_counts(actor),
+                        )
+                    )
+                elif _is_ecosystem_selector_actor(actor):
                     (
                         ecosystem_mode,
                         style_type,

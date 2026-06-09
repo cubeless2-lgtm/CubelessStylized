@@ -1840,3 +1840,102 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Tivret review: the four threshold colors were already interpolated, but they used linear interpolation. To make stage transitions feel softer without changing the thresholds, the four-point Material GPU Preview ramp now applies `SmoothStep` inside each segment. Masked materials cannot generally have an arbitrary opacity mask extracted safely from their graph at runtime, so the safer first path is to create a transient MID using the original masked material as the parent. That preserves the original opacity mask, UVs, wind, WPO, and clip value, then overrides color-like vector parameters with the debug color.
 - Change: masked fallback now prefers an original-material MID for `BLEND_Masked` slots. It overrides vector parameters whose names look color-like, such as `Color`, `Tint`, `Albedo`, `Diffuse`, `Emissive`, or `Gradient`, and avoids unrelated vector parameters such as speed/direction controls. If no usable color parameter exists, it falls back to the existing solid debug material. Non-masked non-opaque fallback behavior remains unchanged.
 - Validation: UE 5.7 `StylizedCubelessEditor Win64 Development` build succeeded, `git diff --check` passed, and the editor relaunched successfully with no latest-log `Error:`, `Fatal`, `Assertion failed`, or debug material parent warnings. MCP inspection confirmed foliage materials are `BLEND_MASKED` and have color-like vector parameters: `MI_Flower_02` has `Color Gradient 01`, `Color Gradient 02`, `Stem Color`, `Color Tint`; `MI_GrassMedium` has `Emissive Color`, `Color Tint`, and `Cloud Color`. A short verification capture returned no material GPU scopes, so a full live visual verification should be done during a normal replay/capture session with populated debug rows.
+
+## Cubeless PCG Production Candidate Landscape Validation
+
+- Date: 2026-06-09 KST
+- Scope: Electric Dreams based Cubeless PCG production candidate work across `CubelessStylized` and sibling `D:\Git\unreal-mcp-cubeless`; no `RuntimeGrass`, `NewPCGGraph`, original Electric Dreams assets, existing placed production actors, or non-exception C++ were modified.
+- User-provided validation map: `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP`.
+- Change: `CubelessEDPCG.py` gained production-candidate Landscape conform support for generated ISM output. The conform pass traces Landscape/LandscapeStreamingProxy height under each generated instance, preserves intended vertical offset, and schedules a delayed Slate-tick pass because PCG output can appear after the initial apply call.
+- Validation: direct Landscape validation found `65` Landscape actors and passed `4` candidate cases. `production_candidate_landscape_validation_pass=True`, latest marker `log_error_count=0`, `FlatCenter_MixedMeadowDefault` 27 instances max height delta `0.0` cm, `SlopeWest_MixedMeadowDefault` 27 instances max height delta `0.0` cm and max slope `21.7547` deg, `HighSlope_RockySparse` 3 instances max height delta `0.0` cm, and `TreeOff_DenseGroundFoliage` 58 instances max height delta `100.0` cm within tolerance.
+- Regression: the existing 12-case production candidate validation was rerun after the conform change and still passed with `production_candidate_validation_pass=True` and `log_error_count=0`.
+- Editor state: current dirty map package is `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_ProductionCandidate_MCP`; it is a disposable validation map and should not be saved on close unless intentionally preserving a temp fixture.
+- Notion capture fallback: Notion enhanced markdown spec fetch failed with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture.
+
+## Cubeless PCG Landscape Validation Retest And Conform Fix
+
+- Date: 2026-06-09 KST
+- Correction: the editor had been left on `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_ProductionCandidate_MCP` after the normal 12-case regression, so the Landscape result was not visible in the current editor state. The editor was relaunched directly into `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP`.
+- Crash fix: reloading the Landscape map from a dirty temp map through MCP Python triggered a UE `World Memory Leaks` assert because a previous Python error path retained `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_ProductionCandidate_MCP` through `FPyReferenceCollector`. The production candidate validators now clear Python exception state, run Python GC, and request Unreal GC before validation map load/create.
+- Conform fix: scheduled Landscape conform now retries briefly for delayed PCG output and shares an original vertical offset cache with the immediate conform pass. This makes repeated conform idempotent on sloped terrain and prevents already-adjusted Z from being applied again.
+- Retest: current editor world is `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP`, Landscape actors `65`, and final direct Landscape validation passed with `production_candidate_landscape_validation_pass=True` and `log_error_count=0`.
+- Save warning: current dirty packages are `_MCP_Temp` Landscape validation external actor packages. Do not save them on editor close unless intentionally preserving the disposable validation actors.
+
+## Cubeless PCG Production Promotion Target Audit
+
+- Date: 2026-06-10 KST
+- Scope: read-only promotion readiness audit after the production candidate passed baseline, surface, and direct Landscape validation.
+- Audit script: `D:\Git\unreal-mcp-cubeless\Docs\Analysis\ElectricDreams\audit_cubeless_pcg_production_promotion_targets.py`.
+- Result: `candidate_exists=True`, `learning_root_ready=True`, `promotion_ready_for_approval=True`, and `approval_required_before_asset_changes=True`.
+- Target finding: `/Game/PCG`, `/Game/PCG/RuntimeGrass`, and `/Game/PCG/NewPCGGraph` do not currently exist in this project, so there is no existing runtime graph at those paths to patch.
+- Existing roots: `/Game/Cubeless/PCG/ProductionCandidates` contains the isolated candidate Blueprint; `/Game/Cubeless/PCG/ElectricDreamsLearning` contains `303` assets, including `272` PCGGraph assets, `21` Blueprints, and `10` MaterialInstanceConstants.
+- Decision gate: next production work requires choosing a target: real level placement, a new Cubeless-owned runtime package such as `/Game/Cubeless/PCG/Runtime/`, or waiting for the intended production PCG package/map.
+
+## Cubeless PCG Scene01 Real-Level Staging
+
+- Date: 2026-06-10 KST
+- Scope: approved `Option A` real-level staging probe for `/Game/Cubeless/Map/Scene01`; no original Electric Dreams assets, learning graphs, `RuntimeGrass`, `NewPCGGraph`, or non-exception C++ were modified.
+- Action: placed the validated production candidate Blueprint `/Game/Cubeless/PCG/ProductionCandidates/Blueprints/BP_Cubeless_PCG_EcosystemCandidate` as an unsaved staging actor labeled `MCP_Cubeless_PCG_Scene01Candidate_Scene01_MixedMeadowDefault_Staging_Validation` at `(0, 0, 4)` using `MixedMeadowDefault`.
+- Result: `scene01_route_validation_pass=True`, `scene01_style_points=26`, `scene01_tree_points=1`, `scene01_material_points=0`, `scene01_total_instances=27`, latest marker `log_error_count=0`, and `scene01_staging_validation_pass=True`.
+- Interpretation: `Scene01` has no Landscape actors, so this validates real-level placement, routing, generated ISM output, and log cleanliness. Direct Landscape contact remains covered by `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP`.
+- Editor state: `/Game/Cubeless/Map/Scene01` is dirty because the staging actor was intentionally not saved. Close without saving if this probe should remain disposable; save only after explicitly deciding to keep production placement.
+- Notion capture fallback: the available Notion connector did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
+
+## Cubeless PCG Runtime Blueprint Promotion
+
+- Date: 2026-06-10 KST
+- Scope: promoted the validated production candidate into a Cubeless-owned runtime entry Blueprint. Original Electric Dreams assets, learning graph assets, `/Game/PCG`, `/Game/PCG/RuntimeGrass`, `/Game/PCG/NewPCGGraph`, production levels, and non-exception C++ were not modified.
+- Created asset: `/Game/Cubeless/PCG/Runtime/Blueprints/BP_Cubeless_PCG_EcosystemRuntime`.
+- Source asset: `/Game/Cubeless/PCG/ProductionCandidates/Blueprints/BP_Cubeless_PCG_EcosystemCandidate`.
+- Tooling added in `D:\Git\unreal-mcp-cubeless\Docs\Analysis\ElectricDreams`: `promote_cubeless_pcg_runtime_candidate_blueprint.py`, `prepare_cubeless_pcg_runtime_candidate_validation.py`, and `verify_cubeless_pcg_runtime_candidate_blueprint.py`; `run_pcg_study_regression.py` now includes `runtime_candidate_promote`, `runtime_candidate_prepare`, and `runtime_candidate_verify`.
+- Validation: runtime promotion reported `runtime_candidate_created=True` and `runtime_candidate_compile_saved=True`. Runtime validation used `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_RuntimeCandidate_MCP`, prepared `12` actors, and passed with `production_candidate_validation_pass=True`, `log_marker_found=True`, and `log_error_count=0`.
+- Editor state: current world is `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_RuntimeCandidate_MCP`; dirty map package is that disposable `_MCP_Temp` validation map only. The runtime Blueprint asset itself was saved.
+- Next gate: choose the real production Landscape placement target. Use `/Game/Cubeless/PCG/Runtime/Blueprints/BP_Cubeless_PCG_EcosystemRuntime` for the next placement probe instead of the isolated candidate Blueprint.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
+
+## Cubeless PCG Runtime Landscape Validation
+
+- Date: 2026-06-10 KST
+- Scope: validated the saved runtime Blueprint `/Game/Cubeless/PCG/Runtime/Blueprints/BP_Cubeless_PCG_EcosystemRuntime` directly on the user-provided Landscape validation map. Original Electric Dreams assets, learning graph assets, `/Game/PCG`, `/Game/PCG/RuntimeGrass`, `/Game/PCG/NewPCGGraph`, production levels, and non-exception C++ were not modified.
+- Tooling added in `D:\Git\unreal-mcp-cubeless\Docs\Analysis\ElectricDreams`: `prepare_cubeless_pcg_runtime_candidate_landscape_validation.py` and `verify_cubeless_pcg_runtime_candidate_landscape_validation.py`.
+- Result: runtime direct Landscape validation passed with `production_candidate_landscape_validation_pass=True`, `landscape_actor_count=65`, `log_marker_found=True`, and `log_error_count=0`.
+- Key numbers: flat center `27` instances with max height delta `0.0` cm; slope west `27` instances with max height delta `0.0` cm and max slope `21.7547` deg; high-slope rocky sparse `3` instances with max height delta `0.0` cm and max slope `17.5694` deg; tree-off dense ground foliage `58` instances with max height delta `100.0` cm within tolerance.
+- Editor state: current world is `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP`; the four runtime Landscape validation actors are selected and the viewport is focused on the slope-west runtime candidate. Dirty packages are `_MCP_Temp` external actor packages only and should not be saved unless intentionally preserving this disposable fixture.
+- Next gate: the runtime entry Blueprint now has both 12-case route/output validation and direct Landscape contact validation. The remaining production step is choosing or creating the real Landscape placement target.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
+
+## Cubeless PCG TestMap Staging And Field Level Save
+
+- Date: 2026-06-10 KST
+- Scope: selected a real Cubeless Landscape target and saved the first dedicated field level. Original Electric Dreams assets, learning graph assets, `/Game/PCG`, `/Game/PCG/RuntimeGrass`, `/Game/PCG/NewPCGGraph`, `Scene01`, `TestMap`, and non-exception C++ were not modified or saved.
+- Target choice: `/Game/Cubeless/TestMap` was the best source because it is Cubeless-owned and has `1` Landscape actor. `/Game/Cubeless/Map/Scene01` and `/Game/Cubeless/Generated/RainyConvenienceStreet/LVL_RainyConvenienceStreet_GS` have no Landscape actors; Dreamscape `ExampleMap` has a Landscape but is third-party/demo content.
+- TestMap staging: placed `/Game/Cubeless/PCG/Runtime/Blueprints/BP_Cubeless_PCG_EcosystemRuntime` at `(12000, 12000, -9.369850)` without saving `TestMap`. Result: `testmap_runtime_staging_validation_pass=True`, `testmap_landscape_total_instances=27`, `testmap_landscape_trace_miss_count=0`, `testmap_landscape_height_fail_count=0`, `testmap_landscape_xy_fail_count=0`, `testmap_landscape_max_abs_height_delta=0.0`, and `log_error_count=0`.
+- Created and saved level: `/Game/Cubeless/Map/LVL_Cubeless_PCG_Ecosystem_Field`, duplicated from saved `/Game/Cubeless/TestMap`.
+- Field level setup: removed inherited `PCG_ModularBuilding_Assembler_V2`; placed runtime actor `Cubeless_PCG_EcosystemRuntime_MixedMeadowDefault_Field_Validation` using `MixedMeadowDefault` at `(12000, 12000, -9.369850)`.
+- Field validation/save: `ecosystem_field_validation_pass=True`, `ecosystem_field_landscape_total_instances=27`, `ecosystem_field_landscape_trace_miss_count=0`, `ecosystem_field_landscape_height_fail_count=0`, `ecosystem_field_landscape_xy_fail_count=0`, `ecosystem_field_landscape_max_abs_height_delta=0.0`, `ecosystem_field_landscape_max_slope_degrees=0.9972`, `log_error_count=0`, `ecosystem_field_saved=True`, and `ecosystem_field_dirty_after_save=[]`.
+- Tooling added in `D:\Git\unreal-mcp-cubeless\Docs\Analysis\ElectricDreams`: `prepare_cubeless_pcg_testmap_runtime_staging.py`, `verify_cubeless_pcg_testmap_runtime_staging.py`, `prepare_cubeless_pcg_ecosystem_field_level.py`, and `verify_save_cubeless_pcg_ecosystem_field_level.py`.
+- Editor state: current world is `/Game/Cubeless/Map/LVL_Cubeless_PCG_Ecosystem_Field`; the saved runtime actor is selected and there are no dirty map packages.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
+
+## Cubeless PCG Field Layout Refine
+
+- Date: 2026-06-10 KST
+- Scope: refined the saved `/Game/Cubeless/Map/LVL_Cubeless_PCG_Ecosystem_Field` level after data QA showed the first single runtime actor produced a valid but too-thin strip. Original Electric Dreams assets, learning graph assets, `/Game/PCG`, `/Game/PCG/RuntimeGrass`, `/Game/PCG/NewPCGGraph`, `Scene01`, `TestMap`, and non-exception C++ were not modified.
+- Reason: the initial field actor produced `27` valid instances, but the output bounds had an effective Y extent of `0.0`, so it was not broad enough to read as a field.
+- Change: replaced the single field actor with three saved runtime actors: `Cubeless_PCG_EcosystemRuntime_MeadowCenter`, `Cubeless_PCG_EcosystemRuntime_GroundFoliageSouth`, and `Cubeless_PCG_EcosystemRuntime_RockyEdgeEast`.
+- Composition: meadow center uses `MixedMeadowDefault` for `27` instances; south patch uses `DenseGroundFoliage` with tree override off for `58` foliage/flower instances; east edge uses `RockySparse` for `3` rock instances.
+- Validation/save: `field_total_instances=88`, all actors passed Landscape contact validation with `trace_miss_count=0`, `height_fail_count=0`, and `xy_fail_count=0`; latest marker `log_error_count=0`; `field_layout_refine_validation_pass=True`; `field_layout_refine_saved=True`; `dirty_after_save=[]`.
+- Tooling added in `D:\Git\unreal-mcp-cubeless\Docs\Analysis\ElectricDreams`: `prepare_cubeless_pcg_ecosystem_field_layout_refine.py` and `verify_save_cubeless_pcg_ecosystem_field_layout_refine.py`.
+- Regression hardening: added read-only verifier `verify_cubeless_pcg_ecosystem_field_level.py` and registered `ecosystem_field_level_verify` in `run_pcg_study_regression.py`. Targeted run passed with `ecosystem_field_level_verify|PASS|0.194s` and `pcg_study_regression_pass=True`; it does not save the field level.
+- Editor state: current world is `/Game/Cubeless/Map/LVL_Cubeless_PCG_Ecosystem_Field`; the three runtime actors are selected and no dirty map packages are present.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
+
+## Cubeless PCG Landscape-First Retest After Scene01 Probe
+
+- Date: 2026-06-10 KST
+- Scope: follow-up after clarifying that `Scene01` is not a Landscape level. The editor was moved back to `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP`; no `Scene01`, original Electric Dreams, learning graph, `RuntimeGrass`, `NewPCGGraph`, or non-exception C++ packages were saved or modified.
+- Action: reran the direct Landscape staging validation with four candidate actors: `FlatCenter_MixedMeadowDefault`, `SlopeWest_MixedMeadowDefault`, `HighSlope_RockySparse`, and `TreeOff_DenseGroundFoliage`.
+- Result: `production_candidate_landscape_validation_pass=True`, `landscape_actor_count=65`, latest marker `log_error_count=0`, and all four cases had `route_validation_pass=True`, `landscape_trace_miss_count=0`, `landscape_height_fail_count=0`, and `landscape_xy_fail_count=0`.
+- Key numbers: flat center `27` instances with max height delta `0.0` cm; slope west `27` instances with max height delta `0.0` cm and max slope `21.7547` deg; high-slope rocky sparse `3` instances with max height delta `0.0` cm and max slope `17.5694` deg; tree-off dense ground foliage `58` instances with max height delta `100.0` cm within tolerance.
+- Editor state: current world is `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP`; the four validation actors are selected and the viewport is focused on the slope-west candidate. Dirty packages are `_MCP_Temp` external actor packages only and should not be saved unless intentionally preserving this disposable fixture.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
