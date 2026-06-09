@@ -91,6 +91,11 @@ def open_foliage_sample_map():
         unreal.EditorLevelLibrary.load_level(map_path)
 
 
+def apply_cubeless_ed_authoring_selector():
+    from ArtScripts import CubelessEDPCG
+    CubelessEDPCG.apply_authoring_selectors_from_menu()
+
+
 def _register_menu():
     unreal.log("Cubeless: registering Python tool menu")
     menus = unreal.ToolMenus.get()
@@ -161,6 +166,14 @@ def _register_menu():
         "EL : ShowFlag Manager",
         "Open ShowFlag Manager Tool",
         _python_command("open_editor_utility", "/Game/EL/Tools/Script/WB_ShowFlagManager")
+    )
+
+    _add_python_entry(
+        cubeless_menu,
+        "Python.ApplyCubelessEDPCGSelector",
+        "Cubeless ED : Apply PCG Selector",
+        "Apply selected BP_Cubeless_ED_PCGAuthoringSelector actors, or all selector actors if none are selected.",
+        _python_command("apply_cubeless_ed_authoring_selector")
     )
 
     menus.refresh_all_widgets()
