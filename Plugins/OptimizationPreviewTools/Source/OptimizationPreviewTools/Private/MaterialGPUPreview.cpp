@@ -345,6 +345,13 @@ struct FMaterialReplayCharacterSample
 	bool bHasControlRotation = false;
 };
 
+struct FMaterialReplayAnimationState
+{
+	TWeakObjectPtr<USkeletalMeshComponent> MeshComponent;
+	bool bPauseAnims = false;
+	float GlobalAnimRateScale = 1.0f;
+};
+
 struct FMaterialReplayUnitGpuSample
 {
 	double TimeSeconds = 0.0;
@@ -441,6 +448,7 @@ static TArray<FMaterialAccumulator> GMaterialReplaySceneRows;
 static TArray<FMaterialGpuReplayFrameSample> GMaterialReplaySamples;
 static TArray<FMaterialReplayCameraSample> GMaterialReplayCameraSamples;
 static TArray<FMaterialReplayCharacterSample> GMaterialReplayCharacterSamples;
+static TMap<FObjectKey, FMaterialReplayAnimationState> GMaterialReplayAnimationStates;
 static TArray<FMaterialReplayUnitGpuSample> GMaterialReplayUnitGpuSamples;
 static TArray<float> GMaterialReplayFrameGpuMs;
 static float GMaterialReplayFrameGpuMsMax = 0.0f;
@@ -491,6 +499,9 @@ static TWeakObjectPtr<UGameViewportClient> GProfilingSlateOverlayViewport;
 static TWeakObjectPtr<UGameViewportClient> GProfilingInputOverrideViewport;
 static TSharedPtr<SWidget> GMaterialReplayOverlayWidget;
 static TSharedPtr<SWidget> GMaterialReplayPlayButtonWidget;
+static TSharedPtr<SWidget> GMaterialReplayPreviousPeakButtonWidget;
+static TSharedPtr<SWidget> GMaterialReplayMaxPeakButtonWidget;
+static TSharedPtr<SWidget> GMaterialReplayNextPeakButtonWidget;
 static TSharedPtr<SSlider> GMaterialReplaySliderWidget;
 static TWeakObjectPtr<UGameViewportClient> GMaterialReplayOverlayViewport;
 static TWeakObjectPtr<ACameraActor> GMaterialReplayCameraActor;
@@ -530,6 +541,9 @@ static float GLastProfilingSlateOverlayTop = -1.0f;
 static float GLastProfilingSlateOverlayWidth = -1.0f;
 static float GLastProfilingSlateOverlayHeight = -1.0f;
 static FInputScreenRect GMaterialReplayPlayButtonRect;
+static FInputScreenRect GMaterialReplayPreviousPeakButtonRect;
+static FInputScreenRect GMaterialReplayMaxPeakButtonRect;
+static FInputScreenRect GMaterialReplayNextPeakButtonRect;
 static FInputScreenRect GMaterialReplaySliderRect;
 static bool GMaterialReplayDraggingSlider = false;
 static uint32 GMaterialReplayDraggingPointerIndex = 0;
@@ -644,10 +658,12 @@ static void StartMaterialReplayCameraCapture(UWorld* World);
 static void DestroyMaterialReplayCamera();
 static void StartMaterialReplay(UWorld* World, FCommonViewportClient* ViewportClient);
 static void StopMaterialReplay(UWorld* World, FCommonViewportClient* ViewportClient);
+static void RestoreMaterialReplayAnimationStates();
 static int32 FindMaterialReplaySampleIndexForTime(double TimeSeconds);
 static float FindNearestMaterialReplayUnitGpuMs(const TArray<FMaterialReplayUnitGpuSample>& Samples, double TimeSeconds);
 static float GetMaterialReplayUnitGpuMsForTime(double TimeSeconds);
 static void RebuildMaterialReplayFrameGpuMs();
+static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* ViewportClient, double TimeSeconds, bool bForceRefresh = false);
 static bool IsMaterialCaptureCommandLocked();
 static bool IsMaterialCaptureCommand(const FString& Command);
 static bool ShouldBlockMaterialCaptureCommand(const FString& Command);
@@ -703,6 +719,7 @@ static void ClearCaptureState()
 	StopMaterialReplayTicker();
 	StopMaterialReplayCameraCaptureTicker();
 	RemoveMaterialReplayOverlay();
+	RestoreMaterialReplayAnimationStates();
 	DestroyMaterialReplayCamera();
 }
 
@@ -3187,6 +3204,7 @@ static void HandleEndPIE(const bool bIsSimulating)
 	StopMaterialReplayTicker();
 	StopMaterialReplayCameraCaptureTicker();
 	RemoveMaterialReplayOverlay();
+	RestoreMaterialReplayAnimationStates();
 	DestroyMaterialReplayCamera();
 	CVarDebug->Set(0);
 	CVarObjectDebug->Set(0);
@@ -4485,6 +4503,52 @@ static bool ApplyMaterialReplayCameraSample(ACameraActor* CameraActor, double Ti
 	return true;
 }
 
+static FMaterialReplayAnimationState& FindOrAddMaterialReplayAnimationState(USkeletalMeshComponent* MeshComponent)
+{
+	FMaterialReplayAnimationState& State = GMaterialReplayAnimationStates.FindOrAdd(FObjectKey(MeshComponent));
+	if (!State.MeshComponent.IsValid())
+	{
+		State.MeshComponent = MeshComponent;
+		State.bPauseAnims = MeshComponent->bPauseAnims;
+		State.GlobalAnimRateScale = MeshComponent->GlobalAnimRateScale;
+	}
+	return State;
+}
+
+static void SetMaterialReplayMeshAnimationFrozen(USkeletalMeshComponent* MeshComponent, bool bFreezeAnimation)
+{
+	if (!MeshComponent)
+	{
+		return;
+	}
+
+	FMaterialReplayAnimationState& State = FindOrAddMaterialReplayAnimationState(MeshComponent);
+	if (bFreezeAnimation)
+	{
+		MeshComponent->GlobalAnimRateScale = 0.0f;
+		MeshComponent->bPauseAnims = true;
+	}
+	else
+	{
+		MeshComponent->GlobalAnimRateScale = State.GlobalAnimRateScale;
+		MeshComponent->bPauseAnims = State.bPauseAnims;
+	}
+}
+
+static void RestoreMaterialReplayAnimationStates()
+{
+	for (TPair<FObjectKey, FMaterialReplayAnimationState>& Pair : GMaterialReplayAnimationStates)
+	{
+		if (USkeletalMeshComponent* MeshComponent = Pair.Value.MeshComponent.Get())
+		{
+			MeshComponent->bPauseAnims = Pair.Value.bPauseAnims;
+			MeshComponent->GlobalAnimRateScale = Pair.Value.GlobalAnimRateScale;
+		}
+	}
+
+	GMaterialReplayAnimationStates.Reset();
+}
+
 static int32 FindMaterialReplayCharacterSampleIndexForTime(double TimeSeconds)
 {
 	if (GMaterialReplayCharacterSamples.Num() == 0)
@@ -4506,7 +4570,7 @@ static int32 FindMaterialReplayCharacterSampleIndexForTime(double TimeSeconds)
 	return BestIndex;
 }
 
-static bool ApplyMaterialReplayCharacterSample(UWorld* World, double TimeSeconds)
+static bool ApplyMaterialReplayCharacterSample(UWorld* World, double TimeSeconds, bool bAllowAnimationPlayback)
 {
 	if (!World || GMaterialReplayCharacterSamples.Num() == 0)
 	{
@@ -4551,6 +4615,7 @@ static bool ApplyMaterialReplayCharacterSample(UWorld* World, double TimeSeconds
 
 	if (USkeletalMeshComponent* MeshComponent = Character->GetMesh())
 	{
+		SetMaterialReplayMeshAnimationFrozen(MeshComponent, false);
 		if (UAnimInstance* AnimInstance = MeshComponent->GetAnimInstance())
 		{
 			UAnimMontage* ActiveMontage = Sample.ActiveMontage.Get();
@@ -4565,7 +4630,7 @@ static bool ApplyMaterialReplayCharacterSample(UWorld* World, double TimeSeconds
 						Sample.MontagePosition,
 						true);
 				}
-				AnimInstance->Montage_SetPlayRate(ActiveMontage, Sample.MontagePlayRate);
+				AnimInstance->Montage_SetPlayRate(ActiveMontage, bAllowAnimationPlayback ? Sample.MontagePlayRate : 0.0f);
 				AnimInstance->Montage_SetPosition(ActiveMontage, Sample.MontagePosition);
 			}
 			else if (AnimInstance->GetCurrentActiveMontage())
@@ -4573,6 +4638,13 @@ static bool ApplyMaterialReplayCharacterSample(UWorld* World, double TimeSeconds
 				AnimInstance->Montage_Stop(0.0f);
 			}
 		}
+
+		if (!bAllowAnimationPlayback)
+		{
+			MeshComponent->TickAnimation(0.0f, false);
+			MeshComponent->RefreshBoneTransforms();
+		}
+		SetMaterialReplayMeshAnimationFrozen(MeshComponent, !bAllowAnimationPlayback);
 	}
 
 	return true;
@@ -4789,6 +4861,144 @@ static float GetMaterialReplayCurrentFrameGpuMs()
 	return GMaterialReplayFrameGpuMs.IsValidIndex(SampleIndex) ? GMaterialReplayFrameGpuMs[SampleIndex] : 0.0f;
 }
 
+enum class EMaterialReplayPeakJumpMode : uint8
+{
+	Previous,
+	Max,
+	Next
+};
+
+static double GetMaterialReplaySampleTimeForIndex(int32 SampleIndex)
+{
+	return GMaterialReplaySamples.IsValidIndex(SampleIndex)
+		? FMath::Max(0.0, GMaterialReplaySamples[SampleIndex].TimeSeconds)
+		: 0.0;
+}
+
+static void BuildMaterialReplayGpuPeakIndices(TArray<int32>& OutPeakIndices)
+{
+	OutPeakIndices.Reset();
+
+	if (GMaterialReplayFrameGpuMs.Num() != GMaterialReplaySamples.Num())
+	{
+		RebuildMaterialReplayFrameGpuMs();
+	}
+
+	if (GMaterialReplayFrameGpuMs.Num() == 0 || GMaterialReplayFrameGpuMsMax <= KINDA_SMALL_NUMBER)
+	{
+		return;
+	}
+
+	constexpr float PeakMinRelativeToMax = 0.35f;
+	constexpr float PeakGpuMsEpsilon = 0.001f;
+	constexpr double PeakMergeSeconds = 0.12;
+	const float PeakThreshold = FMath::Max(GMaterialReplayFrameGpuMsMax * PeakMinRelativeToMax, PeakGpuMsEpsilon);
+
+	for (int32 SampleIndex = 0; SampleIndex < GMaterialReplayFrameGpuMs.Num(); ++SampleIndex)
+	{
+		const float GpuMs = GMaterialReplayFrameGpuMs[SampleIndex];
+		if (GpuMs < PeakThreshold)
+		{
+			continue;
+		}
+
+		const float PreviousGpuMs = GMaterialReplayFrameGpuMs.IsValidIndex(SampleIndex - 1)
+			? GMaterialReplayFrameGpuMs[SampleIndex - 1]
+			: -TNumericLimits<float>::Max();
+		const float NextGpuMs = GMaterialReplayFrameGpuMs.IsValidIndex(SampleIndex + 1)
+			? GMaterialReplayFrameGpuMs[SampleIndex + 1]
+			: -TNumericLimits<float>::Max();
+		if (GpuMs <= PreviousGpuMs + PeakGpuMsEpsilon || GpuMs < NextGpuMs - PeakGpuMsEpsilon)
+		{
+			continue;
+		}
+
+		if (OutPeakIndices.Num() > 0)
+		{
+			const int32 LastPeakIndex = OutPeakIndices.Last();
+			const double LastPeakTime = GetMaterialReplaySampleTimeForIndex(LastPeakIndex);
+			const double CandidateTime = GetMaterialReplaySampleTimeForIndex(SampleIndex);
+			if (CandidateTime - LastPeakTime <= PeakMergeSeconds)
+			{
+				if (GpuMs > GMaterialReplayFrameGpuMs[LastPeakIndex])
+				{
+					OutPeakIndices.Last() = SampleIndex;
+				}
+				continue;
+			}
+		}
+
+		OutPeakIndices.Add(SampleIndex);
+	}
+}
+
+static int32 FindMaterialReplayGpuPeakIndex(EMaterialReplayPeakJumpMode Mode)
+{
+	TArray<int32> PeakIndices;
+	BuildMaterialReplayGpuPeakIndices(PeakIndices);
+	if (PeakIndices.Num() == 0)
+	{
+		return INDEX_NONE;
+	}
+
+	if (Mode == EMaterialReplayPeakJumpMode::Max)
+	{
+		int32 BestPeakIndex = PeakIndices[0];
+		for (const int32 PeakIndex : PeakIndices)
+		{
+			if (GMaterialReplayFrameGpuMs.IsValidIndex(PeakIndex)
+				&& GMaterialReplayFrameGpuMs[PeakIndex] > GMaterialReplayFrameGpuMs[BestPeakIndex])
+			{
+				BestPeakIndex = PeakIndex;
+			}
+		}
+		return BestPeakIndex;
+	}
+
+	constexpr double PeakTimeEpsilon = 0.001;
+	const double CurrentTime = GMaterialReplayCurrentTimeSeconds;
+	int32 BestPeakIndex = INDEX_NONE;
+	for (const int32 PeakIndex : PeakIndices)
+	{
+		const double PeakTime = GetMaterialReplaySampleTimeForIndex(PeakIndex);
+		if (Mode == EMaterialReplayPeakJumpMode::Previous)
+		{
+			if (PeakTime < CurrentTime - PeakTimeEpsilon)
+			{
+				BestPeakIndex = PeakIndex;
+			}
+			else
+			{
+				break;
+			}
+		}
+		else if (PeakTime > CurrentTime + PeakTimeEpsilon)
+		{
+			BestPeakIndex = PeakIndex;
+			break;
+		}
+	}
+
+	return BestPeakIndex;
+}
+
+static FReply JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode Mode)
+{
+	const int32 PeakIndex = FindMaterialReplayGpuPeakIndex(Mode);
+	if (!GMaterialReplaySamples.IsValidIndex(PeakIndex))
+	{
+		return FReply::Handled();
+	}
+
+	UGameViewportClient* GameViewportClient = GMaterialReplayOverlayViewport.Get();
+	UWorld* World = GameViewportClient ? GameViewportClient->GetWorld() : GWorld;
+	GMaterialReplayPlaying = false;
+	GMaterialReplayScrubbing = false;
+	GMaterialReplayLastTickSeconds = -1.0;
+	ApplyMaterialReplayTime(World, GameViewportClient, GetMaterialReplaySampleTimeForIndex(PeakIndex), true);
+	return FReply::Handled();
+}
+
 static float GetMaterialReplayUnitGpuMsForTime(double TimeSeconds)
 {
 	return FindNearestMaterialReplayUnitGpuMs(GMaterialReplayUnitGpuSamples, TimeSeconds);
@@ -4961,7 +5171,7 @@ static void BuildMaterialReplayRowsForSample(int32 SampleIndex)
 	GLastDebugComponentCount = CountUniqueDebugComponents(GMaterialReplayDebugRows);
 }
 
-static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* ViewportClient, double TimeSeconds, bool bForceRefresh = false)
+static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* ViewportClient, double TimeSeconds, bool bForceRefresh)
 {
 	if (!World || GMaterialReplaySamples.Num() == 0)
 	{
@@ -4969,6 +5179,7 @@ static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* Viewpo
 	}
 
 	GMaterialReplayCurrentTimeSeconds = FMath::Clamp(TimeSeconds, 0.0, GetMaterialReplayDurationSeconds());
+	const bool bAllowAnimationPlayback = GMaterialReplayPlaying && !GMaterialReplayScrubbing;
 	const int32 SampleIndex = FindMaterialReplaySampleIndexForTime(GMaterialReplayCurrentTimeSeconds);
 	const bool bNeedsActorColorationRefresh = ShouldUseActorColorationBackend()
 		&& IsMaterialDebugColorModeEnabled()
@@ -4976,7 +5187,7 @@ static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* Viewpo
 	if (!bForceRefresh && SampleIndex == GMaterialReplayCurrentSampleIndex && !bNeedsActorColorationRefresh)
 	{
 		ApplyMaterialReplayCameraSample(GMaterialReplayCameraActor.Get(), GMaterialReplayCurrentTimeSeconds);
-		ApplyMaterialReplayCharacterSample(World, GMaterialReplayCurrentTimeSeconds);
+		ApplyMaterialReplayCharacterSample(World, GMaterialReplayCurrentTimeSeconds, bAllowAnimationPlayback);
 		return;
 	}
 
@@ -4987,7 +5198,7 @@ static void ApplyMaterialReplayTime(UWorld* World, FCommonViewportClient* Viewpo
 	ApplyMaterialDebugVisualization(World, ViewportClient);
 
 	ApplyMaterialReplayCameraSample(GMaterialReplayCameraActor.Get(), GMaterialReplayCurrentTimeSeconds);
-	ApplyMaterialReplayCharacterSample(World, GMaterialReplayCurrentTimeSeconds);
+	ApplyMaterialReplayCharacterSample(World, GMaterialReplayCurrentTimeSeconds, bAllowAnimationPlayback);
 }
 
 static void RemoveMaterialReplayOverlay()
@@ -5002,9 +5213,15 @@ static void RemoveMaterialReplayOverlay()
 
 	GMaterialReplayOverlayWidget.Reset();
 	GMaterialReplayPlayButtonWidget.Reset();
+	GMaterialReplayPreviousPeakButtonWidget.Reset();
+	GMaterialReplayMaxPeakButtonWidget.Reset();
+	GMaterialReplayNextPeakButtonWidget.Reset();
 	GMaterialReplaySliderWidget.Reset();
 	GMaterialReplayOverlayViewport = nullptr;
 	GMaterialReplayPlayButtonRect.Reset();
+	GMaterialReplayPreviousPeakButtonRect.Reset();
+	GMaterialReplayMaxPeakButtonRect.Reset();
+	GMaterialReplayNextPeakButtonRect.Reset();
 	GMaterialReplaySliderRect.Reset();
 	GMaterialReplayDraggingSlider = false;
 	GMaterialReplayScrubbing = false;
@@ -5076,6 +5293,9 @@ static void SetInputScreenRectFromLocal(
 static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClient)
 {
 	GMaterialReplayPlayButtonRect.Reset();
+	GMaterialReplayPreviousPeakButtonRect.Reset();
+	GMaterialReplayMaxPeakButtonRect.Reset();
+	GMaterialReplayNextPeakButtonRect.Reset();
 	GMaterialReplaySliderRect.Reset();
 
 	if (!GMaterialReplayActive || !GameViewportClient)
@@ -5084,8 +5304,11 @@ static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClie
 	}
 
 	const bool bHasPlayButtonRect = SetInputScreenRectFromWidget(GMaterialReplayPlayButtonWidget, 4.0f, 6.0f, GMaterialReplayPlayButtonRect);
+	const bool bHasPreviousPeakButtonRect = SetInputScreenRectFromWidget(GMaterialReplayPreviousPeakButtonWidget, 3.0f, 4.0f, GMaterialReplayPreviousPeakButtonRect);
+	const bool bHasMaxPeakButtonRect = SetInputScreenRectFromWidget(GMaterialReplayMaxPeakButtonWidget, 3.0f, 4.0f, GMaterialReplayMaxPeakButtonRect);
+	const bool bHasNextPeakButtonRect = SetInputScreenRectFromWidget(GMaterialReplayNextPeakButtonWidget, 3.0f, 4.0f, GMaterialReplayNextPeakButtonRect);
 	const bool bHasSliderRect = SetInputScreenRectFromWidget(GMaterialReplaySliderWidget, 4.0f, 14.0f, GMaterialReplaySliderRect);
-	if (bHasPlayButtonRect && bHasSliderRect)
+	if (bHasPlayButtonRect && bHasPreviousPeakButtonRect && bHasMaxPeakButtonRect && bHasNextPeakButtonRect && bHasSliderRect)
 	{
 		return;
 	}
@@ -5111,6 +5334,12 @@ static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClie
 	constexpr float GraphGap = 7.0f;
 	constexpr float ButtonWidth = 76.0f;
 	constexpr float ButtonHeight = 30.0f;
+	constexpr float PeakButtonGap = 4.0f;
+	constexpr float PeakButtonTopGap = 5.0f;
+	constexpr float PeakButtonHeight = 24.0f;
+	constexpr float PeakPreviousButtonWidth = 30.0f;
+	constexpr float PeakMaxButtonWidth = 56.0f;
+	constexpr float PeakNextButtonWidth = 30.0f;
 	constexpr float TimeSlotLeftPadding = 14.0f;
 	constexpr float TimeSlotWidth = 118.0f;
 	constexpr float TimeSlotRightPadding = 12.0f;
@@ -5119,10 +5348,11 @@ static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClie
 
 	const float OuterLeft = OuterPaddingX;
 	const float OuterRight = FMath::Max(OuterLeft + 1.0f, ViewportSize.X - OuterPaddingX);
-	const float OuterTop = FMath::Max(0.0f, ViewportSize.Y - OuterPaddingBottom - GraphHeight - GraphGap - ButtonHeight - BorderPaddingY * 2.0f);
+	const float OuterTop = FMath::Max(0.0f, ViewportSize.Y - OuterPaddingBottom - GraphHeight - GraphGap - ButtonHeight - PeakButtonTopGap - PeakButtonHeight - BorderPaddingY * 2.0f);
 	const float InnerLeft = OuterLeft + BorderPaddingX;
 	const float InnerRight = FMath::Max(InnerLeft + 1.0f, OuterRight - BorderPaddingX);
 	const float ControlTop = OuterTop + BorderPaddingY + GraphHeight + GraphGap;
+	const float PeakButtonTop = ControlTop + ButtonHeight + PeakButtonTopGap;
 
 	if (!bHasPlayButtonRect)
 	{
@@ -5131,6 +5361,34 @@ static void UpdateMaterialReplayInputRects(UGameViewportClient* GameViewportClie
 			FVector2D(InnerLeft, ControlTop),
 			FVector2D(InnerLeft + ButtonWidth, ControlTop + ButtonHeight),
 			GMaterialReplayPlayButtonRect);
+	}
+
+	float PeakButtonLeft = InnerLeft;
+	if (!bHasPreviousPeakButtonRect)
+	{
+		SetInputScreenRectFromLocal(
+			ViewportGeometry,
+			FVector2D(PeakButtonLeft, PeakButtonTop),
+			FVector2D(PeakButtonLeft + PeakPreviousButtonWidth, PeakButtonTop + PeakButtonHeight),
+			GMaterialReplayPreviousPeakButtonRect);
+	}
+	PeakButtonLeft += PeakPreviousButtonWidth + PeakButtonGap;
+	if (!bHasMaxPeakButtonRect)
+	{
+		SetInputScreenRectFromLocal(
+			ViewportGeometry,
+			FVector2D(PeakButtonLeft, PeakButtonTop),
+			FVector2D(PeakButtonLeft + PeakMaxButtonWidth, PeakButtonTop + PeakButtonHeight),
+			GMaterialReplayMaxPeakButtonRect);
+	}
+	PeakButtonLeft += PeakMaxButtonWidth + PeakButtonGap;
+	if (!bHasNextPeakButtonRect)
+	{
+		SetInputScreenRectFromLocal(
+			ViewportGeometry,
+			FVector2D(PeakButtonLeft, PeakButtonTop),
+			FVector2D(PeakButtonLeft + PeakNextButtonWidth, PeakButtonTop + PeakButtonHeight),
+			GMaterialReplayNextPeakButtonRect);
 	}
 
 	const float PreferredSliderLeft = InnerLeft + ButtonWidth + TimeSlotLeftPadding + TimeSlotWidth + TimeSlotRightPadding;
@@ -5159,6 +5417,27 @@ static bool TryHandleMaterialReplayPointerDown(const FPointerEvent& PointerEvent
 		GMaterialReplayDraggingSlider = false;
 		GMaterialReplayScrubbing = false;
 		ToggleMaterialReplayPlayback();
+		return true;
+	}
+
+	if (GMaterialReplayPreviousPeakButtonRect.Contains(ScreenPosition))
+	{
+		GMaterialReplayDraggingSlider = false;
+		JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode::Previous);
+		return true;
+	}
+
+	if (GMaterialReplayMaxPeakButtonRect.Contains(ScreenPosition))
+	{
+		GMaterialReplayDraggingSlider = false;
+		JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode::Max);
+		return true;
+	}
+
+	if (GMaterialReplayNextPeakButtonRect.Contains(ScreenPosition))
+	{
+		GMaterialReplayDraggingSlider = false;
+		JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode::Next);
 		return true;
 	}
 
@@ -5227,12 +5506,15 @@ static bool TryHandleMaterialReplayPointerUp(const FPointerEvent& PointerEvent)
 static TSharedRef<SWidget> MakeMaterialReplayButton(
 	const TAttribute<FText>& Label,
 	TFunction<FReply()> OnClicked,
-	TSharedPtr<SWidget>* OutHitWidget = nullptr)
+	TSharedPtr<SWidget>* OutHitWidget = nullptr,
+	float WidthOverride = 76.0f,
+	float HeightOverride = 30.0f,
+	const TAttribute<FText>& ToolTip = TAttribute<FText>())
 {
 	TSharedPtr<SBox> ButtonBox;
 	TSharedRef<SWidget> ButtonWidget = SAssignNew(ButtonBox, SBox)
-		.WidthOverride(76.0f)
-		.HeightOverride(30.0f)
+		.WidthOverride(WidthOverride)
+		.HeightOverride(HeightOverride)
 		[
 			SNew(SBorder)
 			.Padding(1.0f)
@@ -5247,6 +5529,7 @@ static TSharedRef<SWidget> MakeMaterialReplayButton(
 				.ClickMethod(EButtonClickMethod::MouseDown)
 				.TouchMethod(EButtonTouchMethod::Down)
 				.IsFocusable(false)
+				.ToolTipText(ToolTip)
 				.OnClicked_Lambda([OnClicked]()
 				{
 					return OnClicked();
@@ -5631,6 +5914,79 @@ static TSharedRef<SWidget> BuildMaterialReplayOverlay()
 						})
 					]
 				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(0.0f, 5.0f, 0.0f, 0.0f))
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						MakeMaterialReplayButton(
+							TAttribute<FText>::CreateLambda([]()
+							{
+								return FText::FromString(TEXT("<<"));
+							}),
+							[]()
+							{
+								return JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode::Previous);
+							},
+							&GMaterialReplayPreviousPeakButtonWidget,
+							30.0f,
+							24.0f,
+							TAttribute<FText>::CreateLambda([]()
+							{
+								return FText::FromString(TEXT("Previous GPU spike peak"));
+							}))
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
+					[
+						MakeMaterialReplayButton(
+							TAttribute<FText>::CreateLambda([]()
+							{
+								return FText::FromString(TEXT("Maxms"));
+							}),
+							[]()
+							{
+								return JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode::Max);
+							},
+							&GMaterialReplayMaxPeakButtonWidget,
+							56.0f,
+							24.0f,
+							TAttribute<FText>::CreateLambda([]()
+							{
+								return FText::FromString(TEXT("Jump to highest GPU spike peak"));
+							}))
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
+					[
+						MakeMaterialReplayButton(
+							TAttribute<FText>::CreateLambda([]()
+							{
+								return FText::FromString(TEXT(">>"));
+							}),
+							[]()
+							{
+								return JumpMaterialReplayToGpuPeak(EMaterialReplayPeakJumpMode::Next);
+							},
+							&GMaterialReplayNextPeakButtonWidget,
+							30.0f,
+							24.0f,
+							TAttribute<FText>::CreateLambda([]()
+							{
+								return FText::FromString(TEXT("Next GPU spike peak"));
+							}))
+					]
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					[
+						SNew(SSpacer)
+					]
+				]
 			]
 		];
 }
@@ -5759,6 +6115,7 @@ static void StopMaterialReplay(UWorld* World, FCommonViewportClient* ViewportCli
 	GMaterialReplayCurrentSampleIndex = INDEX_NONE;
 	StopMaterialReplayTicker();
 	RemoveMaterialReplayOverlay();
+	RestoreMaterialReplayAnimationStates();
 	DestroyMaterialReplayCamera();
 
 	if (bWasActive)
