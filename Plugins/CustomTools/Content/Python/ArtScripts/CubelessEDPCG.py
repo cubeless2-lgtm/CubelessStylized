@@ -241,6 +241,15 @@ def _get_int_property(actor, prop_names, default_value=2):
     return int(default_value)
 
 
+def _get_bool_property(actor, prop_names, default_value=False):
+    for prop_name in prop_names:
+        try:
+            return bool(actor.get_editor_property(prop_name))
+        except Exception:
+            pass
+    return bool(default_value)
+
+
 def _get_matrix_axes(actor):
     ground_type = _get_int_property(actor, ("GroundAmountType", "groundamounttype"), 2)
     ditch_type = _get_int_property(actor, ("DitchAmountType", "ditchamounttype"), 2)
@@ -322,6 +331,14 @@ def _get_material_override_axes(actor):
     if (domain_type, variant_type) not in MATERIAL_VARIANT_GRAPH_ASSETS:
         variant_type = 1
     return domain_type, variant_type
+
+
+def _get_generate_material_preview(actor):
+    return _get_bool_property(
+        actor,
+        ("GenerateMaterialPreview", "generatematerialpreview"),
+        True,
+    )
 
 
 def _get_ecosystem_axes(actor):
@@ -769,6 +786,7 @@ def apply_ecosystem_selector(actor, force=True):
         material_domain_type,
         material_variant_type,
     ) = _get_ecosystem_axes(actor)
+    generate_material_preview = _get_generate_material_preview(actor)
     style_graph_path = _true_material_style_profile_matrix_graph_path(
         style_type,
         profile_mode,
@@ -818,10 +836,18 @@ def apply_ecosystem_selector(actor, force=True):
     else:
         tree_component.set_graph(tree_graph)
 
-    _prepare_component(material_component, material_graph, force)
+    if generate_material_preview:
+        _prepare_component(material_component, material_graph, force)
+    else:
+        material_component.set_graph(material_graph)
+
     counts = _summarize_counts(actor)
     deferred_material_regeneration = False
-    if material_graph_mode == "dynamic_actor_property" and counts.get(_component_key(material_component), 0) == 0:
+    if (
+        generate_material_preview
+        and material_graph_mode == "dynamic_actor_property"
+        and counts.get(_component_key(material_component), 0) == 0
+    ):
         deferred_material_regeneration = _schedule_component_regenerate(material_component, material_graph, force)
         counts = _summarize_counts(actor)
 
@@ -837,6 +863,7 @@ def apply_ecosystem_selector(actor, force=True):
         "tree_amount_type": tree_amount_type,
         "material_domain_type": material_domain_type,
         "material_variant_type": material_variant_type,
+        "generate_material_preview": generate_material_preview,
         "style_graph": style_graph_path,
         "tree_graph": tree_graph_path,
         "material_graph": material_graph_path,
@@ -902,8 +929,9 @@ def _show_delayed_result(actors, selected_only):
                         material_domain_type,
                         material_variant_type,
                     ) = _get_ecosystem_axes(actor)
+                    generate_material_preview = _get_generate_material_preview(actor)
                     lines.append(
-                        "{} -> Ecosystem {} / Style {} / Profile {} / Ground {} / Ditch {} / Tree Style {} / Tree Amount {} / Material Domain {} / Material Variant {} {}".format(
+                        "{} -> Ecosystem {} / Style {} / Profile {} / Ground {} / Ditch {} / Tree Style {} / Tree Amount {} / Material Domain {} / Material Variant {} / Material Preview {} {}".format(
                             actor.get_actor_label(),
                             ecosystem_mode,
                             style_type,
@@ -914,6 +942,7 @@ def _show_delayed_result(actors, selected_only):
                             tree_amount_type,
                             material_domain_type,
                             material_variant_type,
+                            generate_material_preview,
                             _summarize_counts(actor),
                         )
                     )
