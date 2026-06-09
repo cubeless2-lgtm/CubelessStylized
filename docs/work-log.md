@@ -1939,3 +1939,14 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Key numbers: flat center `27` instances with max height delta `0.0` cm; slope west `27` instances with max height delta `0.0` cm and max slope `21.7547` deg; high-slope rocky sparse `3` instances with max height delta `0.0` cm and max slope `17.5694` deg; tree-off dense ground foliage `58` instances with max height delta `100.0` cm within tolerance.
 - Editor state: current world is `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP`; the four validation actors are selected and the viewport is focused on the slope-west candidate. Dirty packages are `_MCP_Temp` external actor packages only and should not be saved unless intentionally preserving this disposable fixture.
 - Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
+
+## Cubeless PCG Ecosystem Field Git Checkpoint
+
+- Date: 2026-06-10 KST
+- Scope: committed and pushed the saved PCG ecosystem field assets in `CubelessStylized` and the Electric Dreams PCG production validation tooling in `unreal-mcp-cubeless`.
+- CubelessStylized commit: `c6553fee6 Add Cubeless PCG ecosystem field`, pushed to `origin/main`.
+- unreal-mcp-cubeless commit: `e5007cf Add Cubeless PCG production validation tooling`, pushed to `origin/main`.
+- Pre-commit verification: `python -m py_compile` passed for touched Unreal Python scripts; sibling Electric Dreams Python scripts compiled successfully; `git diff --check` and `git diff --cached --check` passed in both repositories.
+- Notes: the CubelessStylized commit emitted a CP949 decode exception while reading hook output, but Git returned success and the commit was created. LFS uploaded the three Unreal asset objects during push.
+- Final repository state after push: both `main` branches matched `origin/main`.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating the CubelessStylized operations document, so this local work-log entry is the durable capture.
