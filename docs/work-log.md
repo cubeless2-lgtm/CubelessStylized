@@ -1786,3 +1786,57 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Validation: targeted live actual save execution contract test, release boundary smoke, regenerated release boundary report, `bp_authoring_release_boundary_report.py --no-write`, full analysis loop of 150 tests, `python -m compileall Python\scripts\analysis`, `git diff --check`, and staged diff check all passed.
 - Git: sibling commit `df3b719 Add sections 217-224 live save execution`; no push was performed. Primary tracked files are clean except this fallback work-log entry, and sibling `main` is ahead of `origin/main` by 25 commits.
 - Notion capture fallback: Notion update failed twice with a transport deserialize error, so this local work-log entry is the durable capture.
+
+## OptimizationPreviewTools InstancedFoliageActor Debug Color Coverage
+
+- Date: 2026-06-09 KST
+- Scope: `CubelessStylized` plugin branch `codex/optimization-replay-freeze`; changed only `OptimizationPreviewTools` C++ module files plus this local work-log fallback.
+- Change: extended Material GPU Preview foliage source tracking from Landscape Grass cache to include `AInstancedFoliageActor` / `FFoliageInfo` components. `Foliage:` source labels now use the foliage static mesh/source, instance counts use render instances with placed-count fallback, scene material accumulation includes IFA components, and Actor Coloration reconnects debug rows back to current IFA components by source label.
+- Validation: `StylizedCubelessEditor Win64 Development` build succeeded with UE 5.7. Editor relaunched successfully, MCP world probe returned `ExampleMap`, and `materialgpu.DumpLandscapeGrass` reported IFA sources such as `Foliage:SM_FlowerSingle_02` and `Foliage:SM_FlowerSingle_03`.
+- Capture verification: after a short `stat mat start` / `stat mat end` capture, trace analysis completed with `Rows=10/630`, `DebugComponents=1098`, `MaterialDrawEvents=341863`, and foliage dump showed IFA flowers covered: `Foliage:SM_FlowerSingle_02 debugComps=1 debugInstances=17876`, `Foliage:SM_FlowerSingle_03 debugComps=1 debugInstances=15830`, `Foliage:SM_FlowerGroup_01_White debugComps=1 debugInstances=143`, and `Foliage:SM_FlowerGroup_01_Yellow debugComps=1 debugInstances=136`.
+- Notion capture fallback: Notion page search/update for `CubelessStylized 운영 문서` was not available in the exposed tool set, so this local work-log entry is the durable capture.
+
+## OptimizationPreviewTools Replay Animation Playback Fix
+
+- Date: 2026-06-09 KST
+- Scope: `CubelessStylized` plugin branch `codex/optimization-replay-freeze`; changed `OptimizationPreviewTools` replay character sample application logic.
+- Change: separated replay transform locking from skeletal animation freezing. Replay still reapplies captured character transform, control rotation, and movement state, but no longer sets `bPauseAnims=true`, no longer forces `GlobalAnimRateScale=0`, and no longer rewrites montage position every paused replay tick. Montage sample position is now seeded only when the replay sample changes or a forced seek/slider/peak jump occurs.
+- Validation: `StylizedCubelessEditor Win64 Development` build succeeded with UE 5.7. Editor relaunched, a short `stat mat start` / `stat mat end` capture completed, `stat mat replay` entered replay mode, and all detected character meshes remained unfrozen after repeated paused replay ticks: `pause_anims=False`, `global_anim_rate_scale=1.0` for `BP_Dummy_C_1`, `BP_Dummy_C_2`, and `BP_Dummy_C_3`.
+
+## OptimizationPreviewTools Non-Opaque Material Debug Override Fallback
+
+- Date: 2026-06-09 KST
+- Scope: `CubelessStylized` plugin branch `codex/optimization-replay-freeze`; changed `OptimizationPreviewTools` material debug visualization only.
+- Tivret review: Unreal inspection confirmed `MI_Flower_02` is `BLEND_MASKED`, parented to `/Game/DreamscapeSeries/SharedResources/Materials/Foliage/M_Plants_Master`, and `SM_FlowerSingle_02` slot 0 uses that material. Because the same material failed to show Actor Coloration even when placed as a normal Static Mesh, the issue was treated as a non-opaque material/debug-view compatibility problem rather than foliage collection.
+- Change: added `materialgpu.DebugMaterialOverrideFallback` default-on fallback. When Actor Coloration debug colors are active, target component slots whose original material blend mode is not `BLEND_Opaque` are temporarily replaced with a transient `MaterialInstanceDynamic` based on `GEngine->ShadedLevelColorationUnlitMaterial` with the same debug `Color` parameter. Original per-slot materials are stored per component and restored on debug off, replay/capture clear, actor coloration disable, and module shutdown. Package dirty state is preserved after override/restore.
+- Validation: UE 5.7 `StylizedCubelessEditor Win64 Development` build succeeded. Editor relaunched and `ExampleMap` loaded. After a short `stat mat start` / `stat mat end`, `SM_FlowerSingle_02`, `SM_FlowerGroup_01_White`, and `SM_FlowerGroup_01_Yellow` foliage/landscape-grass components reported transient `MID_ShadedLevelColorationUnlit...` slot materials while debug colors were active. After `stat matmode 0`, `SM_FlowerSingle_02` restored to `/Game/DreamscapeSeries/DreamscapeMountains/Materials/Foliage/Plants/MI_Flower_02.MI_Flower_02`. Dirty package count remained `0`.
+
+## OptimizationPreviewTools Debug Color Ramp Update
+
+- Date: 2026-06-09 KST
+- Scope: `CubelessStylized` plugin branch `codex/optimization-replay-freeze`; changed only `OptimizationPreviewTools` debug color calculation.
+- Change: replaced the shader-complexity color sampling with a fixed project ramp for Material GPU Preview and Object Memory Snapshot debug colors: low values are green, mid/high threshold values are red, and max/over-threshold values are pink. Removed the now-unused shader complexity color-range sampler.
+- Validation: UE 5.7 `StylizedCubelessEditor Win64 Development` build succeeded.
+
+## OptimizationPreviewTools Debug Override Shutdown Crash Fix
+
+- Date: 2026-06-09 KST
+- Scope: `CubelessStylized` plugin branch `codex/optimization-replay-freeze`; changed only `OptimizationPreviewTools` debug material override safety.
+- Crash diagnosis: latest editor crash folder was `Saved/Crashes/UECC-Windows-02C42E5643C1B587693FB9BAFC47F4EE_0000`. The callstack asserted in `FUObjectArray::IndexToObject()` from `OptimizationPreviewTools::ReleaseMaterialDebugOverrideMaterials()` during editor shutdown. The same session log also showed repeated `MaterialInstanceDynamic ... is not a valid parent` warnings from UI/widget material paths after the fallback override was applied too broadly.
+- Change: removed the cached/rooted debug MID pool and now creates transient debug MIDs only when assigning a component material slot, letting the component reference own the temporary material lifetime. The fallback override is also restricted to `UStaticMeshComponent` descendants, covering placed Static Meshes, foliage, instanced foliage, and landscape grass while avoiding WidgetComponent health bar materials.
+- Validation: UE 5.7 `StylizedCubelessEditor Win64 Development` build succeeded. Editor relaunched, short `stat mat start` / `stat mat end` capture completed, `stat matmode 1` applied transient debug MIDs to InstancedFoliageActor flowers and Landscape Grass, `stat matmode 0` restored original `MI_Flower_*` and `MI_GrassMedium` materials, dirty package count remained `0`, the editor closed cleanly, no newer crash folder was created, and the log tail contained no `Assertion failed`, `IndexToObject`, or `not a valid parent for MaterialInstanceDynamic` entries.
+
+## OptimizationPreviewTools Replay Color Ramp Config Expansion
+
+- Date: 2026-06-09 KST
+- Scope: `CubelessStylized` plugin branch `codex/optimization-replay-freeze`; changed `OptimizationPreviewTools` replay/material GPU debug color configuration and ramp calculation.
+- Change: moved the Material GPU Preview replay color ramp to four ini thresholds: `DebugGreenMs=0.5`, `DebugRedMs=1.5`, `DebugPinkMs=3.0`, and `DebugWhiteMs=6.0`. The runtime ramp now interpolates through green, red, pink, and white using those threshold points. Existing `DebugGreenMaxMs` remains a legacy fallback for older local config files.
+- Validation: UE 5.7 `StylizedCubelessEditor Win64 Development` build succeeded, `git diff --check` passed, the editor relaunched successfully, and the latest log tail showed no `Error:`, `Fatal`, `Assertion failed`, or debug material parent warnings.
+
+## OptimizationPreviewTools Smooth Ramp And Masked Debug MID
+
+- Date: 2026-06-09 KST
+- Scope: `CubelessStylized` plugin branch `codex/optimization-replay-freeze`; changed `OptimizationPreviewTools` replay/material GPU debug color interpolation and masked-material fallback behavior.
+- Tivret review: the four threshold colors were already interpolated, but they used linear interpolation. To make stage transitions feel softer without changing the thresholds, the four-point Material GPU Preview ramp now applies `SmoothStep` inside each segment. Masked materials cannot generally have an arbitrary opacity mask extracted safely from their graph at runtime, so the safer first path is to create a transient MID using the original masked material as the parent. That preserves the original opacity mask, UVs, wind, WPO, and clip value, then overrides color-like vector parameters with the debug color.
+- Change: masked fallback now prefers an original-material MID for `BLEND_Masked` slots. It overrides vector parameters whose names look color-like, such as `Color`, `Tint`, `Albedo`, `Diffuse`, `Emissive`, or `Gradient`, and avoids unrelated vector parameters such as speed/direction controls. If no usable color parameter exists, it falls back to the existing solid debug material. Non-masked non-opaque fallback behavior remains unchanged.
+- Validation: UE 5.7 `StylizedCubelessEditor Win64 Development` build succeeded, `git diff --check` passed, and the editor relaunched successfully with no latest-log `Error:`, `Fatal`, `Assertion failed`, or debug material parent warnings. MCP inspection confirmed foliage materials are `BLEND_MASKED` and have color-like vector parameters: `MI_Flower_02` has `Color Gradient 01`, `Color Gradient 02`, `Stem Color`, `Color Tint`; `MI_GrassMedium` has `Emissive Color`, `Color Tint`, and `Cloud Color`. A short verification capture returned no material GPU scopes, so a full live visual verification should be done during a normal replay/capture session with populated debug rows.
