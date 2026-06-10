@@ -8,6 +8,7 @@ import unreal
 
 
 LEVEL_PATH = "/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP"
+FIELD_VISUAL_REVIEW_LEVEL_PATH = "/Game/Cubeless/Map/LVL_Cubeless_PCG_Ecosystem_Field"
 SPEC_VERSION = 1
 
 ROAD_CONTROL_POINTS = [
@@ -126,6 +127,7 @@ RUNTIME_ROAD_CONTROL_PROFILE_NAME = "CubelessForestRoadRuntimeControlProfile.jso
 RUNTIME_ROAD_NATIVE_GRAPH_REPORT_NAME = "CubelessForestRoadNativeGraphSkeleton.json"
 RUNTIME_ROAD_NATIVE_GRAPH_SMOKE_REPORT_NAME = "CubelessForestRoadNativeGraphLiveSmoke.json"
 RUNTIME_ROAD_NATIVE_GRAPH_SHAPE_SUITE_REPORT_NAME = "CubelessForestRoadNativeGraphShapeSuite.json"
+RUNTIME_ROAD_NATIVE_GRAPH_VISUAL_REVIEW_REPORT_NAME = "CubelessForestRoadNativeGraphVisualReview.json"
 RUNTIME_ROAD_BP_FOLDER = "/Game/Cubeless/PCG/Runtime/Blueprints"
 RUNTIME_ROAD_BP_NAME = "BP_Cubeless_PCG_ForestRoadRuntime"
 RUNTIME_ROAD_ACTOR_LABEL = "MCP_Cubeless_PCG_ForestRoadRuntime_Validation"
@@ -243,8 +245,9 @@ def _level_object_path(level_path):
     return "{}.{}".format(level_path, asset_name)
 
 
-def ensure_pcg_validation_level_loaded():
-    target_world = _level_object_path(LEVEL_PATH)
+def ensure_pcg_validation_level_loaded(level_path=None):
+    level_path = level_path or LEVEL_PATH
+    target_world = _level_object_path(level_path)
     before = _world_path()
     if before == target_world:
         return {
@@ -255,7 +258,7 @@ def ensure_pcg_validation_level_loaded():
             "pass": True,
         }
 
-    load_result = unreal.EditorLevelLibrary.load_level(LEVEL_PATH)
+    load_result = unreal.EditorLevelLibrary.load_level(level_path)
     after = _world_path()
     return {
         "target": target_world,
@@ -375,6 +378,14 @@ def _saved_runtime_road_native_graph_shape_suite_report_path():
         unreal.Paths.project_saved_dir(),
         "MCP_RoadPCG",
         RUNTIME_ROAD_NATIVE_GRAPH_SHAPE_SUITE_REPORT_NAME,
+    )
+
+
+def _saved_runtime_road_native_graph_visual_review_report_path():
+    return os.path.join(
+        unreal.Paths.project_saved_dir(),
+        "MCP_RoadPCG",
+        RUNTIME_ROAD_NATIVE_GRAPH_VISUAL_REVIEW_REPORT_NAME,
     )
 
 
@@ -2188,8 +2199,8 @@ def _pcg_configure_self_pruning(settings):
     return result
 
 
-def create_or_update_runtime_road_native_skeleton_graph(source_points_override=None, source_label_override=None):
-    level_load = ensure_pcg_validation_level_loaded()
+def create_or_update_runtime_road_native_skeleton_graph(source_points_override=None, source_label_override=None, target_level_path=None):
+    level_load = ensure_pcg_validation_level_loaded(target_level_path)
     if not level_load["pass"]:
         raise RuntimeError("Failed to load PCG validation level: {}".format(level_load))
 
@@ -3225,12 +3236,14 @@ def _native_smoke_summarize_actor(actor, component, elapsed_seconds, route_point
     }
 
 
-def start_runtime_road_native_graph_live_smoke_test(keep_preview=False, timeout_seconds=6.0, source_points_override=None, source_label_override=None, preview_label_suffix=""):
+def start_runtime_road_native_graph_live_smoke_test(keep_preview=False, timeout_seconds=6.0, source_points_override=None, source_label_override=None, preview_label_suffix="", target_level_path=None):
+    target_level_path = target_level_path or LEVEL_PATH
     label = "MCP_TMP_NativeRoadPCGValidation_LiveCollect{}".format(preview_label_suffix or "")
     report_path = _saved_runtime_road_native_graph_smoke_report_path()
     graph_report = create_or_update_runtime_road_native_skeleton_graph(
         source_points_override=source_points_override,
         source_label_override=source_label_override,
+        target_level_path=target_level_path,
     )
     graph = _load_object(_runtime_road_native_graph_object_path())
     for actor in list(unreal.EditorLevelLibrary.get_all_level_actors()):
@@ -3264,6 +3277,7 @@ def start_runtime_road_native_graph_live_smoke_test(keep_preview=False, timeout_
         "pass": None,
         "status": "scheduled",
         "world": _world_path(),
+        "target_level_path": target_level_path,
         "graph_path": _runtime_road_native_graph_object_path(),
         "actor_label": label,
         "source_label": graph_report.get("runtime_spline_sync", {}).get("source_label"),
@@ -3296,6 +3310,7 @@ def start_runtime_road_native_graph_live_smoke_test(keep_preview=False, timeout_
             result["source_label"] = graph_report.get("runtime_spline_sync", {}).get("source_label")
             result["keep_preview"] = bool(keep_preview)
             result["graph_report_path"] = graph_report.get("report_path")
+            result["target_level_path"] = target_level_path
             _native_smoke_write_report(report_path, result)
         except Exception:
             _native_smoke_write_report(
@@ -3304,6 +3319,7 @@ def start_runtime_road_native_graph_live_smoke_test(keep_preview=False, timeout_
                     "pass": False,
                     "status": "error",
                     "world": _world_path(),
+                    "target_level_path": target_level_path,
                     "graph_path": _runtime_road_native_graph_object_path(),
                     "error": traceback.format_exc(),
                 },
@@ -3342,6 +3358,178 @@ def read_runtime_road_native_graph_shape_suite_report():
         report = json.load(handle)
     report["exists"] = True
     report["report_path"] = report_path
+    return report
+
+
+def read_runtime_road_native_graph_visual_review_report():
+    report_path = _saved_runtime_road_native_graph_visual_review_report_path()
+    if not os.path.exists(report_path):
+        return {"exists": False, "report_path": report_path}
+    with open(report_path, "r", encoding="utf-8") as handle:
+        report = json.load(handle)
+    report["exists"] = True
+    report["report_path"] = report_path
+    return report
+
+
+def _set_actor_temporary_editor_hidden(actor, hidden):
+    applied = []
+    if hasattr(actor, "set_is_temporarily_hidden_in_editor"):
+        actor.set_is_temporarily_hidden_in_editor(bool(hidden))
+        applied.append("set_is_temporarily_hidden_in_editor({})".format(bool(hidden)))
+    else:
+        applied.append("set_is_temporarily_hidden_in_editor unavailable")
+    return applied
+
+
+def apply_runtime_road_visual_review_visibility(preview_label_prefix="MCP_TMP_NativeRoadPCGValidation_LiveCollect_VisualReview"):
+    """Keep the editable spline visible and hide the duplicate runtime input spline in the editor."""
+    results = []
+    preview_count = 0
+    for actor in _actors():
+        label = _label(actor)
+        if label == RUNTIME_ROAD_ACTOR_LABEL:
+            applied = _set_actor_temporary_editor_hidden(actor, True)
+            results.append(
+                {
+                    "actor": label,
+                    "action": "hide_runtime_input_spline_actor",
+                    "applied": applied,
+                }
+            )
+        elif label == AUTHORING_ACTOR_LABEL:
+            applied = _set_actor_temporary_editor_hidden(actor, False)
+            results.append(
+                {
+                    "actor": label,
+                    "action": "keep_authoring_spline_actor_visible",
+                    "applied": applied,
+                }
+            )
+        elif label.startswith(preview_label_prefix):
+            preview_count += 1
+            applied = _set_actor_temporary_editor_hidden(actor, False)
+            results.append(
+                {
+                    "actor": label,
+                    "action": "keep_native_pcg_preview_actor_visible",
+                    "applied": applied,
+                }
+            )
+    return {
+        "preview_label_prefix": preview_label_prefix,
+        "preview_actor_count": preview_count,
+        "results": results,
+        "policy": "authoring spline visible; duplicated runtime input spline hidden for viewport review only",
+    }
+
+
+def start_runtime_road_native_graph_visual_review(timeout_seconds=6.0, target_level_path=None):
+    """Spawn and keep native PCG output for visual review without showing two overlapping splines."""
+    target_level_path = target_level_path or LEVEL_PATH
+    smoke = start_runtime_road_native_graph_live_smoke_test(
+        keep_preview=True,
+        timeout_seconds=timeout_seconds,
+        preview_label_suffix="_VisualReview",
+        target_level_path=target_level_path,
+    )
+    visibility = apply_runtime_road_visual_review_visibility()
+    report = {
+        "pass": None,
+        "status": "scheduled",
+        "world": _world_path(),
+        "target_level_path": target_level_path,
+        "bookmark_policy": "bookmark 1/2 are user-owned and are not modified by native visual review",
+        "visual_review_policy": {
+            "keep_preview": True,
+            "show_authoring_spline": True,
+            "hide_runtime_input_spline": True,
+            "reason": "the runtime actor duplicates the authoring spline only as native PCG input; showing both reads as a double road spline",
+        },
+        "smoke_report_path": smoke.get("report_path"),
+        "smoke": smoke,
+        "visibility": visibility,
+    }
+    report_path = _saved_runtime_road_native_graph_visual_review_report_path()
+    os.makedirs(os.path.dirname(report_path), exist_ok=True)
+    with open(report_path, "w", encoding="utf-8") as handle:
+        json.dump(report, handle, ensure_ascii=False, indent=2)
+    report["report_path"] = report_path
+    unreal.log("CubelessRoadPCG native visual review: {}".format(json.dumps(report, ensure_ascii=False)))
+    return report
+
+
+def start_runtime_road_native_graph_field_visual_review(timeout_seconds=6.0):
+    return start_runtime_road_native_graph_visual_review(
+        timeout_seconds=timeout_seconds,
+        target_level_path=FIELD_VISUAL_REVIEW_LEVEL_PATH,
+    )
+
+
+def _runtime_road_native_visual_review_quality(smoke_report):
+    expected_counts = smoke_report.get("roadside_expected_counts", {}) or {}
+    actual_counts = smoke_report.get("roadside_point_counts", {}) or {}
+    count_ratios = {}
+    count_ratio_checks = {}
+    for key, expected in expected_counts.items():
+        actual = actual_counts.get(key, 0)
+        if expected:
+            ratio = float(actual) / float(expected)
+            count_ratios[key] = round(ratio, 3)
+            count_ratio_checks[key] = 0.65 <= ratio <= 1.35
+        else:
+            count_ratios[key] = None
+            count_ratio_checks[key] = actual == 0
+
+    expected_spline_meshes = smoke_report.get("expected_min_spline_mesh_components") or 288
+    spline_mesh_count = smoke_report.get("spline_mesh_component_count") or 0
+    instanced_total = smoke_report.get("instanced_instance_total") or 0
+    clearance_violations = smoke_report.get("roadside_clearance_violation_count") or 0
+
+    checks = {
+        "ready": smoke_report.get("status") == "ready",
+        "preview_actor_kept": bool(smoke_report.get("keep_preview")),
+        "road_spline_meshes_present": spline_mesh_count >= int(expected_spline_meshes * 0.9),
+        "roadside_instances_present": instanced_total > 0,
+        "clearance": clearance_violations == 0,
+        "roadside_density_tolerance": all(count_ratio_checks.values()) if count_ratio_checks else False,
+    }
+    return {
+        "pass": all(checks.values()),
+        "checks": checks,
+        "exact_smoke_pass": smoke_report.get("pass"),
+        "exact_count_mismatches": smoke_report.get("roadside_count_mismatches", {}),
+        "count_ratios": count_ratios,
+        "count_ratio_tolerance": [0.65, 1.35],
+        "note": "visual review tolerates route edits; exact learned counts remain reserved for baseline smoke tests",
+    }
+
+
+def finalize_runtime_road_native_graph_visual_review_report():
+    visual_report = read_runtime_road_native_graph_visual_review_report()
+    smoke_report = read_runtime_road_native_graph_live_smoke_report()
+    visibility = apply_runtime_road_visual_review_visibility()
+    quality = _runtime_road_native_visual_review_quality(smoke_report) if smoke_report.get("exists") else {
+        "pass": False,
+        "checks": {"smoke_report_exists": False},
+    }
+    report = {
+        "pass": quality.get("pass"),
+        "status": smoke_report.get("status", "missing"),
+        "world": _world_path(),
+        "target_level_path": visual_report.get("target_level_path") or smoke_report.get("target_level_path"),
+        "bookmark_policy": "bookmark 1/2 are user-owned and are not modified by native visual review",
+        "visual_review_policy": visual_report.get("visual_review_policy", {}),
+        "visibility": visibility,
+        "smoke": smoke_report,
+        "visual_quality": quality,
+    }
+    report_path = _saved_runtime_road_native_graph_visual_review_report_path()
+    os.makedirs(os.path.dirname(report_path), exist_ok=True)
+    with open(report_path, "w", encoding="utf-8") as handle:
+        json.dump(report, handle, ensure_ascii=False, indent=2)
+    report["report_path"] = report_path
+    unreal.log("CubelessRoadPCG native visual review finalized: {}".format(json.dumps(report, ensure_ascii=False)))
     return report
 
 
@@ -3498,6 +3686,7 @@ def start_runtime_road_native_graph_shape_suite_smoke_test(timeout_seconds=6.0, 
         "pass": None,
         "status": "scheduled",
         "world": _world_path(),
+        "target_level_path": LEVEL_PATH,
         "graph_path": _runtime_road_native_graph_object_path(),
         "shape_count": len(shape_specs),
         "source_label": source["label"],
