@@ -1,0 +1,95 @@
+{
+  "temp_root": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252",
+  "copy_report": [
+    {
+      "source": "/Game/EL/ART/BG/FX/Viking_Village/VFXUpdate/Niagara/NS_Torch_01.NS_Torch_01",
+      "source_exists": true,
+      "dest_package": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_Torch_01",
+      "dest_object": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_Torch_01.Learn_NS_Torch_01",
+      "status": "duplicated",
+      "class": "NiagaraSystem",
+      "saved": true
+    },
+    {
+      "source": "/Game/UltraDynamicSky/Particles/Rain.Rain",
+      "source_exists": true,
+      "dest_package": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_Rain",
+      "dest_object": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_Rain.Learn_Rain",
+      "status": "duplicated",
+      "class": "NiagaraSystem",
+      "saved": true
+    },
+    {
+      "source": "/Game/UltraDynamicSky/Particles/Lightning_Strike.Lightning_Strike",
+      "source_exists": true,
+      "dest_package": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_Lightning_Strike",
+      "dest_object": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_Lightning_Strike.Learn_Lightning_Strike",
+      "status": "duplicated",
+      "class": "NiagaraSystem",
+      "saved": true
+    },
+    {
+      "source": "/Game/Cubeless/Reactive/NS_Reactive_RTTexturePainter.NS_Reactive_RTTexturePainter",
+      "source_exists": true,
+      "dest_package": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_Reactive_RTTexturePainter",
+      "dest_object": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_Reactive_RTTexturePainter.Learn_NS_Reactive_RTTexturePainter",
+      "status": "duplicated",
+      "class": "NiagaraSystem",
+      "saved": true
+    },
+    {
+      "source": "/Game/UltraVolumetrics/Core/Niagara/NS_Ring.NS_Ring",
+      "source_exists": true,
+      "dest_package": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_Ring",
+      "dest_object": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_Ring.Learn_NS_Ring",
+      "status": "duplicated",
+      "class": "NiagaraSystem",
+      "saved": true
+    },
+    {
+      "source": "/Game/UltraVolumetrics/Core/Niagara/NS_TrailCharacter.NS_TrailCharacter",
+      "source_exists": true,
+      "dest_package": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_TrailCharacter",
+      "dest_object": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_TrailCharacter.Learn_NS_TrailCharacter",
+      "status": "duplicated",
+      "class": "NiagaraSystem",
+      "saved": true
+    },
+    {
+      "source": "/Game/UltraVolumetrics/Core/Niagara/NS_Burst.NS_Burst",
+      "source_exists": true,
+      "dest_package": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_Burst",
+      "dest_object": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_Burst.Learn_NS_Burst",
+      "status": "duplicated",
+      "class": "NiagaraSystem",
+      "saved": true
+    },
+    {
+      "source": "/Game/UltraVolumetrics/Core/Niagara/NS_Vortex.NS_Vortex",
+      "source_exists": true,
+      "dest_package": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_Vortex",
+      "dest_object": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_Vortex.Learn_NS_Vortex",
+      "status": "duplicated",
+      "class": "NiagaraSystem",
+      "saved": true
+    },
+    {
+      "source": "/Game/UltraVolumetrics/Demo/FX/NS_LaserBeam.NS_LaserBeam",
+      "source_exists": true,
+      "dest_package": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_LaserBeam",
+      "dest_object": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_LaserBeam.Learn_NS_LaserBeam",
+      "status": "duplicated",
+      "class": "NiagaraSystem",
+      "saved": true
+    },
+    {
+      "source": "/Game/UltraVolumetrics/Demo/FX/NS_Laserblast.NS_Laserblast",
+      "source_exists": true,
+      "dest_package": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_Laserblast",
+      "dest_object": "/Game/_MCP_Temp/NiagaraLearning/20260611_014252/Systems/Learn_NS_Laserblast.Learn_NS_Laserblast",
+      "status": "duplicated",
+      "class": "NiagaraSystem",
+      "saved": true
+    }
+  ]
+}
