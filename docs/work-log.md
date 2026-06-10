@@ -2,6 +2,278 @@
 
 Durable local fallback for project memory when Notion capture is unavailable.
 
+## 2026-06-10 - Runtime road native segment subdivision pass
+
+### Summary
+- Advanced `/Game/Cubeless/PCG/Runtime/Graphs/PCG_Cubeless_ForestRoadRuntime_NativeSkeleton` from a descriptive skeleton toward a native road-generation graph.
+- Replaced the road branch shape with `GetSpline -> SplineToSegment -> SubdivideSegment -> AddAttribute chain -> SpawnSplineMesh`.
+- Split road output branches into `core`, `edge_left`, `edge_right`, `soften_left`, and `soften_right` instead of a single combined edge/soften branch.
+- Added native spline-mesh override attributes for `RoadStartScale` and `RoadEndScale`, in addition to mesh, material, forward axis, start offset, and end offset.
+- Configured branch baseline targets: core `96` strips at `538.35 cm`; edge left/right `48 + 48` strips at `1076.70 cm`; soften left/right `48 + 48` strips at `1076.70 cm`.
+- Lateral offsets are now represented natively as constants: core `0 cm`, edge `+/-230 cm`, soften `+/-330 cm`. The organic sinusoidal offset/width variation remains pending.
+
+### Verification
+- Native graph regeneration saved successfully with `74` nodes, `84` connected edges, and `0` edge errors.
+- Runtime road branch output now uses `PCGSpawnSplineMeshSettings` with `RoadForwardAxis`, `RoadStartOffset`, `RoadEndOffset`, `RoadStartScale`, and `RoadEndScale` parameter overrides.
+- Legacy runtime road strip actors were not recreated; remaining matching actors stayed at `0`.
+- Dirty content packages and dirty map packages were both `[]` after saving the `_MCP_Temp` validation map.
+- Python compile passed for `CubelessRoadPCG.py` and `CubelessRoadPCGRuntimeEntrypoint.py`; `git diff --check` still reports only the existing LF/CRLF warning for this work-log.
+- Report: `Saved/MCP_RoadPCG/CubelessForestRoadNativeGraphSkeleton.json`.
+
+### Remaining Native PCG Gaps
+- Validate actual `PCGSubdivideSegment` output counts against the Python baseline counts `96/48/48/48/48`.
+- Add native sinusoidal lateral offset and width variation so the road edge reads organic rather than constant-offset.
+- Add native point-count controls for gravel, stone, and embankment targets `235/46/7`.
+- Validate native `RoadClearanceDistance` and self-pruning output against the Python nearest-route and hard-overlap checks.
+
+## 2026-06-10 - Runtime road legacy actor guard
+
+### Summary
+- Confirmed that the separate road `SplineMeshActor` components in the validation scene were legacy Python validation output, not the intended final PCG road structure.
+- Removed `288` generated runtime road strip actors from `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`: `96` core, `96` edge, and `96` soften actors.
+- Updated `CubelessRoadPCGRuntimeEntrypoint.py` so the PCG bridge path writes a guard report instead of calling `regenerate_runtime_road_from_actor(clear_superseded=False)` automatically.
+- Added `write_runtime_road_bridge_guard_report()` to `CubelessRoadPCG.py`; direct legacy regeneration is still available only when intentionally called for validation.
+- User-owned bookmark slots `1` and `2`, production field map placement, and native PCG graph structure were not modified by the cleanup.
+
+### Verification
+- Current `_MCP_Temp` validation level had `0` remaining actors with prefixes `MCP_CubelessRuntimeRoad_Core_`, `MCP_CubelessRuntimeRoad_Edge_`, or `MCP_CubelessRuntimeRoad_Soften_` after cleanup.
+- Direct execution of `CubelessRoadPCGRuntimeEntrypoint.py` returned `legacy_actor_generation_skipped=true` and did not recreate any legacy runtime road strip actors.
+- Runtime bridge graph metadata was updated and saved with node title `Forest Road Runtime Guard`.
+- The `_MCP_Temp` validation map was saved after actor cleanup; dirty content packages and dirty map packages were both `[]`.
+- The final direction remains the native graph target `/Game/Cubeless/PCG/Runtime/Graphs/PCG_Cubeless_ForestRoadRuntime_NativeSkeleton`, not separated baked road strip actors.
+
+## 2026-06-10 - Runtime forest road native PCG skeleton graph
+
+### Summary
+- Created/updated the Cubeless-owned native PCG conversion target at `/Game/Cubeless/PCG/Runtime/Graphs/PCG_Cubeless_ForestRoadRuntime_NativeSkeleton`.
+- The graph is a native-node feasibility skeleton for replacing the current Python bridge over time. It was not placed into the production field map and does not yet replace the validated Python-driven runtime road output.
+- Added native graph authoring/report helpers to `Plugins/CustomTools/Content/Python/ArtScripts/CubelessRoadPCG.py`.
+- User-owned bookmark slots `1` and `2`, the existing field map layout, and the production road placement were not modified by this step.
+
+### Verification
+- Native graph validation passed with `42` graph nodes, `50` tested edges, and `0` edge errors.
+- `PCGGetSplineSettings` is bound to the runtime road Blueprint class `/Game/Cubeless/PCG/Runtime/Blueprints/BP_Cubeless_PCG_ForestRoadRuntime` and its `SplineComponent`.
+- The road output is now split into native core, edge, and soften spline-mesh branch candidates, each targeting `96` strips and a separate runtime material.
+- `PCGAddAttributeSettings` candidates now feed `RoadMesh`, `RoadMaterial`, `RoadForwardAxis`, `RoadStartOffset`, and `RoadEndOffset` into each road spline-mesh branch.
+- Each `PCGSpawnSplineMeshSettings` branch has override targets for `RoadMesh`, `RoadMaterial`, `RoadForwardAxis`, `StartOffset`, and `EndOffset`.
+- The roadside native branch now connects surface creation, point selection, density filtering, transform limits, and static-mesh spawning. The static mesh spawner is configured with a learned-rock mesh/material placeholder.
+- The roadside native branch is now split into gravel, stone, and embankment category candidates, each with its own point selection, density/clearance filter placeholder, transform limits, and static mesh spawner.
+- Each roadside category branch now includes a `PCGSelfPruningSettings` candidate between transform and static mesh spawn for same-category hard-overlap suppression.
+- A `PCGSplineSamplerSettings` road-reference branch now samples the runtime spline for clearance checks.
+- Each roadside category branch now includes `PCGDistanceSettings` and `PCGAttributeFilteringSettings` candidates that compute `RoadClearanceDistance` and pass only `InsideFilter` points at or beyond the category clearance threshold.
+- Category metadata captured in the report: gravel target `235`, clearance `620 cm`, scale `0.18..0.58`; stone target `46`, clearance `1700 cm`, scale `0.5..4.0`; embankment target `7`, clearance `2250 cm`, scale `0.7..4.0`.
+- Python compile passed for `CubelessRoadPCG.py` and `CubelessRoadPCGRuntimeEntrypoint.py`; `git diff --check` had no whitespace errors beyond the existing LF/CRLF warning for this work-log.
+- Unreal dirty content packages were cleared after saving `_MCP_Temp` probe graphs; the only dirty map remained `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`.
+- Report: `Saved/MCP_RoadPCG/CubelessForestRoadNativeGraphSkeleton.json`.
+
+### Remaining Native PCG Gaps
+- Recreate the Python road lateral offset and width-shaping rules natively; the branch split exists, but the exact core/edge/soften shape logic is not native yet.
+- Add native point-count controls for gravel, stone, and embankment targets `235/46/7`.
+- Validate native `RoadClearanceDistance` output against the Python nearest-route clearance checks before any production placement. Same-category self-pruning now has a native candidate, but it still needs output validation against the Python hard-overlap checks.
+
+## 2026-06-10 - Runtime forest road promotion validation
+
+### Summary
+- Promoted the forest-road spline validation path into Cubeless-owned runtime road assets without placing or saving it into the real field level.
+- Saved runtime assets: `/Game/Cubeless/PCG/Runtime/Blueprints/BP_Cubeless_PCG_ForestRoadRuntime`, `/Game/Cubeless/PCG/Runtime/Materials/M_Cubeless_PCG_ForestRoad_Core`, `/Game/Cubeless/PCG/Runtime/Materials/M_Cubeless_PCG_ForestRoad_Shoulder`, and `/Game/Cubeless/PCG/Runtime/Materials/M_Cubeless_PCG_ForestRoad_Duff`.
+- Validation scene: `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`.
+- User-owned bookmark slots `1` and `2`, the existing EcosystemRuntime Blueprint, and the production field map were not modified by this step.
+
+### Verification
+- Cleared `576` superseded prototype road/data actors before regenerating runtime validation output.
+- Runtime spline actor `MCP_Cubeless_PCG_ForestRoadRuntime_Validation` uses `Road_SourceSpline` with `8` points, `7` segments, and route length `51681.76 cm`.
+- Runtime road output: `96` core spline-mesh strips, `96` edge strips, `96` soften strips, and `0` dust actors.
+- Runtime roadside learned data: `235` gravel, `46` stone, and `7` embankment actors.
+- Validation passed with `0` road count mismatches, `0` learned count mismatches, `0` pitch/roll violations, `0` scale violations, `0` large-rock road-clearance violations, and no hard-overlap samples.
+- Scene counts matched expected and dirty content packages were `[]`; only the disposable `_MCP_Temp` validation map remained dirty.
+- Screenshot evidence: `Saved/MCP_Screenshots/pcg_runtime_forest_road_validation_ground.png` and `Saved/MCP_Screenshots/pcg_runtime_forest_road_validation_overview.png`.
+- Report: `Saved/MCP_RoadPCG/CubelessForestRoadRuntimePromotion.json`.
+
+### Next Gate
+- Decide whether to place/save this runtime road actor into the real field level or continue converting the current Python-driven generation rules into native PCG graph/runtime controls.
+
+## 2026-06-10 - Runtime forest road control smoke test
+
+### Summary
+- Added a runtime road control profile and smoke test path to `CubelessRoadPCG.py`.
+- The control source is now explicitly the runtime actor's `Road_SourceSpline`, not the fallback `ROAD_CONTROL_POINTS`, once the actor exists.
+- The smoke test performs baseline generation, temporarily offsets the runtime spline, regenerates output, then restores the original spline and regenerates final output.
+- User-owned bookmark slots `1` and `2`, the existing EcosystemRuntime Blueprint, and the production field map were not modified by this step.
+
+### Verification
+- Smoke test result: `pass=True`.
+- Baseline spline: `8` points, `7` segments, route length `51681.76 cm`.
+- Variant spline: max point delta `950.0 cm`, route length delta `7.18 cm`, output checksum delta `112148.663`.
+- Restored spline: max point delta `0.0 cm`, output checksum delta `0.0`, proving the final validation output returned to the original control state.
+- Baseline, variant, and restored validation all passed with `96` core road strips, `96` edge strips, `96` soften strips, `0` dust, `235` gravel, `46` stone, and `7` embankment.
+- Runtime validation stayed clean: `0` pitch/roll violations, `0` scale violations, `0` large-rock clearance violations, and no hard-overlap samples.
+- Saved runtime assets remained clean; dirty content packages were `[]`. The only dirty map package was the disposable `_MCP_Temp` validation level.
+- Reports: `Saved/MCP_RoadPCG/CubelessForestRoadRuntimeControlSmokeTest.json` and `Saved/MCP_RoadPCG/CubelessForestRoadRuntimeControlProfile.json`.
+
+### Next Gate
+- Either place the runtime road actor into the real field level, or convert the Python generator rules into a native PCG graph/runtime authoring surface.
+
+## 2026-06-10 - Runtime forest road PCG bridge graph
+
+### Summary
+- Added a Cubeless-owned runtime PCG bridge graph at `/Game/Cubeless/PCG/Runtime/Graphs/PCG_Cubeless_ForestRoadRuntime_Bridge`.
+- Added `CubelessRoadPCGRuntimeEntrypoint.py` as the PCG Execute Python file target.
+- Added `regenerate_runtime_road_from_actor(clear_superseded=False)` so the graph/entrypoint can read the runtime actor's `Road_SourceSpline` and regenerate the current road validation output without using the temporary offset smoke test.
+- Updated the runtime control profile to record the runtime graph path and entrypoint path.
+- This is an editor/runtime-authoring bridge, not the final all-native PCG node graph. It keeps the path toward native PCG open without saving into the production field map yet.
+
+### Verification
+- Runtime graph created/saved with `1` PCG Execute Python node named `ExecutePythonScript_0`.
+- Graph node title: `Forest Road Runtime Bridge`.
+- Graph node input method: `PCGPythonScriptInputMethod.FILE`.
+- Graph node script path points to `Plugins/CustomTools/Content/Python/ArtScripts/CubelessRoadPCGRuntimeEntrypoint.py`, and the file exists.
+- Direct regenerate call passed with runtime spline `8` points, `7` segments, and route length `51681.76 cm`.
+- Entrypoint-file execution also passed and regenerated the runtime road report.
+- Regenerated output validation passed: `96` core, `96` edge, `96` soften, `0` dust, `235` gravel, `46` stone, `7` embankment, with no pitch/roll, scale, large-rock clearance, or hard-overlap violations.
+- Python compile passed for `CubelessRoadPCG.py` and `CubelessRoadPCGRuntimeEntrypoint.py`; `git diff --check` had no whitespace errors, only the existing LF/CRLF warning for this work-log.
+- Unreal dirty content packages were `[]`; only the disposable `_MCP_Temp` validation map remained dirty.
+- Report: `Saved/MCP_RoadPCG/CubelessForestRoadRuntimeRegenerate.json`.
+
+### Next Gate
+- Replace the bridge script with native PCG nodes for spline sampling, point generation, spacing/collision filtering, and spline mesh output, or place the bridge-backed runtime actor in the real field level for a production-layout test.
+
+## 2026-06-10 - Forest road spline authoring handle
+
+### Summary
+- Target level: `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`.
+- Created/updated the temporary authoring Blueprint `/Game/_MCP_Temp/PCG/Blueprints/BP_Cubeless_ForestRoadAuthoringHandle`.
+- Added/validated the `Road_SourceSpline` SplineComponent as the editable route handle for the existing Cubeless road wrapper.
+- Updated the level actor `MCP_RoadAuthoringHandle_Prototype` under `MCP/PCG_ForestRoad/Authoring` with the same `8` `ROAD_CONTROL_POINTS` used by `CubelessRoadPCG.py`.
+- Updated the wrapper spec JSON and PCG skeleton description so future promotion work can find the authoring spline handle.
+- User-owned bookmark `1` and bookmark `2` were not modified.
+
+### Verification
+- Authoring spline point count: `8 / 8`.
+- Max spline point delta from wrapper route: `0.0 cm`.
+- Spline length and wrapper route length both measured `51681.76 cm`.
+- Current scene learned-data validation still passed: `235` gravel, `46` stone, `7` embankment, `0` pitch/roll violations, `0` scale violations, `0` large-rock road clearance violations, and no hard overlap samples.
+- Regeneration smoke test created `882` preview actors, passed validation, then removed all `882` generated preview actors.
+- Notion capture page created: `작업 기록 - Forest road spline authoring handle`.
+- Added `run_authoring_spline_regeneration_smoke_test(keep_preview=False)` and verified that the wrapper can regenerate from the actual `MCP_RoadAuthoringHandle_Prototype.Road_SourceSpline` points, not only from hardcoded `ROAD_CONTROL_POINTS`.
+- Spline-source regeneration also created `882` preview actors, passed count/rotation/scale/large-rock-clearance/overlap validation, then removed all `882` preview actors.
+- Generated spline-source report: `Saved/MCP_RoadPCG/CubelessForestRoadAuthoringSplineRegenSmokeTest.json`.
+
+### Residual Notes
+- The current visible road surface is still static validation ribbon/learned-data output, not a final native road PCG graph output.
+- The next production step is to promote this authoring handle into a real spline-driven PCG/Blueprint road generation route, or first tune the current visual quality from user bookmark `1` and `2`.
+
+## 2026-06-10 - Forest road spline-source visible visual tune
+
+### Summary
+- User asked for one visual tuning pass and asked whether the road had been converted to PCG spline.
+- Clarification: the road now has a spline authoring handle and the wrapper can regenerate from `MCP_RoadAuthoringHandle_Prototype.Road_SourceSpline`, but the visible road is still `_MCP_Temp` static ribbon actor output, not a final native production PCG spline mesh/decal graph.
+- Rebuilt only the visible `MCP_OrganicRoadRibbon_*` road actors from the authoring spline. Forest PCG instancers, grass/tree/rock placement, learned road data, and user-owned bookmark `1`/`2` were not overwritten.
+- V1/V2 dust/edge patches were rejected because they read as yellow oval spots. V3 cylinder-core road was rejected because it read as a dotted road. Final V4 kept a continuous dark core strip, darkened edge/soften materials, and removed visible dust patches.
+
+### Verification
+- Final visible road counts: `193` core, `168` edge, `216` soften, `0` dust.
+- Visible validation passed with no count mismatches, `0` regen actors, and `0` `MCP_TMP_*` actors.
+- Learned-data validation still passed: `235` gravel, `46` stone, `7` embankment, `0` pitch/roll violations, `0` scale violations, `0` large-rock road clearance violations, and no hard overlap samples.
+- Spline-source regeneration smoke test still passed: `882` preview actors generated from `Road_SourceSpline`, validated, then cleared.
+- Dirty content/map packages after save: none.
+- Screenshot evidence: `Saved/MCP_Screenshots/pcg_spline_visual_tune_v4_ground.png` and `Saved/MCP_Screenshots/pcg_spline_visual_tune_v4_overview.png`.
+- Notion page updated: `작업 기록 - Forest road spline authoring handle`.
+
+### Residual Notes
+- The visual tune is acceptable as a validation pass, but still not production quality.
+- The next real quality step is to replace the static ribbon road with a native spline mesh/decal/landscape-blend PCG route.
+
+## 2026-06-10 - Forest road bookmark-safe wrapper spec
+
+### Summary
+- Target level: `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`.
+- Bookmark policy was kept user-owned: bookmark `1` and bookmark `2` are not overwritten by automation.
+- Removed validation reliance on temporary camera actors; no `MCP_TMP_*` actors remain.
+- Organized the forest-road validation scene into outliner folders under `MCP/PCG_ForestRoad`, covering forest instancers, road ribbon categories, and learned road data categories.
+- Added `Plugins/CustomTools/Content/Python/ArtScripts/CubelessRoadPCG.py` as a bookmark-safe road wrapper/spec tool.
+- Generated wrapper spec JSON at `Saved/MCP_RoadPCG/CubelessForestRoadWrapperSpec.json`.
+
+### Verification
+- Folder organization touched `891` MCP road/forest actors.
+- Current expected counts match: `9` forest instancers, `193` road core pieces, `168` road edge pieces, `216` road soften pieces, `17` dust pieces, `235` gravel, `46` stone, and `7` embankment actors.
+- Learned road validation passed with `288` learned actors, `0` pitch/roll violations, `0` scale violations, and no hard overlap samples.
+- `CubelessRoadPCG.py` passed Python syntax compilation.
+
+### Residual Notes
+- The wrapper spec is the safe handoff point before building a true Cubeless road PCG Blueprint/graph.
+- The current road surface is still generated as validation ribbon actors, not as a production Landscape paint/decal/spline mesh system.
+
+## 2026-06-10 - Forest road wrapper regeneration smoke test
+
+### Summary
+- Extended `Plugins/CustomTools/Content/Python/ArtScripts/CubelessRoadPCG.py` with a safe regeneration smoke test.
+- The test uses the dedicated `MCP_RoadWrapperRegen_` prefix only, so it does not delete or overwrite the visible `MCP_OrganicRoadRibbon_*`, `MCP_LearnedRoadData_*`, or `MCP_ForestRoad_Instancer_*` result.
+- The smoke test flow is `clear existing regen prefix -> generate preview actors -> validate -> write report -> clear regen prefix -> save`.
+- Generated report: `Saved/MCP_RoadPCG/CubelessForestRoadRegenSmokeTest.json`.
+
+### Verification
+- Regeneration created `882` preview actors during the smoke test: `193` core, `168` edge, `216` soften, `17` dust, `235` gravel, `46` stone, and `7` embankment.
+- Validation passed with no count mismatches, no pitch/roll limit violations, no scale violations, and no hard overlap samples.
+- Cleanup removed all `882` `MCP_RoadWrapperRegen_*` preview actors after validation.
+- Final level check showed `0` regen actors, `0` `MCP_TMP_*` actors, and no dirty packages.
+
+### Residual Notes
+- This proves the current road layout can be regenerated from a Cubeless-owned wrapper script/spec.
+- The next promotion step is to move this logic into an editor-facing Blueprint/PCG graph workflow, or keep it as the automation backend while a Blueprint actor provides the authoring handle.
+
+## 2026-06-10 - Forest road PCG graph skeleton
+
+### Summary
+- Created `_MCP_Temp` PCG graph skeleton `/Game/_MCP_Temp/PCG/Graphs/PCG_Cubeless_ForestRoadWrapper_Skeleton`.
+- The graph is intentionally labeled as a skeleton/backend handoff, not as a finished native PCG road graph.
+- Added one `PCGExecutePythonScriptSettings` node titled `RoadWrapper Backend Smoke Test`, with a description pointing to `CubelessRoadPCG.py` and its safe entry point `run_regeneration_smoke_test(keep_preview=False)`.
+- Kept the bookmark policy unchanged: user-owned bookmark `1` and `2` are not modified.
+
+### Verification
+- MCP `list_pcg_assets` found the graph as a `PCGGraph` asset under `/Game/_MCP_Temp/PCG/Graphs`.
+- Final level validation showed `0` `MCP_RoadWrapperRegen_*` actors and no dirty packages.
+
+### Residual Notes
+- Production promotion is now the next decision gate: either promote this wrapper to `/Game/Cubeless/PCG/Runtime` or first review the current visual result from bookmark `1` and `2`.
+- A fully native PCG graph still needs either manual graph authoring or expanded MCP graph-creation commands for node/property wiring beyond the current skeleton.
+
+## 2026-06-10 - Forest road large rock clearance fix
+
+### Summary
+- User QA found that large rocks were visually blocking the road.
+- Reclassified the quality rule: `gravel` may appear on/near the road as small detail, but large `stone` and `embankment` actors must stay outside the drivable/readable road corridor.
+- Redistributed all `53` large learned road actors while preserving counts: `46` `stone` and `7` `embankment`.
+- Updated `CubelessRoadPCG.py` so regenerated `stone` and `embankment` actors also enforce road-center clearance before placement.
+
+### Verification
+- Current level learned counts remained `235` gravel, `46` stone, and `7` embankment.
+- Current level validation passed with no large-rock clearance violations, no pitch/roll violations, no scale violations, no hard overlap samples, and no dirty packages.
+- Regeneration smoke test created `882` preview actors, passed count/rotation/scale/large-rock-clearance/overlap validation, then removed all `882` `MCP_RoadWrapperRegen_*` actors.
+
+### Residual Notes
+- Visual review from user bookmark `1` and `2` is still needed before promoting the road wrapper from `_MCP_Temp` to runtime.
+
+## 2026-06-10 - Electric Dreams learned road PCG data pass
+
+### Summary
+- Target level: `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`.
+- Electric Dreams road PCG graphs and blueprints were located, including `PCG_Base_Road`, `PBP_Road_02`, `PBP_Road_Width500`, and WIP road graphs.
+- Direct generation in the Cubeless temp level produced empty output because the Electric Dreams road setup resets the source spline during generation and references mesh SoftObjectPaths under `/Game/EL/Art/...` that are not loadable in this project.
+- Used `BG_Smallroad01_PL_PCG` as the learned road-side data source instead. Its 45 point-array entries expose categories such as `gravel`, `stone`, `bush`, `smalltree`, and `enbankment*`.
+- Applied a mapped validation pass with current Dreamscape assets: 235 gravel rocks, 46 stones, and 7 embankment rocks. The bush mapping was removed after screenshot review because the replacement grass mesh rendered as pale clustered artifacts at distance.
+
+### Verification
+- Actor count after cleanup: 288 learned road data actors.
+- Pitch/roll limit violations: 0, keeping X/Y tilt inside the 5 degree rule.
+- Stone and embankment scale violations: 0, preserving the requested rock scale variation range.
+- Hard overlap samples: 0.
+- Dirty packages after save/check: none.
+
+### Residual Notes
+- This pass is a learned-data transfer, not a successful native Electric Dreams road graph output.
+- A proper Cubeless wrapper PCG graph or blueprint is still needed if the road should remain fully editable and regeneratable as PCG instead of static validation actors.
+- Bookmark 1 screenshot was captured, but bookmark 2 capture currently reads the same active viewport buffer, so the second screenshot is not reliable yet.
+
 ## 2026-05-29 - Ieta Slate status workflow
 
 ### Summary
@@ -1949,4 +2221,130 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Pre-commit verification: `python -m py_compile` passed for touched Unreal Python scripts; sibling Electric Dreams Python scripts compiled successfully; `git diff --check` and `git diff --cached --check` passed in both repositories.
 - Notes: the CubelessStylized commit emitted a CP949 decode exception while reading hook output, but Git returned success and the commit was created. LFS uploaded the three Unreal asset objects during push.
 - Final repository state after push: both `main` branches matched `origin/main`.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating the CubelessStylized operations document, so this local work-log entry is the durable capture.
+
+## Cubeless PCG SplineMesh Road Prototype
+
+- Date: 2026-06-10 KST
+- Scope: converted the temporary forest-road validation path in `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP` from static ribbon pieces to `SplineMeshActor` strips driven by `MCP_RoadAuthoringHandle_Prototype.Road_SourceSpline`. Production `/Game/Cubeless/PCG/Runtime` assets were not promoted or modified.
+- Road result: visible road now has `96` spline-mesh core strips, `96` edge strips, `96` soften strips, and `0` dust actors. Core material is `/Game/_MCP_Temp/Materials/M_MCP_RoadRibbon_Tuned04_CoolDarkForestSoil`; edge and soften use the compact shoulder material to avoid the earlier green rail-like edge read.
+- Learned placement result: regenerated learned road-side data with `235` gravel, `46` stone, and `7` embankment actors. Gravel now has a minimum route clearance rule (`620cm`) so small rocks no longer sit in the drivable path; stone and embankment clearance stayed strict (`1700cm` and `2250cm`).
+- Validation result: visible count mismatches `0`; learned pitch/roll violations `0`; scale violations `0`; route-clearance violations `0`; hard-overlap samples `0`; tmp actors `0`; dirty packages after save `[]`.
+- Wrapper smoke test: authoring spline regeneration created `882` preview actors, validated counts/clearance/overlap, and cleared all `882` preview actors afterward.
+- Screenshot evidence: `Saved/MCP_Screenshots/pcg_spline_mesh_road_prototype_v4_ground.png` and `Saved/MCP_Screenshots/pcg_spline_mesh_road_prototype_v4_overview.png`.
+- Documentation: Notion page `작업 기록 - Forest road spline authoring handle` was updated with this validation result.
+- Residual issue: this is acceptable as a spline-driven `_MCP_Temp` prototype, but production-grade PCG still needs an approval-gated promotion into the real runtime path plus a better material/landscape blend instead of visible mesh-strip edges.
+
+## Cubeless PCG Ecosystem Tuning Gallery And Field Tune
+
+- Date: 2026-06-10 KST
+- Scope: created a disposable PCG tuning gallery and then saved a denser four-actor layout into `/Game/Cubeless/Map/LVL_Cubeless_PCG_Ecosystem_Field`. Original Electric Dreams assets, learning graphs, `/Game/PCG`, `RuntimeGrass`, `NewPCGGraph`, and non-exception C++ were not modified.
+- Crash fix: the first gallery prepare crashed Unreal with `Old world ... not cleaned up by garbage collection while loading new map` because the script duplicated a temp level and loaded it while Python still referenced the duplicated `World`. The script now clears the duplicate reference before load and reuses an existing `_MCP_Temp` gallery map instead of deleting/reduplicating it in the same editor process.
+- Tuning gallery: `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_TuningGallery_MCP`, `9` candidate cases, `324` total instances, `trace_miss_count=0`, `height_fail_count=0`, `xy_fail_count=0`, latest marker `log_error_count=0`, and dirty packages cleared after temp save.
+- Field tune: after the first four-actor version still looked too small in viewport QA, expanded the saved field to a broad `10` actor patch: three dense meadow rows, three warm ground-foliage rows, two cool rocky east accents, and two light conifer edge actors, for `541` total instances.
+- Field validation/save: all ten actors passed Landscape contact validation with `trace_miss_count=0`, `height_fail_count=0`, and `xy_fail_count=0`; latest marker `log_error_count=0`; `field_layout_refine_saved=True`; `dirty_after_save=[]`.
+- Regression: `ecosystem_field_level_verify|PASS|0.328s`, `pcg_study_regression_pass=True`.
+- Tivret visual QA: viewport OS capture stayed locked inside selected actor/pilot state, so it was not used as evidence. Instead, `export_cubeless_pcg_ecosystem_field_topdown_qa.py` exported read-only PCG instance data and generated top-down QA artifacts under `Saved/MCP_Screenshots`; result bounds were `44.2m x 23.0m` with category counts `300` meadow, `174` warm foliage/flowers, `61` conifer, and `6` rock.
+- Regression hardening: registered the read-only top-down QA exporter as `ecosystem_field_topdown_qa` in `run_pcg_study_regression.py`; targeted run passed with `ecosystem_field_topdown_qa|PASS|0.114s` and `pcg_study_regression_pass=True`.
+- Editor state: current world is `/Game/Cubeless/Map/LVL_Cubeless_PCG_Ecosystem_Field`; the ten tuned runtime actors are selected and no dirty map packages are present.
+- Tooling/result docs added in `D:\Git\unreal-mcp-cubeless\Docs\Analysis\ElectricDreams`: tuning gallery prepare/verify scripts, tuned field prepare/verify scripts, `cubeless_pcg_ecosystem_tuning_gallery_result.md`, and `cubeless_pcg_ecosystem_field_tuned_layout_result.md`.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating the CubelessStylized operations document, so this local work-log entry is the durable capture.
+
+## Cubeless PCG Bookmark Validation Rule
+
+- Date: 2026-06-10 KST
+- Scope: established user-visible PCG quality validation using the user's editor bookmarks. Bookmark slots are user-owned review cameras and must not be overwritten by automation unless the user explicitly asks.
+- Validation cameras: bookmark `1` is the overview/shape read, and bookmark `2` is the ground-level quality read. PCG tuning steps should capture both screenshots before judging visual pass/fail.
+- Forest-road temp scene: current working validation level is `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`. It contains a disposable forest-road scene generated from Dreamscape conifers, grass, and rocks on the visible Landscape.
+- Rotation rule: for trees, grass, and rocks, keep `Pitch`/`Roll` within about `+/-5` degrees while allowing varied `Yaw`/Z rotation. This prevents leaned-over PCG placement while preserving directional variety.
+- Spacing rule: overlap control is a core PCG quality rule, not a cosmetic cleanup. Placement should use category radii, collision, or footprint metadata so trees, grass, and rocks do not visibly intersect.
+- Latest spacing/rotation validation: rebuilt the temp forest-road instances with no detected footprint overlap violations using the current radius model. Remaining counts were `162` trees, `309` grass instances, and `27` rocks; rotation violations were `0`, with max `Pitch`/`Roll` at or below about `5` degrees for tree, grass, and rock categories.
+- Residual issue: the central path still reads as a flat orange/brown strip rather than a finished natural dirt trail. Next visual tuning should improve the path material/mesh before promoting this pattern.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating the CubelessStylized operations document, so this local work-log entry is the durable capture.
+
+## Cubeless PCG Full Landscape Forest Road Validation
+
+- Date: 2026-06-10 KST
+- Scope: applied the forest-road PCG validation pattern across the full Landscape in `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`, using disposable `_MCP_Temp`/runtime actors and no production graph or C++ changes.
+- Placement result: final saved counts were `1800` trees, `12000` grass instances, and `240` rocks. The grass pass started from the requested `10x` target (`3090`) but was visually too sparse once distributed over the full Landscape, so it was raised to `12000` for ground-view density.
+- Road result: generated a deterministic random road path with `115` dirt road segments plus `8` joint pads using `/Game/_MCP_Temp/Materials/M_MCP_ForestRoad_DirtTexture`.
+- Validation result: actual component transform validation reported `rotation_violation_count=0`, `overlap_violation_count=0`, `road_clearance_violation_count=0`, `dirty_maps=[]`, and `dirty_content=[]`.
+- Spacing model: `tree_tree=480cm`, `tree_rock=240cm`, `tree_grass=125cm`, `rock_rock=170cm`, `rock_grass=85cm`, and relaxed `grass_grass=25cm`. Category road clearance was `tree=1050cm`, `rock=650cm`, and `grass=500cm`.
+- Screenshot evidence: overview screenshot is `Saved/MCP_Screenshots/pcg_full_landscape_bookmark1_viewport.png`; latest ground-density screenshot is `Saved/MCP_Screenshots/pcg_full_landscape_bridge_bookmark2_viewport_redraw.png`. Bookmark slots were not overwritten. B1 recapture after the final grass-density bump hit a viewport pixel-buffer issue and kept returning the B2 buffer, so the final B1 evidence should be treated as the overview/road-shape read while final density is backed by the B2 screenshot and transform validation.
+- Residual issue: the dirt road still reads as a prototype flat strip on the checker Landscape. Next quality pass should replace the cube-strip road with a spline mesh or decal/material blend and move away from checker material validation.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating the CubelessStylized operations document, so this local work-log entry is the durable capture.
+
+## Cubeless PCG Dense Grass Fill Pass
+
+- Date: 2026-06-10 KST
+- Scope: retuned only the grass density in `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`; existing trees, rocks, random road, and user-owned bookmarks were not overwritten.
+- User feedback: the previous `12000` grass instances still left too much checker ground visible, especially beside the road. The target changed from sparse grass clumps to a near-carpet forest floor where the base Landscape material is mostly hidden.
+- Dense-fill result: raised grass to `160000` total instances using road-biased sampling, larger new grass scale, and much more permissive overlap. Final mesh counts were `SM_Grass_Medium01=86018` and `SM_Grass_Medium03=73982`.
+- Relaxed placement model: grass-grass spacing reduced to `3cm`; tree-grass to `40cm`; rock-grass to `25cm`; grass road clearance reduced to `180cm` so grass can fill the previously visible checker strip beside the dirt path.
+- Validation result: `rotation_violation_count=0`, `grass_road_clearance_violation_count=0`, `dirty_maps=[]`, and `dirty_content=[]`. Final grass scale stats were `avg=1.648`, `min=0.7`, `max=2.15`.
+- Screenshot evidence: dense road-side validation screenshot is `Saved/MCP_Screenshots/pcg_dense_grass_road_validation_160k.png`.
+- Residual issue: grass density now hides most exposed ground, but the road itself is still a prototype cube strip. The next visual-quality step should fix road material/mesh continuity rather than adding more grass.
+
+## Cubeless PCG Grass Gradient And Rock Scale Pass
+
+- Date: 2026-06-10 KST
+- Scope: rebuilt only the grass layer and rock scale variation in `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`; existing tree positions, road actors, and user-owned bookmarks were not overwritten.
+- User rule: grass overlap relaxation applies only to grass-vs-grass. Grass-vs-tree and grass-vs-rock spacing must remain independent and should not inherit the relaxed grass overlap model.
+- Rock scale result: updated `240` rock instances to random uniform scale `0.5~4.0`; validated range was `min=0.507`, `max=3.999`, `avg=2.267`.
+- Grass rebuild result: cleared the previous `160000` grass instances and regenerated `140000` grass instances with `SM_Grass_Medium01=75681` and `SM_Grass_Medium03=64319`.
+- Placement model: grass-grass spacing stayed relaxed at `3cm`; tree-grass spacing restored to `125cm`; rock-grass spacing became scale-aware using `220cm + 90cm * rock_scale`; road hard clearance was restored to `520cm`.
+- Road density gradient: grass close to the road is intentionally sparse and gets denser farther away. Final band counts were `lt_520=0`, `520_900=385`, `900_1500=1738`, `1500_2600=5748`, and `2600_plus=132129`.
+- Validation result: `rotation_violation_count=0`, `non_grass_overlap_violation_count=0`, `grass_grass_overlap_violation_count=0`, `road_clearance_violation_count=0`, `dirty_maps=[]`, and `dirty_content=[]`.
+- Screenshot evidence: road-side gradient/rock-scale validation screenshot is `Saved/MCP_Screenshots/pcg_grass_gradient_rock_scale_validation.png`.
+- Residual issue: checker ground remains visible in the intentionally low-density transition band near the road. This is now a Landscape material / road blend quality issue, not a grass-overlap issue.
+
+## Cubeless PCG Road And Landscape Material Blend Pass
+
+- Date: 2026-06-10 KST
+- Scope: improved the validation scene's road/ground read in `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`; tree, grass, rock positions and user-owned bookmarks were not overwritten.
+- Attempted shoulder strips: created separate `_MCP` road-shoulder static mesh strips to hide checker ground, but the strips read as artificial rectangular blocks. They were removed before final validation.
+- Final approach: replaced the checker Landscape material with a temporary solid dark-brown forest-floor material and replaced road segment/joint materials with a darker dirt material. Final materials were `/Game/_MCP_Temp/Materials/M_MCP_Landscape_ForestFloor_DarkBrown` and `/Game/_MCP_Temp/Materials/M_MCP_Road_DarkBrown`.
+- Validation result: final counts remained `1800` trees, `140000` grass, and `240` rocks; road actors remained `115` path segments plus `8` joint pads; `MCP_RoadShoulder_*` actors were removed; `dirty_maps=[]` and `dirty_content=[]`.
+- Screenshot evidence: final road/landscape blend validation screenshot is `Saved/MCP_Screenshots/pcg_dark_brown_forestfloor_road_validation.png`.
+- Residual issue: road edges are still geometrically straight because the road is still cube-strip based. The next quality step should replace the road strip with a spline/decal/landscape-paint style path before judging final PCG presentation.
+
+## Cubeless PCG Organic Road Ribbon Pass
+
+- Date: 2026-06-10 KST
+- Scope: replaced the disposable cube-strip road in `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`; tree, grass, rock instance placement and user-owned bookmarks were not overwritten.
+- Bridge fix: a long `execute_python` payload crashed `UnrealMCPServerThread` with `BufferReader.h` `ReaderPos + Num <= ReaderSize` because `MCPServerRunnable` parsed each socket `Recv` as a complete JSON command. `Plugins/UnrealMCP/Source/UnrealMCP/Private/MCPServerRunnable.cpp` now buffers chunks until a complete JSON object is present, truncates large log previews, tolerates missing `params`, and sends full responses across partial socket writes.
+- Verification: `StylizedCubelessEditor Win64 Development` build succeeded after closing the stale crash reporter that held `UnrealEditor-UnrealMCP.dll`.
+- Road rebuild: removed the old `115` `MCP_FullLandscapeRoad_PathSegment_*` actors and `8` `MCP_FullLandscapeRoad_Joint_*` actors, replaced the rejected circular patch road with a ribbon-based dirt path using `_MCP_Temp` materials.
+- Final road counts: `MCP_OrganicRoadRibbon_*` total `594`, made of `193` core ribbon pieces, `168` edge pieces, `17` muted dust pieces, and `216` soft-edge pieces. All road components validated as `NoCollision`.
+- PCG counts preserved: `1800` trees, `140000` grass instances, and `240` rocks. Final dirty package validation reported `dirty_maps=[]` and `dirty_content=[]`.
+- Screenshot evidence: final validation screenshots are `Saved/MCP_Screenshots/pcg_organic_road_final_validation_a.png` and `Saved/MCP_Screenshots/pcg_organic_road_final_validation_b.png`. Direct keyboard recall of bookmarks was blocked by Windows session permissions, so screenshots used temporary validation viewport cameras and did not write bookmark slots.
+- Residual issue: the obvious circular road-patch pattern is fixed, but the path still reads broad and material-flat. Next quality pass should move from temporary mesh ribbons toward Landscape layer painting, decal blending, or a spline mesh/material with softer edge alpha before treating it as production-grade PCG presentation.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating the CubelessStylized operations document, so this local work-log entry is the durable capture.
+
+## Cubeless PCG Native Forest Road Runtime Graph Smoke
+
+- Date: 2026-06-10 KST
+- Scope: continued the native PCG road-runtime conversion in `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP` and `/Game/Cubeless/PCG/Runtime/Graphs/PCG_Cubeless_ForestRoadRuntime_NativeSkeleton`.
+- Crash finding: an unsafe ad-hoc PCG point-data introspection call to `PCGBasePointData.GetDensityBounds` with an invalid index crashed the editor with a `PCGValueRange.h` array-bounds assertion. Future validation must avoid arbitrary method enumeration on PCG point data and stick to known safe reads such as point count, transform, and metadata attribute listing.
+- Robustness fix: the native graph builder now loads the validation level before graph/runtime spline work and repairs an obviously bad baseline authoring spline if the source route is too short or has too few points.
+- Road output validation: live native smoke passed with `spline_mesh_component_count=288`, matching the expected `288` spline mesh components.
+- Roadside output validation: live native smoke passed with exact roadside counts `gravel=235`, `stone=46`, and `embankment=7`; `instanced_instance_total=288`.
+- Clearance validation: Python nearest-route validation reported `roadside_clearance_violation_count=0`. Minimum clearances were `gravel=680.49cm` vs required `620cm`, `stone=2140.83cm` vs required `1700cm`, and `embankment=3018.35cm` vs required `2250cm`.
+- Implementation note: native `PCGDistanceSettings` remains in the graph as a diagnostic `RoadClearanceDistance` path, but Python-created AttributeFilter/DensityFilter semantics were unreliable for hard filtering in this UE 5.7 graph. The active guarantee is currently lateral offset ranges plus the smoke-test nearest-route validator.
+- Cleanup: the live-smoke preview actor was removed automatically; a follow-up editor check found `temp_validation_actor_count=0`.
+- Reports: latest generated reports are `Saved/MCP_RoadPCG/CubelessForestRoadNativeGraphSkeleton.json` and `Saved/MCP_RoadPCG/CubelessForestRoadNativeGraphLiveSmoke.json`.
+- Regression hardening: added sibling MCP tooling `prepare_cubeless_pcg_runtime_road_native_smoke.py` and `verify_cubeless_pcg_runtime_road_native_smoke.py`, registered as `deferred_prepare/runtime_road_native_smoke_prepare` and `deferred_verify/runtime_road_native_smoke_verify` in `run_pcg_study_regression.py`.
+- Regression validation: `runtime_road_native_smoke_verify|PASS|0.089s`, `pcg_study_regression_pass=True`. Default `all` selection skips deferred steps unless the phase or step filter explicitly requests them, so tick-delayed smoke generation does not break ordinary all-phase runs.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating the CubelessStylized operations document, so this local work-log entry is the durable capture.
+
+## Cubeless PCG Intent Gallery
+
+- Date: 2026-06-10 KST
+- Scope: added a temp intent-based staging layer for user-requested PCG generation. Production field packages, original Electric Dreams assets, learning graphs, `/Game/PCG`, `RuntimeGrass`, `NewPCGGraph`, and non-exception C++ were not modified.
+- Gallery level: `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`.
+- Intents: `MeadowPatch`, `FlowerBand`, `RockEdge`, `ConiferEdge`, and `BalancedEcosystem`.
+- Runtime mapping: all intents use `/Game/Cubeless/PCG/Runtime/Blueprints/BP_Cubeless_PCG_EcosystemRuntime` with preset/override recipes instead of new C++ or copied production graph forks.
+- Validation: `intent_gallery_actor_count=9`, `field_total_instances=483`, `trace_miss_count=0`, `height_fail_count=0`, `xy_fail_count=0`, latest marker `log_error_count=0`, and `dirty_after_save=[]`.
+- Regression: registered `intent_gallery_prepare` and `intent_gallery_verify` in `run_pcg_study_regression.py`; targeted run passed with `intent_gallery_verify|PASS|0.328s` and `pcg_study_regression_pass=True`.
+- User request routing: "꽃 많은 초원" maps to `FlowerBand`; "넓은 초원" maps to `MeadowPatch`; "바위 가장자리" maps to `RockEdge`; "침엽수 경계" maps to `ConiferEdge`; "초원에 꽃이랑 바위랑 나무 조금" maps to `BalancedEcosystem`.
 - Notion capture fallback: the available Notion connector still did not expose a page search path for locating the CubelessStylized operations document, so this local work-log entry is the durable capture.
