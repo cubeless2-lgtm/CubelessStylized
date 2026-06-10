@@ -42,6 +42,9 @@
 #include "LandscapeProxy.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialExpressionLandscapeGrassOutput.h"
+#include "Materials/MaterialExpressionScalarParameter.h"
+#include "Materials/MaterialExpressionVectorParameter.h"
+#include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "Misc/DateTime.h"
@@ -49,6 +52,11 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
+#include "NiagaraComponent.h"
+#include "NiagaraTypes.h"
+#include "NiagaraUserRedirectionParameterStore.h"
+#include "NiagaraVariant.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "ProfilingDebugging/CountersTrace.h"
 #include "ProfilingDebugging/TraceAuxiliary.h"
@@ -158,7 +166,13 @@ static TAutoConsoleVariable<int32> CVarMaterialDebugMode(
 static TAutoConsoleVariable<int32> CVarDebugMaterialOverrideFallback(
 	TEXT("materialgpu.DebugMaterialOverrideFallback"),
 	1,
-	TEXT("Temporarily override non-opaque target materials with solid debug materials when Actor Coloration cannot reliably color them. Restored when debug mode is disabled."),
+	TEXT("Apply temporary debug material overrides for targeted non-opaque components that do not reliably show Actor Coloration colors. 0 uses Actor Coloration only."),
+	ECVF_Default);
+
+static TAutoConsoleVariable<int32> CVarDebugForceSolidTranslucentOverride(
+	TEXT("materialgpu.DebugForceSolidTranslucentOverride"),
+	1,
+	TEXT("Deprecated compatibility cvar. Translucent/additive/modulate debug overrides are always additive unlit debug materials."),
 	ECVF_Default);
 
 static TAutoConsoleVariable<int32> CVarDebugAlpha(
@@ -325,6 +339,12 @@ struct FDebugOverlayEntry
 	}
 };
 
+struct FFrameGpuInterval
+{
+	double StartTimeSeconds = 0.0;
+	double EndTimeSeconds = 0.0;
+};
+
 struct FTraceMaterialAggregate
 {
 	FString MaterialName;
@@ -334,6 +354,7 @@ struct FTraceMaterialAggregate
 	double AverageFrameGpuMs = 0.0;
 	int32 DrawEvents = 0;
 	TMap<uint32, double> GpuMsByFrame;
+	TMap<uint32, TArray<FFrameGpuInterval>> GpuIntervalsByFrame;
 };
 
 struct FMaterialGpuReplayFrameSample
@@ -345,12 +366,6 @@ struct FMaterialGpuReplayFrameSample
 	bool bHasTotalFrameGpuMs = false;
 	TMap<FString, float> MaterialGpuMsByKey;
 	TMap<FString, int32> MaterialDrawEventsByKey;
-};
-
-struct FFrameGpuInterval
-{
-	double StartTimeSeconds = 0.0;
-	double EndTimeSeconds = 0.0;
 };
 
 struct FMaterialReplayCameraSample
@@ -384,13 +399,22 @@ struct FMaterialReplayAnimationState
 	float GlobalAnimRateScale = 1.0f;
 };
 
+struct FNiagaraMaterialParameterDebugOverrideState
+{
+	FNiagaraVariable Parameter;
+	FNiagaraVariant OriginalValue;
+	bool bHadOriginalOverride = false;
+};
+
 struct FMaterialDebugMaterialOverrideState
 {
 	TWeakObjectPtr<UPrimitiveComponent> Component;
 	TArray<TWeakObjectPtr<UMaterialInterface>> OriginalMaterials;
 	TArray<int32> OverriddenSlots;
+	TArray<FNiagaraMaterialParameterDebugOverrideState> NiagaraMaterialParameters;
 	TWeakObjectPtr<UPackage> Package;
 	bool bPackageWasDirty = false;
+	bool bAppliedNiagaraMaterialParameters = false;
 };
 
 struct FMaterialReplayRowsCacheEntry
@@ -508,6 +532,7 @@ static TArray<FObjectMemorySnapshotRow> GCachedObjectDebugRows;
 static TArray<FDebugOverlayEntry> GCachedDebugEntries;
 static TMap<FObjectKey, FLinearColor> GActorColorationColors;
 static TMap<FObjectKey, FMaterialDebugMaterialOverrideState> GMaterialDebugMaterialOverrides;
+static TMap<EBlendMode, TWeakObjectPtr<UMaterial>> GMaterialDebugOverrideMaterialsByBlendMode;
 static TMap<FString, int32> GMaterialReplaySceneLookup;
 static double GCaptureStartTime = -1.0;
 static double GCaptureEndTime = -1.0;
@@ -1382,9 +1407,22 @@ static FLinearColor GetTwoPointDebugColorForRange(float Value, float GreenMax, f
 		FMath::Clamp((Value - GreenMax) / (White - GreenMax), 0.0f, 1.0f));
 }
 
-static float GetSmoothDebugRampAlpha(float Value, float Start, float End)
+static float GetReadableDebugRampAlpha(float Value, float Start, float End)
 {
-	return FMath::SmoothStep(0.0f, 1.0f, FMath::Clamp((Value - Start) / (End - Start), 0.0f, 1.0f));
+	const float RawAlpha = FMath::Clamp((Value - Start) / (End - Start), 0.0f, 1.0f);
+	constexpr float HoldFraction = 0.18f;
+	if (RawAlpha <= HoldFraction)
+	{
+		return 0.0f;
+	}
+	if (RawAlpha >= 1.0f - HoldFraction)
+	{
+		return 1.0f;
+	}
+
+	const float TransitionAlpha = (RawAlpha - HoldFraction) / (1.0f - (2.0f * HoldFraction));
+	const float SmoothAlpha = FMath::SmoothStep(0.0f, 1.0f, TransitionAlpha);
+	return FMath::Pow(SmoothAlpha, 0.72f);
 }
 
 static FLinearColor GetFourPointDebugColorForRange(float Value, float GreenMs, float RedMs, float PinkMs, float WhiteMs)
@@ -1401,17 +1439,17 @@ static FLinearColor GetFourPointDebugColorForRange(float Value, float GreenMs, f
 
 	if (Value < RedMs)
 	{
-		return FMath::Lerp(GreenColor, RedColor, GetSmoothDebugRampAlpha(Value, GreenMs, RedMs));
+		return FMath::Lerp(GreenColor, RedColor, GetReadableDebugRampAlpha(Value, GreenMs, RedMs));
 	}
 
 	if (Value < PinkMs)
 	{
-		return FMath::Lerp(RedColor, PinkColor, GetSmoothDebugRampAlpha(Value, RedMs, PinkMs));
+		return FMath::Lerp(RedColor, PinkColor, GetReadableDebugRampAlpha(Value, RedMs, PinkMs));
 	}
 
 	if (Value < WhiteMs)
 	{
-		return FMath::Lerp(PinkColor, WhiteColor, GetSmoothDebugRampAlpha(Value, PinkMs, WhiteMs));
+		return FMath::Lerp(PinkColor, WhiteColor, GetReadableDebugRampAlpha(Value, PinkMs, WhiteMs));
 	}
 
 	return WhiteColor;
@@ -1663,7 +1701,17 @@ static bool ApplyMaterialDebugColorParameters(UMaterialInstanceDynamic* Material
 			|| Name.Contains(TEXT("Albedo"), ESearchCase::IgnoreCase)
 			|| Name.Contains(TEXT("Diffuse"), ESearchCase::IgnoreCase)
 			|| Name.Contains(TEXT("Emissive"), ESearchCase::IgnoreCase)
-			|| Name.Contains(TEXT("Gradient"), ESearchCase::IgnoreCase);
+			|| Name.Contains(TEXT("Gradient"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Flower"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Foliage"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Grass"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Leaf"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Petal"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Plant"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Stem"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("ParticleColor"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("SpriteColor"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("MainColor"), ESearchCase::IgnoreCase);
 	};
 
 	TArray<FMaterialParameterInfo> VectorParameterInfos;
@@ -1691,6 +1739,26 @@ static bool ApplyMaterialDebugColorParameters(UMaterialInstanceDynamic* Material
 		TEXT("Emissive"),
 		TEXT("EmissiveColor"),
 		TEXT("Emissive Color"),
+		TEXT("FlowerColor"),
+		TEXT("Flower Color"),
+		TEXT("FoliageColor"),
+		TEXT("Foliage Color"),
+		TEXT("GrassColor"),
+		TEXT("Grass Color"),
+		TEXT("LeafColor"),
+		TEXT("Leaf Color"),
+		TEXT("MainColor"),
+		TEXT("Main Color"),
+		TEXT("PetalColor"),
+		TEXT("Petal Color"),
+		TEXT("PlantColor"),
+		TEXT("Plant Color"),
+		TEXT("ParticleColor"),
+		TEXT("Particle Color"),
+		TEXT("SpriteColor"),
+		TEXT("Sprite Color"),
+		TEXT("StemColor"),
+		TEXT("Stem Color"),
 		TEXT("DebugColor"),
 		TEXT("Debug Color")
 	};
@@ -1707,11 +1775,209 @@ static bool ApplyMaterialDebugColorParameters(UMaterialInstanceDynamic* Material
 	return bAppliedColorParameter;
 }
 
+static bool ApplyMaterialDebugVisibilityParameters(UMaterialInstanceDynamic* Material)
+{
+	if (!Material)
+	{
+		return false;
+	}
+
+	bool bAppliedVisibilityParameter = false;
+	auto IsOpacityLikeParameterName = [](FName ParameterName)
+	{
+		const FString Name = ParameterName.ToString();
+		return Name.Equals(TEXT("Opacity"), ESearchCase::IgnoreCase)
+			|| Name.Equals(TEXT("Alpha"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("Opacity"), ESearchCase::IgnoreCase)
+			|| Name.Contains(TEXT("ParticleAlpha"), ESearchCase::IgnoreCase);
+	};
+
+	TArray<FMaterialParameterInfo> ScalarParameterInfos;
+	TArray<FGuid> ScalarParameterIds;
+	Material->GetAllScalarParameterInfo(ScalarParameterInfos, ScalarParameterIds);
+	for (const FMaterialParameterInfo& ParameterInfo : ScalarParameterInfos)
+	{
+		if (IsOpacityLikeParameterName(ParameterInfo.Name))
+		{
+			Material->SetScalarParameterValueByInfo(ParameterInfo, 1.0f);
+			bAppliedVisibilityParameter = true;
+		}
+	}
+
+	static const FName CommonOpacityParameterNames[] =
+	{
+		TEXT("Opacity"),
+		TEXT("Alpha"),
+		TEXT("ParticleAlpha"),
+		TEXT("Particle Alpha"),
+		TEXT("OpacityAmount"),
+		TEXT("Opacity Amount")
+	};
+
+	for (const FName& ParameterName : CommonOpacityParameterNames)
+	{
+		int32 ParameterIndex = INDEX_NONE;
+		if (Material->InitializeScalarParameterAndGetIndex(ParameterName, 1.0f, ParameterIndex))
+		{
+			bAppliedVisibilityParameter = true;
+		}
+	}
+
+	return bAppliedVisibilityParameter;
+}
+
+static EBlendMode GetMaterialDebugOverrideBlendMode(UMaterialInterface* OriginalMaterial, bool bForceAdditiveOpacity)
+{
+	if (!OriginalMaterial)
+	{
+		return BLEND_Opaque;
+	}
+
+	const EBlendMode BlendMode = OriginalMaterial->GetBlendMode();
+	if (bForceAdditiveOpacity)
+	{
+		switch (BlendMode)
+		{
+		case BLEND_Translucent:
+		case BLEND_Additive:
+		case BLEND_Modulate:
+		case BLEND_AlphaComposite:
+		case BLEND_AlphaHoldout:
+		case BLEND_TranslucentColoredTransmittance:
+			return BLEND_Additive;
+		default:
+			break;
+		}
+	}
+
+	switch (BlendMode)
+	{
+	case BLEND_Translucent:
+	case BLEND_Additive:
+	case BLEND_Modulate:
+	case BLEND_AlphaComposite:
+	case BLEND_AlphaHoldout:
+	case BLEND_TranslucentColoredTransmittance:
+		return BlendMode;
+	default:
+		return BLEND_Opaque;
+	}
+}
+
+static UMaterial* GetOrCreateMaterialDebugOverrideTemplate(EBlendMode BlendMode)
+{
+#if WITH_EDITORONLY_DATA
+	if (TWeakObjectPtr<UMaterial>* ExistingMaterial = GMaterialDebugOverrideMaterialsByBlendMode.Find(BlendMode))
+	{
+		if (ExistingMaterial->IsValid())
+		{
+			return ExistingMaterial->Get();
+		}
+	}
+
+	UMaterial* Material = NewObject<UMaterial>(GetTransientPackage(), NAME_None, RF_Transient);
+	if (!Material)
+	{
+		return nullptr;
+	}
+
+	Material->SetFlags(RF_Transient);
+	Material->MaterialDomain = MD_Surface;
+	Material->BlendMode = BlendMode;
+	Material->TwoSided = true;
+	Material->bUsedWithParticleSprites = true;
+	Material->bUsedWithMeshParticles = true;
+	Material->bUsedWithNiagaraSprites = true;
+	Material->bUsedWithNiagaraRibbons = true;
+	Material->bUsedWithNiagaraMeshParticles = true;
+	Material->SetShadingModel(MSM_Unlit);
+
+	UMaterialEditorOnlyData* MaterialEditorOnly = Material->GetEditorOnlyData();
+	if (!MaterialEditorOnly)
+	{
+		return nullptr;
+	}
+
+	UMaterialExpressionVectorParameter* ColorParameter = NewObject<UMaterialExpressionVectorParameter>(Material);
+	if (!ColorParameter)
+	{
+		return nullptr;
+	}
+	ColorParameter->SetFlags(RF_Transient);
+	ColorParameter->ParameterName = TEXT("Color");
+	ColorParameter->DefaultValue = FLinearColor::White;
+	Material->GetExpressionCollection().AddExpression(ColorParameter);
+
+	UMaterialExpressionScalarParameter* OpacityParameter = NewObject<UMaterialExpressionScalarParameter>(Material);
+	if (!OpacityParameter)
+	{
+		return nullptr;
+	}
+	OpacityParameter->SetFlags(RF_Transient);
+	OpacityParameter->ParameterName = TEXT("Opacity");
+	OpacityParameter->DefaultValue = 1.0f;
+	Material->GetExpressionCollection().AddExpression(OpacityParameter);
+
+	MaterialEditorOnly->EmissiveColor.Expression = ColorParameter;
+	MaterialEditorOnly->Opacity.Expression = OpacityParameter;
+	MaterialEditorOnly->OpacityMask.Expression = OpacityParameter;
+
+	Material->UpdateCachedExpressionData();
+	Material->ForceRecompileForRendering(EMaterialShaderPrecompileMode::Default);
+
+	GMaterialDebugOverrideMaterialsByBlendMode.Add(BlendMode, Material);
+	return Material;
+#else
+	return nullptr;
+#endif
+}
+
+static UMaterialInterface* GetForcedMaterialDebugOverrideMaterial(const FLinearColor& Color, UMaterialInterface* OriginalMaterial)
+{
+	if (!OriginalMaterial || OriginalMaterial->GetBlendMode() == BLEND_Opaque || OriginalMaterial->GetBlendMode() == BLEND_Masked)
+	{
+		return nullptr;
+	}
+
+	const EBlendMode BlendMode = GetMaterialDebugOverrideBlendMode(OriginalMaterial, true);
+	UMaterial* TemplateMaterial = GetOrCreateMaterialDebugOverrideTemplate(BlendMode);
+	if (!TemplateMaterial)
+	{
+		return nullptr;
+	}
+
+	UMaterialInstanceDynamic* Material = UMaterialInstanceDynamic::Create(TemplateMaterial, GetTransientPackage());
+	if (!Material)
+	{
+		return nullptr;
+	}
+
+	Material->SetFlags(RF_Transient);
+	FLinearColor DebugColor = Color;
+	DebugColor.A = 1.0f;
+	Material->SetVectorParameterValue(TEXT("Color"), DebugColor);
+	Material->SetScalarParameterValue(TEXT("Opacity"), 1.0f);
+	return Material;
+}
+
+static UMaterialInterface* GetMaterialDebugDynamicInstanceParent(UMaterialInterface* OriginalMaterial)
+{
+	if (UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(OriginalMaterial))
+	{
+		return DynamicMaterial->Parent.Get();
+	}
+
+	return OriginalMaterial;
+}
+
 static UMaterialInterface* GetMaterialDebugOverrideMaterial(const FLinearColor& Color, UMaterialInterface* OriginalMaterial)
 {
 	if (OriginalMaterial && OriginalMaterial->GetBlendMode() == BLEND_Masked)
 	{
-		UMaterialInstanceDynamic* MaskedMaterial = UMaterialInstanceDynamic::Create(OriginalMaterial, GetTransientPackage());
+		UMaterialInterface* ParentMaterial = GetMaterialDebugDynamicInstanceParent(OriginalMaterial);
+		UMaterialInstanceDynamic* MaskedMaterial = ParentMaterial
+			? UMaterialInstanceDynamic::Create(ParentMaterial, GetTransientPackage())
+			: nullptr;
 		if (MaskedMaterial)
 		{
 			MaskedMaterial->SetFlags(RF_Transient);
@@ -1720,6 +1986,33 @@ static UMaterialInterface* GetMaterialDebugOverrideMaterial(const FLinearColor& 
 				return MaskedMaterial;
 			}
 		}
+	}
+
+	if (UMaterialInterface* ForcedDebugMaterial = GetForcedMaterialDebugOverrideMaterial(Color, OriginalMaterial))
+	{
+		return ForcedDebugMaterial;
+	}
+
+	if (OriginalMaterial && OriginalMaterial->GetBlendMode() != BLEND_Opaque)
+	{
+		UMaterialInterface* ParentMaterial = GetMaterialDebugDynamicInstanceParent(OriginalMaterial);
+		UMaterialInstanceDynamic* PreservedBlendMaterial = ParentMaterial
+			? UMaterialInstanceDynamic::Create(ParentMaterial, GetTransientPackage())
+			: nullptr;
+		if (PreservedBlendMaterial)
+		{
+			PreservedBlendMaterial->SetFlags(RF_Transient);
+			if (ApplyMaterialDebugColorParameters(PreservedBlendMaterial, Color))
+			{
+				ApplyMaterialDebugVisibilityParameters(PreservedBlendMaterial);
+				return PreservedBlendMaterial;
+			}
+		}
+	}
+
+	if (UMaterialInterface* ForcedDebugMaterial = GetForcedMaterialDebugOverrideMaterial(Color, OriginalMaterial))
+	{
+		return ForcedDebugMaterial;
 	}
 
 	if (!GEngine || !GEngine->ShadedLevelColorationUnlitMaterial)
@@ -1750,7 +2043,234 @@ static UMaterialInterface* GetOriginalMaterialForDebugOverride(
 		return ExistingState->OriginalMaterials[SlotIndex].Get();
 	}
 
-	return Component ? Component->GetMaterial(SlotIndex) : nullptr;
+	if (!Component)
+	{
+		return nullptr;
+	}
+
+	if (UMaterialInterface* SlotMaterial = Component->GetMaterial(SlotIndex))
+	{
+		return SlotMaterial;
+	}
+
+	TArray<UMaterialInterface*> UsedMaterials;
+	Component->GetUsedMaterials(UsedMaterials);
+	return UsedMaterials.IsValidIndex(SlotIndex) ? UsedMaterials[SlotIndex] : nullptr;
+}
+
+static int32 GetMaterialDebugOverrideSlotCount(UPrimitiveComponent* Component)
+{
+	if (!Component)
+	{
+		return 0;
+	}
+
+	if (Component->IsA<UParticleSystemComponent>())
+	{
+		return Component->GetNumMaterials();
+	}
+
+	TArray<UMaterialInterface*> UsedMaterials;
+	Component->GetUsedMaterials(UsedMaterials);
+	return FMath::Max(Component->GetNumMaterials(), UsedMaterials.Num());
+}
+
+static void InitializeMaterialDebugMaterialOverrideState(
+	FMaterialDebugMaterialOverrideState& State,
+	UPrimitiveComponent* Component,
+	int32 NumMaterialSlots)
+{
+	if (State.Component.IsValid())
+	{
+		return;
+	}
+
+	State.Component = Component;
+	State.Package = GetMaterialDebugOverridePackage(Component);
+	if (UPackage* Package = State.Package.Get())
+	{
+		State.bPackageWasDirty = Package->IsDirty();
+	}
+
+	State.OriginalMaterials.SetNum(NumMaterialSlots);
+	for (int32 SlotIndex = 0; SlotIndex < NumMaterialSlots; ++SlotIndex)
+	{
+		State.OriginalMaterials[SlotIndex] = GetOriginalMaterialForDebugOverride(Component, nullptr, SlotIndex);
+	}
+}
+
+static const FNiagaraMaterialParameterDebugOverrideState* FindNiagaraMaterialParameterOverrideState(
+	const FMaterialDebugMaterialOverrideState& State,
+	const FNiagaraVariable& Parameter)
+{
+	for (const FNiagaraMaterialParameterDebugOverrideState& ParameterState : State.NiagaraMaterialParameters)
+	{
+		if (ParameterState.Parameter.GetName() == Parameter.GetName()
+			&& ParameterState.Parameter.GetType() == Parameter.GetType())
+		{
+			return &ParameterState;
+		}
+	}
+
+	return nullptr;
+}
+
+static UMaterialInterface* GetFirstNiagaraDebugOverrideFallbackMaterial(UNiagaraComponent* NiagaraComponent)
+{
+	if (!NiagaraComponent)
+	{
+		return nullptr;
+	}
+
+	TArray<UMaterialInterface*> Materials;
+	NiagaraComponent->GetUsedMaterials(Materials);
+	for (UMaterialInterface* Material : Materials)
+	{
+		if (ShouldUseMaterialDebugOverrideFallback(Material))
+		{
+			return Material;
+		}
+	}
+
+	return nullptr;
+}
+
+static bool ApplyNiagaraMaterialDebugOverride(
+	UNiagaraComponent* NiagaraComponent,
+	const FLinearColor& Color,
+	FMaterialDebugMaterialOverrideState& State)
+{
+#if WITH_EDITOR
+	UMaterialInterface* FallbackMaterial = GetFirstNiagaraDebugOverrideFallbackMaterial(NiagaraComponent);
+	if (!FallbackMaterial)
+	{
+		return false;
+	}
+
+	TArray<FNiagaraVariable> UserParameters;
+	NiagaraComponent->GetOverrideParameters().GetUserParameters(UserParameters);
+
+	struct FResolvedNiagaraMaterialOverride
+	{
+		FNiagaraVariable Parameter;
+		UMaterialInterface* DebugMaterial = nullptr;
+	};
+
+	TArray<FResolvedNiagaraMaterialOverride> ResolvedOverrides;
+	for (const FNiagaraVariable& UserParameter : UserParameters)
+	{
+		if (UserParameter.GetType() != FNiagaraTypeDefinition::GetUMaterialDef())
+		{
+			continue;
+		}
+
+		UMaterialInterface* OriginalMaterial = nullptr;
+		if (const FNiagaraMaterialParameterDebugOverrideState* ExistingParameterState =
+			FindNiagaraMaterialParameterOverrideState(State, UserParameter))
+		{
+			OriginalMaterial = ExistingParameterState->bHadOriginalOverride
+				? Cast<UMaterialInterface>(ExistingParameterState->OriginalValue.GetUObject())
+				: nullptr;
+		}
+		else
+		{
+			const FNiagaraVariant OriginalValue = NiagaraComponent->FindParameterOverride(UserParameter);
+			OriginalMaterial = OriginalValue.IsValid() ? Cast<UMaterialInterface>(OriginalValue.GetUObject()) : nullptr;
+		}
+
+		UMaterialInterface* BaseMaterial = ShouldUseMaterialDebugOverrideFallback(OriginalMaterial)
+			? OriginalMaterial
+			: FallbackMaterial;
+		if (UMaterialInterface* DebugMaterial = GetMaterialDebugOverrideMaterial(Color, BaseMaterial))
+		{
+			FResolvedNiagaraMaterialOverride& ResolvedOverride = ResolvedOverrides.AddDefaulted_GetRef();
+			ResolvedOverride.Parameter = UserParameter;
+			ResolvedOverride.DebugMaterial = DebugMaterial;
+		}
+	}
+
+	if (ResolvedOverrides.Num() == 0)
+	{
+		UE_LOG(LogOptimizationPreviewTools, Verbose, TEXT("Material GPU Preview could not apply Niagara material debug override to %s: no exposed User material parameter was found."),
+			*GetNameSafe(NiagaraComponent));
+		return false;
+	}
+
+	if (!State.bAppliedNiagaraMaterialParameters)
+	{
+		State.NiagaraMaterialParameters.Reset();
+		for (const FResolvedNiagaraMaterialOverride& ResolvedOverride : ResolvedOverrides)
+		{
+			FNiagaraMaterialParameterDebugOverrideState& ParameterState = State.NiagaraMaterialParameters.AddDefaulted_GetRef();
+			ParameterState.Parameter = ResolvedOverride.Parameter;
+			ParameterState.OriginalValue = NiagaraComponent->FindParameterOverride(ResolvedOverride.Parameter);
+			ParameterState.bHadOriginalOverride = ParameterState.OriginalValue.IsValid();
+		}
+	}
+
+	for (const FResolvedNiagaraMaterialOverride& ResolvedOverride : ResolvedOverrides)
+	{
+		NiagaraComponent->SetVariableMaterial(ResolvedOverride.Parameter.GetName(), ResolvedOverride.DebugMaterial);
+	}
+
+	State.bAppliedNiagaraMaterialParameters = true;
+	NiagaraComponent->MarkRenderStateDirty();
+	return true;
+#else
+	return false;
+#endif
+}
+
+static bool ApplyCascadeParticleMaterialDebugOverride(
+	UParticleSystemComponent* ParticleComponent,
+	const FLinearColor& Color,
+	FMaterialDebugMaterialOverrideState& State)
+{
+	if (!ParticleComponent)
+	{
+		return false;
+	}
+
+	const int32 NumMaterials = ParticleComponent->GetNumMaterials();
+	if (NumMaterials <= 0)
+	{
+		UE_LOG(LogOptimizationPreviewTools, Verbose, TEXT("Material GPU Preview could not apply Cascade material debug override to %s: no emitter material slots."),
+			*GetNameSafe(ParticleComponent));
+		return false;
+	}
+
+	TMap<int32, UMaterialInterface*> DebugMaterialsBySlot;
+	for (int32 SlotIndex = 0; SlotIndex < NumMaterials; ++SlotIndex)
+	{
+		UMaterialInterface* OriginalMaterial = GetOriginalMaterialForDebugOverride(ParticleComponent, &State, SlotIndex);
+		if (!ShouldUseMaterialDebugOverrideFallback(OriginalMaterial))
+		{
+			continue;
+		}
+
+		if (UMaterialInterface* DebugMaterial = GetMaterialDebugOverrideMaterial(Color, OriginalMaterial))
+		{
+			DebugMaterialsBySlot.Add(SlotIndex, DebugMaterial);
+		}
+	}
+
+	if (DebugMaterialsBySlot.Num() == 0)
+	{
+		UE_LOG(LogOptimizationPreviewTools, Verbose, TEXT("Material GPU Preview could not apply Cascade material debug override to %s: no non-opaque emitter materials."),
+			*GetNameSafe(ParticleComponent));
+		return false;
+	}
+
+	InitializeMaterialDebugMaterialOverrideState(State, ParticleComponent, NumMaterials);
+	State.OverriddenSlots.Reset();
+	for (const TPair<int32, UMaterialInterface*>& Pair : DebugMaterialsBySlot)
+	{
+		State.OverriddenSlots.Add(Pair.Key);
+		ParticleComponent->SetMaterial(Pair.Key, Pair.Value);
+	}
+
+	ParticleComponent->MarkRenderStateDirty();
+	return true;
 }
 
 static void RestoreMaterialDebugMaterialOverrideState(const FObjectKey& ComponentKey, FMaterialDebugMaterialOverrideState& State)
@@ -1760,6 +2280,23 @@ static void RestoreMaterialDebugMaterialOverrideState(const FObjectKey& Componen
 	{
 		return;
 	}
+
+#if WITH_EDITOR
+	if (UNiagaraComponent* NiagaraComponent = Cast<UNiagaraComponent>(Component))
+	{
+		for (const FNiagaraMaterialParameterDebugOverrideState& ParameterState : State.NiagaraMaterialParameters)
+		{
+			if (ParameterState.bHadOriginalOverride)
+			{
+				NiagaraComponent->SetParameterOverride(ParameterState.Parameter, ParameterState.OriginalValue);
+			}
+			else
+			{
+				NiagaraComponent->RemoveParameterOverride(ParameterState.Parameter);
+			}
+		}
+	}
+#endif
 
 	for (int32 SlotIndex : State.OverriddenSlots)
 	{
@@ -1783,15 +2320,63 @@ static void RestoreMaterialDebugMaterialOverrides()
 	GMaterialDebugMaterialOverrides.Reset();
 }
 
+static bool ApplyPrimitiveMaterialDebugOverride(
+	UPrimitiveComponent* Component,
+	const FLinearColor& Color,
+	FMaterialDebugMaterialOverrideState& State)
+{
+	if (!Component)
+	{
+		return false;
+	}
+
+	const int32 NumMaterials = GetMaterialDebugOverrideSlotCount(Component);
+	if (NumMaterials <= 0)
+	{
+		return false;
+	}
+
+	TMap<int32, UMaterialInterface*> DebugMaterialsBySlot;
+	for (int32 SlotIndex = 0; SlotIndex < NumMaterials; ++SlotIndex)
+	{
+		UMaterialInterface* OriginalMaterial = GetOriginalMaterialForDebugOverride(Component, &State, SlotIndex);
+		if (!ShouldUseMaterialDebugOverrideFallback(OriginalMaterial))
+		{
+			continue;
+		}
+
+		if (UMaterialInterface* DebugMaterial = GetMaterialDebugOverrideMaterial(Color, OriginalMaterial))
+		{
+			DebugMaterialsBySlot.Add(SlotIndex, DebugMaterial);
+		}
+	}
+
+	if (DebugMaterialsBySlot.Num() == 0)
+	{
+		return false;
+	}
+
+	InitializeMaterialDebugMaterialOverrideState(State, Component, NumMaterials);
+	State.OverriddenSlots.Reset();
+	for (const TPair<int32, UMaterialInterface*>& Pair : DebugMaterialsBySlot)
+	{
+		State.OverriddenSlots.Add(Pair.Key);
+		Component->SetMaterial(Pair.Key, Pair.Value);
+	}
+
+	Component->MarkRenderStateDirty();
+	RestoreMaterialDebugOverridePackageDirtyFlag(State);
+	return true;
+}
+
 static void ApplyMaterialDebugMaterialOverrides(const TArray<FActorColorationTarget>& Targets)
 {
+	RestoreMaterialDebugMaterialOverrides();
 	if (CVarDebugMaterialOverrideFallback.GetValueOnGameThread() == 0)
 	{
-		RestoreMaterialDebugMaterialOverrides();
 		return;
 	}
 
-	TSet<FObjectKey> DesiredOverrideComponents;
 	for (const FActorColorationTarget& Target : Targets)
 	{
 		UPrimitiveComponent* Component = Target.Component.Get();
@@ -1800,87 +2385,31 @@ static void ApplyMaterialDebugMaterialOverrides(const TArray<FActorColorationTar
 			continue;
 		}
 
-		const int32 NumMaterials = Component->GetNumMaterials();
-		if (NumMaterials <= 0)
-		{
-			continue;
-		}
-
 		const FObjectKey ComponentKey(Component);
-		FMaterialDebugMaterialOverrideState* ExistingState = GMaterialDebugMaterialOverrides.Find(ComponentKey);
-		TArray<int32> OverrideSlots;
-		for (int32 SlotIndex = 0; SlotIndex < NumMaterials; ++SlotIndex)
-		{
-			UMaterialInterface* OriginalMaterial = GetOriginalMaterialForDebugOverride(Component, ExistingState, SlotIndex);
-			if (ShouldUseMaterialDebugOverrideFallback(OriginalMaterial))
-			{
-				OverrideSlots.Add(SlotIndex);
-			}
-		}
-
-		if (OverrideSlots.Num() == 0)
-		{
-			continue;
-		}
-
-		TMap<int32, UMaterialInterface*> DebugMaterialsBySlot;
-		for (int32 SlotIndex : OverrideSlots)
-		{
-			UMaterialInterface* OriginalMaterial = GetOriginalMaterialForDebugOverride(Component, ExistingState, SlotIndex);
-			if (UMaterialInterface* DebugMaterial = GetMaterialDebugOverrideMaterial(Target.Color, OriginalMaterial))
-			{
-				DebugMaterialsBySlot.Add(SlotIndex, DebugMaterial);
-			}
-		}
-
-		if (DebugMaterialsBySlot.Num() == 0)
-		{
-			continue;
-		}
-
-		DesiredOverrideComponents.Add(ComponentKey);
 		FMaterialDebugMaterialOverrideState& State = GMaterialDebugMaterialOverrides.FindOrAdd(ComponentKey);
-		if (!State.Component.IsValid())
+
+		bool bAppliedOverride = false;
+#if WITH_EDITOR
+		if (UNiagaraComponent* NiagaraComponent = Cast<UNiagaraComponent>(Component))
 		{
-			State.Component = Component;
-			State.Package = GetMaterialDebugOverridePackage(Component);
-			if (UPackage* Package = State.Package.Get())
-			{
-				State.bPackageWasDirty = Package->IsDirty();
-			}
-			State.OriginalMaterials.SetNum(NumMaterials);
-			for (int32 SlotIndex = 0; SlotIndex < NumMaterials; ++SlotIndex)
-			{
-				State.OriginalMaterials[SlotIndex] = Component->GetMaterial(SlotIndex);
-			}
+			InitializeMaterialDebugMaterialOverrideState(State, Component, GetMaterialDebugOverrideSlotCount(Component));
+			bAppliedOverride = ApplyNiagaraMaterialDebugOverride(NiagaraComponent, Target.Color, State);
+		}
+		else
+#endif
+		if (UParticleSystemComponent* ParticleComponent = Cast<UParticleSystemComponent>(Component))
+		{
+			bAppliedOverride = ApplyCascadeParticleMaterialDebugOverride(ParticleComponent, Target.Color, State);
+		}
+		else
+		{
+			bAppliedOverride = ApplyPrimitiveMaterialDebugOverride(Component, Target.Color, State);
 		}
 
-		State.OverriddenSlots.Reset();
-		for (const TPair<int32, UMaterialInterface*>& Pair : DebugMaterialsBySlot)
+		if (!bAppliedOverride)
 		{
-			State.OverriddenSlots.Add(Pair.Key);
-			Component->SetMaterial(Pair.Key, Pair.Value);
+			GMaterialDebugMaterialOverrides.Remove(ComponentKey);
 		}
-		Component->MarkRenderStateDirty();
-		RestoreMaterialDebugOverridePackageDirtyFlag(State);
-	}
-
-	TArray<FObjectKey> ComponentsToRestore;
-	for (const TPair<FObjectKey, FMaterialDebugMaterialOverrideState>& Pair : GMaterialDebugMaterialOverrides)
-	{
-		if (!DesiredOverrideComponents.Contains(Pair.Key))
-		{
-			ComponentsToRestore.Add(Pair.Key);
-		}
-	}
-
-	for (const FObjectKey& ComponentKey : ComponentsToRestore)
-	{
-		if (FMaterialDebugMaterialOverrideState* State = GMaterialDebugMaterialOverrides.Find(ComponentKey))
-		{
-			RestoreMaterialDebugMaterialOverrideState(ComponentKey, *State);
-		}
-		GMaterialDebugMaterialOverrides.Remove(ComponentKey);
 	}
 }
 
@@ -1891,7 +2420,10 @@ static bool IsDebugTargetComponent(const UPrimitiveComponent* Component)
 
 static bool CanApplyMaterialDebugOverrideFallbackToComponent(const UPrimitiveComponent* Component)
 {
-	return Component && Component->IsA<UStaticMeshComponent>();
+	return Component
+		&& (Component->IsA<UStaticMeshComponent>()
+			|| Component->IsA<USkinnedMeshComponent>()
+			|| Component->IsA<UFXSystemComponent>());
 }
 
 static int32 GetDebugComponentLimit()
@@ -1947,6 +2479,117 @@ static void AddActorColorationTarget(
 	TargetsByComponent.Add(Component, Target);
 }
 
+static void AddMaterialComponentLookupKey(
+	TMap<FString, TArray<UPrimitiveComponent*>>& ComponentsByMaterial,
+	const FString& Key,
+	UPrimitiveComponent* Component)
+{
+	const FString NormalizedKey = NormalizeTraceLookupKey(Key);
+	if (!NormalizedKey.IsEmpty() && Component)
+	{
+		ComponentsByMaterial.FindOrAdd(NormalizedKey).AddUnique(Component);
+	}
+}
+
+static void AddMaterialComponentLookupKeys(
+	TMap<FString, TArray<UPrimitiveComponent*>>& ComponentsByMaterial,
+	UMaterialInterface* Material,
+	UPrimitiveComponent* Component)
+{
+	if (!Material || !Component)
+	{
+		return;
+	}
+
+	AddMaterialComponentLookupKey(ComponentsByMaterial, Material->GetName(), Component);
+	AddMaterialComponentLookupKey(ComponentsByMaterial, Material->GetPathName(), Component);
+	AddMaterialComponentLookupKey(ComponentsByMaterial, Material->GetFullName(), Component);
+
+	FString PackageName;
+	FString AssetName;
+	if (Material->GetPathName().Split(TEXT("."), &PackageName, &AssetName, ESearchCase::CaseSensitive, ESearchDir::FromEnd))
+	{
+		AddMaterialComponentLookupKey(ComponentsByMaterial, AssetName, Component);
+	}
+}
+
+static void BuildCurrentComponentsByMaterialLookup(UWorld* World, TMap<FString, TArray<UPrimitiveComponent*>>& OutComponentsByMaterial)
+{
+	OutComponentsByMaterial.Reset();
+	if (!World)
+	{
+		return;
+	}
+
+	for (TActorIterator<AActor> ActorIt(World); ActorIt; ++ActorIt)
+	{
+		AActor* Actor = *ActorIt;
+		if (!Actor)
+		{
+			continue;
+		}
+
+		TInlineComponentArray<UPrimitiveComponent*> Components;
+		Actor->GetComponents(Components);
+		for (UPrimitiveComponent* Component : Components)
+		{
+			if (!IsDebugTargetComponent(Component))
+			{
+				continue;
+			}
+
+			TArray<UMaterialInterface*> Materials;
+			Component->GetUsedMaterials(Materials);
+			for (UMaterialInterface* Material : Materials)
+			{
+				AddMaterialComponentLookupKeys(OutComponentsByMaterial, Material, Component);
+			}
+
+			const int32 NumMaterials = GetMaterialDebugOverrideSlotCount(Component);
+			for (int32 SlotIndex = 0; SlotIndex < NumMaterials; ++SlotIndex)
+			{
+				AddMaterialComponentLookupKeys(OutComponentsByMaterial, GetOriginalMaterialForDebugOverride(Component, nullptr, SlotIndex), Component);
+			}
+		}
+	}
+}
+
+static void AddMaterialLookupTargets(
+	TMap<UPrimitiveComponent*, FActorColorationTarget>& TargetsByComponent,
+	const TMap<FString, TArray<UPrimitiveComponent*>>& ComponentsByMaterial,
+	const FMaterialAccumulator& Row,
+	float DebugMs,
+	int32 Severity,
+	const FLinearColor& Color)
+{
+	TArray<FString, TInlineAllocator<8>> Keys;
+	Keys.Add(Row.DisplayName);
+	Keys.Add(Row.PathName);
+	if (UMaterialInterface* Material = Row.Material.Get())
+	{
+		Keys.Add(Material->GetName());
+		Keys.Add(Material->GetPathName());
+		Keys.Add(Material->GetFullName());
+	}
+
+	for (const FString& Key : Keys)
+	{
+		const FString NormalizedKey = NormalizeTraceLookupKey(Key);
+		if (NormalizedKey.IsEmpty())
+		{
+			continue;
+		}
+
+		if (const TArray<UPrimitiveComponent*>* Components = ComponentsByMaterial.Find(NormalizedKey))
+		{
+			for (UPrimitiveComponent* Component : *Components)
+			{
+				AddActorColorationTarget(TargetsByComponent, Component, DebugMs, Severity, Color);
+			}
+		}
+	}
+}
+
 static void RebuildActorColorationColorMap()
 {
 	GActorColorationColors.Reset();
@@ -1954,9 +2597,11 @@ static void RebuildActorColorationColorMap()
 	const int32 MaxDebugComponents = GetDebugComponentLimit();
 
 	TMap<FString, TArray<UPrimitiveComponent*>> FoliageComponentsBySourceLabel;
+	TMap<FString, TArray<UPrimitiveComponent*>> ComponentsByMaterial;
 	if (UWorld* World = FindCurrentPreviewWorld())
 	{
 		BuildFoliageComponentsBySourceLabel(World, FoliageComponentsBySourceLabel);
+		BuildCurrentComponentsByMaterialLookup(World, ComponentsByMaterial);
 	}
 
 	TMap<UPrimitiveComponent*, FActorColorationTarget> TargetsByComponent;
@@ -1970,6 +2615,8 @@ static void RebuildActorColorationColorMap()
 		{
 			AddActorColorationTarget(TargetsByComponent, WeakComponent.Get(), DebugMs, Severity, Color);
 		}
+
+		AddMaterialLookupTargets(TargetsByComponent, ComponentsByMaterial, Row, DebugMs, Severity, Color);
 
 		for (const FMaterialSourceUsage& SourceUsage : Row.SourceUsages)
 		{
@@ -3292,6 +3939,8 @@ static const TCHAR* GetBlendModeShortName(EBlendMode BlendMode)
 		return TEXT("Alpha");
 	case BLEND_AlphaHoldout:
 		return TEXT("Hold");
+	case BLEND_TranslucentColoredTransmittance:
+		return TEXT("TCol");
 	default:
 		return TEXT("Other");
 	}
@@ -4842,6 +5491,58 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 			Interval.EndTimeSeconds = ClippedEndTime;
 		};
 
+		auto InitializeReplaySample = [&](uint32 FrameIndex, double EventStartTime, double EventEndTime) -> FMaterialGpuReplayFrameSample&
+		{
+			FMaterialGpuReplayFrameSample& ReplaySample = ReplaySamplesByFrame.FindOrAdd(FrameIndex);
+			ReplaySample.TraceFrameIndex = FrameIndex;
+			if (const TraceServices::FFrame* Frame = FrameProvider.GetFrame(FrameType, FrameIndex))
+			{
+				ReplaySample.TimeSeconds = Frame->StartTime;
+				ReplaySample.EndTimeSeconds = Frame->EndTime;
+			}
+			else
+			{
+				ReplaySample.TimeSeconds = EventStartTime;
+				ReplaySample.EndTimeSeconds = EventEndTime;
+			}
+			return ReplaySample;
+		};
+
+		auto AddMaterialGpuInterval = [&](
+			const FString& MaterialKey,
+			const FString& MaterialName,
+			const FString& TraceEventName,
+			uint32 FrameIndex,
+			double EventStartTime,
+			double EventEndTime)
+		{
+			const TraceServices::FFrame* Frame = FrameProvider.GetFrame(FrameType, FrameIndex);
+			if (!Frame)
+			{
+				return;
+			}
+
+			const double ClippedStartTime = FMath::Max(EventStartTime, Frame->StartTime);
+			const double ClippedEndTime = FMath::Min(EventEndTime, Frame->EndTime);
+			if (ClippedEndTime <= ClippedStartTime)
+			{
+				return;
+			}
+
+			FTraceMaterialAggregate& Aggregate = AggregatesByMaterial.FindOrAdd(MaterialKey);
+			if (Aggregate.MaterialName.IsEmpty())
+			{
+				Aggregate.MaterialName = MaterialName;
+			}
+			Aggregate.EventName = TraceEventName;
+
+			FFrameGpuInterval& Interval = Aggregate.GpuIntervalsByFrame.FindOrAdd(FrameIndex).AddDefaulted_GetRef();
+			Interval.StartTimeSeconds = ClippedStartTime;
+			Interval.EndTimeSeconds = ClippedEndTime;
+
+			InitializeReplaySample(FrameIndex, EventStartTime, EventEndTime);
+		};
+
 		const double GpuEnumerateStartTime = FPlatformTime::Seconds();
 		TimingProfilerProvider->ReadTimers(
 			[&](const TraceServices::ITimingProfilerTimerReader& TimerReader)
@@ -4911,24 +5612,21 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 								Aggregate.MaterialName = MaterialName;
 							}
 							Aggregate.EventName = TraceEventName;
-							Aggregate.TotalGpuMs += DurationMs;
 							Aggregate.DrawEvents++;
-							Aggregate.GpuMsByFrame.FindOrAdd(FrameIndex) += DurationMs;
 
-							FMaterialGpuReplayFrameSample& ReplaySample = ReplaySamplesByFrame.FindOrAdd(FrameIndex);
-							ReplaySample.TraceFrameIndex = FrameIndex;
-							if (const TraceServices::FFrame* Frame = FrameProvider.GetFrame(FrameType, FrameIndex))
+							FMaterialGpuReplayFrameSample& ReplaySample = InitializeReplaySample(FrameIndex, EventStartTime, EventEndTime);
+							ReplaySample.MaterialDrawEventsByKey.FindOrAdd(MaterialKey)++;
+							if (EndFrameIndex >= FrameIndex && EndFrameIndex - FrameIndex <= 512)
 							{
-								ReplaySample.TimeSeconds = Frame->StartTime;
-								ReplaySample.EndTimeSeconds = Frame->EndTime;
+								for (uint32 SplitFrameIndex = FrameIndex; SplitFrameIndex <= EndFrameIndex; ++SplitFrameIndex)
+								{
+									AddMaterialGpuInterval(MaterialKey, MaterialName, TraceEventName, SplitFrameIndex, EventStartTime, EventEndTime);
+								}
 							}
 							else
 							{
-								ReplaySample.TimeSeconds = EventStartTime;
-								ReplaySample.EndTimeSeconds = EventEndTime;
+								AddMaterialGpuInterval(MaterialKey, MaterialName, TraceEventName, FrameIndex, EventStartTime, EventEndTime);
 							}
-							ReplaySample.MaterialGpuMsByKey.FindOrAdd(MaterialKey) += static_cast<float>(DurationMs);
-							ReplaySample.MaterialDrawEventsByKey.FindOrAdd(MaterialKey)++;
 							MatchedTraceEventCount++;
 
 							return TraceServices::EEventEnumerate::Continue;
@@ -5035,6 +5733,32 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 	}
 
 	const double PostProcessStartTime = FPlatformTime::Seconds();
+	for (TPair<FString, FTraceMaterialAggregate>& Pair : AggregatesByMaterial)
+	{
+		const FString& MaterialKey = Pair.Key;
+		FTraceMaterialAggregate& Aggregate = Pair.Value;
+		Aggregate.TotalGpuMs = 0.0;
+		Aggregate.GpuMsByFrame.Reset();
+		Aggregate.PeakFrameGpuMs = 0.0;
+		Aggregate.AverageFrameGpuMs = 0.0;
+
+		for (TPair<uint32, TArray<FFrameGpuInterval>>& IntervalPair : Aggregate.GpuIntervalsByFrame)
+		{
+			const double MergedGpuMs = CalculateMergedGpuIntervalDurationMs(IntervalPair.Value);
+			if (MergedGpuMs <= 0.0)
+			{
+				continue;
+			}
+
+			Aggregate.TotalGpuMs += MergedGpuMs;
+			Aggregate.GpuMsByFrame.Add(IntervalPair.Key, MergedGpuMs);
+
+			FMaterialGpuReplayFrameSample& ReplaySample = ReplaySamplesByFrame.FindOrAdd(IntervalPair.Key);
+			ReplaySample.TraceFrameIndex = IntervalPair.Key;
+			ReplaySample.MaterialGpuMsByKey.FindOrAdd(MaterialKey) += static_cast<float>(MergedGpuMs);
+		}
+	}
+
 	for (TPair<uint32, FMaterialGpuReplayFrameSample>& Pair : ReplaySamplesByFrame)
 	{
 		if (TArray<FFrameGpuInterval>* Intervals = FrameGpuIntervalsByFrame.Find(Pair.Key))
@@ -5093,7 +5817,7 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 			const float CounterGpuMs = FindNearestMaterialReplayUnitGpuMs(CounterUnitGpuSamples, Sample.TimeSeconds);
 			if (CounterGpuMs > 0.0f)
 			{
-				Sample.TotalFrameGpuMs = CounterGpuMs;
+				Sample.TotalFrameGpuMs = FMath::Max(Sample.bHasTotalFrameGpuMs ? Sample.TotalFrameGpuMs : 0.0f, CounterGpuMs);
 				Sample.bHasTotalFrameGpuMs = true;
 			}
 		}
@@ -5126,7 +5850,7 @@ static bool BuildRowsFromInsightsTrace(UWorld* World)
 			const float StatUnitGpuMs = GetMaterialReplayUnitGpuMsForTime(Sample.TimeSeconds);
 			if (StatUnitGpuMs > 0.0f)
 			{
-				Sample.TotalFrameGpuMs = StatUnitGpuMs;
+				Sample.TotalFrameGpuMs = FMath::Max(Sample.bHasTotalFrameGpuMs ? Sample.TotalFrameGpuMs : 0.0f, StatUnitGpuMs);
 				Sample.bHasTotalFrameGpuMs = true;
 			}
 		}

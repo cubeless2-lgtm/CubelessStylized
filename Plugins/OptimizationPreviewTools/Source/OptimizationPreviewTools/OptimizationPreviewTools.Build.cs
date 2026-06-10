@@ -15,6 +15,7 @@ public class OptimizationPreviewTools : ModuleRules
 			"Foliage",
 			"InputCore",
 			"Landscape",
+			"Niagara",
 			"RHI",
 			"RenderCore",
 			"TraceAnalysis",
