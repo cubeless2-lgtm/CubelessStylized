@@ -34,9 +34,31 @@ ASSET_PATHS = {
     "runtime_road_core_material": "/Game/Cubeless/PCG/Runtime/Materials/M_Cubeless_PCG_ForestRoad_Core.M_Cubeless_PCG_ForestRoad_Core",
     "runtime_road_edge_material": "/Game/Cubeless/PCG/Runtime/Materials/M_Cubeless_PCG_ForestRoad_Shoulder.M_Cubeless_PCG_ForestRoad_Shoulder",
     "runtime_road_soften_material": "/Game/Cubeless/PCG/Runtime/Materials/M_Cubeless_PCG_ForestRoad_Duff.M_Cubeless_PCG_ForestRoad_Duff",
+    "runtime_road_strip_mesh": "/Engine/BasicShapes/Plane.Plane",
     "learned_rock_mesh": "/Game/DreamscapeSeries/DreamscapeMountains/Meshes/Stones/Rocks/SM_SmallRock_01.SM_SmallRock_01",
     "learned_rock_material": "/Game/DreamscapeSeries/DreamscapeMountains/Materials/Stones/MI_Tiling_Rock_02.MI_Tiling_Rock_02",
     "electric_dreams_source_data": "/Game/EL/ART/BG/PCG/Road/BG_Smallroad01_PL_PCG.BG_Smallroad01_PL_PCG",
+}
+
+RUNTIME_ROAD_MATERIAL_SPECS = {
+    "core": {
+        "path_key": "runtime_road_core_material",
+        "base_color": [0.018, 0.013, 0.007],
+        "roughness": 0.98,
+        "specular": 0.08,
+    },
+    "edge": {
+        "path_key": "runtime_road_edge_material",
+        "base_color": [0.014, 0.010, 0.005],
+        "roughness": 0.98,
+        "specular": 0.08,
+    },
+    "soften": {
+        "path_key": "runtime_road_soften_material",
+        "base_color": [0.020, 0.018, 0.007],
+        "roughness": 0.98,
+        "specular": 0.07,
+    },
 }
 
 FOLDERS = {
@@ -103,6 +125,7 @@ RUNTIME_ROAD_CONTROL_SMOKE_TEST_REPORT_NAME = "CubelessForestRoadRuntimeControlS
 RUNTIME_ROAD_CONTROL_PROFILE_NAME = "CubelessForestRoadRuntimeControlProfile.json"
 RUNTIME_ROAD_NATIVE_GRAPH_REPORT_NAME = "CubelessForestRoadNativeGraphSkeleton.json"
 RUNTIME_ROAD_NATIVE_GRAPH_SMOKE_REPORT_NAME = "CubelessForestRoadNativeGraphLiveSmoke.json"
+RUNTIME_ROAD_NATIVE_GRAPH_SHAPE_SUITE_REPORT_NAME = "CubelessForestRoadNativeGraphShapeSuite.json"
 RUNTIME_ROAD_BP_FOLDER = "/Game/Cubeless/PCG/Runtime/Blueprints"
 RUNTIME_ROAD_BP_NAME = "BP_Cubeless_PCG_ForestRoadRuntime"
 RUNTIME_ROAD_ACTOR_LABEL = "MCP_Cubeless_PCG_ForestRoadRuntime_Validation"
@@ -159,12 +182,19 @@ LEARNED_ROUTE_CLEARANCE_CM = {
     "embankment": 2250.0,
 }
 
+NATIVE_ROADSIDE_FILTER_CLEARANCE_CM = {
+    "gravel": 620.0,
+    "stone": 1700.0,
+    "embankment": 2250.0,
+}
+
 NATIVE_ROADSIDE_CATEGORY_ORDER = ("gravel", "stone", "embankment")
 NATIVE_ROADSIDE_SEED_DISTANCE_INCREMENT_CM = 120.0
+NATIVE_ROADCLEARANCE_REFERENCE_DISTANCE_INCREMENT_CM = 80.0
 NATIVE_ROADSIDE_SELECT_RATIOS = {
-    "gravel": 0.581,
-    "stone": 0.092,
-    "embankment": 0.020,
+    "gravel": 0.5297,
+    "stone": 0.0958,
+    "embankment": 0.0163,
 }
 NATIVE_ROADSIDE_SELECT_SEEDS = {
     "gravel": 7101,
@@ -340,6 +370,14 @@ def _saved_runtime_road_native_graph_smoke_report_path():
     )
 
 
+def _saved_runtime_road_native_graph_shape_suite_report_path():
+    return os.path.join(
+        unreal.Paths.project_saved_dir(),
+        "MCP_RoadPCG",
+        RUNTIME_ROAD_NATIVE_GRAPH_SHAPE_SUITE_REPORT_NAME,
+    )
+
+
 def _runtime_road_pcg_graph_path():
     return RUNTIME_ROAD_PCG_GRAPH_FOLDER + "/" + RUNTIME_ROAD_PCG_GRAPH_NAME
 
@@ -490,9 +528,7 @@ def _nearest_route_clearance(x, y, points=None):
         alpha = max(0.0, min(1.0, ((x - start[0]) * dx + (y - start[1]) * dy) / length_sq))
         px = start[0] + dx * alpha
         py = start[1] + dy * alpha
-        normal = segment["normal"]
-        lateral = (x - px) * normal[0] + (y - py) * normal[1]
-        clearance = abs(lateral)
+        clearance = math.sqrt((x - px) * (x - px) + (y - py) * (y - py))
         if best is None or clearance < best:
             best = clearance
     return best if best is not None else 0.0
@@ -557,27 +593,10 @@ def _asset_folder_and_name(object_path):
     return folder, name
 
 
-def _ensure_constant_material(object_path, color, roughness=0.94, specular=0.18):
-    material = unreal.load_object(None, object_path)
-    created = False
-    if material:
-        return material, created
-
-    folder, name = _asset_folder_and_name(object_path)
-    if not unreal.EditorAssetLibrary.does_directory_exist(folder):
-        unreal.EditorAssetLibrary.make_directory(folder)
-
-    material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
-        name,
-        folder,
-        unreal.Material,
-        unreal.MaterialFactoryNew(),
-    )
-    if not material:
-        raise RuntimeError("Failed to create tuned road material: {}".format(object_path))
-    created = True
+def _build_constant_material_graph(material, color, roughness, specular):
     material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_OPAQUE)
     material.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_DEFAULT_LIT)
+    unreal.MaterialEditingLibrary.delete_all_material_expressions(material)
 
     base_color = unreal.MaterialEditingLibrary.create_material_expression(
         material,
@@ -621,6 +640,56 @@ def _ensure_constant_material(object_path, color, roughness=0.94, specular=0.18)
     unreal.MaterialEditingLibrary.layout_material_expressions(material)
     unreal.MaterialEditingLibrary.recompile_material(material)
     unreal.EditorAssetLibrary.save_loaded_asset(material, False)
+
+
+def _update_constant_material_graph(material, color, roughness, specular):
+    material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_OPAQUE)
+    material.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_DEFAULT_LIT)
+    base_color = unreal.MaterialEditingLibrary.get_material_property_input_node(
+        material,
+        unreal.MaterialProperty.MP_BASE_COLOR,
+    )
+    roughness_node = unreal.MaterialEditingLibrary.get_material_property_input_node(
+        material,
+        unreal.MaterialProperty.MP_ROUGHNESS,
+    )
+    specular_node = unreal.MaterialEditingLibrary.get_material_property_input_node(
+        material,
+        unreal.MaterialProperty.MP_SPECULAR,
+    )
+    if not base_color or not roughness_node or not specular_node:
+        _build_constant_material_graph(material, color, roughness, specular)
+        return "rebuilt"
+
+    base_color.set_editor_property("constant", unreal.LinearColor(color[0], color[1], color[2], 1.0))
+    roughness_node.set_editor_property("r", float(roughness))
+    specular_node.set_editor_property("r", float(specular))
+    unreal.MaterialEditingLibrary.recompile_material(material)
+    unreal.EditorAssetLibrary.save_loaded_asset(material, False)
+    return "updated"
+
+
+def _ensure_constant_material(object_path, color, roughness=0.94, specular=0.18):
+    material = unreal.load_object(None, object_path)
+    created = False
+    if material:
+        _update_constant_material_graph(material, color, roughness, specular)
+        return material, created
+
+    folder, name = _asset_folder_and_name(object_path)
+    if not unreal.EditorAssetLibrary.does_directory_exist(folder):
+        unreal.EditorAssetLibrary.make_directory(folder)
+
+    material = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+        name,
+        folder,
+        unreal.Material,
+        unreal.MaterialFactoryNew(),
+    )
+    if not material:
+        raise RuntimeError("Failed to create tuned road material: {}".format(object_path))
+    created = True
+    _build_constant_material_graph(material, color, roughness, specular)
     return material, created
 
 
@@ -662,29 +731,13 @@ def ensure_tuned_road_materials():
 
 
 def ensure_runtime_road_materials():
-    material_specs = {
-        "core": (
-            ASSET_PATHS["runtime_road_core_material"],
-            [0.008, 0.006, 0.004],
-            0.98,
-            0.12,
-        ),
-        "edge": (
-            ASSET_PATHS["runtime_road_edge_material"],
-            [0.010, 0.008, 0.005],
-            0.96,
-            0.12,
-        ),
-        "soften": (
-            ASSET_PATHS["runtime_road_soften_material"],
-            [0.010, 0.008, 0.005],
-            0.98,
-            0.10,
-        ),
-    }
     materials = {}
     created = []
-    for key, (path, color, roughness, specular) in material_specs.items():
+    for key, spec in RUNTIME_ROAD_MATERIAL_SPECS.items():
+        path = ASSET_PATHS[spec["path_key"]]
+        color = spec["base_color"]
+        roughness = spec["roughness"]
+        specular = spec["specular"]
         material, was_created = _ensure_constant_material(path, color, roughness, specular)
         materials[key] = material
         if was_created:
@@ -1829,7 +1882,41 @@ def _pcg_configure_add_attribute_node(settings, attribute_name, metadata_type, v
     return result
 
 
-def _pcg_configure_spline_mesh_node(settings, mesh_path, material_path, lateral_offset_cm=0.0):
+def _pcg_configure_attribute_noise_node(settings, input_attribute, output_attribute, noise_min, noise_max, seed):
+    result = {}
+    try:
+        settings.set_editor_property("input_source", _pcg_input_attribute_selector(input_attribute))
+        settings.set_editor_property("output_target", _pcg_output_attribute_selector(output_attribute))
+        result["attributes"] = "{} -> {}".format(input_attribute, output_attribute)
+    except Exception as exc:
+        result["attribute_selector_error"] = str(exc)
+    try:
+        settings.set_editor_property("mode", unreal.PCGAttributeNoiseMode.ADD)
+        settings.set_editor_property("noise_min", float(noise_min))
+        settings.set_editor_property("noise_max", float(noise_max))
+        settings.set_editor_property("seed", int(seed))
+        result["noise"] = "ADD {:.4f}..{:.4f}, seed {}".format(float(noise_min), float(noise_max), int(seed))
+    except Exception as exc:
+        result["noise_error"] = str(exc)
+    return result
+
+
+def _pcg_configure_make_vector2_node(settings, x_attribute, y_attribute, output_attribute):
+    result = {}
+    try:
+        settings.set_editor_property("input_source1", _pcg_input_attribute_selector(x_attribute))
+        settings.set_editor_property("input_source2", _pcg_input_attribute_selector(y_attribute))
+        settings.set_editor_property("output_target", _pcg_output_attribute_selector(output_attribute))
+        settings.set_editor_property("output_type", unreal.PCGMetadataTypes.VECTOR2)
+        settings.set_editor_property("output_data_from_pin", unreal.Name("X"))
+        result["make_vector2"] = "({}, {}) -> {}".format(x_attribute, y_attribute, output_attribute)
+        result["output_data_from_pin"] = "X"
+    except Exception as exc:
+        result["make_vector2_error"] = str(exc)
+    return result
+
+
+def _pcg_configure_spline_mesh_node(settings, mesh_path, material_path, lateral_offset_cm=0.0, attribute_overrides=None):
     result = {}
     try:
         descriptor = settings.get_editor_property("spline_mesh_descriptor")
@@ -1853,8 +1940,20 @@ def _pcg_configure_spline_mesh_node(settings, mesh_path, material_path, lateral_
     except Exception as exc:
         result["params_error"] = str(exc)
 
+    try:
+        overrides = settings.get_editor_property("spline_mesh_override_descriptions")
+        overrides.clear()
+        for attribute_name, property_target in attribute_overrides or []:
+            overrides.append(_pcg_object_property_override(attribute_name, property_target))
+        settings.set_editor_property("spline_mesh_override_descriptions", overrides)
+        result["spline_mesh_override_descriptions"] = [
+            "{} -> {}".format(attribute_name, property_target)
+            for attribute_name, property_target in attribute_overrides or []
+        ] or "cleared"
+    except Exception as exc:
+        result["spline_mesh_override_descriptions_error"] = str(exc)
+
     for property_name in (
-        "spline_mesh_override_descriptions",
         "spline_mesh_params_override",
         "spline_mesh_component_override",
     ):
@@ -2051,7 +2150,10 @@ def _pcg_configure_distance_node(settings, output_attribute, maximum_distance):
         settings.set_editor_property("output_attribute", _pcg_property_attribute_selector(output_attribute))
         settings.set_editor_property("maximum_distance", float(maximum_distance))
         settings.set_editor_property("set_density", False)
-        result["distance"] = "{} <= {:.1f} cm diagnostic attribute".format(output_attribute, maximum_distance)
+        settings.set_editor_property("source_shape", unreal.PCGDistanceShape.CENTER)
+        settings.set_editor_property("target_shape", unreal.PCGDistanceShape.CENTER)
+        result["distance"] = "{} <= {:.1f} cm center-to-center attribute".format(output_attribute, maximum_distance)
+        result["distance_shape"] = "source=CENTER, target=CENTER"
     except Exception as exc:
         result["distance_error"] = str(exc)
     return result
@@ -2086,7 +2188,7 @@ def _pcg_configure_self_pruning(settings):
     return result
 
 
-def create_or_update_runtime_road_native_skeleton_graph():
+def create_or_update_runtime_road_native_skeleton_graph(source_points_override=None, source_label_override=None):
     level_load = ensure_pcg_validation_level_loaded()
     if not level_load["pass"]:
         raise RuntimeError("Failed to load PCG validation level: {}".format(level_load))
@@ -2112,7 +2214,54 @@ def create_or_update_runtime_road_native_skeleton_graph():
     for node in list(graph.nodes):
         graph.remove_node(node)
 
-    runtime_sync = ensure_runtime_road_spline_synced_to_authoring(save=False)
+    if source_points_override:
+        actor_result = _find_or_spawn_runtime_road_actor()
+        actor = actor_result["actor"]
+        before = read_runtime_road_spline_points(create_if_missing=False, source_points=source_points_override)
+        before_delta = _spline_points_delta_summary(source_points_override, before["points"])
+        set_result = _set_actor_spline_points(actor, source_points_override)
+        spline, splines = _authoring_spline_component(actor)
+        spline_tag_added = _ensure_component_tag(spline, RUNTIME_ROAD_SPLINE_TAG)
+        after = read_runtime_road_spline_points(create_if_missing=False, source_points=source_points_override)
+        after_delta = _spline_points_delta_summary(source_points_override, after["points"])
+        runtime_sync = {
+            "source_label": source_label_override or "source_points_override",
+            "source_error": None,
+            "source_point_count": len(source_points_override),
+            "source_repair": None,
+            "actor": {
+                key: value
+                for key, value in actor_result.items()
+                if key != "actor"
+            },
+            "blueprint_refreshed": False,
+            "before": {
+                "point_count": before["point_count"],
+                "route_length_cm": before["route_length_cm"],
+                "delta_from_source": before_delta,
+            },
+            "sync_applied": True,
+            "set_result": set_result,
+            "spline_component": {
+                "name": spline.get_name(),
+                "path": spline.get_path_name(),
+                "component_count_on_actor": len(splines),
+                "tag": RUNTIME_ROAD_SPLINE_TAG,
+                "tag_added": spline_tag_added,
+            },
+            "after": {
+                "point_count": after["point_count"],
+                "route_length_cm": after["route_length_cm"],
+                "delta_from_source": after_delta,
+                "points": after["points"],
+            },
+            "pass": (
+                after["point_count"] == len(source_points_override)
+                and after_delta["max_delta_cm"] <= 1.0
+            ),
+        }
+    else:
+        runtime_sync = ensure_runtime_road_spline_synced_to_authoring(save=False)
     runtime_route_points = runtime_sync["after"]["points"]
     _segments, baseline_route_length_cm = _route_segments(runtime_route_points)
     road_branch_specs = [
@@ -2120,11 +2269,12 @@ def create_or_update_runtime_road_native_skeleton_graph():
             "key": "core",
             "display": "Core",
             "target_count": SPLINE_MESH_ROAD_COUNTS["Core"],
+            "mesh": ASSET_PATHS["runtime_road_strip_mesh"],
             "material": ASSET_PATHS["runtime_road_core_material"],
             "lateral_offset_cm": 0.0,
             "lateral_variation_cm": 36.0,
-            "width_scale": 3.85,
-            "z_scale": 0.018,
+            "width_scale": 4.60,
+            "z_scale": 0.004,
             "subdivision_symbol": "C",
             "y": -760,
         },
@@ -2132,11 +2282,12 @@ def create_or_update_runtime_road_native_skeleton_graph():
             "key": "edge_left",
             "display": "Edge Left",
             "target_count": SPLINE_MESH_ROAD_COUNTS["Edge"] // 2,
+            "mesh": ASSET_PATHS["runtime_road_strip_mesh"],
             "material": ASSET_PATHS["runtime_road_edge_material"],
             "lateral_offset_cm": -230.0,
             "lateral_variation_cm": 56.0,
-            "width_scale": 0.18,
-            "z_scale": 0.010,
+            "width_scale": 0.35,
+            "z_scale": 0.002,
             "subdivision_symbol": "L",
             "y": -460,
         },
@@ -2144,11 +2295,12 @@ def create_or_update_runtime_road_native_skeleton_graph():
             "key": "edge_right",
             "display": "Edge Right",
             "target_count": SPLINE_MESH_ROAD_COUNTS["Edge"] // 2,
+            "mesh": ASSET_PATHS["runtime_road_strip_mesh"],
             "material": ASSET_PATHS["runtime_road_edge_material"],
             "lateral_offset_cm": 230.0,
             "lateral_variation_cm": 56.0,
-            "width_scale": 0.18,
-            "z_scale": 0.010,
+            "width_scale": 0.35,
+            "z_scale": 0.002,
             "subdivision_symbol": "R",
             "y": -180,
         },
@@ -2156,11 +2308,12 @@ def create_or_update_runtime_road_native_skeleton_graph():
             "key": "soften_left",
             "display": "Soften Left",
             "target_count": SPLINE_MESH_ROAD_COUNTS["Soften"] // 2,
+            "mesh": ASSET_PATHS["runtime_road_strip_mesh"],
             "material": ASSET_PATHS["runtime_road_soften_material"],
-            "lateral_offset_cm": -330.0,
+            "lateral_offset_cm": -310.0,
             "lateral_variation_cm": 88.0,
-            "width_scale": 0.16,
-            "z_scale": 0.007,
+            "width_scale": 0.55,
+            "z_scale": 0.0015,
             "subdivision_symbol": "A",
             "y": 100,
         },
@@ -2168,11 +2321,12 @@ def create_or_update_runtime_road_native_skeleton_graph():
             "key": "soften_right",
             "display": "Soften Right",
             "target_count": SPLINE_MESH_ROAD_COUNTS["Soften"] // 2,
+            "mesh": ASSET_PATHS["runtime_road_strip_mesh"],
             "material": ASSET_PATHS["runtime_road_soften_material"],
-            "lateral_offset_cm": 330.0,
+            "lateral_offset_cm": 310.0,
             "lateral_variation_cm": 88.0,
-            "width_scale": 0.16,
-            "z_scale": 0.007,
+            "width_scale": 0.55,
+            "z_scale": 0.0015,
             "subdivision_symbol": "B",
             "y": 380,
         },
@@ -2183,6 +2337,7 @@ def create_or_update_runtime_road_native_skeleton_graph():
             "display": "Gravel",
             "target_count": ROAD_GENERATION_COUNTS["gravel"],
             "clearance_cm": LEARNED_ROUTE_CLEARANCE_CM["gravel"],
+            "filter_clearance_cm": NATIVE_ROADSIDE_FILTER_CLEARANCE_CM["gravel"],
             "distance_max_cm": max(LEARNED_ROUTE_CLEARANCE_CM["gravel"] * 2.0, 5000.0),
             "select_ratio": NATIVE_ROADSIDE_SELECT_RATIOS["gravel"],
             "select_seed": NATIVE_ROADSIDE_SELECT_SEEDS["gravel"],
@@ -2197,6 +2352,7 @@ def create_or_update_runtime_road_native_skeleton_graph():
             "display": "Stone",
             "target_count": ROAD_GENERATION_COUNTS["stone"],
             "clearance_cm": LEARNED_ROUTE_CLEARANCE_CM["stone"],
+            "filter_clearance_cm": NATIVE_ROADSIDE_FILTER_CLEARANCE_CM["stone"],
             "distance_max_cm": max(LEARNED_ROUTE_CLEARANCE_CM["stone"] * 2.0, 5000.0),
             "select_ratio": NATIVE_ROADSIDE_SELECT_RATIOS["stone"],
             "select_seed": NATIVE_ROADSIDE_SELECT_SEEDS["stone"],
@@ -2211,6 +2367,7 @@ def create_or_update_runtime_road_native_skeleton_graph():
             "display": "Embankment",
             "target_count": ROAD_GENERATION_COUNTS["embankment"],
             "clearance_cm": LEARNED_ROUTE_CLEARANCE_CM["embankment"],
+            "filter_clearance_cm": NATIVE_ROADSIDE_FILTER_CLEARANCE_CM["embankment"],
             "distance_max_cm": max(LEARNED_ROUTE_CLEARANCE_CM["embankment"] * 2.0, 5000.0),
             "select_ratio": NATIVE_ROADSIDE_SELECT_RATIOS["embankment"],
             "select_seed": NATIVE_ROADSIDE_SELECT_SEEDS["embankment"],
@@ -2239,10 +2396,20 @@ def create_or_update_runtime_road_native_skeleton_graph():
                 (prefix + "_attr_mesh", unreal.PCGAddAttributeSettings, 900, y + 120, "Set {} RoadMesh attribute".format(display)),
                 (prefix + "_attr_material", unreal.PCGAddAttributeSettings, 1200, y + 120, "Set {} RoadMaterial attribute".format(display)),
                 (prefix + "_attr_forward_axis", unreal.PCGAddAttributeSettings, 1500, y + 120, "Set {} RoadForwardAxis attribute".format(display)),
-                (prefix + "_attr_start_offset", unreal.PCGAddAttributeSettings, 1800, y + 120, "Set {} RoadStartOffset attribute".format(display)),
-                (prefix + "_attr_end_offset", unreal.PCGAddAttributeSettings, 2100, y + 120, "Set {} RoadEndOffset attribute".format(display)),
-                (prefix + "_attr_start_scale", unreal.PCGAddAttributeSettings, 2400, y + 120, "Set {} RoadStartScale attribute".format(display)),
-                (prefix + "_attr_end_scale", unreal.PCGAddAttributeSettings, 2700, y + 120, "Set {} RoadEndScale attribute".format(display)),
+                (prefix + "_attr_start_offset_x", unreal.PCGAddAttributeSettings, 1800, y + 120, "Set {} RoadStartOffsetX base".format(display)),
+                (prefix + "_noise_start_offset_x", unreal.PCGAttributeNoiseSettings, 2100, y + 120, "Noise {} RoadStartOffsetX".format(display)),
+                (prefix + "_attr_end_offset_x", unreal.PCGAddAttributeSettings, 2400, y + 120, "Set {} RoadEndOffsetX base".format(display)),
+                (prefix + "_noise_end_offset_x", unreal.PCGAttributeNoiseSettings, 2700, y + 120, "Noise {} RoadEndOffsetX".format(display)),
+                (prefix + "_attr_offset_y", unreal.PCGAddAttributeSettings, 3000, y + 120, "Set {} RoadOffsetY base".format(display)),
+                (prefix + "_make_start_offset", unreal.PCGMetadataMakeVectorSettings, 3300, y + 120, "Make {} RoadStartOffset".format(display)),
+                (prefix + "_make_end_offset", unreal.PCGMetadataMakeVectorSettings, 3600, y + 120, "Make {} RoadEndOffset".format(display)),
+                (prefix + "_attr_start_scale_x", unreal.PCGAddAttributeSettings, 3900, y + 120, "Set {} RoadStartScaleX base".format(display)),
+                (prefix + "_noise_start_scale_x", unreal.PCGAttributeNoiseSettings, 4200, y + 120, "Noise {} RoadStartScaleX".format(display)),
+                (prefix + "_attr_end_scale_x", unreal.PCGAddAttributeSettings, 4500, y + 120, "Set {} RoadEndScaleX base".format(display)),
+                (prefix + "_noise_end_scale_x", unreal.PCGAttributeNoiseSettings, 4800, y + 120, "Noise {} RoadEndScaleX".format(display)),
+                (prefix + "_attr_scale_y", unreal.PCGAddAttributeSettings, 5100, y + 120, "Set {} RoadScaleY base".format(display)),
+                (prefix + "_make_start_scale", unreal.PCGMetadataMakeVectorSettings, 5400, y + 120, "Make {} RoadStartScale".format(display)),
+                (prefix + "_make_end_scale", unreal.PCGMetadataMakeVectorSettings, 5700, y + 120, "Make {} RoadEndScale".format(display)),
             ]
         )
     node_specs.extend(
@@ -2351,34 +2518,19 @@ def create_or_update_runtime_road_native_skeleton_graph():
                 diagnostic_module_size_cm,
             )
         )
+        branch_seed_base = 9100 + (road_branch_specs.index(branch) * 100)
+        offset_variation_cm = float(branch["lateral_variation_cm"])
+        width_variation_scale = min(float(branch["width_scale"]) * 0.06, 0.18)
         branch_attribute_specs = [
-            (prefix + "_attr_mesh", "RoadMesh", unreal.PCGMetadataTypes.SOFT_OBJECT_PATH, ASSET_PATHS["road_core_mesh"]),
+            (prefix + "_attr_mesh", "RoadMesh", unreal.PCGMetadataTypes.SOFT_OBJECT_PATH, branch["mesh"]),
             (prefix + "_attr_material", "RoadMaterial", unreal.PCGMetadataTypes.SOFT_OBJECT_PATH, branch["material"]),
             (prefix + "_attr_forward_axis", "RoadForwardAxis", unreal.PCGMetadataTypes.INTEGER32, 0),
-            (
-                prefix + "_attr_start_offset",
-                "RoadStartOffset",
-                unreal.PCGMetadataTypes.VECTOR2,
-                (branch["lateral_offset_cm"], 0.0),
-            ),
-            (
-                prefix + "_attr_end_offset",
-                "RoadEndOffset",
-                unreal.PCGMetadataTypes.VECTOR2,
-                (branch["lateral_offset_cm"], 0.0),
-            ),
-            (
-                prefix + "_attr_start_scale",
-                "RoadStartScale",
-                unreal.PCGMetadataTypes.VECTOR2,
-                (branch["width_scale"], branch["z_scale"]),
-            ),
-            (
-                prefix + "_attr_end_scale",
-                "RoadEndScale",
-                unreal.PCGMetadataTypes.VECTOR2,
-                (branch["width_scale"], branch["z_scale"]),
-            ),
+            (prefix + "_attr_start_offset_x", "RoadStartOffsetX", unreal.PCGMetadataTypes.FLOAT, branch["lateral_offset_cm"]),
+            (prefix + "_attr_end_offset_x", "RoadEndOffsetX", unreal.PCGMetadataTypes.FLOAT, branch["lateral_offset_cm"]),
+            (prefix + "_attr_offset_y", "RoadOffsetY", unreal.PCGMetadataTypes.FLOAT, 0.0),
+            (prefix + "_attr_start_scale_x", "RoadStartScaleX", unreal.PCGMetadataTypes.FLOAT, branch["width_scale"]),
+            (prefix + "_attr_end_scale_x", "RoadEndScaleX", unreal.PCGMetadataTypes.FLOAT, branch["width_scale"]),
+            (prefix + "_attr_scale_y", "RoadScaleY", unreal.PCGMetadataTypes.FLOAT, branch["z_scale"]),
         ]
         for key, attribute_name, metadata_type, value in branch_attribute_specs:
             setup[key]["description_set"] = _pcg_set_description(
@@ -2396,24 +2548,78 @@ def create_or_update_runtime_road_native_skeleton_graph():
                     value,
                 )
             )
+        branch_noise_specs = [
+            (prefix + "_noise_start_offset_x", "RoadStartOffsetX", "RoadStartOffsetX", -offset_variation_cm, offset_variation_cm, branch_seed_base + 1),
+            (prefix + "_noise_end_offset_x", "RoadEndOffsetX", "RoadEndOffsetX", -offset_variation_cm, offset_variation_cm, branch_seed_base + 2),
+            (prefix + "_noise_start_scale_x", "RoadStartScaleX", "RoadStartScaleX", -width_variation_scale, width_variation_scale, branch_seed_base + 3),
+            (prefix + "_noise_end_scale_x", "RoadEndScaleX", "RoadEndScaleX", -width_variation_scale, width_variation_scale, branch_seed_base + 4),
+        ]
+        for key, input_attribute, output_attribute, noise_min, noise_max, seed in branch_noise_specs:
+            setup[key]["description_set"] = _pcg_set_description(
+                nodes[key].get_settings(),
+                "Native {} organic road variation: add deterministic noise to {} only.".format(
+                    branch["display"],
+                    output_attribute,
+                ),
+            )
+            setup[key]["property_updates"].update(
+                _pcg_configure_attribute_noise_node(
+                    nodes[key].get_settings(),
+                    input_attribute,
+                    output_attribute,
+                    noise_min,
+                    noise_max,
+                    seed,
+                )
+            )
+        branch_vector_specs = [
+            (prefix + "_make_start_offset", "RoadStartOffsetX", "RoadOffsetY", "RoadStartOffset"),
+            (prefix + "_make_end_offset", "RoadEndOffsetX", "RoadOffsetY", "RoadEndOffset"),
+            (prefix + "_make_start_scale", "RoadStartScaleX", "RoadScaleY", "RoadStartScale"),
+            (prefix + "_make_end_scale", "RoadEndScaleX", "RoadScaleY", "RoadEndScale"),
+        ]
+        for key, x_attribute, y_attribute, output_attribute in branch_vector_specs:
+            setup[key]["description_set"] = _pcg_set_description(
+                nodes[key].get_settings(),
+                "Native {} road override vector: combine {} and {} into {}.".format(
+                    branch["display"],
+                    x_attribute,
+                    y_attribute,
+                    output_attribute,
+                ),
+            )
+            setup[key]["property_updates"].update(
+                _pcg_configure_make_vector2_node(
+                    nodes[key].get_settings(),
+                    x_attribute,
+                    y_attribute,
+                    output_attribute,
+                )
+            )
 
         branch_spline_key = prefix + "_spline_mesh"
         setup[branch_spline_key]["description_set"] = _pcg_set_description(
             nodes[branch_spline_key].get_settings(),
-            "{} native road branch. Target count: {} spline-mesh strips. Constant offset {:.1f} cm, width scale {:.3f}, z scale {:.3f}; sinusoidal offset/width variation is still pending.".format(
+            "{} native road branch. Target count: {} spline-mesh strips. Organic offset noise +/-{:.1f} cm and width noise +/-{:.3f}; z scale remains {:.4f}.".format(
                 branch["display"],
                 branch["target_count"],
-                branch["lateral_offset_cm"],
-                branch["width_scale"],
+                offset_variation_cm,
+                width_variation_scale,
                 branch["z_scale"],
             ),
         )
         setup[branch_spline_key]["property_updates"].update(
             _pcg_configure_spline_mesh_node(
                 nodes[branch_spline_key].get_settings(),
-                ASSET_PATHS["road_core_mesh"],
+                branch["mesh"],
                 branch["material"],
                 branch["lateral_offset_cm"],
+                attribute_overrides=[
+                    ("RoadStartOffset", "SplineMeshParams.StartOffset"),
+                    ("RoadEndOffset", "SplineMeshParams.EndOffset"),
+                    ("RoadStartScale", "SplineMeshParams.StartScale"),
+                    ("RoadEndScale", "SplineMeshParams.EndScale"),
+                ],
             )
         )
     setup["roadside_seed_points"]["description_set"] = _pcg_set_description(
@@ -2431,7 +2637,10 @@ def create_or_update_runtime_road_native_skeleton_graph():
         "Sample the runtime road spline into reference points for native road-clearance distance checks.",
     )
     setup["road_clearance_reference_points"]["property_updates"].update(
-        _pcg_configure_spline_sampler(nodes["road_clearance_reference_points"].get_settings())
+        _pcg_configure_spline_sampler(
+            nodes["road_clearance_reference_points"].get_settings(),
+            distance_increment_cm=NATIVE_ROADCLEARANCE_REFERENCE_DISTANCE_INCREMENT_CM,
+        )
     )
     for category in roadside_category_specs:
         prefix = "roadside_{}".format(category["key"])
@@ -2485,14 +2694,21 @@ def create_or_update_runtime_road_native_skeleton_graph():
         try:
             settings = nodes[prefix + "_points"].get_settings()
             settings.set_editor_property("ratio", float(category["select_ratio"]))
-            settings.set_editor_property("use_seed", True)
-            settings.set_editor_property("seed", int(category["select_seed"]))
-            settings.set_editor_property("keep_zero_density_points", False)
             setup[prefix + "_points"]["property_updates"]["ratio"] = "{:.4f}".format(float(category["select_ratio"]))
-            setup[prefix + "_points"]["property_updates"]["seed"] = int(category["select_seed"])
-            setup[prefix + "_points"]["property_updates"]["keep_zero_density_points"] = False
         except Exception as exc:
             setup[prefix + "_points"]["property_updates"]["ratio_error"] = str(exc)
+        try:
+            settings = nodes[prefix + "_points"].get_settings()
+            settings.set_editor_property("seed", int(category["select_seed"]))
+            setup[prefix + "_points"]["property_updates"]["seed"] = int(category["select_seed"])
+        except Exception as exc:
+            setup[prefix + "_points"]["property_updates"]["seed_error"] = str(exc)
+        try:
+            settings = nodes[prefix + "_points"].get_settings()
+            settings.set_editor_property("keep_zero_density_points", False)
+            setup[prefix + "_points"]["property_updates"]["keep_zero_density_points"] = False
+        except Exception as exc:
+            setup[prefix + "_points"]["property_updates"]["keep_zero_density_points_error"] = str(exc)
 
         try:
             settings = nodes[prefix + "_density_filter"].get_settings()
@@ -2542,15 +2758,17 @@ def create_or_update_runtime_road_native_skeleton_graph():
         )
         setup[prefix + "_road_clearance_filter"]["description_set"] = _pcg_set_description(
             nodes[prefix + "_road_clearance_filter"].get_settings(),
-            "{} attribute threshold filter diagnostic. This node remains disconnected until UE Python-created PCG filter semantics are reliable for hard clearance.".format(
+            "{} active road-clearance threshold filter. Keeps points whose native RoadClearanceDistance is at least {:.1f} cm before density/self-pruning; Python validation still checks {:.1f} cm nearest-route clearance.".format(
                 category["display"],
+                category["filter_clearance_cm"],
+                category["clearance_cm"],
             ),
         )
         setup[prefix + "_road_clearance_filter"]["property_updates"].update(
             _pcg_configure_attribute_threshold_filter(
                 nodes[prefix + "_road_clearance_filter"].get_settings(),
                 "RoadClearanceDistance",
-                category["clearance_cm"],
+                category["filter_clearance_cm"],
             )
         )
 
@@ -2560,7 +2778,25 @@ def create_or_update_runtime_road_native_skeleton_graph():
         edges.extend(
             [
                 _pcg_add_edge_report(graph, nodes["get_spline"], nodes[prefix + "_subdivide_spline"], "Out", "In"),
-                _pcg_add_edge_report(graph, nodes[prefix + "_subdivide_spline"], nodes[prefix + "_create_spline"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_subdivide_spline"], nodes[prefix + "_attr_start_offset_x"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_attr_start_offset_x"], nodes[prefix + "_noise_start_offset_x"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_noise_start_offset_x"], nodes[prefix + "_attr_end_offset_x"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_attr_end_offset_x"], nodes[prefix + "_noise_end_offset_x"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_noise_end_offset_x"], nodes[prefix + "_attr_offset_y"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_attr_offset_y"], nodes[prefix + "_make_start_offset"], "Out", "X"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_attr_offset_y"], nodes[prefix + "_make_start_offset"], "Out", "Y"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_make_start_offset"], nodes[prefix + "_make_end_offset"], "Out", "X"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_make_start_offset"], nodes[prefix + "_make_end_offset"], "Out", "Y"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_make_end_offset"], nodes[prefix + "_attr_start_scale_x"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_attr_start_scale_x"], nodes[prefix + "_noise_start_scale_x"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_noise_start_scale_x"], nodes[prefix + "_attr_end_scale_x"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_attr_end_scale_x"], nodes[prefix + "_noise_end_scale_x"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_noise_end_scale_x"], nodes[prefix + "_attr_scale_y"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_attr_scale_y"], nodes[prefix + "_make_start_scale"], "Out", "X"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_attr_scale_y"], nodes[prefix + "_make_start_scale"], "Out", "Y"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_make_start_scale"], nodes[prefix + "_make_end_scale"], "Out", "X"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_make_start_scale"], nodes[prefix + "_make_end_scale"], "Out", "Y"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_make_end_scale"], nodes[prefix + "_create_spline"], "Out", "In"),
                 _pcg_add_edge_report(graph, nodes[prefix + "_create_spline"], nodes[prefix + "_spline_mesh"], "Out", "In"),
                 _pcg_add_edge_report(graph, nodes[prefix + "_spline_mesh"], graph.get_output_node(), "Out", "Out"),
             ]
@@ -2579,7 +2815,8 @@ def create_or_update_runtime_road_native_skeleton_graph():
                 _pcg_add_edge_report(graph, nodes[prefix + "_points"], nodes[prefix + "_transform_limits"], "Out", "In"),
                 _pcg_add_edge_report(graph, nodes[prefix + "_transform_limits"], nodes[prefix + "_distance_to_road"], "Out", "Source"),
                 _pcg_add_edge_report(graph, nodes["road_clearance_reference_points"], nodes[prefix + "_distance_to_road"], "Out", "Target"),
-                _pcg_add_edge_report(graph, nodes[prefix + "_distance_to_road"], nodes[prefix + "_density_filter"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_distance_to_road"], nodes[prefix + "_road_clearance_filter"], "Out", "In"),
+                _pcg_add_edge_report(graph, nodes[prefix + "_road_clearance_filter"], nodes[prefix + "_density_filter"], "InsideFilter", "In"),
                 _pcg_add_edge_report(graph, nodes[prefix + "_density_filter"], nodes[prefix + "_self_pruning"], "Out", "In"),
                 _pcg_add_edge_report(graph, nodes[prefix + "_self_pruning"], nodes[prefix + "_static_mesh_spawn"], "Out", "In"),
                 _pcg_add_edge_report(graph, nodes[prefix + "_static_mesh_spawn"], graph.get_output_node(), "Out", "Out"),
@@ -2618,8 +2855,8 @@ def create_or_update_runtime_road_native_skeleton_graph():
                 RUNTIME_ROAD_SPLINE_TAG,
             ),
             "road_segment_subdivision": "active path uses GetSpline -> SubdivideSpline -> CreateSpline -> SpawnSplineMesh; SubdivideSegment nodes remain only as point-data diagnostics",
-            "road_spline_mesh_output": "core, edge-left, edge-right, soften-left, and soften-right branches now recreate spline data before SpawnSplineMesh so target component counts are preserved",
-            "road_attribute_sources": "Add Attribute candidates remain as disconnected planning nodes for a future attribute-driven spline mesh override pass",
+            "road_spline_mesh_output": "core, edge-left, edge-right, soften-left, and soften-right branches recreate spline data before SpawnSplineMesh so target component counts are preserved",
+            "road_attribute_sources": "Start/end offset and scale attributes are built from base float attributes, deterministic native noise, and MakeVector2 nodes, then bound through SpawnSplineMesh override descriptions; mesh/material/forward-axis attributes remain diagnostic candidates.",
             "expected_spline_mesh_component_total": (
                 SPLINE_MESH_ROAD_COUNTS["Core"]
                 + SPLINE_MESH_ROAD_COUNTS["Edge"]
@@ -2629,12 +2866,14 @@ def create_or_update_runtime_road_native_skeleton_graph():
                 branch["key"]: {
                     "target_count": branch["target_count"],
                     "subdivide_spline_point_target": branch["target_count"] + 2,
+                    "mesh": branch["mesh"],
                     "material": branch["material"],
                     "module_size_cm": round(baseline_route_length_cm / max(float(branch["target_count"] + 2), 1.0), 2),
                     "diagnostic_segment_module_size_cm": round(baseline_route_length_cm / max(float(branch["target_count"]), 1.0), 2),
                     "lateral_offset_cm": branch["lateral_offset_cm"],
-                    "lateral_variation_cm_pending": branch["lateral_variation_cm"],
+                    "lateral_variation_cm": branch["lateral_variation_cm"],
                     "width_scale": branch["width_scale"],
+                    "width_variation_scale": round(min(float(branch["width_scale"]) * 0.06, 0.18), 4),
                     "z_scale": branch["z_scale"],
                 }
                 for branch in road_branch_specs
@@ -2642,13 +2881,14 @@ def create_or_update_runtime_road_native_skeleton_graph():
             "road_clearance_reference_points": "PCGSplineSamplerSettings samples the runtime road spline for native distance checks",
             "roadside_point_pipeline": "gravel, stone, and embankment open-spline seed/sample/transform/distance/density-filter/self-pruning/spawner branches created and connected",
             "roadside_self_pruning": "PCGSelfPruningSettings nodes added per category as native hard-overlap suppression candidates",
-            "roadside_road_clearance": "PCGDistanceSettings writes RoadClearanceDistance as a diagnostic; active clearance guarantee uses lateral offset ranges plus Python nearest-route smoke validation",
+            "roadside_road_clearance": "PCGDistanceSettings writes RoadClearanceDistance, then PCGAttributeFilteringSettings actively keeps only points beyond the category clearance threshold before density/self-pruning.",
             "roadside_category_targets": {
                 category["key"]: {
                     "target_count": category["target_count"],
                     "select_ratio": category["select_ratio"],
                     "select_seed": category["select_seed"],
                     "clearance_cm": category["clearance_cm"],
+                    "filter_clearance_cm": category["filter_clearance_cm"],
                     "distance_max_cm": category["distance_max_cm"],
                     "density_filter_mode": "pass-through",
                     "footprint_radius_cm": FOOTPRINT_RADIUS[category["key"]] * 0.58,
@@ -2660,9 +2900,7 @@ def create_or_update_runtime_road_native_skeleton_graph():
                 for category in roadside_category_specs
             },
             "missing_before_production": [
-                "native sinusoidal lateral offset and width variation for organic edge/soften/core road strips",
-                "replace lateral-offset clearance with a proven native hard-filter once Python-created PCG filter semantics are reliable",
-                "validate native self-pruning and road-clearance behavior across additional road shapes before production placement",
+                "validate native self-pruning, road-clearance filtering, and density expectations across additional road shapes before production placement",
             ],
         },
     }
@@ -2725,6 +2963,74 @@ def _native_smoke_instance_count(component):
         except Exception:
             pass
     return None
+
+
+def _runtime_material_value_node(material, material_property):
+    try:
+        return unreal.MaterialEditingLibrary.get_material_property_input_node(
+            material,
+            material_property,
+        )
+    except Exception:
+        return None
+
+
+def collect_runtime_road_material_values():
+    values = {}
+    for key, spec in RUNTIME_ROAD_MATERIAL_SPECS.items():
+        path = ASSET_PATHS[spec["path_key"]]
+        material = unreal.load_object(None, path)
+        item = {"path": path, "exists": bool(material)}
+        if material:
+            base_color = _runtime_material_value_node(material, unreal.MaterialProperty.MP_BASE_COLOR)
+            roughness = _runtime_material_value_node(material, unreal.MaterialProperty.MP_ROUGHNESS)
+            specular = _runtime_material_value_node(material, unreal.MaterialProperty.MP_SPECULAR)
+            if base_color:
+                try:
+                    color = base_color.get_editor_property("constant")
+                    item["base_color"] = [
+                        round(float(color.r), 4),
+                        round(float(color.g), 4),
+                        round(float(color.b), 4),
+                    ]
+                except Exception as exc:
+                    item["base_color_error"] = str(exc)
+            if roughness:
+                try:
+                    item["roughness"] = round(float(roughness.get_editor_property("r")), 4)
+                except Exception as exc:
+                    item["roughness_error"] = str(exc)
+            if specular:
+                try:
+                    item["specular"] = round(float(specular.get_editor_property("r")), 4)
+                except Exception as exc:
+                    item["specular_error"] = str(exc)
+        values[key] = item
+    return values
+
+
+def runtime_road_material_value_mismatches(values=None):
+    values = values or collect_runtime_road_material_values()
+    mismatches = {}
+    for key, spec in RUNTIME_ROAD_MATERIAL_SPECS.items():
+        item = values.get(key, {})
+        expected = {
+            "base_color": [round(float(value), 4) for value in spec["base_color"]],
+            "roughness": round(float(spec["roughness"]), 4),
+            "specular": round(float(spec["specular"]), 4),
+        }
+        actual = {
+            "base_color": item.get("base_color"),
+            "roughness": item.get("roughness"),
+            "specular": item.get("specular"),
+        }
+        if not item.get("exists") or actual != expected:
+            mismatches[key] = {
+                "expected": expected,
+                "actual": actual,
+                "exists": bool(item.get("exists")),
+            }
+    return mismatches
 
 
 def _native_smoke_summarize_actor(actor, component, elapsed_seconds, route_points=None):
@@ -2881,6 +3187,8 @@ def _native_smoke_summarize_actor(actor, component, elapsed_seconds, route_point
         for item in instanced_components
         if item.get("instances") is not None
     )
+    runtime_material_values = collect_runtime_road_material_values()
+    runtime_material_value_mismatches = runtime_road_material_value_mismatches(runtime_material_values)
 
     return {
         "pass": (
@@ -2888,6 +3196,7 @@ def _native_smoke_summarize_actor(actor, component, elapsed_seconds, route_point
             and len(instanced_components) == 3
             and not roadside_count_mismatches
             and not roadside_clearance_violations
+            and not runtime_material_value_mismatches
         ),
         "elapsed_sec": round(float(elapsed_seconds), 3),
         "world": _world_path(),
@@ -2909,15 +3218,20 @@ def _native_smoke_summarize_actor(actor, component, elapsed_seconds, route_point
         "instanced_components": instanced_components,
         "spline_mesh_component_count": len(spline_mesh_components),
         "spline_mesh_components": spline_mesh_components,
+        "runtime_material_values": runtime_material_values,
+        "runtime_material_value_mismatches": runtime_material_value_mismatches,
         "expected_min_spline_mesh_components": expected_spline_mesh_components,
         "expected_instanced_component_count": 3,
     }
 
 
-def start_runtime_road_native_graph_live_smoke_test(keep_preview=False, timeout_seconds=6.0):
-    label = "MCP_TMP_NativeRoadPCGValidation_LiveCollect"
+def start_runtime_road_native_graph_live_smoke_test(keep_preview=False, timeout_seconds=6.0, source_points_override=None, source_label_override=None, preview_label_suffix=""):
+    label = "MCP_TMP_NativeRoadPCGValidation_LiveCollect{}".format(preview_label_suffix or "")
     report_path = _saved_runtime_road_native_graph_smoke_report_path()
-    graph_report = create_or_update_runtime_road_native_skeleton_graph()
+    graph_report = create_or_update_runtime_road_native_skeleton_graph(
+        source_points_override=source_points_override,
+        source_label_override=source_label_override,
+    )
     graph = _load_object(_runtime_road_native_graph_object_path())
     for actor in list(unreal.EditorLevelLibrary.get_all_level_actors()):
         try:
@@ -2952,6 +3266,7 @@ def start_runtime_road_native_graph_live_smoke_test(keep_preview=False, timeout_
         "world": _world_path(),
         "graph_path": _runtime_road_native_graph_object_path(),
         "actor_label": label,
+        "source_label": graph_report.get("runtime_spline_sync", {}).get("source_label"),
         "keep_preview": bool(keep_preview),
         "timeout_seconds": float(timeout_seconds),
         "graph_report_path": graph_report.get("report_path"),
@@ -2978,6 +3293,7 @@ def start_runtime_road_native_graph_live_smoke_test(keep_preview=False, timeout_
             )
             result = _native_smoke_summarize_actor(actor, component, state["elapsed"], route_points=route_points)
             result["status"] = "ready" if ready else "timeout_collect"
+            result["source_label"] = graph_report.get("runtime_spline_sync", {}).get("source_label")
             result["keep_preview"] = bool(keep_preview)
             result["graph_report_path"] = graph_report.get("report_path")
             _native_smoke_write_report(report_path, result)
@@ -3016,6 +3332,334 @@ def read_runtime_road_native_graph_live_smoke_report():
     report["exists"] = True
     report["report_path"] = report_path
     return report
+
+
+def read_runtime_road_native_graph_shape_suite_report():
+    report_path = _saved_runtime_road_native_graph_shape_suite_report_path()
+    if not os.path.exists(report_path):
+        return {"exists": False, "report_path": report_path}
+    with open(report_path, "r", encoding="utf-8") as handle:
+        report = json.load(handle)
+    report["exists"] = True
+    report["report_path"] = report_path
+    return report
+
+
+def _shape_suite_point(origin, offset_x, offset_y, offset_z=0.0):
+    return [
+        float(origin[0]) + float(offset_x),
+        float(origin[1]) + float(offset_y),
+        float(origin[2]) + float(offset_z),
+    ]
+
+
+def _shape_suite_points_from_offsets(origin, offsets):
+    return [_shape_suite_point(origin, item[0], item[1], item[2] if len(item) > 2 else 0.0) for item in offsets]
+
+
+def _runtime_road_native_graph_shape_specs(source_points):
+    origin = source_points[0] if source_points else ROAD_CONTROL_POINTS[0]
+    return [
+        {
+            "key": "authoring_baseline",
+            "description": "Current authoring/runtime route restored from the user's Road_SourceSpline.",
+            "points": source_points,
+        },
+        {
+            "key": "compact_curve",
+            "description": "Shorter route with a compact S curve; validates module-size recalculation on small roads.",
+            "points": _shape_suite_points_from_offsets(
+                origin,
+                [
+                    (0.0, 0.0, 0.0),
+                    (3500.0, 1800.0, 20.0),
+                    (7600.0, -1600.0, 35.0),
+                    (11600.0, 2300.0, 40.0),
+                    (15800.0, 700.0, 30.0),
+                ],
+            ),
+        },
+        {
+            "key": "tight_switchback",
+            "description": "Alternating tight turns; validates edge/soften offset noise on high-curvature routes.",
+            "points": _shape_suite_points_from_offsets(
+                origin,
+                [
+                    (0.0, 0.0, 0.0),
+                    (4200.0, 300.0, 20.0),
+                    (7000.0, 5200.0, 40.0),
+                    (10800.0, -4200.0, 45.0),
+                    (14600.0, 5600.0, 35.0),
+                    (19000.0, -2700.0, 20.0),
+                    (23800.0, 2600.0, 10.0),
+                ],
+            ),
+        },
+        {
+            "key": "long_sweep",
+            "description": "Long sweeping route; validates target component counts and clearance over a longer road.",
+            "points": _shape_suite_points_from_offsets(
+                origin,
+                [
+                    (0.0, 0.0, 0.0),
+                    (7200.0, 1300.0, 20.0),
+                    (14600.0, -2600.0, 45.0),
+                    (23000.0, 2100.0, 55.0),
+                    (31400.0, -1900.0, 45.0),
+                    (40000.0, 3300.0, 35.0),
+                    (48600.0, -600.0, 20.0),
+                    (57400.0, 4500.0, 10.0),
+                ],
+            ),
+        },
+    ]
+
+
+def _runtime_road_native_graph_shape_suite_source():
+    try:
+        source = read_authoring_spline_points(create_if_missing=False)
+        return {
+            "label": source["actor_label"] + "." + source["component_name"],
+            "points": source["points"],
+            "source": source,
+            "fallback": False,
+        }
+    except Exception as authoring_exc:
+        try:
+            source = read_runtime_road_spline_points(create_if_missing=False)
+            return {
+                "label": source["actor_label"] + "." + source["component_name"],
+                "points": source["points"],
+                "source": source,
+                "fallback": True,
+                "authoring_error": str(authoring_exc),
+            }
+        except Exception as runtime_exc:
+            return {
+                "label": "ROAD_CONTROL_POINTS fallback",
+                "points": ROAD_CONTROL_POINTS,
+                "source": {"point_count": len(ROAD_CONTROL_POINTS)},
+                "fallback": True,
+                "authoring_error": str(authoring_exc),
+                "runtime_error": str(runtime_exc),
+            }
+
+
+def _runtime_road_native_shape_suite_quality(result, baseline_route_length_cm):
+    expected_spline_mesh_components = (
+        SPLINE_MESH_ROAD_COUNTS["Core"]
+        + SPLINE_MESH_ROAD_COUNTS["Edge"]
+        + SPLINE_MESH_ROAD_COUNTS["Soften"]
+    )
+    expected_instances_at_baseline = sum(ROAD_GENERATION_COUNTS[category] for category in NATIVE_ROADSIDE_CATEGORY_ORDER)
+    route_length = max(float(result.get("shape_route_length_cm") or baseline_route_length_cm), 1.0)
+    baseline_length = max(float(baseline_route_length_cm), 1.0)
+    expected_instances_for_route = expected_instances_at_baseline * (route_length / baseline_length)
+    spline_mesh_count = int(result.get("spline_mesh_component_count") or 0)
+    instanced_total = int(result.get("instanced_instance_total") or 0)
+    spline_mesh_min = expected_spline_mesh_components - max(12, int(round(expected_spline_mesh_components * 0.055)))
+    spline_mesh_max = expected_spline_mesh_components + max(12, int(round(expected_spline_mesh_components * 0.055)))
+    instance_min = max(12, int(round(expected_instances_for_route * 0.45)))
+    instance_max = max(instance_min, int(round(expected_instances_for_route * 1.70)) + 8)
+    checks = {
+        "graph_edges": not result.get("graph_edge_errors"),
+        "runtime_materials": not result.get("runtime_material_value_mismatches"),
+        "clearance": int(result.get("roadside_clearance_violation_count") or 0) == 0,
+        "spline_mesh_count": spline_mesh_min <= spline_mesh_count <= spline_mesh_max,
+        "route_density": instance_min <= instanced_total <= instance_max,
+    }
+    if result.get("shape_key") == "authoring_baseline":
+        checks["baseline_exact_smoke"] = bool(result.get("pass"))
+    return {
+        "pass": all(checks.values()),
+        "checks": checks,
+        "expected_spline_mesh_count": expected_spline_mesh_components,
+        "spline_mesh_allowed_range": [spline_mesh_min, spline_mesh_max],
+        "expected_instances_for_route": round(float(expected_instances_for_route), 2),
+        "instance_allowed_range": [instance_min, instance_max],
+    }
+
+
+def start_runtime_road_native_graph_shape_suite_smoke_test(timeout_seconds=6.0, keep_last_preview=False):
+    report_path = _saved_runtime_road_native_graph_shape_suite_report_path()
+    source = _runtime_road_native_graph_shape_suite_source()
+    shape_specs = _runtime_road_native_graph_shape_specs(source["points"])
+    baseline_route_length_cm = float(_route_segments(source["points"])[1])
+    actor_label_prefix = "MCP_TMP_NativeRoadPCGShapeSuite_"
+
+    for actor in list(unreal.EditorLevelLibrary.get_all_level_actors()):
+        try:
+            if actor.get_actor_label().startswith(actor_label_prefix):
+                unreal.EditorLevelLibrary.destroy_actor(actor)
+        except Exception:
+            pass
+
+    scheduled_report = {
+        "pass": None,
+        "status": "scheduled",
+        "world": _world_path(),
+        "graph_path": _runtime_road_native_graph_object_path(),
+        "shape_count": len(shape_specs),
+        "source_label": source["label"],
+        "baseline_route_length_cm": round(baseline_route_length_cm, 2),
+        "keep_last_preview": bool(keep_last_preview),
+        "timeout_seconds": float(timeout_seconds),
+        "results": [],
+    }
+    _native_smoke_write_report(report_path, scheduled_report)
+
+    state = {
+        "index": -1,
+        "elapsed": 0.0,
+        "handle": None,
+        "actor": None,
+        "component": None,
+        "graph_report": None,
+        "shape": None,
+        "results": [],
+        "done": False,
+    }
+
+    def _write_suite(status, extra=None):
+        completed_pass = all(item.get("shape_suite_quality", {}).get("pass") for item in state["results"])
+        payload = {
+            "pass": None if status == "scheduled" else completed_pass,
+            "status": status,
+            "world": _world_path(),
+            "graph_path": _runtime_road_native_graph_object_path(),
+            "shape_count": len(shape_specs),
+            "completed_shape_count": len(state["results"]),
+            "source_label": source["label"],
+            "baseline_route_length_cm": round(baseline_route_length_cm, 2),
+            "keep_last_preview": bool(keep_last_preview),
+            "timeout_seconds": float(timeout_seconds),
+            "results": state["results"],
+        }
+        if extra:
+            payload.update(extra)
+        _native_smoke_write_report(report_path, payload)
+
+    def _finish_suite(status="ready", error=None):
+        state["done"] = True
+        restore_report = None
+        try:
+            restore_report = create_or_update_runtime_road_native_skeleton_graph(
+                source_points_override=source["points"],
+                source_label_override="shape_suite:restore:" + source["label"],
+            )
+        except Exception:
+            if error:
+                error = error + "\n" + traceback.format_exc()
+            else:
+                error = traceback.format_exc()
+        extra = {
+            "restore_graph_report_path": restore_report.get("report_path") if restore_report else None,
+            "restore_pass": bool(restore_report and restore_report.get("runtime_spline_sync", {}).get("pass")),
+            "report_path": report_path,
+        }
+        extra["pass"] = all(item.get("shape_suite_quality", {}).get("pass") for item in state["results"]) and bool(extra["restore_pass"])
+        if error:
+            extra["error"] = error
+            extra["pass"] = False
+        _write_suite(status, extra)
+        try:
+            unreal.unregister_slate_post_tick_callback(state["handle"])
+        except Exception:
+            pass
+
+    def _start_shape():
+        state["index"] += 1
+        if state["index"] >= len(shape_specs):
+            _finish_suite("ready")
+            return
+
+        shape = shape_specs[state["index"]]
+        state["shape"] = shape
+        state["elapsed"] = 0.0
+        graph_report = create_or_update_runtime_road_native_skeleton_graph(
+            source_points_override=shape["points"],
+            source_label_override="shape_suite:" + shape["key"],
+        )
+        graph = _load_object(_runtime_road_native_graph_object_path())
+        label = actor_label_prefix + shape["key"]
+        for actor in list(unreal.EditorLevelLibrary.get_all_level_actors()):
+            try:
+                if actor.get_actor_label() == label:
+                    unreal.EditorLevelLibrary.destroy_actor(actor)
+            except Exception:
+                pass
+        actor = unreal.EditorLevelLibrary.spawn_actor_from_class(
+            unreal.PCGVolume,
+            unreal.Vector(25500.0, 25000.0, 500.0),
+        )
+        actor.set_actor_label(label)
+        try:
+            actor.set_actor_scale3d(unreal.Vector(800.0, 800.0, 30.0))
+        except Exception:
+            pass
+        components = actor.get_components_by_class(unreal.PCGComponent)
+        if not components:
+            raise RuntimeError("Spawned shape suite PCGVolume has no PCGComponent: {}".format(label))
+        component = components[0]
+        component.set_graph(graph)
+        component.cleanup(True)
+        component.activate(True)
+        component.generate(True)
+        component.generate(True)
+        state["actor"] = actor
+        state["component"] = component
+        state["graph_report"] = graph_report
+        _write_suite("scheduled", {"active_shape": shape["key"], "report_path": report_path})
+
+    def _on_tick(delta_seconds):
+        if state["done"]:
+            return
+        try:
+            if state["shape"] is None:
+                _start_shape()
+                return
+            state["elapsed"] += float(delta_seconds)
+            if state["elapsed"] < 0.25:
+                return
+            ready = _native_smoke_component_generated(state["component"])
+            if not ready and state["elapsed"] < float(timeout_seconds):
+                return
+
+            shape = state["shape"]
+            result = _native_smoke_summarize_actor(
+                state["actor"],
+                state["component"],
+                state["elapsed"],
+                route_points=shape["points"],
+            )
+            result["shape_key"] = shape["key"]
+            result["shape_description"] = shape["description"]
+            result["shape_route_length_cm"] = round(float(_route_segments(shape["points"])[1]), 2)
+            result["status"] = "ready" if ready else "timeout_collect"
+            result["graph_report_path"] = state["graph_report"].get("report_path")
+            result["graph_edge_count"] = state["graph_report"].get("edge_count")
+            result["graph_edge_errors"] = state["graph_report"].get("edge_errors")
+            result["source_label"] = state["graph_report"].get("runtime_spline_sync", {}).get("source_label")
+            result["shape_suite_quality"] = _runtime_road_native_shape_suite_quality(result, baseline_route_length_cm)
+            state["results"].append(result)
+
+            keep_actor = bool(keep_last_preview and state["index"] == len(shape_specs) - 1)
+            if not keep_actor:
+                try:
+                    unreal.EditorLevelLibrary.destroy_actor(state["actor"])
+                except Exception:
+                    pass
+            state["actor"] = None
+            state["component"] = None
+            state["graph_report"] = None
+            state["shape"] = None
+            _start_shape()
+        except Exception:
+            _finish_suite("error", traceback.format_exc())
+
+    state["handle"] = unreal.register_slate_post_tick_callback(_on_tick)
+    scheduled_report["report_path"] = report_path
+    return scheduled_report
 
 
 def _authoring_blueprint_path():
