@@ -2223,6 +2223,17 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Final repository state after push: both `main` branches matched `origin/main`.
 - Notion capture fallback: the available Notion connector still did not expose a page search path for locating the CubelessStylized operations document, so this local work-log entry is the durable capture.
 
+## Niagara Preview Player Drag-Drop MVP
+
+- Date: 2026-06-11 KST
+- Scope: added the first level-independent Niagara Preview Player UI layer inside the UnrealMCP plugin. Original Niagara assets, source maps, and Content assets were not modified or saved.
+- Implementation: added `FNiagaraPreviewPlayerWindow` and `SNiagaraPreviewPlayerWidget` as a Slate window/drop surface. The MVP accepts Content Browser `FAssetDragDropOp` drops and World Outliner `FActorDragDropOp` drops, including composite drag operations, and records the latest dropped object metadata.
+- MCP commands: added `open_niagara_preview_player` and `get_niagara_preview_player_state` to the Unreal bridge, editor command router, sibling Python tools, and editor tool docs.
+- Rule update: documented the distinction between Niagara Preview Lab as the formal map-based capture system and Niagara Preview Player as the level-independent source-selection/future isolated-preview widget.
+- Verification: `StylizedCubelessEditor Win64 Development` build succeeded. Sibling `Python/tools/editor_tools.py` and `Python/unreal_mcp_server.py` passed `py_compile`. Runtime socket smoke passed with `open_niagara_preview_player` returning `window_open=true`, `player_mode=drop_surface_mvp`, and `drop_count=0` before user drag/drop.
+- Residual issue: the MVP does not yet embed `FPreviewScene`, instantiate Niagara playback, or render still/video captures. The next step should replace the placeholder drop area with a preview scene viewport, add Niagara asset recognition/playback controls, and keep the same no-source-save rule.
+- Notion capture fallback: fetching the Notion enhanced Markdown spec through the connector failed with `INVALID_ARGUMENT`, so this local work-log entry is the durable capture for this implementation decision.
+
 ## Cubeless PCG SplineMesh Road Prototype
 
 - Date: 2026-06-10 KST
@@ -2348,3 +2359,75 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Regression: registered `intent_gallery_prepare` and `intent_gallery_verify` in `run_pcg_study_regression.py`; targeted run passed with `intent_gallery_verify|PASS|0.328s` and `pcg_study_regression_pass=True`.
 - User request routing: "꽃 많은 초원" maps to `FlowerBand`; "넓은 초원" maps to `MeadowPatch`; "바위 가장자리" maps to `RockEdge`; "침엽수 경계" maps to `ConiferEdge`; "초원에 꽃이랑 바위랑 나무 조금" maps to `BalancedEcosystem`.
 - Notion capture fallback: the available Notion connector still did not expose a page search path for locating the CubelessStylized operations document, so this local work-log entry is the durable capture.
+# Niagara Preview Player Minimal Playback Controls
+
+- Date: 2026-06-11 KST
+- Scope: simplified only the transient UnrealMCP Niagara Preview Player toolbar. No source Niagara systems, maps, or content assets were saved or modified.
+- Implementation: removed the Stop and First Frame buttons and deleted their now-unused handlers. The visible playback controls are now only the Play/Pause toggle and Looping checkbox.
+- Code review result: no stale references to the removed Stop/First Frame handlers remained after cleanup. The remaining playback states are `playing`, `paused`, `stopped` from non-loop completion, and `none`.
+- Verification: `StylizedCubelessEditor Win64 Development` build succeeded. Runtime socket smoke opened `FX_Aster_S_Eye` and `FX_Aster_S_Storm_01`; both returned `last_preview_renderable=true`, `playback_state=playing`, and `looping=true`.
+- Residual note: rapid back-to-back socket calls can still occasionally produce an empty client connection before a command body is logged. Retrying the same command succeeds, so this is tracked as a bridge/socket sequencing issue separate from the Preview Player UI cleanup.
+- Log check: latest checked editor log tail had no new error/fatal lines. Existing source asset warnings about empty engine version were present while loading Niagara/material assets.
+- Notion capture fallback: Notion lookup was not re-attempted for this small UI iteration; this local work-log entry is the durable capture.
+
+# Niagara Preview Player Camera Fit Scale Correction
+
+- Date: 2026-06-11 KST
+- Scope: refined only the transient UnrealMCP Niagara Preview Player camera fit scale. No source Niagara systems, maps, or content assets were saved or modified.
+- Issue: some effects appeared too small or too large because the viewer selected the larger of `CalcBounds()` and `PreviewComponent->Bounds`, then also used `SphereRadius * 1.2` as a fallback distance. This over-weighted fixed/stale bounds and thin elongated effects.
+- Implementation: the camera fit now prefers valid `CalcBounds()` directly, falls back to component bounds only when needed, and removes the sphere-radius max fallback from distance selection. The fit still uses frustum-projected bounds corners with a slightly safer `1.12` padding.
+- Verification: `StylizedCubelessEditor Win64 Development` build succeeded. Runtime socket smoke loaded `FX_Aster_S_Eye`, then `FX_Aster_S_Storm_01`, then `FX_Aster_S_Smoke1`; each successful load returned `last_preview_renderable=true`, `playback_state=playing`, and `looping=true`.
+- Log check: latest checked editor log tail had no new error/fatal lines. Existing source asset warnings about empty engine version were present while loading Niagara/material assets.
+- Notion capture fallback: Notion lookup was not re-attempted for this small UI iteration; this local work-log entry is the durable capture.
+
+# Niagara Preview Player Per-Drop Camera Refit
+
+- Date: 2026-06-11 KST
+- Scope: refined only the transient UnrealMCP Niagara Preview Player drag/drop refit behavior. No source Niagara systems, maps, or content assets were saved or modified.
+- Implementation: every newly loaded Niagara system now starts a short bounds stabilization window. During the first `18` viewport ticks, the viewer re-checks component bounds and reapplies the tight frustum camera fit when the bounds center or extent changes meaningfully.
+- Drag/drop robustness: asset-path drops now load Niagara systems as previews too, instead of only recording the path. Both `FAssetData` drops and asset-path drops now enter the same preview/load/refit path.
+- Verification: `StylizedCubelessEditor Win64 Development` build succeeded. Runtime socket smoke loaded `/Game/EL/ART/FX/Niagara/System/SQ/Aster/FX_Aster_S_Eye.FX_Aster_S_Eye`, then replaced it with `/Game/EL/ART/FX/Niagara/System/SQ/Aster/FX_Aster_S_Smoke1.FX_Aster_S_Smoke1`; both returned `last_preview_renderable=true`, `playback_state=playing`, and `looping=true`.
+- Log check: latest checked editor log tail showed the two preview-player load commands and no new error/fatal lines. Existing asset warnings about empty engine version were present while loading source Niagara/material assets.
+- Notion capture fallback: Notion lookup was not re-attempted for this small UI iteration; this local work-log entry is the durable capture.
+
+# Niagara Preview Player Tight Bounds Camera Fit
+
+- Date: 2026-06-11 KST
+- Scope: refined only the transient UnrealMCP Niagara Preview Player camera framing. No source Niagara systems, maps, or content assets were saved or modified.
+- Implementation: replaced the previous radius-multiplier camera distance with a perspective-frustum fit. The viewer now evaluates the Niagara bounds box corners against the preview camera axes, horizontal FOV, and current Slate viewport aspect ratio, then places the camera at the minimum distance that fits the inflated bounds.
+- Framing policy: uses a small `1.06` fit padding so the effect reads nearly full-frame while reducing edge clipping from particles and bounds jitter.
+- Resize behavior: the preview viewport tracks its Slate geometry aspect ratio and refits when the viewport aspect changes.
+- Verification: `StylizedCubelessEditor Win64 Development` build succeeded. Runtime socket smoke opened the player with `/Game/EL/ART/FX/Niagara/System/SQ/Aster/FX_Aster_S_Eye.FX_Aster_S_Eye` and returned `window_open=true`, `last_preview_renderable=true`, `playback_state=playing`, and `looping=true`.
+- Log check: latest checked editor log tail showed the preview-player command execution and no new error/fatal lines for this smoke test.
+- Notion capture fallback: Notion lookup was not re-attempted for this small UI iteration; this local work-log entry is the durable capture.
+
+# UnrealMCP Editor Menu Niagara Viewer Entry
+
+- Date: 2026-06-11 KST
+- Scope: added an editor menu entry for the Niagara Preview Player in the UnrealMCP plugin only. No source Niagara systems, maps, or content assets were saved or modified.
+- Menu path: top-level `MCP` menu, then `검증도구`, then `나이아가라 뷰어`.
+- Implementation: registered the menu through `UToolMenus::RegisterStartupCallback` in `FUnrealMCPModule`, unregistering the owner on module shutdown to avoid duplicate entries. The menu entry calls `FNiagaraPreviewPlayerWindow::Show`.
+- Verification: `StylizedCubelessEditor Win64 Development` build succeeded. Editor relaunched successfully, and the existing `open_niagara_preview_player` bridge command still opened the viewer with `window_open=true`.
+- Log check: latest checked log tail had no new error/fatal lines for this change. One unrelated engine `LogToolMenus` warning about `Compile`/`EditorPerf` was present during startup.
+- Notion capture fallback: Notion lookup was not re-attempted for this small UI iteration; this local work-log entry is the durable capture.
+
+# Niagara Preview Player Toggle Play And Looping
+
+- Date: 2026-06-11 KST
+- Scope: refined the UnrealMCP Niagara Preview Player controls only. No source Niagara systems, maps, or content assets were saved or modified.
+- Implementation: changed Play into a play/pause toggle, replaced Replay with a Looping checkbox, and kept Stop plus First Frame controls. Looping is preview-only: when the transient preview `UNiagaraComponent` reports `IsComplete()`, the player resets and resumes only if Looping is enabled.
+- Camera framing: preview camera placement now uses the Niagara component bounds after warmup, deriving center and distance from the bound radius/box extent so small and large effects frame more consistently.
+- State reporting: `get_niagara_preview_player_state` now includes `looping` alongside `playback_state`.
+- Verification: `StylizedCubelessEditor Win64 Development` build succeeded. Runtime socket smoke opened the player with `/Game/EL/ART/FX/Niagara/System/SQ/Aster/FX_Aster_S_Eye.FX_Aster_S_Eye` and returned `window_open=true`, `last_preview_renderable=true`, `playback_state=playing`, and `looping=true`.
+- Log check: the latest checked editor log tail showed the preview-player command execution and no new error/fatal lines for this smoke test.
+- Notion capture fallback: Notion lookup was not re-attempted for this small UI iteration; this local work-log entry is the durable capture.
+
+# Niagara Preview Player Playback Controls
+
+- Date: 2026-06-11 KST
+- Scope: extended the UnrealMCP Niagara Preview Player Slate UI only. No source Niagara systems, maps, or content assets were saved or modified.
+- Implementation: added Play, Stop, First Frame, and Replay controls to the preview-player toolbar. The controls operate on the transient preview `UNiagaraComponent`; Stop pauses the current frame, First Frame resets and pauses, and Replay resets then resumes playback.
+- State reporting: `get_niagara_preview_player_state` now includes `playback_state` so later automation can confirm whether the player is idle, playing, stopped, or reset to first frame.
+- Verification: `StylizedCubelessEditor Win64 Development` build succeeded. Runtime socket smoke opened the player with `/Game/EL/ART/FX/Niagara/System/SQ/Aster/FX_Aster_S_Eye.FX_Aster_S_Eye` and returned `window_open=true`, `last_preview_renderable=true`, and `playback_state=playing`.
+- Log check: the latest checked editor log tail showed the preview-player command execution and no new error/fatal lines for this smoke test.
+- Notion capture fallback: Notion lookup was not re-attempted for this small UI iteration; this local work-log entry is the durable capture.

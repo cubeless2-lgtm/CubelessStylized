@@ -21,6 +21,35 @@ The current branch does not implement these APIs. It defines the contract so the
 
 Those belong to later Safe Edit APIs.
 
+## Preview Player Editor Commands
+
+These commands support the level-independent Niagara Preview Player UI. They are
+not deep Niagara inspection APIs; they provide the interaction surface that lets
+the user or Codex choose a source by drag-and-drop before later analysis or
+generation starts.
+
+### `open_niagara_preview_player`
+
+Opens the Slate Preview Player window. The current implementation is a drop
+surface MVP and must not save or mutate source assets.
+
+### `get_niagara_preview_player_state`
+
+Returns window/drop state:
+
+```json
+{
+  "success": true,
+  "window_open": true,
+  "player_mode": "drop_surface_mvp",
+  "drop_count": 1,
+  "last_drop_kind": "asset",
+  "last_display_name": "NS_Slash",
+  "last_object_path": "/Game/FX/NS_Slash.NS_Slash",
+  "last_class_name": "/Script/Niagara.NiagaraSystem"
+}
+```
+
 ## API 1: `analyze_niagara_system`
 
 ### Request
@@ -203,7 +232,7 @@ This can be implemented after read-only inspection.
 - Refuse source paths outside `/Game/_MCP_Temp/` unless a later production workflow explicitly allows it.
 - Return structured errors.
 
-## API 4: `preview_niagara_system_in_review_map`
+## API 4: `preview_niagara_system_in_preview_lab`
 
 Future validation API.
 
@@ -212,8 +241,12 @@ Future validation API.
 ```json
 {
   "system_path": "/Game/_MCP_Temp/NiagaraGenerated/Test/NS_Test.NS_Test",
+  "preview_system": "Niagara Preview Lab",
   "review_map": "/Script/Engine.World'/Game/SampleTestMap/Niagara_TestMap.Niagara_TestMap'",
-  "bookmarks": [1, 2, 3],
+  "views": [1, 2, 3],
+  "camera_mode": "auto_preview_actor_frame",
+  "quick_preview_fallback": [1, 2, 3],
+  "capture_mode": "still",
   "capture_times_seconds": [0.5, 1.0, 2.0],
   "output_dir": "Saved/MCP_NiagaraPreview/Test"
 }
@@ -221,11 +254,14 @@ Future validation API.
 
 ### Required Behavior
 
-- Load the Niagara review map.
+- Use the Niagara Preview Lab map.
 - Spawn the system in the predefined review location.
-- Capture screenshots from bookmarks 1, 2, and 3.
-- Report missing bookmark or screenshot failure explicitly.
-- Do not save the review map unless a separate workflow explicitly asks for it.
+- Default quick review captures one screenshot only: capture from auto-framed view 1 first, then use view 2 if the effect is too large, clipped, invisible, or not reviewable, then view 3 if view 2 is still not reviewable.
+- Capture views 1, 2, and 3 only when the request explicitly needs near/mid/far comparison or formal scale evidence.
+- For timing-sensitive Niagara systems, capture a PNG frame sequence first. MP4/video export is a second step after frame output is verified.
+- Report camera framing fallback or screenshot failure explicitly.
+- Do not save the Niagara Preview Lab map unless a separate workflow explicitly asks for it.
+- Do not reload the same Niagara Preview Lab map from the same Unreal Python session after preview actors, world objects, callbacks, or capture tasks have existed. This can trigger Unreal `World Memory Leaks` fatal shutdown. If a reset is required, restart the editor and open the map fresh.
 
 ## API 5: Safe Edit APIs
 
@@ -281,7 +317,7 @@ Material graph analysis can be a separate API, but the Niagara response should a
 - whether the renderer appears to use dynamic material parameters
 - material slot/index if available
 
-## Review Map Rule
+## Niagara Preview Lab Map Rule
 
 All preview APIs use:
 
@@ -291,11 +327,23 @@ All preview APIs use:
 
 Bookmark meanings:
 
-- 1: near
-- 2: mid
-- 3: far
+- 1: near, first quick-preview camera
+- 2: mid, fallback when view 1 does not show the effect
+- 3: far, fallback when view 2 still does not show the effect
 
-Any generated Niagara validation must include all three bookmark views or report why a capture is missing.
+Any generated Niagara validation should record the first reviewable auto-framed view selected from the 1 -> 2 -> 3 fallback sequence. Three-view capture is opt-in for distance comparison. Timing-sensitive validation should include a frame sequence or video artifact in addition to the selected still.
+
+## Niagara Preview Lab MCP Commands
+
+First-pass C++ MCP commands:
+
+- `get_niagara_preview_lab_state`: report current map, dirty state, preview actor count, and whether editor restart is recommended.
+- `cleanup_niagara_preview_lab`: delete `MCP_NiagaraPreviewLab_` preview actors and legacy `MCP_NiagaraReview_` actors without saving or reloading the map.
+- `capture_niagara_preview_lab_view`: capture a clean PNG from view 1, 2, or 3. When preview actors exist, the command auto-frames them and treats the view number as a distance hint. Relative paths resolve under `Saved/MCP/NiagaraReviews`.
+- `preview_niagara_system_in_preview_lab`: optimized default route for repeated reviews. It loads a read-only Niagara system, optionally cleans prior preview actors, spawns a transient preview actor, advances simulation for warmup, captures with auto framing, and optionally cleans up afterward.
+- `sample_niagara_system_in_preview_lab`: optimized quality route for timing-sensitive or initially invisible effects. It captures multiple warmup/view candidates in one MCP round trip and returns per-sample PNG metadata.
+
+These commands must never call `load_map` for the Preview Lab map. They either reuse the loaded map or return a structured error telling the caller to open/restart the editor.
 
 ## Implementation Notes For Tivret
 

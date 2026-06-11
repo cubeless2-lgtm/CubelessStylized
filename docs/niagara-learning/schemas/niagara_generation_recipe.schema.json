@@ -222,11 +222,29 @@
           "review_map": {
             "type": "string"
           },
+          "preview_system": {
+            "type": "string"
+          },
           "camera_bookmarks": {
             "type": "object",
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "quick_preview_fallback": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "quick_preview_rule": {
+            "type": "string"
+          },
+          "video_review_rule": {
+            "type": "string"
+          },
+          "map_reload_safety_rule": {
+            "type": "string"
           },
           "review_gate": {
             "type": "string"

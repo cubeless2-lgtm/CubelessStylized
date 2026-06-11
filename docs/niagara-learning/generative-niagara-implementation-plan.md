@@ -23,10 +23,12 @@ The generator must not rely only on asset names. It must learn from project sour
 - If a Blueprint or AnimNotify expects an existing `User.*` parameter, preserve that parameter name.
 - New generator-owned parameters use `User.Gen_*`.
 - Scratch Pad logic is reused by duplicating its owning System or Emitter first. Standalone Scratch Pad extraction is a later step.
-- All new or modified Niagara assets must be tested in the dedicated Niagara review map:
+- All new or modified Niagara assets must be tested through Niagara Preview Lab in the dedicated map:
   `/Script/Engine.World'/Game/SampleTestMap/Niagara_TestMap.Niagara_TestMap'`.
-- Niagara visual review screenshots must use editor camera bookmarks 1, 2, and 3 in that map:
+- Do not reload the Niagara Preview Lab map from the same Unreal Python session after preview actors or world references have existed. Reuse the loaded map, clean preview actors by prefix, and restart the editor if a full map reset is required.
+- Niagara visual review screenshots must use editor camera bookmarks in that map:
   bookmark 1 = near view, bookmark 2 = mid view, bookmark 3 = far view.
+  Default review captures one screenshot only: start from bookmark 1, fall back to bookmark 2 if the effect is too large, clipped, or not reviewable, and fall back to bookmark 3 only if bookmark 2 still fails.
 
 ## Current State
 
@@ -282,12 +284,15 @@ Validation:
 - check dependency missing state
 - spawn preview actor
 - open `/Game/SampleTestMap/Niagara_TestMap`
-- capture preview frames from bookmarks 1, 2, and 3
+- never reload the same Niagara Preview Lab map after preview actors or Python world references exist
+- capture a quick preview from the first reviewable bookmark in the 1 -> 2 -> 3 fallback sequence
+- capture all three bookmarks only for explicit distance-comparison or formal scale-review requests
+- capture a frame sequence for timing-sensitive effects such as sword trails, slash ribbons, projectile trails, dissolve timing, and hit bursts
 - report dirty source assets
 
-## Fixed Niagara Review Map
+## Niagara Preview Lab Map
 
-All generated Niagara validation uses this fixed review map:
+All generated Niagara validation uses this fixed Niagara Preview Lab map:
 
 ```text
 /Script/Engine.World'/Game/SampleTestMap/Niagara_TestMap.Niagara_TestMap'
@@ -299,7 +304,11 @@ Camera bookmark policy:
 - Bookmark 2: mid view
 - Bookmark 3: far view
 
-Review output should include at least one screenshot from each bookmark. If a Niagara effect is too small, too large, off-center, too dim, or only readable from one distance, the report must call that out instead of treating the preview as passed.
+Default review output should include one selected screenshot from the first reviewable bookmark. If a Niagara effect is too small, too large, off-center, too dim, or only readable from one distance, the report must call that out instead of treating the preview as passed.
+
+Use bookmark 1 first. If the effect is too large, clipped, not visible, or cannot be judged, use bookmark 2. If bookmark 2 is still not visible or reviewable, use bookmark 3. Record which bookmark was used for the selected preview image. Do not capture all three bookmarks unless the review specifically needs near/mid/far comparison.
+
+For timing-sensitive effects, also capture a short frame sequence. Convert the sequence to video only after the PNG frames are verified.
 
 This applies to:
 

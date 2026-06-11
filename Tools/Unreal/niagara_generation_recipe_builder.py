@@ -295,19 +295,24 @@ def build_recipe(prompt: str, signatures: dict[str, Any], material_index: dict[s
                 "load_generated_asset",
                 "compile_or_collect_compile_status",
                 "verify_no_source_asset_dirty",
-                "spawn_preview_actor_in_niagara_review_map",
-                "capture_bookmark_1_near",
-                "capture_bookmark_2_mid",
-                "capture_bookmark_3_far",
+                "verify_niagara_preview_lab_map_without_same_session_reload",
+                "spawn_preview_actor_in_niagara_preview_lab",
+                "capture_one_quick_preview_from_first_reviewable_bookmark",
+                "capture_frame_sequence_for_timing_sensitive_effects",
             ],
             "review_map": REVIEW_MAP,
+            "preview_system": "Niagara Preview Lab",
             "camera_bookmarks": {
                 "1": "near",
                 "2": "mid",
                 "3": "far",
             },
+            "quick_preview_fallback": ["1", "2", "3"],
+            "quick_preview_rule": "Capture one screenshot by default. Start at bookmark 1. If the effect is too large, clipped, invisible, or not reviewable, use bookmark 2. If bookmark 2 still fails, use bookmark 3 and record the selected bookmark. Capture all three only for explicit distance comparison.",
+            "video_review_rule": "For timing-sensitive Niagara such as sword trails or slash ribbons, capture a PNG frame sequence first. Convert to video only after the frame sequence is verified.",
+            "map_reload_safety_rule": "Niagara Preview Lab must not reload the review map from the same Unreal Python session after preview actors or world references exist. Reuse the loaded map, delete preview actors by prefix, and restart Unreal if a full reset is needed.",
             "preview_frames_seconds": [0.5, 1.0, duration if duration else 2.0],
-            "review_gate": "Ieta reviews request match, stylized readability, BP/User parameter safety, material fit, and bookmark screenshots before production promotion.",
+            "review_gate": "Ieta reviews request match, stylized readability, BP/User parameter safety, material fit, selected bookmark screenshot, and timing frame sequence when needed before production promotion.",
         },
     }
 
@@ -354,6 +359,7 @@ def main() -> int:
         print(f"Recipe: {output_path}")
         print(f"Primary: {recipe['layers'][0]['source'] if recipe['layers'] else 'NONE'}")
         print(f"Roles: {', '.join(recipe['parsed_intent']['visual_roles'])}")
+        print(f"Preview system: {recipe['validation']['preview_system']}")
         print(f"Review map: {recipe['validation']['review_map']}")
     return 0
 
