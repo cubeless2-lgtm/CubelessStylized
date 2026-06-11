@@ -2,6 +2,61 @@
 
 Durable local fallback for project memory when Notion capture is unavailable.
 
+## 2026-06-11 - Landscape PCG Validation Full-Coverage Pass
+
+### Summary
+- Switched visual PCG work away from the no-Landscape/no-lighting temp level and used `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP`.
+- Added `Tools/Unreal/build_pcg_landscape_validation_dense_layer.py` to test whole-Landscape candidate actor coverage. It spawned `161` candidate PCG actors, but the candidate Blueprint/graph combination produced `0` ISM instances on this validation map.
+- Added `Tools/Unreal/fill_pcg_landscape_validation_from_runtime_baseline.py` as the current validation workaround. It removes the failed candidate layer and fills the whole Landscape through existing runtime PCG-generated ISM components owned by `MCP_Cubeless_PCG_LandscapeVisualBaseline_*` actors.
+- Final validation output: `186,275` total instances: `180,066` grass/groundcover, `5,204` trees, and `1,005` rocks.
+- The pass enforces the current placement rules: grass overlap is relaxed only against other grass, tree/rock/object spacing still blocks grass placement, rock scale random range is `0.5-4.0`, pitch/roll stay within `5` degrees, and yaw remains random.
+- Map package save succeeded for the `_MCP_Temp` validation map only.
+- Follow-up grass carpet pass: leaf/fern-style grass ISM components under the
+  runtime PCG validation actors now use `SM_Grass_Medium01` for the validation
+  scatter, while flower components are reset but excluded from the high-density
+  scatter so they remain only small accents.
+- Final follow-up output remains `186,275` total instances: `180,066`
+  grass/groundcover, `5,204` trees, and `1,005` rocks. The scatter now uses
+  `12` grass components, `4` tree components, and `3` rock components.
+
+### Verification
+- Report: `Saved/MCP_PCG/pcg_landscape_runtime_full_coverage_report.json`.
+- Reported road violations are all `0`: `grass_in_core=0`, `tree_within_clearance=0`, and `rock_within_clearance=0`.
+- Reported tilt violations are `0` after scanning `186,275` instances.
+- Wide validation screenshots: `Saved/MCP_Screenshots/pcg_landscape_runtime_full_coverage_wide_dense.png` and `Saved/MCP_Screenshots/pcg_landscape_runtime_full_coverage_wide_dense_os.png`.
+- Close validation screenshot: `Saved/MCP_Screenshots/pcg_landscape_runtime_full_coverage_close_console.png`.
+- Grass-carpet OS validation screenshot: `Saved/MCP_Screenshots/pcg_landscape_grass_carpet_close_os.png`.
+- Unreal `AutomationLibrary.take_high_res_screenshot` produced the first wide screenshot but did not reliably create later requested files. The OS `PrintWindow` fallback captured the editor window successfully with non-black ratio `0.9663`.
+- `Tools/Unreal/capture-unreal-editor-window.ps1` now includes a `PrintWindow`
+  fallback when `BitBlt` fails, reports the capture method in JSON, and was
+  smoke-tested with `pcg_capture_script_fallback_validation.png`
+  (`non_black_ratio=0.9984`).
+
+### Remaining Risk
+- The dense full-coverage pass is a validation workaround: it appends deterministic transforms to PCG-owned ISM components rather than proving that the candidate graph itself can author the whole Landscape natively.
+- Visually, the output now reads as a populated forest validation pass, but the ground layer is still closer to broad forest-floor groundcover than a true continuous grass carpet. A later graph/mesh pass should promote the grass medium mesh through the BP actor-property override rule instead of relying on leaf/fern/flower components.
+- The screenshot/bookmark/camera path is still fragile enough to keep on the C++/MCP API backlog. The close OS screenshot captured a higher/wider viewport than requested, reinforcing the need for a native viewport capture API.
+- C++ backlog additions from this pass: high-density PCG validation scatter,
+  Actor-Property mesh override promotion, and viewport camera control
+  reliability.
+
+## 2026-06-11 - PCG C++ Improvement Backlog Started
+
+### Summary
+- User direction: continue PCG work, but when a Python/editor scripting workaround becomes too cumbersome, collect it as a later C++ batch item instead of interrupting the current PCG flow.
+- Added `docs/pcg-cpp-improvement-backlog.md` as the durable backlog for these candidates.
+- Current backlog candidates cover bookmark/screenshot capture, PCG regeneration completion/readback, safe PCG data introspection, native road clearance/overlap filtering, PCG graph authoring helpers, and long command transport regression coverage.
+- No C++ source was modified in this step.
+
+### Current Editor Risk Note
+- Read-only MCP state check found the editor currently open on `/Game/_MCP_Temp/PCG/LVL_ElectricDreams_SplineAssembly_MCP` with dirty `_MCP_Temp` map/content and dirty learning PCG combo graph packages.
+- Because of that dirty editor state and the local `main` checkout still being behind rebased `origin/main`, this step avoids production asset saves and level switching.
+
+### Follow-Up Crash Note
+- A later attempt to transition from `/Game/_MCP_Temp/PCG/LVL_ElectricDreams_SplineAssembly_MCP` to `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP` inside `execute_python` crashed the editor.
+- Log cause: `World Memory Leaks` fatal in `EditorServer.cpp` because old package `/Game/_MCP_Temp/PCG/LVL_ElectricDreams_SplineAssembly_MCP` stayed referenced by `FPyReferenceCollector`.
+- C++ backlog update: added `Safe Editor Map Transition API` candidate. Until implemented, avoid in-session map loads through `execute_python`; restart/open the editor directly on the target validation map instead.
+
 ## 2026-06-10 - Runtime road native segment subdivision pass
 
 ### Summary
@@ -2222,6 +2277,19 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Notes: the CubelessStylized commit emitted a CP949 decode exception while reading hook output, but Git returned success and the commit was created. LFS uploaded the three Unreal asset objects during push.
 - Final repository state after push: both `main` branches matched `origin/main`.
 - Notion capture fallback: the available Notion connector still did not expose a page search path for locating the CubelessStylized operations document, so this local work-log entry is the durable capture.
+
+## Cubeless PCG Actor-Property Mesh Override Validation
+
+- Date: 2026-06-11 KST
+- Scope: enforced the project rule that PCG Static Mesh Spawner choices must be overridable from Blueprint actor properties for runtime PCG actors. No non-exception C++ was modified.
+- Runtime BP fix: added and saved `UseTreeMeshOverride`, `TreeMeshOverride`, `UseGrassMeshOverride`, `GrassMeshOverride`, `UseRockMeshOverride`, and `RockMeshOverride` on `/Game/Cubeless/PCG/Runtime/Blueprints/BP_Cubeless_PCG_EcosystemRuntime`.
+- Graph fix: rebuilt `102` true-material PCG graphs so true-material grass, rock, and tree spawners keep their material override default path when the bool is false, but route through `Get Actor Property -> DynamicMeshPath -> PCGMeshSelectorByAttribute` when the matching mesh override bool is true.
+- Validation script: `Tools/Unreal/validate_pcg_runtime_actor_property_overrides.py` now uses a two-phase `prepare` then `verify_cleanup` flow because PCG output can be delayed by editor ticks.
+- Validation result: `validation_pass=True`. Grass override spawned `SM_Fern_01` counts `16` and `84`; tree override spawned `SM_Conifer_08` count `3`; rock override spawned `SM_SmallRock_02` count `3`. All category-exclusive override checks passed.
+- Regression hardening: registered `runtime_actor_property_override_prepare` and `runtime_actor_property_override_verify` as deferred regression steps in `run_pcg_study_regression.py`. Targeted runs passed with `pcg_study_regression_pass=True`.
+- Cleanup: validation actors were removed after readback and `dirty_maps_after=[]`, `dirty_content_after=[]` in the generated report.
+- Reports: `Saved/MCP_PCG/pcg_runtime_actor_property_override_validation_report.json` and `Saved/MCP_PCG/pcg_true_material_actor_property_override_rebuild_report.json`.
+- Follow-up note: the true-material builder re-saved related material override assets while ensuring material variants. Review these asset changes together with the graph rebuild before the next commit.
 
 ## Cubeless PCG SplineMesh Road Prototype
 
