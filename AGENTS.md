@@ -170,6 +170,7 @@ This project uses three named agent roles. The Korean names are display names; t
 
 - When debugging, modifying, or creating Blueprints, PCG graphs, Animation Blueprints, Control Rigs, or related Unreal assets through Unreal MCP, do not add or generate C++ code by default.
 - Prefer fixing the issue inside the existing Unreal asset/class: Blueprint graph, AnimBP graph, Control Rig graph, PCG graph, asset defaults, component settings, level instance settings, or editor-exposed properties.
+- When creating or modifying PCG graphs that spawn Static Meshes, expose spawnable Static Mesh choices through Blueprint variables and PCG Actor Property override paths by default, so placed BP actors can change meshes without editing the PCG graph. Hardcoded Static Mesh Spawner entries are allowed only as defaults or fallbacks.
 - If an Unreal asset cannot be safely modified through MCP or editor scripting, provide a concrete manual edit guide instead of adding C++.
 - Add or modify C++ only when the user explicitly asks for a code/C++ implementation.
 - Before considering C++ for an Unreal MCP task, state the non-C++ approach being attempted or why MCP/editor-asset editing is blocked.
