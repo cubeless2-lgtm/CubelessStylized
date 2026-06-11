@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cubeless.local/schemas/niagara_structural_signature.schema.json",
+  "title": "Cubeless Niagara Structural Signature",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_from",
+    "assets"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated_from": {
+      "type": "string"
+    },
+    "coverage_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "object_path",
+          "asset_class",
+          "display_name",
+          "confidence",
+          "visual_roles",
+          "renderer_hints",
+          "motion_hints",
+          "timing_hints",
+          "style_profiles",
+          "material_roles",
+          "usable_as"
+        ],
+        "properties": {
+          "object_path": {
+            "type": "string"
+          },
+          "package": {
+            "type": "string"
+          },
+          "asset_class": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "confidence_reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "visual_roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "renderer_hints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "motion_hints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "timing_hints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "style_profiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "material_roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mesh_roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bp_linkage_hints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scratch_pad_hints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "usable_as": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source_materials": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source_meshes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source_modules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cubeless.local/schemas/niagara_material_style.schema.json",
+  "title": "Cubeless Niagara Material Style Index",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_from",
+    "materials"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated_from": {
+      "type": "object"
+    },
+    "coverage_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "materials": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "material_path",
+          "name",
+          "display_name",
+          "material_roles",
+          "blend_hints",
+          "style_profiles",
+          "used_by_count",
+          "recommended_operation",
+          "confidence"
+        ],
+        "properties": {
+          "material_path": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "material_roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "blend_hints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "style_profiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "used_by_visual_roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "used_by_count": {
+            "type": "integer"
+          },
+          "used_by_sample": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recommended_operation": {
+            "type": "string",
+            "enum": [
+              "reuse",
+              "duplicate_material_instance",
+              "reuse_or_create_instance",
+              "inspect_before_use"
+            ]
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "confidence_reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

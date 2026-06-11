@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cubeless.local/schemas/niagara_generation_recipe.schema.json",
+  "title": "Cubeless Niagara Generation Recipe",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "request",
+    "write_scope",
+    "reference_analysis",
+    "layers",
+    "validation"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "request": {
+      "type": "string"
+    },
+    "parsed_intent": {
+      "type": "object",
+      "properties": {
+        "visual_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "material_roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "colors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "motions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "duration_seconds": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "write_scope": {
+      "type": "object",
+      "required": [
+        "temporary_root",
+        "production_root",
+        "source_policy"
+      ],
+      "properties": {
+        "temporary_root": {
+          "type": "string"
+        },
+        "production_root": {
+          "type": "string"
+        },
+        "source_policy": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reference_analysis": {
+      "type": "object",
+      "properties": {
+        "primary_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "support_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "material_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bp_linkage_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scratch_pad_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "risk_notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "role",
+          "operation",
+          "source"
+        ],
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "duplicate_system",
+              "duplicate_emitter",
+              "reuse_source_as_reference",
+              "add_primitive",
+              "defer_until_api_available"
+            ]
+          },
+          "source": {
+            "type": "string"
+          },
+          "target_emitter": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "material_plan": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "role",
+          "operation",
+          "source_material"
+        ],
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "reuse",
+              "duplicate_material_instance",
+              "create_from_stylized_master",
+              "defer_until_material_analysis"
+            ]
+          },
+          "source_material": {
+            "type": "string"
+          },
+          "target_material": {
+            "type": "string"
+          },
+          "parameter_overrides": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "user_parameters": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "array",
+          "object",
+          "null"
+        ]
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "required_checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+          "preview_frames_seconds": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "review_map": {
+            "type": "string"
+          },
+          "camera_bookmarks": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "review_gate": {
+            "type": "string"
+          }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
