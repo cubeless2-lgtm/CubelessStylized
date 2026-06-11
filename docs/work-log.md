@@ -2,6 +2,20 @@
 
 Durable local fallback for project memory when Notion capture is unavailable.
 
+## 2026-06-11 - Niagara Preview Player shutdown crash fix
+
+### Summary
+- Investigated an editor shutdown crash after using the UnrealMCP Niagara Preview Player.
+- Latest crash log showed `Assertion failed: SharedThis.Get() == this` in UE `SharedPointer.h`, with the project frame at `SNiagaraPreviewViewport::~SNiagaraPreviewViewport()` in `Plugins/UnrealMCP/Source/UnrealMCP/Private/UI/NiagaraPreviewPlayerWindow.cpp`.
+- Root cause: the viewport destructor called `ClearPreviewSystem()`, and that cleanup path always called `Invalidate()`. Calling Slate invalidation while the widget is already in its destructor can request `AsShared()` during destruction and trips the SharedThis assertion.
+- Fix: `ClearPreviewSystem` now accepts an optional invalidation flag. Normal preview changes still invalidate the widget, but the destructor calls `ClearPreviewSystem(false)` and only releases the transient Niagara component/preview references. The UnrealMCP module shutdown path also clears the Preview Player static window/widget references before module unload.
+
+### Verification
+- `StylizedCubelessEditor Win64 Development` build succeeded after the fix.
+- Relaunched the editor and requested editor quit through the bridge path. The latest log ended with normal `LogExit: Exiting`/`Log file closed` lines and no new crash folder was created.
+- The automated socket smoke did not capture Preview Player command output cleanly before quit, so a manual "open Niagara Preview Player, load an effect, close editor" pass is still useful before the next commit if the user wants full UI-path confirmation.
+- Notion capture fallback: the available Notion connector still did not expose the configured operations page lookup path in this session, so this local work-log entry is the durable capture.
+
 ## 2026-06-10 - Runtime road native segment subdivision pass
 
 ### Summary
