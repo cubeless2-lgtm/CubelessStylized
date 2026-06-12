@@ -2946,3 +2946,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Runtime smoke: relaunched `UnrealEditor.exe`, confirmed UnrealMCP bridge `127.0.0.1:55557`, opened Preview Player with `/Game/EL/ART/BG/FX/Viking_Village/VFXUpdate/Niagara/NS_Torch_01.NS_Torch_01`, and rechecked after 6 seconds with `window_open=true`, `last_preview_renderable=true`, `playback_state=playing`, and `looping=true`.
 - Log note: the latest editor log contains two transient `LogPython: Error` entries from exploratory Asset Registry calls during test setup, plus older automation condition failures; no Preview Player command failure was reported after the successful open/state smoke.
 - Follow-up editor test: rebuilt `StylizedCubelessEditor Win64 Development -NoHotReloadFromIDE` with target up to date, launched `UnrealEditor.exe`, confirmed bridge ping `pong`, opened Preview Player with `NS_Torch_01`, rechecked after 6 seconds with playback still `playing`, and confirmed dirty content/map packages `0/0`. Latest log only showed startup `LogAutomationTest: Error: Condition failed` lines, with no Preview Player fatal/exception.
+
+## 2026-06-12 PCG field volume grass main push
+- `CubelessStylized` branch `pcg-production-validation-1-3` was fast-forward merged into `main`.
+- Pushed `main` to `origin/main` at commit `48cc72b35 Add PCG field volume grass staging`.
+- Final primary repo status after the first push: `main...origin/main`, ahead/behind `0/0`, clean.
+- Sibling `unreal-mcp-cubeless`, submodule `Plugins/UnrealMCP`, and standalone `UnrealMCPPlugin` were checked clean and `0/0` after the push.
+- Verification reused from the branch commit: Python `py_compile` passed for changed PCG tooling, staged code diff check passed outside the known `docs/work-log.md` mixed-EOL file, and no `GetVertexInstanceUV` unsafe calls were found.
+- Notion capture was attempted but blocked by reauthentication, so this local work-log entry is the durable project memory for the main push.
