@@ -2,24 +2,24 @@
 
 Durable local fallback for project memory when Notion capture is unavailable.
 
-## 2026-06-12 - UnrealMCP execute_python 래퍼 누수로 인한 "참조 경고 반복" 수정 (범용 툴 픽스)
+## 2026-06-12 - UnrealMCP execute_python ?? ??? ?? "?? ?? ??" ?? (?? ? ??)
 
-### 증상
-- MCP 자동화로 만든 머티리얼 에셋이 레벨 참조를 전부 끊어도 `delete_asset`/ForceDelete에 계속 실패하고, 자동화가 삭제를 재시도할 때마다 에디터에 "Material ... 사용 중입니다" / "...생성에 실패했습니다. 다른 콘텐츠에 참조되어 있습니다" 모달이 반복 표시됨. 로그: `ForceDeleteObject failed ... this package is now potentially corrupt`.
+### ??
+- MCP ???? ?? ???? ??? ?? ??? ?? ??? `delete_asset`/ForceDelete? ?? ????, ???? ??? ???? ??? ???? "Material ... ?? ????" / "...??? ??????. ?? ???? ???? ????" ??? ?? ???. ??: `ForceDeleteObject failed ... this package is now potentially corrupt`.
 
-### 근본 원인 (플러그인 C++ + 엔진 소스 + 로그 교차 분석)
-- **UnrealMCP 플러그인 C++는 무혐의.** 진범은 엔진 PythonScriptPlugin: 인라인 `execute_python` 코드는 `.py` 파일 경로가 아니면 무조건 `RunString` → **영속 콘솔 네임스페이스**(에디터 종료까지 생존)에서 실행된다. `mode="ExecuteFile"`·`FileExecutionScope=Public`은 인라인 코드에 무의미(실제 파일 실행에만 적용).
-- 스크립트의 톱레벨 `unreal.Object` 변수가 그 네임스페이스에 잔류 → `FPyReferenceCollector`가 매 GC마다 UObject에 하드 레퍼런스 추가 → 삭제 영구 차단. 래퍼 타입은 `Py_TPFLAGS_HAVE_GC`가 없어 `gc.get_objects()`로 안 보이고, 실행 스코프의 `globals()`/`locals()` 청소로도 과거 호출 잔류분은 안 잡힘(실측).
-- deferred 티커 큐는 원샷 정상(누수 아님).
+### ?? ?? (???? C++ + ?? ?? + ?? ?? ??)
+- **UnrealMCP ???? C++? ???.** ??? ?? PythonScriptPlugin: ??? `execute_python` ??? `.py` ?? ??? ??? ??? `RunString` ? **?? ?? ??????**(??? ???? ??)?? ????. `mode="ExecuteFile"`?`FileExecutionScope=Public`? ??? ??? ???(?? ?? ???? ??).
+- ????? ??? `unreal.Object` ??? ? ??????? ?? ? `FPyReferenceCollector`? ? GC?? UObject? ?? ???? ?? ? ?? ?? ??. ?? ??? `Py_TPFLAGS_HAVE_GC`? ?? `gc.get_objects()`? ? ???, ?? ???? `globals()`/`locals()` ???? ?? ?? ???? ? ??(??).
+- deferred ?? ?? ?? ??(?? ??).
 
-### 영구 수정
-1. **`Tools/McpBridge/bridge_exec.py`(브리지 직결 클라이언트, 신규): 전송 코드를 일회용 함수 스코프로 자동 래핑** (`def __ieta_scoped__(): ...; del; gc.collect()`). 함수 로컬은 리턴 시 해제 → 래퍼 잔류 원천 차단. `--raw`로 우회 가능.
-2. **이미 잠긴 에셋 해제는 `unreal.purge_object_references(obj, True)`** (엔진 공식 API, 살아있는 모든 래퍼에서 해당 UObject 참조 절단) → 직후 `delete_asset` 성공 실측.
+### ?? ??
+1. **`Tools/McpBridge/bridge_exec.py`(??? ?? ?????, ??): ?? ??? ??? ?? ???? ?? ??** (`def __ieta_scoped__(): ...; del; gc.collect()`). ?? ??? ?? ? ?? ? ?? ?? ?? ??. `--raw`? ?? ??.
+2. **?? ?? ?? ??? `unreal.purge_object_references(obj, True)`** (?? ?? API, ???? ?? ???? ?? UObject ?? ??) ? ?? `delete_asset` ?? ??.
 
-### 운영 규칙 (이후 모든 MCP 파이썬 작업 공통)
-- 브리지로 보내는 스크립트는 bridge_exec 기본 래핑 사용(--raw는 콘솔 전역 조작이 진짜 필요할 때만).
-- 에셋 삭제 전 체크리스트: 레벨 참조 제거 → `purge_object_references` → `delete_asset`. ForceDelete 다이얼로그가 떴다면 즉시 중단(재시도 금지 — 모달이 티커를 블로킹하고 패키지에 corrupt 딱지가 붙는다).
-- 레벨이 참조 중인 머티리얼 재작업은 delete/create 대신 제자리 수정(`delete_all_material_expressions` 후 재구성).
+### ?? ?? (?? ?? MCP ??? ?? ??)
+- ???? ??? ????? bridge_exec ?? ?? ??(--raw? ?? ?? ??? ?? ??? ??).
+- ?? ?? ? ?????: ?? ?? ?? ? `purge_object_references` ? `delete_asset`. ForceDelete ?????? ??? ?? ??(??? ?? ? ??? ??? ????? ???? corrupt ??? ???).
+- ??? ?? ?? ???? ???? delete/create ?? ??? ??(`delete_all_material_expressions` ? ???).
 
 ## 2026-06-12 - Landscape PCG QA Transition and Rule Repair
 
@@ -369,7 +369,7 @@ Durable local fallback for project memory when Notion capture is unavailable.
 - Spline length and wrapper route length both measured `51681.76 cm`.
 - Current scene learned-data validation still passed: `235` gravel, `46` stone, `7` embankment, `0` pitch/roll violations, `0` scale violations, `0` large-rock road clearance violations, and no hard overlap samples.
 - Regeneration smoke test created `882` preview actors, passed validation, then removed all `882` generated preview actors.
-- Notion capture page created: `작업 기록 - Forest road spline authoring handle`.
+- Notion capture page created: `?? ?? - Forest road spline authoring handle`.
 - Added `run_authoring_spline_regeneration_smoke_test(keep_preview=False)` and verified that the wrapper can regenerate from the actual `MCP_RoadAuthoringHandle_Prototype.Road_SourceSpline` points, not only from hardcoded `ROAD_CONTROL_POINTS`.
 - Spline-source regeneration also created `882` preview actors, passed count/rotation/scale/large-rock-clearance/overlap validation, then removed all `882` preview actors.
 - Generated spline-source report: `Saved/MCP_RoadPCG/CubelessForestRoadAuthoringSplineRegenSmokeTest.json`.
@@ -393,7 +393,7 @@ Durable local fallback for project memory when Notion capture is unavailable.
 - Spline-source regeneration smoke test still passed: `882` preview actors generated from `Road_SourceSpline`, validated, then cleared.
 - Dirty content/map packages after save: none.
 - Screenshot evidence: `Saved/MCP_Screenshots/pcg_spline_visual_tune_v4_ground.png` and `Saved/MCP_Screenshots/pcg_spline_visual_tune_v4_overview.png`.
-- Notion page updated: `작업 기록 - Forest road spline authoring handle`.
+- Notion page updated: `?? ?? - Forest road spline authoring handle`.
 
 ### Residual Notes
 - The visual tune is acceptable as a validation pass, but still not production quality.
@@ -540,7 +540,7 @@ Durable local fallback for project memory when Notion capture is unavailable.
 ### Verification
 - Built `StylizedCubelessEditor Win64 Development` with UE 5.7 successfully.
 - Restarted the Unreal Editor successfully.
-- Sent `ieta_status`; the Unreal Editor top window changed to `이에타가 처리 중`, confirming the planning Slate appears.
+- Sent `ieta_status`; the Unreal Editor top window changed to `???? ?? ?`, confirming the planning Slate appears.
 - Sent `ping`; the Slate appeared for Tivret work and the editor returned to the main `StylizedCubeless` window after the 10-second completion delay.
 
 ## 2026-05-29 - Selected texture sRGB disabled
@@ -564,7 +564,7 @@ Durable local fallback for project memory when Notion capture is unavailable.
 ### Verification
 - Built `StylizedCubelessEditor Win64 Development` with UE 5.7 successfully.
 - Restarted the Unreal Editor successfully.
-- Verified `ieta_status` and `ping` show the `이에타가 처리 중` Slate window quickly after MCP calls.
+- Verified `ieta_status` and `ping` show the `???? ?? ?` Slate window quickly after MCP calls.
 - Verified the Tivret work popup still closes after the 10-second completion delay.
 
 ## 2026-05-30 - Ieta planning Slate auto-close
@@ -657,32 +657,32 @@ Durable local fallback for project memory when Notion capture is unavailable.
 
 These entries were visible from Notion search/fetch results earlier in this Codex session. Full Notion sync is currently blocked by an expired Notion auth token, so this section preserves the recoverable local summary.
 
-### CubelessStylized 운영 문서
+### CubelessStylized ?? ??
 - Role: Documentation hub for CubelessStylized operating rules, summaries, decisions, recurring procedures, MCP checks, and Builder handoff instructions.
 - Notion page ID seen in session: `36fce0a7-ac0c-801a-b66c-ef7af7e822c9`
 - Search highlight: This page is the operating hub for efficient Codex session usage, separating Ieta and Tivret roles, and preserving work results and decisions in reusable Notion form.
 
-### 자동 기록 운영 규칙
+### ?? ?? ?? ??
 - Role: Defines when important conversation results should be captured into project memory.
 - Notion page ID seen in session: `36fce0a7-ac0c-812d-a0e7-d1c46cafc3cd`
-- Search highlight: Important summaries are reflected in `CubelessStylized 운영 문서` or recurring workflow guides.
+- Search highlight: Important summaries are reflected in `CubelessStylized ?? ??` or recurring workflow guides.
 
-### 이에타 / 티브렛 운영 가이드
+### ??? / ??? ?? ???
 - Role: Documents the Planner/Builder split for CubelessStylized work.
 - Notion page ID seen in session: `36fce0a7-ac0c-8145-be8a-c62b8983f821`
 - Search highlight: Ieta and Tivret responsibilities are separated so Codex sessions can operate through planning, execution, verification, and recording.
 
-### 결정 - Codex 세션 주제 분리 운영
+### ?? - Codex ?? ?? ?? ??
 - Role: Decision record for keeping one Codex session per coherent work topic.
 - Notion page ID seen in session: `36fce0a7-ac0c-8149-9687-d6a85d15e772`
 - Search highlight: CubelessStylized work should default to one session per work topic.
 
-### 작업 기록 - AGENTS 세션 및 Notion 운영 규칙 커밋
+### ?? ?? - AGENTS ?? ? Notion ?? ?? ??
 - Role: Work record for storing session and documentation rules in the repository.
 - Notion page ID seen in session: `36fce0a7-ac0c-8119-9a31-edaf88eb9302`
 - Search highlight: The user wanted session operation and Notion documentation rules to apply even on another PC after cloning the project, so repository-included `AGENTS.md` stores those rules.
 
-### 작업 기록 - Ieta Slate status 시작 시점 수정
+### ?? ?? - Ieta Slate status ?? ?? ??
 - Role: Work record for the Ieta Slate status timing and behavior changes.
 - Notion page ID seen in session: `36fce0a7-ac0c-81e7-bcb0-ef693a5e08a9`
 - Captured locally above in this file.
@@ -731,17 +731,17 @@ These entries were visible from Notion search/fetch results earlier in this Code
 ## Selected Actor Keilan Texturing Trigger
 
 - Date: 2026-06-01
-- Decision: after selecting an actor, the command `케일란 텍스쳐링해` starts the full selected Static Mesh texture workflow.
-- Required flow: 티브렛 captures the selected mesh screenshot and real UV layout; 케일란 first generates concept/source art with built-in image generation; the actual model texture is then generated from both the source art and the real UV layout.
-- Review gate: 이에타 reviews the source art, UV layout, UV-fitted texture, and UV texture preview together. If UV placement or art direction is wrong, 이에타 requests a specific correction from 케일란 or 티브렛 and repeats the loop.
-- Approval rule: only when UV fit and art direction pass review may 티브렛 import/apply the texture to the selected actor. 이에타 posts a final opinion after implementation.
+- Decision: after selecting an actor, the command `??? ?????` starts the full selected Static Mesh texture workflow.
+- Required flow: ??? captures the selected mesh screenshot and real UV layout; ??? first generates concept/source art with built-in image generation; the actual model texture is then generated from both the source art and the real UV layout.
+- Review gate: ??? reviews the source art, UV layout, UV-fitted texture, and UV texture preview together. If UV placement or art direction is wrong, ??? requests a specific correction from ??? or ??? and repeats the loop.
+- Approval rule: only when UV fit and art direction pass review may ??? import/apply the texture to the selected actor. ??? posts a final opinion after implementation.
 
 ## Keilan Texture Review Guardrail - Source Motifs And UV Orientation
 
 - Date: 2026-06-02
-- Trigger: the first `낡은 스타일라이즈 돌 계단` selected mesh texture pass omitted the source-art side guide stones on the stair edges, and the UV overlay preview did not clearly distinguish texture-space orientation from UV/editor display orientation.
+- Trigger: the first `?? ?????? ? ??` selected mesh texture pass omitted the source-art side guide stones on the stair edges, and the UV overlay preview did not clearly distinguish texture-space orientation from UV/editor display orientation.
 - Cause: during UV fitting, the mesh was treated as a simple ramp without carrying over the source art's left/right guide-stone motif into the top UV island. The preview also used a single overlay image, which can hide V-axis orientation assumptions.
-- Guardrail: 이에타 review must explicitly compare source-art structural motifs against the UV-fitted texture. Examples include side guide stones, trim stones, rails, borders, large cracks, moss bands, and other visually important cues.
+- Guardrail: ??? review must explicitly compare source-art structural motifs against the UV-fitted texture. Examples include side guide stones, trim stones, rails, borders, large cracks, moss bands, and other visually important cues.
 - Guardrail: UV review must verify texture-space orientation and UV/editor display orientation separately when V flipping may be involved, and should use the actual mesh application as the final source of truth.
 - Correction: in the `SM_Ramp3` stair texture pass, the final applied texture UV was correct; the visible issue was only that the user-facing UV preview image was vertically flipped. Future reviews must label this as a preview-display issue instead of implying the final texture UV is wrong.
 - Guardrail: repeated forms must match the source art's count, spacing, rhythm, and major alignment before approval. The stair case exposed this rule: the source art had seven stair rows, while the earlier fitted texture read as five rows.
@@ -760,15 +760,15 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Trigger: the stair source art included useful reference pieces, but overlapping/near-overlapping reference elements can contaminate later UV fitting or texture extraction.
 - Guardrail: modeling/reference concept art must keep every view, part callout, material sample, trim strip, loose piece, and optional preview render clearly separated with enough margin.
 - Rule: do not allow overlapping, occlusion, cropping, or tangency between reference elements. If an isometric preview is included, it must not cover, touch, or intrude into the main orthographic/source texture area.
-- Review responsibility: 이에타 must reject Keilan reference art with overlapping reference elements before Tivret uses it for UV fitting, masking, or import.
+- Review responsibility: ??? must reject Keilan reference art with overlapping reference elements before Tivret uses it for UV fitting, masking, or import.
 
 ## Keilan Menu Invocation Shortcut
 
 - Date: 2026-06-01
-- Decision: standalone `케일란` is now a menu command, not an immediate execution command.
+- Decision: standalone `???` is now a menu command, not an immediate execution command.
 - Menu:
-  - `1. 구름 그리기 - 스태틱 스카이 클라우드 생성 하는일`
-  - `2. 선택 매쉬 텍스쳐링 설계`
+  - `1. ?? ??? - ??? ??? ???? ?? ???`
+  - `2. ?? ?? ???? ??`
 - Execution rule: after the menu is shown in the current thread, a follow-up answer that starts with `1` or `2` and then includes a description executes the matching workflow.
 - Option 1: run Keilan's Ultra Dynamic Sky static-cloud generation workflow using the existing Polar/Radial UV and RGBA packing rules.
 - Option 2: run the Selected Static Mesh Texture Workflow, including selected mesh capture, UV layout/preview, Keilan texture design, Ieta review, and Tivret implementation only after approval.
@@ -777,16 +777,16 @@ These entries were visible from Notion search/fetch results earlier in this Code
 ## Git Automation Approval Rule
 
 - Date: 2026-06-02
-- Decision: routine Git staging, commit, and push operations are pre-approved when the user explicitly asks for Git work using phrases such as `커밋`, `서밋`, `commit`, `푸시`, `push`, `커밋 푸시`, or `서밋 푸쉬`.
+- Decision: routine Git staging, commit, and push operations are pre-approved when the user explicitly asks for Git work using phrases such as `??`, `??`, `commit`, `??`, `push`, `?? ??`, or `?? ??`.
 - Operating rule: Codex should inspect status/diffs, stage only files that belong to the requested work, commit with a concise message, and push when the user's request includes push intent without asking for another approval.
 - Safety rule: do not stage unrelated dirty files, user-made Unreal asset changes, generated assets, or sibling workspace changes unless they are clearly part of the requested work or explicitly included by the user.
-- Main branch rule: on `main` or `master`, pushing is allowed only when the current user message explicitly requests `푸시`/`push` for that branch.
+- Main branch rule: on `main` or `master`, pushing is allowed only when the current user message explicitly requests `??`/`push` for that branch.
 - Scope rule: keep `CubelessStylized` and `../unreal-mcp-cubeless` Git operations separate.
 
 ## User Approval Follow-Through Rule
 
 - Date: 2026-06-02
-- Decision: when Codex says a task needs user approval, and the user replies with approval wording such as `승인`, `승인한다`, `허가`, `진행해`, or `좋다`, Codex should proceed with the approved work without asking for the same approval again.
+- Decision: when Codex says a task needs user approval, and the user replies with approval wording such as `??`, `????`, `??`, `???`, or `??`, Codex should proceed with the approved work without asking for the same approval again.
 - Scope: applies to approval-gated Unreal work, non-exception C++ edits, plugin/code changes, billed/API routes, destructive or high-impact operations, and other cases where Codex explicitly asked for approval first.
 - Safety rule: approval is scoped to the exact action, files, tools, cost route, branch, or risk described before approval. If the implementation scope materially changes, Codex must ask again.
 - Exclusions: unrelated dirty files, unrelated Unreal assets, unrelated sibling workspace changes, credentials, secrets, or a different billing/API route are not included unless the user explicitly includes them.
@@ -812,8 +812,8 @@ These entries were visible from Notion search/fetch results earlier in this Code
 ## Ieta Unreal C++ Review Mode
 
 - Date: 2026-06-02
-- Decision: use `이에타 C++ 리뷰` as the project C++ review command, specialized for Unreal Engine C++ rather than generic C++ style review.
-- Trigger variants: `이에타 C++ 리뷰`, `이에타 C++ staged 리뷰`, `이에타 C++ 커밋 전 리뷰`, `이에타 UnrealMCP C++ 리뷰`, or equivalent wording.
+- Decision: use `??? C++ ??` as the project C++ review command, specialized for Unreal Engine C++ rather than generic C++ style review.
+- Trigger variants: `??? C++ ??`, `??? C++ staged ??`, `??? C++ ?? ? ??`, `??? UnrealMCP C++ ??`, or equivalent wording.
 - Scope: review `.cpp`, `.h`, `.hpp`, `.inl`, `.Build.cs`, and `.Target.cs` by default. Exclude unrelated assets, generated textures, source art, docs, and non-C++ workflow changes unless they directly affect C++ behavior.
 - Priorities: concrete bugs, crash risks, behavioral regressions, missing verification, and Unreal-specific lifecycle hazards before summary.
 - Unreal checks: UObject/GC lifetime, `UPROPERTY`, `TObjectPtr`, `TWeakObjectPtr`, raw UObject pointer ownership, delegate binding/unbinding, latent callbacks, module startup/shutdown, editor shutdown, Hot Reload/Live Coding, reflection/API misuse, Slate lifetime, editor/game-thread boundaries, async/socket race conditions, Build.cs dependencies, plugin boundaries, and editor-only dependency leakage.
@@ -861,8 +861,8 @@ These entries were visible from Notion search/fetch results earlier in this Code
 
 - Date: 2026-06-03
 - Decision: use the repository-local `Build/` folder under `CubelessStylized` as the default output root for package builds.
-- Android trigger: when the user asks `안드로이드 패키징 해줘`, package Android output into `Build/Android/`.
-- Windows trigger: when the user asks `윈도우 패키징 해줘`, package Windows output into `Build/Windows/`.
+- Android trigger: when the user asks `????? ??? ??`, package Android output into `Build/Android/`.
+- Windows trigger: when the user asks `??? ??? ??`, package Windows output into `Build/Windows/`.
 - Separation rule: keep platform outputs in platform-specific subfolders so Android and Windows package data do not overwrite or mix with each other.
 - Rule-only handling: do not run packaging when the user says the rule should be applied but packaging should not run yet.
 - Git rule: package outputs under `Build/` are generated artifacts and should not be staged or committed unless the user explicitly asks to version a specific packaging artifact or configuration file.
@@ -1051,13 +1051,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Package path rule: ordinary recreate/validation targets should use paths such as `/Game/_MCP_Temp/<SourceName>_MCP`.
 - Git rule: `_MCP_Temp` outputs are disposable generated artifacts that may change on every validation run, so `/Content/_MCP_Temp/` is now gitignored.
 - Fixture separation rule: `/Content/MCPTestFixtures/` is reserved for deliberate stable test fixtures only, not for ordinary temporary MCP output.
-- Agent rule: 이에타, 케일란, and 티브렛 all use this `_MCP_Temp` convention when planning, generating, importing, recreating, or validating MCP content.
+- Agent rule: ???, ???, and ??? all use this `_MCP_Temp` convention when planning, generating, importing, recreating, or validating MCP content.
 
 ## Unreal C++ Convention Baseline
 
 - Date: 2026-06-06 12:04 KST
 - Scope: project C++ review and convention management rules.
-- Decision: 이에타 manages the Unreal C++ convention baseline for this project and applies it during `이에타 C++ 리뷰`.
+- Decision: ??? manages the Unreal C++ convention baseline for this project and applies it during `??? C++ ??`.
 - Source priority: Epic official Unreal C++ coding standard first, then Unreal Engine/Lyra local style, then CubelessStylized project-specific rules, then third-party checklists as supporting references only.
 - Documentation: `AGENTS.md` now links the C++ review mode to `docs/unreal-cpp-conventions.md`, and the new docs page records naming, UObject ownership, module boundaries, Slate/editor UI, async/socket, UnrealMCP, and verification expectations.
 - Editor defaults: `.editorconfig` was added only for safe UTF-8, CRLF, final newline, and whitespace defaults. It does not force C++ indentation style.
@@ -1259,7 +1259,7 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Date: 2026-06-06 14:01 KST
 - Decision: `/Content/_MCP_Sample/` is reserved for local MCP learning/sample resources.
 - Git rule: `/Content/_MCP_Sample/` is now gitignored by default and must not be staged or committed unless the user explicitly asks to version a specific sample asset.
-- Agent rule: 이에타 treats this folder as a learning-resource area, separate from disposable `_MCP_Temp` validation output and stable `/Content/MCPTestFixtures/` fixtures.
+- Agent rule: ??? treats this folder as a learning-resource area, separate from disposable `_MCP_Temp` validation output and stable `/Content/MCPTestFixtures/` fixtures.
 ## UnrealMCP Section 61-70 Durable Authoring Release Decision
 
 - Date: 2026-06-07 KST
@@ -2282,7 +2282,7 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Change: extended Material GPU Preview foliage source tracking from Landscape Grass cache to include `AInstancedFoliageActor` / `FFoliageInfo` components. `Foliage:` source labels now use the foliage static mesh/source, instance counts use render instances with placed-count fallback, scene material accumulation includes IFA components, and Actor Coloration reconnects debug rows back to current IFA components by source label.
 - Validation: `StylizedCubelessEditor Win64 Development` build succeeded with UE 5.7. Editor relaunched successfully, MCP world probe returned `ExampleMap`, and `materialgpu.DumpLandscapeGrass` reported IFA sources such as `Foliage:SM_FlowerSingle_02` and `Foliage:SM_FlowerSingle_03`.
 - Capture verification: after a short `stat mat start` / `stat mat end` capture, trace analysis completed with `Rows=10/630`, `DebugComponents=1098`, `MaterialDrawEvents=341863`, and foliage dump showed IFA flowers covered: `Foliage:SM_FlowerSingle_02 debugComps=1 debugInstances=17876`, `Foliage:SM_FlowerSingle_03 debugComps=1 debugInstances=15830`, `Foliage:SM_FlowerGroup_01_White debugComps=1 debugInstances=143`, and `Foliage:SM_FlowerGroup_01_Yellow debugComps=1 debugInstances=136`.
-- Notion capture fallback: Notion page search/update for `CubelessStylized 운영 문서` was not available in the exposed tool set, so this local work-log entry is the durable capture.
+- Notion capture fallback: Notion page search/update for `CubelessStylized ?? ??` was not available in the exposed tool set, so this local work-log entry is the durable capture.
 
 ## OptimizationPreviewTools Replay Animation Playback Fix
 
@@ -2367,7 +2367,7 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Result: `scene01_route_validation_pass=True`, `scene01_style_points=26`, `scene01_tree_points=1`, `scene01_material_points=0`, `scene01_total_instances=27`, latest marker `log_error_count=0`, and `scene01_staging_validation_pass=True`.
 - Interpretation: `Scene01` has no Landscape actors, so this validates real-level placement, routing, generated ISM output, and log cleanliness. Direct Landscape contact remains covered by `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP`.
 - Editor state: `/Game/Cubeless/Map/Scene01` is dirty because the staging actor was intentionally not saved. Close without saving if this probe should remain disposable; save only after explicitly deciding to keep production placement.
-- Notion capture fallback: the available Notion connector did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
+- Notion capture fallback: the available Notion connector did not expose a page search path for locating `CubelessStylized ?? ??`, so this local work-log entry is the durable capture.
 
 ## Cubeless PCG Runtime Blueprint Promotion
 
@@ -2379,7 +2379,7 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Validation: runtime promotion reported `runtime_candidate_created=True` and `runtime_candidate_compile_saved=True`. Runtime validation used `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_RuntimeCandidate_MCP`, prepared `12` actors, and passed with `production_candidate_validation_pass=True`, `log_marker_found=True`, and `log_error_count=0`.
 - Editor state: current world is `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_RuntimeCandidate_MCP`; dirty map package is that disposable `_MCP_Temp` validation map only. The runtime Blueprint asset itself was saved.
 - Next gate: choose the real production Landscape placement target. Use `/Game/Cubeless/PCG/Runtime/Blueprints/BP_Cubeless_PCG_EcosystemRuntime` for the next placement probe instead of the isolated candidate Blueprint.
-- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized ?? ??`, so this local work-log entry is the durable capture.
 
 ## Cubeless PCG Runtime Landscape Validation
 
@@ -2390,7 +2390,7 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Key numbers: flat center `27` instances with max height delta `0.0` cm; slope west `27` instances with max height delta `0.0` cm and max slope `21.7547` deg; high-slope rocky sparse `3` instances with max height delta `0.0` cm and max slope `17.5694` deg; tree-off dense ground foliage `58` instances with max height delta `100.0` cm within tolerance.
 - Editor state: current world is `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP`; the four runtime Landscape validation actors are selected and the viewport is focused on the slope-west runtime candidate. Dirty packages are `_MCP_Temp` external actor packages only and should not be saved unless intentionally preserving this disposable fixture.
 - Next gate: the runtime entry Blueprint now has both 12-case route/output validation and direct Landscape contact validation. The remaining production step is choosing or creating the real Landscape placement target.
-- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized ?? ??`, so this local work-log entry is the durable capture.
 
 ## Cubeless PCG TestMap Staging And Field Level Save
 
@@ -2403,7 +2403,7 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Field validation/save: `ecosystem_field_validation_pass=True`, `ecosystem_field_landscape_total_instances=27`, `ecosystem_field_landscape_trace_miss_count=0`, `ecosystem_field_landscape_height_fail_count=0`, `ecosystem_field_landscape_xy_fail_count=0`, `ecosystem_field_landscape_max_abs_height_delta=0.0`, `ecosystem_field_landscape_max_slope_degrees=0.9972`, `log_error_count=0`, `ecosystem_field_saved=True`, and `ecosystem_field_dirty_after_save=[]`.
 - Tooling added in `D:\Git\unreal-mcp-cubeless\Docs\Analysis\ElectricDreams`: `prepare_cubeless_pcg_testmap_runtime_staging.py`, `verify_cubeless_pcg_testmap_runtime_staging.py`, `prepare_cubeless_pcg_ecosystem_field_level.py`, and `verify_save_cubeless_pcg_ecosystem_field_level.py`.
 - Editor state: current world is `/Game/Cubeless/Map/LVL_Cubeless_PCG_Ecosystem_Field`; the saved runtime actor is selected and there are no dirty map packages.
-- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized ?? ??`, so this local work-log entry is the durable capture.
 
 ## Cubeless PCG Field Layout Refine
 
@@ -2416,7 +2416,7 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Tooling added in `D:\Git\unreal-mcp-cubeless\Docs\Analysis\ElectricDreams`: `prepare_cubeless_pcg_ecosystem_field_layout_refine.py` and `verify_save_cubeless_pcg_ecosystem_field_layout_refine.py`.
 - Regression hardening: added read-only verifier `verify_cubeless_pcg_ecosystem_field_level.py` and registered `ecosystem_field_level_verify` in `run_pcg_study_regression.py`. Targeted run passed with `ecosystem_field_level_verify|PASS|0.194s` and `pcg_study_regression_pass=True`; it does not save the field level.
 - Editor state: current world is `/Game/Cubeless/Map/LVL_Cubeless_PCG_Ecosystem_Field`; the three runtime actors are selected and no dirty map packages are present.
-- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized ?? ??`, so this local work-log entry is the durable capture.
 
 ## Cubeless PCG Landscape-First Retest After Scene01 Probe
 
@@ -2426,7 +2426,7 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Result: `production_candidate_landscape_validation_pass=True`, `landscape_actor_count=65`, latest marker `log_error_count=0`, and all four cases had `route_validation_pass=True`, `landscape_trace_miss_count=0`, `landscape_height_fail_count=0`, and `landscape_xy_fail_count=0`.
 - Key numbers: flat center `27` instances with max height delta `0.0` cm; slope west `27` instances with max height delta `0.0` cm and max slope `21.7547` deg; high-slope rocky sparse `3` instances with max height delta `0.0` cm and max slope `17.5694` deg; tree-off dense ground foliage `58` instances with max height delta `100.0` cm within tolerance.
 - Editor state: current world is `/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP`; the four validation actors are selected and the viewport is focused on the slope-west candidate. Dirty packages are `_MCP_Temp` external actor packages only and should not be saved unless intentionally preserving this disposable fixture.
-- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized 운영 문서`, so this local work-log entry is the durable capture.
+- Notion capture fallback: the available Notion connector still did not expose a page search path for locating `CubelessStylized ?? ??`, so this local work-log entry is the durable capture.
 
 ## Cubeless PCG Ecosystem Field Git Checkpoint
 
@@ -2496,7 +2496,7 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Validation result: visible count mismatches `0`; learned pitch/roll violations `0`; scale violations `0`; route-clearance violations `0`; hard-overlap samples `0`; tmp actors `0`; dirty packages after save `[]`.
 - Wrapper smoke test: authoring spline regeneration created `882` preview actors, validated counts/clearance/overlap, and cleared all `882` preview actors afterward.
 - Screenshot evidence: `Saved/MCP_Screenshots/pcg_spline_mesh_road_prototype_v4_ground.png` and `Saved/MCP_Screenshots/pcg_spline_mesh_road_prototype_v4_overview.png`.
-- Documentation: Notion page `작업 기록 - Forest road spline authoring handle` was updated with this validation result.
+- Documentation: Notion page `?? ?? - Forest road spline authoring handle` was updated with this validation result.
 - Residual issue: this is acceptable as a spline-driven `_MCP_Temp` prototype, but production-grade PCG still needs an approval-gated promotion into the real runtime path plus a better material/landscape blend instead of visible mesh-strip edges.
 
 ## Cubeless PCG Ecosystem Tuning Gallery And Field Tune
@@ -2610,7 +2610,7 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Runtime mapping: all intents use `/Game/Cubeless/PCG/Runtime/Blueprints/BP_Cubeless_PCG_EcosystemRuntime` with preset/override recipes instead of new C++ or copied production graph forks.
 - Validation: `intent_gallery_actor_count=9`, `field_total_instances=483`, `trace_miss_count=0`, `height_fail_count=0`, `xy_fail_count=0`, latest marker `log_error_count=0`, and `dirty_after_save=[]`.
 - Regression: registered `intent_gallery_prepare` and `intent_gallery_verify` in `run_pcg_study_regression.py`; targeted run passed with `intent_gallery_verify|PASS|0.328s` and `pcg_study_regression_pass=True`.
-- User request routing: "꽃 많은 초원" maps to `FlowerBand`; "넓은 초원" maps to `MeadowPatch`; "바위 가장자리" maps to `RockEdge`; "침엽수 경계" maps to `ConiferEdge`; "초원에 꽃이랑 바위랑 나무 조금" maps to `BalancedEcosystem`.
+- User request routing: "? ?? ??" maps to `FlowerBand`; "?? ??" maps to `MeadowPatch`; "?? ????" maps to `RockEdge`; "??? ??" maps to `ConiferEdge`; "??? ??? ??? ?? ??" maps to `BalancedEcosystem`.
 - Notion capture fallback: the available Notion connector still did not expose a page search path for locating the CubelessStylized operations document, so this local work-log entry is the durable capture.
 
 ## Cubeless PCG Field Look Polish And Block-Tag Preflight
@@ -2831,3 +2831,26 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Policy update: `Tools/Unreal/pcg_static_mesh_spawner_audit_policy.json` now has `cleanup_candidates={}`, records the moved assets under `archived_candidates.static_mesh_spawner_actor_property_audit_20260612`, and records the removed empty graph under `deleted_candidates.static_mesh_spawner_actor_property_audit_20260612`.
 - Final audit: `graph_asset_count=266`, `static_mesh_spawner_count=345`, `actionable_graphs_needing_actor_property_review=0`, `actionable_review_spawner_count=0`, `production_graphs_needing_actor_property_review=0`, `production_review_spawner_count=0`, `cleanup_candidate_graph_count=0`, and `cleanup_candidate_spawner_count=0`.
 - Regression evidence: targeted sibling runner step `static_mesh_spawner_actor_property_audit_verify` passed in `0.186s` with `pcg_study_regression_pass=True` after archive cleanup.
+
+## 2026-06-12 MCP review fix application
+- Applied the first review-fix pass in `../unreal-mcp-cubeless` and `Plugins/UnrealMCP`: bounded Python command/response logging, removed the socket-null-byte connection check, preserved failed-command `result` payloads in the C++ bridge, made Niagara save failures return command failure, made module-input batch child edits skip per-edit compile, and moved batch compile/save to a single post-pass.
+- API reference fixes: sibling `open_niagara_preview_player` now accepts optional `system_path`; sibling server prompt/docs now include the previously omitted Niagara parameters such as emitter names, material slot index, request compile, enabled state, duplicate-skip, and Preview Player `system_path`; sibling server runner now pins Python 3.11 like Cubeless `.mcp.json`.
+- Viewport safety fix: active Level Editor viewport resolution now avoids direct `FLevelEditorViewportClient*` reinterpret/static casts in the touched editor commands.
+- Verification: sibling `uv --directory Python run --python 3.11 python -m py_compile unreal_mcp_server.py tools\editor_tools.py tools\niagara_tools.py` passed; sibling `server import ok` passed; sibling `MCPGameProjectEditor Win64 Development -NoHotReloadFromIDE` built successfully; Cubeless `StylizedCubelessEditor Win64 Development -NoHotReloadFromIDE` built successfully. Both builds still report the pre-existing `FImageUtils::CompressImageArray` deprecation warning.
+- Runtime MCP smoke was attempted through `show_ieta_connection_status`, but the Unreal bridge was not connected at `127.0.0.1:55557`, so live editor command testing remains pending until the editor bridge is running.
+
+## 2026-06-12 MCP review fix runtime smoke
+- Rebuilt `StylizedCubelessEditor Win64 Development -NoHotReloadFromIDE`; target was up to date and succeeded.
+- Launched `UnrealEditor.exe` for `StylizedCubeless.uproject`; the UnrealMCP bridge opened on `127.0.0.1:55557`.
+- Live `show_ieta_connection_status` returned `status=connected` and `slate_call=success`.
+- Raw socket smoke for `set_niagara_module_inputs_batch` against a missing temp Niagara system returned `status=error` while preserving the structured `result` payload, including `failed_count=1`, `result_count=1`, the child edit error, `compile_requested=false`, and `saved=false`.
+- Python server path smoke through `get_unreal_connection().send_command("ping", {})` returned `{'status': 'success', 'result': {'message': 'pong'}}`, confirming the null-byte connection check removal did not break command dispatch.
+
+## 2026-06-12 Niagara Preview Player viewport flicker pass
+- Reduced Preview Player viewport redraw churn in `Plugins/UnrealMCP`: stabilization framing now frames once at load and once when the stabilization countdown finishes, instead of re-framing against changing Niagara bounds every tick.
+- Replaced frequent `SEditorViewport` widget invalidations with viewport-client invalidation for preview redraws, and removed the Preview Player status refresh path's full-window `ForceRedrawWindow` call.
+- Verification: initial build caught one `SEditorViewport::Invalidate` overload issue, then `StylizedCubelessEditor Win64 Development -NoHotReloadFromIDE` succeeded after the fallback was changed to `SEditorViewport::Invalidate()`.
+- Runtime smoke: relaunched `UnrealEditor.exe`, confirmed UnrealMCP bridge `127.0.0.1:55557`, opened Preview Player with `/Game/EL/ART/BG/FX/Viking_Village/VFXUpdate/Niagara/NS_Torch_01.NS_Torch_01`, and rechecked after 6 seconds with `window_open=true`, `last_preview_renderable=true`, `playback_state=playing`, and `looping=true`.
+- Log note: the latest editor log contains two transient `LogPython: Error` entries from exploratory Asset Registry calls during test setup, plus older automation condition failures; no Preview Player command failure was reported after the successful open/state smoke.
+- Follow-up editor test: rebuilt `StylizedCubelessEditor Win64 Development -NoHotReloadFromIDE` with target up to date, launched `UnrealEditor.exe`, confirmed bridge ping `pong`, opened Preview Player with `NS_Torch_01`, rechecked after 6 seconds with playback still `playing`, and confirmed dirty content/map packages `0/0`. Latest log only showed startup `LogAutomationTest: Error: Condition failed` lines, with no Preview Player fatal/exception.
+
