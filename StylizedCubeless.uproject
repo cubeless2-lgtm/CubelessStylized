@@ -88,10 +88,18 @@
 		},
 		{
 			"Name": "TextureGraph",
-			"Enabled": true,
+			"Enabled": false,
 			"PlatformDenyList": [
 				"Android"
 			]
+		},
+		{
+			"Name": "InterchangeTests",
+			"Enabled": false
+		},
+		{
+			"Name": "AutomationUtils",
+			"Enabled": false
 		},
 		{
 			"Name": "MSDFTextureTools",
@@ -134,6 +142,14 @@
 		},
 		{
 			"Name": "Volumetrics",
+			"Enabled": true
+		},
+		{
+			"Name": "AnimationWarping",
+			"Enabled": true
+		},
+		{
+			"Name": "MotionWarping",
 			"Enabled": true
 		}
 	]

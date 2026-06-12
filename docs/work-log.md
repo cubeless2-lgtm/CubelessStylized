@@ -18,6 +18,7 @@ Durable local fallback for project memory when Notion capture is unavailable.
 - Field density passed with `665,942` grass instances, `9,354` tree instances, and `348` rock instances.
 - Native field road visual report: `Saved/MCP_RoadPCG/CubelessForestRoadNativeGraphVisualReview.json`.
 - Native road visual quality passed with `288` spline mesh components, `293` roadside instances, and `0` roadside clearance violations.
+
 - Native shape suite report: `Saved/MCP_RoadPCG/CubelessForestRoadNativeGraphShapeSuite.json`.
 - Shape suite passed all `4` route shapes and restored the source spline. Route instance totals were `293`, `99`, `202`, and `355`, all with `0` roadside clearance violations.
 
@@ -2954,3 +2955,25 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Sibling `unreal-mcp-cubeless`, submodule `Plugins/UnrealMCP`, and standalone `UnrealMCPPlugin` were checked clean and `0/0` after the push.
 - Verification reused from the branch commit: Python `py_compile` passed for changed PCG tooling, staged code diff check passed outside the known `docs/work-log.md` mixed-EOL file, and no `GetVertexInstanceUV` unsafe calls were found.
 - Notion capture was attempted but blocked by reauthentication, so this local work-log entry is the durable project memory for the main push.
+
+## 2026-06-12 - Editor log cleanup
+
+### Summary
+- Enabled `MotionWarping` in `StylizedCubeless.uproject` to resolve the `/Script/MotionWarping` import failure reported by `Paired_Knife_Stealth_KidneyAndNeck_Att_Montage.uasset`.
+- Recompiled, refreshed nodes, and saved `/Game/StylizedFantasyGirls/Animations/Succubus/ABP_Succubus_Enemy`.
+- Saved `/Game/EL/ART/BG/Common/BP/BP_ReactiveFoliage/BP_Monster` and cleared stale entries from `/Game/EL/ART/BG/Common/BP/BP_ReactiveFoliage/Resource/DA_CuttedFoliageList.StaticMesh_FXMap` so missing reactive foliage/Tark load warnings no longer appear.
+- Updated the 14 Manny pose assets from their matching source animations to clear PoseAsset/source animation mismatch warnings.
+- Reimported `/Game/Cubeless/Character/Piper/CR_Piper_FootIK` hierarchy from its own preview mesh `/Game/Cubeless/Character/Piper/SK_Piper`, then compiled and saved `/Game/Cubeless/Character/Piper/ABP_Piper_FootIK_PostProcess`.
+- Resaved 149 assets that were logged with empty engine version headers. Eight EL reactive foliage files were read-only and had their read-only attribute cleared before saving.
+- Disabled `TextureGraph`, `InterchangeTests`, and `AutomationUtils` project plugin entries during log cleanup; enabled `AnimationWarping` and `MotionWarping`.
+- Notion capture was attempted but the Notion app required reauthentication, so this local work-log entry was used as fallback.
+
+### Verification
+- Restarted Unreal Editor after the asset and project plugin changes.
+- Fresh log `Saved/Logs/StylizedCubeless.log` showed `LoadErrors: Warning=0`, `VerifyImport: Failed=0`, `/Script/MotionWarping=0`, `missing NodeGuid=0`, `Hierarchy discrepancy=0`, `LogAnimation: Warning=0`, `empty engine version=0`, and `LogPython: Error=0`.
+- MCP `compile_and_validate_blueprint` for `ABP_Succubus_Enemy` passed with `compile_error_count=0`, `compile_warning_count=0`, and `validation_pass=true`.
+- MCP validation for `ABP_Piper_FootIK_PostProcess` passed after the ControlRig hierarchy reimport with `compile_error_count=0`, `compile_warning_count=0`, and `validation_pass=true`.
+
+### Residual Risk
+- Startup still reports `LogAutomationTest: Error=4`. Source inspection points to UE 5.7's engine-side LowLevelTest/AutomationTest adapter, not a project asset path; this was not suppressed by project log-category filtering.
+- Startup still reports five missing Slate resources under the engine install, including VisionOS launcher icons and `ButtonHoverHint.png`; these are engine resource warnings outside project content.
