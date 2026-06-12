@@ -2,6 +2,78 @@
 
 Durable local fallback for project memory when Notion capture is unavailable.
 
+## 2026-06-12 - Sibling UnrealMCP Niagara C++ Authoring Extension
+
+### Summary
+- Created isolated sibling work on `C:\Git\unreal-mcp-cubeless` branch `codex/niagara-mcp-authoring`.
+- Migrated the Niagara C++ command handler from the project plugin implementation into the sibling UnrealMCP plugin without overwriting the sibling bridge.
+- Added minimal bridge routing for `inspect_niagara_renderers`, `set_niagara_renderer_material`, `inspect_niagara_user_parameters`, `set_niagara_user_parameter`, `inspect_niagara_stack`, `inspect_niagara_module_inputs`, and `set_niagara_module_input_value`.
+- Added Python MCP registration in `Python/tools/niagara_tools.py` and `Python/unreal_mcp_server.py`.
+- Added `Niagara`/`NiagaraEditor` module dependencies and the `Niagara` plugin descriptor dependency.
+- Documented the new Niagara tool surface in the sibling repo and updated the Cubeless Niagara planning/API docs with the current implementation status.
+- Runtime smoke found a crash when `inspect_niagara_module_inputs(..., include_resolved_stack_inputs=true)` decoded Niagara `Position` data as `FVector`; fixed both the sibling plugin and the Cubeless plugin copy to decode/write Niagara Position values as `FVector3f`.
+- Added `--socket-postprocess-only` to `Tools/Unreal/niagara_generation_recipe_executor.py` so renderer material binding, matching exposed User parameter writes, and matching existing RapidIteration module input writes can run as one safe post-duplication pass.
+- Fixed executor report root resolution so absolute recipe paths executed from the Unreal Editor process still write default reports under the Cubeless repo `Saved/MCP_NiagaraGeneration`, not the UE engine directory.
+- Added read-only `inspect_niagara_graph` in the sibling UnrealMCP plugin and mirrored the Niagara command C++ files into the Cubeless plugin copy for build validation. The command reports system script graphs, emitter graphs, Scratch Pad graphs, nodes, pins, and output-to-input links without mutating or saving assets.
+- Added Python MCP registration and docs for `inspect_niagara_graph` in the sibling repo.
+
+### Verification
+- `uv run --python 3.11 python -m py_compile Python/unreal_mcp_server.py Python/tools/niagara_tools.py` passed in the sibling repo.
+- UE 5.7 build passed for `MCPGameProjectEditor Win64 Development`.
+- A second UE 5.7 build after adding the plugin descriptor dependency also passed and removed the Niagara dependency warning.
+- Cubeless `StylizedCubelessEditor Win64 Development` build passed after the `FVector3f` safety patch.
+- Runtime read smoke passed against Cubeless Niagara: `inspect_niagara_renderers` read `5` renderers, `inspect_niagara_stack` read `70` stack calls, and `inspect_niagara_module_inputs` read `283` module input candidates for the sword trail sample.
+- Safety guard smoke passed: writes outside `/Game/_MCP_Temp/NiagaraGenerated/` were rejected by default.
+- Runtime write smoke passed under `/Game/_MCP_Temp/NiagaraGenerated/MCPAuthoringSmoke/`: renderer material rewrite, User parameter rewrite, and existing RapidIteration module input rewrite all succeeded on duplicated temp Niagara Systems.
+- The resolved stack input crash repro now passes on `/Game/EL/ART/FX/Niagara/System/BG/FX_S_BG_Leaf01.FX_S_BG_Leaf01`.
+- End-to-end recipe smoke `red sword trail 1 second dense fast` produced `Can execute now: 5` and `Blocked by API: 0`.
+- The temp generated system `/Game/_MCP_Temp/NiagaraGenerated/codex_socket_postprocess_smoke/NS_codex_socket_postprocess_smoke` was duplicated and post-processed successfully: `5` renderer material bindings, `0` User parameter applications because the source exposed none, and `9` existing RapidIteration module input edits for spawn count, red Scale RGB, and speed limit.
+- `--socket-postprocess-only` wrote `Saved/MCP_NiagaraGeneration/codex_socket_postprocess_smoke_postprocess_report.json` successfully.
+- Niagara Preview Player validation loaded the generated temp system with `last_preview_renderable=true`, `playback_state=playing`, and `looping=true`.
+- User-facing screenshot correction: final visual review capture must come from the Niagara Preview Player, not the map-based Preview Lab. Captured the actual `Niagara Preview Player` OS window at `Saved/MCP/NiagaraReviews/codex_socket_postprocess_smoke/codex_socket_postprocess_smoke_niagara_previewer.png`; the image shows the live preview viewport, playback state, analysis panel, and the red sword-trail form.
+- Preview Lab validation was kept only as a secondary map-based smoke check: it reused the already loaded `/Game/SampleTestMap/Niagara_TestMap` map without reload/save, captured a still and four warmup samples, cleaned all preview actors, and left the map dirty flag false.
+- Graph API verification: sibling `uv run --python 3.11 python -m py_compile Python/unreal_mcp_server.py Python/tools/niagara_tools.py` passed, and `MCPGameProjectEditor Win64 Development -NoHotReloadFromIDE` built successfully.
+- Cubeless graph API build status: after normally closing the running editor to release `UnrealEditor-UnrealMCP.dll`, `StylizedCubelessEditor Win64 Development -NoHotReloadFromIDE` linked successfully.
+- Bridge route fix: added `inspect_niagara_graph` to the UnrealMCP bridge Niagara command dispatch list in both the sibling repo and Cubeless plugin copy after the first runtime attempt showed the command was not routed.
+- Runtime graph smoke: `inspect_niagara_graph` on `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Sword_C_Skill01_Trail01.FX_S_Sword_C_Skill01_Trail01` returned `read_only=true`, `5` emitters, `7` graphs, `188` nodes, `190` links, and `0` Scratch Pads.
+- Pins/links graph smoke: with `include_pins=true`, `include_links=true`, `max_nodes_per_graph=20`, and `max_links_per_graph=80`, the first emitter graph returned `20` included nodes, `35` included links, and pin metadata on the first node. Reports were written to `Saved/MCP_NiagaraGeneration/inspect_niagara_graph_smoke_minimal.json` and `Saved/MCP_NiagaraGeneration/inspect_niagara_graph_smoke_pins_links.json`.
+- Post-inspection dirty check reported `dirty_content_count=0` and `dirty_map_count=0`.
+- Graph integration step: `niagara_generation_recipe_builder.py` now has `--graph-inspect-mode auto|off|required`, stores compact `graph_analysis`, mirrors graph node-class/Scratch Pad sources into `reference_analysis`, and adds graph-aware risk notes.
+- Preview Player integration: the Niagara Preview Player analysis panel now calls `inspect_niagara_graph` and shows graph count, node count, link count, and compact node classes alongside renderer, stack, and module-input analysis.
+- Integration verification: `py_compile` passed for `niagara_generation_recipe_builder.py`; `StylizedCubelessEditor Win64 Development -NoHotReloadFromIDE` built successfully; required-mode recipe smoke `red sword trail graph topology smoke` wrote `Saved/MCP_NiagaraGeneration/graph_topology_recipe_smoke_generation_recipe.json` with `Graph inspect: success`.
+- Preview Player verification: opening `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Parry03.FX_S_Parry03` returned an `analysis_summary` containing `Graph topology 4 graphs | 104 nodes | 106 links`; post-check dirty content/map counts remained `0/0`.
+- Added read-only `inspect_niagara_compile_status` in the sibling UnrealMCP plugin and mirrored the Niagara command C++ files into the Cubeless plugin copy. The command reports per-script compile status, error/warning/dirty/unknown/missing counts, script readiness, and outstanding compilation requests.
+- Compile request safety: `inspect_niagara_compile_status(..., request_compile=true)` is blocked outside `/Game/_MCP_Temp/NiagaraGenerated/` unless `allow_source_compile=true` is explicitly passed.
+- Added Python MCP registration and docs for `inspect_niagara_compile_status` in the sibling repo.
+- Recipe compile-status integration: `niagara_generation_recipe_builder.py` now has `--compile-status-inspect-mode auto|off|required`, stores compact `compile_status_analysis`, mirrors status counts/notable scripts into `reference_analysis`, and adds compile-health risk notes.
+- Preview Player compile-status integration: the Niagara Preview Player analysis panel now calls `inspect_niagara_compile_status` and shows `Compile status errors <n> | warnings <n> | dirty <n> | outstanding <true|false>`.
+- Compile-status verification: sibling `MCPGameProjectEditor Win64 Development -NoHotReloadFromIDE` and Cubeless `StylizedCubelessEditor Win64 Development -NoHotReloadFromIDE` both built successfully.
+- Runtime compile-status smoke on `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Parry03.FX_S_Parry03` returned `10` scripts, `0` errors, `0` warnings, `0` dirty scripts, and `read_only=true`; report written to `Saved/MCP_NiagaraGeneration/inspect_niagara_compile_status_smoke.json`.
+- Source safety guard smoke rejected `request_compile=true` on the same source Niagara system without `allow_source_compile=true`.
+- Required-mode recipe smoke `red sword trail compile status smoke` wrote `Saved/MCP_NiagaraGeneration/compile_status_recipe_smoke_generation_recipe.json` with renderer, stack, graph, compile-status, and module-input inspections all successful.
+- Preview Player smoke loaded `FX_S_Parry03` with `preview_loaded=true` and returned an `analysis_summary` containing `Compile status errors 0 | warnings 0 | dirty 0 | outstanding true`; report written to `Saved/MCP_NiagaraGeneration/preview_player_compile_status_smoke.json`.
+- Post-inspection dirty check reported `dirty_content_count=0` and `dirty_map_count=0`.
+- Added compile wait/poll support to `inspect_niagara_compile_status`: `wait_for_completion`, `timeout_seconds`, and `poll_interval_seconds`.
+- Initial generated-temp compile wait using Sleep-only polling timed out with outstanding compilation still true. The wait loop was corrected to call `UNiagaraSystem::PollForCompilationComplete()` and `FAssetCompilingManager::ProcessAsyncTasks(true)`, matching Unreal's Niagara commandlet pattern.
+- Added `--socket-validate-compile-only`, `--compile-wait-timeout`, and `--compile-poll-interval` to `Tools/Unreal/niagara_generation_recipe_executor.py`.
+- `--socket-postprocess-only` now runs compile validation as the final step after renderer material binding, User parameter application, and module input application.
+- Recipe builder validation output now includes `validation.compile_gate` with default timeout/poll settings and fatal conditions.
+- Compile wait gate smoke on `/Game/_MCP_Temp/NiagaraGenerated/codex_socket_postprocess_smoke/NS_codex_socket_postprocess_smoke` succeeded: `23` scripts, `0` errors, `0` warnings, `0` dirty, `wait_timed_out=false`, `outstanding_compilation_requests_after=false`; report written to `Saved/MCP_NiagaraGeneration/compile_wait_gate_smoke_report.json`.
+- Full postprocess smoke with compile gate succeeded with four successful steps and no step errors; report written to `Saved/MCP_NiagaraGeneration/compile_wait_postprocess_smoke_report.json`.
+- Post-postprocess dirty check reported `dirty_content_count=0` and `dirty_map_count=0`.
+- Added Preview Player validation to `Tools/Unreal/niagara_generation_recipe_executor.py`: `--socket-validate-preview-only` opens the generated temp system in the Preview Player, records renderability/playback/analysis state, captures the actual `Niagara Preview Player` OS window, and stores screenshot statistics in the report.
+- `--socket-postprocess-only` now runs five steps: renderer material binding, User parameter application, module input application, compile validation, and Preview Player validation.
+- Recipe builder validation output now includes `validation.preview_player_gate` with the Preview Player commands, OS capture script, screenshot title pattern, settle delay, and fatal conditions.
+- Preview Player gate smoke succeeded and wrote `Saved/MCP_NiagaraGeneration/preview_player_gate_smoke_report.json`; screenshot evidence is `Saved/MCP/NiagaraReviews/codex_socket_postprocess_smoke/codex_socket_postprocess_smoke_niagara_previewer.png`.
+- Full postprocess smoke with compile and Preview Player gates succeeded with five successful steps and no step errors; report written to `Saved/MCP_NiagaraGeneration/preview_player_postprocess_gate_smoke_report.json`.
+- The secondary `get_niagara_preview_player_state` call can still time out during full postprocess; the executor now falls back to the state returned by `open_niagara_preview_player` so screenshot capture still completes.
+- The Preview Player screenshot analysis warned that the captured viewport was mostly dark (`viewport_average_luma` about `45.39`, `viewport_max_luma` about `63`), so this screenshot is valid Preview Player UI evidence but not a strong visual-read pass.
+- Added multi-capture Preview Player screenshot selection. The executor now captures multiple `Niagara Preview Player` window candidates, scores the viewport crop by brightness/readability, keeps candidate paths/scores in the report, and copies the selected candidate to the canonical `<slug>_niagara_previewer.png` path.
+- Preview-only multi-capture smoke with `4` candidates selected a visible sword-trail frame; report written to `Saved/MCP_NiagaraGeneration/preview_player_multicapture_smoke_report.json`.
+- Full `--socket-postprocess-only` multi-capture smoke succeeded with five successful steps and selected a visible Preview Player screenshot candidate; report written to `Saved/MCP_NiagaraGeneration/preview_player_multicapture_postprocess_report.json`.
+- Post-preview-gate dirty check reported `dirty_content_count=0` and `dirty_map_count=0`.
+- Notion capture was unavailable due reauthentication, so this local work-log entry is the durable capture.
+
 ## 2026-06-11 - Niagara Natural-Language Recipe Compiler Pass
 
 ### Summary
@@ -2764,3 +2836,145 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - All materials compile with `compile_error_count=0` and are saved; verification screenshots at day/golden-hour/sunset times confirmed gradient, sun disc, far ring, and card shading.
 - Detailed contract and MCP pitfalls (Rotator python arg order roll/pitch/yaw, AssetImportTask needs defer_to_ticker, modal dialogs blocking the ticker queue, exposure bias 10 unity calibration, no double sRGB decode for the LUT) recorded in `docs/skysystem-anime-sky.md`.
 - Residual: `M_SkySystem_Debug` leftover material could not be deleted while referenced (safe to force-delete later); far-cloud sunset tint and card density are tunable via `MPC_SkySystem`.
+## 2026-06-12 Niagara MCP docs review
+- Reviewed `docs/niagara-learning/generative-niagara-implementation-plan.md` and `docs/niagara-learning/niagara-inspector-api-spec.md` before continuing Niagara C++ MCP extension work.
+- Finding: the documents contain useful safety rules, but mix early future-plan sections with later implemented API records. `Phase 0.13` appears twice, `Phase 1` still names `analyze_niagara_system` as the first C++ target after later sections describe renderer/user/stack/module-input APIs, and the recommended next work is stale.
+- Branch/location risk: current sibling repo `C:/Git/unreal-mcp-cubeless` is on `codex/niagara-mcp-authoring` and does not show the later module-input command implementations, while the project submodule `Plugins/UnrealMCP` is on `codex/niagara-renderer-material-api` and contains `inspect_niagara_module_inputs` / `set_niagara_module_input_value` references. Before implementing, reconcile which branch is the source of truth or cherry-pick/migrate the existing implementation safely.
+- Recommended next step: make a capability matrix separating Python-only work, implemented C++ MCP commands, planned C++ commands, and deferred Scratch Pad graph authoring. Prioritize compile diagnostics after temp-only module input writes before broadening module/Scratch Pad authoring.
+
+## 2026-06-12 Niagara Preview Player open-state validation
+- Changed the generated Niagara executor Preview Player gate to use the state returned by `open_niagara_preview_player` as the default state source. The secondary `get_niagara_preview_player_state` call is now opt-in through `--preview-refresh-state`, which removes routine timeout noise after Preview Player load.
+- Preview-only smoke wrote `Saved/MCP_NiagaraGeneration/preview_player_open_state_smoke_report.json` with `success=true`, `state_source=open_niagara_preview_player`, empty `state_error`, `last_preview_renderable=true`, and selected screenshot candidate `4`.
+- Full `--socket-postprocess-only` smoke wrote `Saved/MCP_NiagaraGeneration/preview_player_open_state_postprocess_report.json` with `success=true`, `step_errors=[]`, `5` successful steps, Preview Player screenshot candidate `2`, and the selected screenshot at `Saved/MCP/NiagaraReviews/codex_socket_postprocess_smoke/codex_socket_postprocess_smoke_niagara_previewer.png`.
+- Dirty package check through `execute_python` reported `dirty_content_count=0` and `dirty_map_count=0` after the run.
+
+## 2026-06-12 Niagara Preview Player visual-read classification
+- Added non-fatal screenshot visual-read classification to the generated Niagara executor Preview Player gate.
+- Reports now expose `screenshot_visual_pass`, `screenshot_visual_read_status`, `screenshot_visual_confidence`, `screenshot_visual_warnings`, `screenshot_visual_failure_reasons`, and `screenshot_visual_summary` next to the selected screenshot path.
+- Classification uses sampled viewport luma, bright-pixel ratio, non-black ratio, and sample count. It is intentionally advisory in this phase so dark or subtle intentional effects do not fail the generation gate prematurely.
+- Added Preview Player open-timeout recovery: if `open_niagara_preview_player` times out but the current Preview Player state already matches the requested target system, the executor records `open_error`/`open_recovered_from_state` and continues.
+- Added `--preview-require-visual-pass`, which promotes a failed visual-read classification to the fatal reason `preview_visual_read_failed`. Default behavior remains advisory.
+- Preview-only smoke wrote `Saved/MCP_NiagaraGeneration/preview_player_visual_read_smoke_report.json` with `success=true`, `screenshot_visual_pass=true`, `screenshot_visual_read_status=pass`, and no visual failure reasons.
+- Full postprocess smoke wrote `Saved/MCP_NiagaraGeneration/preview_player_visual_read_postprocess_report.json` with `success=true`, `step_errors=[]`, `5` steps, compile error/warning/dirty counts all `0`, `screenshot_visual_pass=true`, and dirty packages `0/0` after the run.
+- Required visual-read smoke wrote `Saved/MCP_NiagaraGeneration/preview_player_visual_required_smoke_report.json` with `require_visual_pass=true`, `success=true`, and no fatal reasons.
+- Full required visual-read postprocess smoke wrote `Saved/MCP_NiagaraGeneration/preview_player_visual_required_postprocess_report.json` with `success=true`, `step_errors=[]`, `5` steps, compile error/warning/dirty counts all `0`, `screenshot_visual_pass=true`, and dirty packages `0/0` after the run.
+
+## 2026-06-12 Niagara generated review summary
+- Added automatic compact review summary generation to `Tools/Unreal/niagara_generation_recipe_executor.py`. Unless `--no-review-summary` is passed, each execution report now gets a sibling `<report_stem>_review_summary.json`.
+- The summary records `overall_status`, `recommended_next_action`, write counts, compile gate status/counts, Preview Player gate status, visual-read status/confidence, screenshot artifact path, fatal reasons, warnings, and blocked API count.
+- Required visual postprocess smoke wrote `Saved/MCP_NiagaraGeneration/review_summary_required_postprocess_report.json` and `Saved/MCP_NiagaraGeneration/review_summary_required_postprocess_report_review_summary.json`.
+- The generated summary reported `overall_status=pass`, compile/preview/visual all `pass`, module input writes `6`, no warnings, no fatal reasons, and screenshot path `Saved/MCP/NiagaraReviews/codex_socket_postprocess_smoke/codex_socket_postprocess_smoke_niagara_previewer.png`.
+- Dirty package check after the summary smoke reported `dirty_content_count=0` and `dirty_map_count=0`.
+
+## 2026-06-12 Niagara dirty package summary gate
+- Added automatic post-run dirty package inspection for socket executor modes. Unless `--no-dirty-package-check` is passed, the executor calls Unreal `execute_python` and records `dirty_package_check` in the execution report.
+- The compact review summary now exposes dirty state under `gates.dirty_packages`. Recorded dirty content or map packages mark the summary and execution report as failed; unavailable dirty checks are treated as warnings.
+- Dirty summary smoke wrote `Saved/MCP_NiagaraGeneration/dirty_summary_required_postprocess_report.json` and `Saved/MCP_NiagaraGeneration/dirty_summary_required_postprocess_report_review_summary.json`.
+- The dirty summary smoke reported `dirty_content_count=0`, `dirty_map_count=0`, `overall_status=pass`, compile/preview/visual all `pass`, no warnings, and no fatal reasons.
+- A synthetic dirty-check failure sample confirmed the review summary becomes `overall_status=fail` when dirty packages are reported.
+
+## 2026-06-12 Niagara MCP capability matrix
+- Added `docs/niagara-learning/niagara-mcp-capability-matrix.md` as the current concise source of truth for implemented, Python-only, planned C++ MCP, and deferred/high-risk Niagara capabilities.
+- The matrix separates the project repo, project plugin copy, and sibling repo scopes so future work can keep Git status, diffs, commits, and pushes separate.
+- Implemented rows cover recipe building, temp duplication/material tinting, renderer/user/stack/graph/module-input/compile inspection, safe temp writes, Preview Player validation, visual-read classification, dirty package gate, and compact review summary.
+- Next C++ priorities were documented as `analyze_niagara_system`, missing RapidIteration override creation, batch module-input writes, emitter attach/duplicate, Scratch Pad interface inspection, Scratch Pad duplication, and later graph node/link mutation. `analyze_niagara_system` was implemented in the next step.
+- Updated the implementation plan and API spec to point readers to the capability matrix before choosing the next C++ extension.
+
+## 2026-06-12 Niagara analyze system aggregation API
+- Added read-only C++ MCP command `analyze_niagara_system` in both the sibling UnrealMCP plugin and the Cubeless project plugin copy.
+- The command aggregates existing renderer, User parameter, stack, graph, module-input, and compile-status inspection into one response with `summary`, `section_status`, `limitations`, and included section payloads.
+- Safety behavior: no save, no asset mutation, no compile request; compile status is called with `request_compile=false`; graph defaults use `include_pins=false`, `include_links=false`, and `max_links_per_graph=0`.
+- Added sibling Python MCP wrapper `analyze_niagara_system(...)`, updated the sibling server tool list, and documented the command in `Docs/Tools/niagara_tools.md`.
+- Verification: sibling `Python/unreal_mcp_server.py` and `Python/tools/niagara_tools.py` passed `py_compile`; sibling `MCPGameProjectEditor Win64 Development -NoHotReloadFromIDE` build succeeded.
+- Cubeless project build compiled the changed UnrealMCP C++ and produced `UnrealEditor-UnrealMCP.lib`, but final DLL link was blocked because the running Unreal Editor process held `Plugins/UnrealMCP/Binaries/Win64/UnrealEditor-UnrealMCP.dll`. Close/restart the editor and rerun the same build before runtime smoke.
+- Follow-up verification: dirty packages were `0/0`, Unreal Editor was closed through `execute_python`, and `StylizedCubelessEditor Win64 Development -NoHotReloadFromIDE` linked successfully after the DLL lock was released.
+- Relaunched the editor, confirmed the MCP bridge port `127.0.0.1:55557` opened, and runtime smoke called `analyze_niagara_system` on `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Parry03.FX_S_Parry03`.
+- Runtime smoke wrote `Saved/MCP_NiagaraGeneration/analyze_niagara_system_smoke.json` with all six sections successful: renderers, user parameters, stack, graph, module inputs, and compile status. Summary included `2` renderers, `40` stack calls, `4` graphs, `104` graph nodes, `219` module input candidates, `10` compile scripts, and compile errors/warnings/dirty all `0`.
+- Dirty package check after the runtime smoke again reported `dirty_content_count=0` and `dirty_map_count=0`.
+- Latest editor log opinion: no `Fatal` or assertion line appeared around the smoke; four startup-time `LogAutomationTest: Error: Condition failed` lines were present before `UnrealMCPBridge: Server started`, so they should be watched but did not block this MCP runtime smoke.
+
+## 2026-06-12 Niagara module input override creation API
+- Added `create_niagara_module_input_override` to the UnrealMCP Niagara C++ command set in both the sibling UnrealMCP plugin and the Cubeless project plugin copy.
+- Added the sibling Python MCP wrapper and tool documentation. The API creates missing RapidIteration overrides only for existing module inputs.
+- Safety behavior: source Niagara systems are blocked by default, generated temp systems under `/Game/_MCP_Temp/NiagaraGenerated/` are the normal write scope, and existing overrides are rejected unless `overwrite_existing=true` is passed.
+- Updated the capability matrix, implementation plan, and inspector API spec so the next C++ priority is batch module input writes rather than single missing-override creation.
+- Verification: sibling `MCPGameProjectEditor Win64 Development` and Cubeless `StylizedCubelessEditor Win64 Development` builds succeeded. Runtime smoke created `Module.Scale Alpha=0.77` on the temp system `/Game/_MCP_Temp/NiagaraGenerated/codex_socket_postprocess_smoke/NS_codex_socket_postprocess_smoke.NS_codex_socket_postprocess_smoke`; post-inspection read it back as `rapid_iteration`, compile status reported `error_count=0`, `warning_count=0`, `dirty_count=0`, and dirty package check reported `0/0`.
+
+## 2026-06-12 Niagara module input batch edit API
+- Added `set_niagara_module_inputs_batch` to the UnrealMCP Niagara C++ command set in both the sibling UnrealMCP plugin and the Cubeless project plugin copy.
+- The API applies multiple RapidIteration module input edits with per-edit results. Supported operations are `set_existing`, `create_override`, and `upsert`; source systems remain blocked by default.
+- Added the sibling Python MCP wrapper and documentation. Updated the capability matrix and API spec so executor integration can use one aggregated module-input edit result per generation.
+- Verification: sibling `MCPGameProjectEditor Win64 Development` and Cubeless `StylizedCubelessEditor Win64 Development` builds succeeded. Runtime batch smoke applied three edits on `/Game/_MCP_Temp/NiagaraGenerated/codex_socket_postprocess_smoke/NS_codex_socket_postprocess_smoke.NS_codex_socket_postprocess_smoke` with `applied_count=3`, `failed_count=0`, and `saved=true`; post-inspection read `Loop Duration=1.75`, `Scale Alpha=0.66`, and `Lifetime=1.25` as `rapid_iteration`. Compile status reported `error_count=0`, `warning_count=0`, `dirty_count=0`, and dirty package check reported `0/0`.
+
+## 2026-06-12 Niagara executor batch module input integration
+- Updated `Tools/Unreal/niagara_generation_recipe_executor.py` so module input application builds one `set_niagara_module_inputs_batch` request instead of calling `set_niagara_module_input_value` once per input.
+- Added supported missing-override automation for generated temp systems. The first safe allow-list is conservative: `EmitterState`, `ParticleState`, `ScaleColor`, and `SolveForcesAndVelocity` with scalar/vector/color values. Curve inputs, unknown types, bools, and modules such as `InitializeParticle`/`AddVelocity` stay skipped until the C++ owning-script resolution is expanded.
+- Updated `Tools/Unreal/niagara_generation_recipe_builder.py` so the generation plan points module input work at `set_niagara_module_inputs_batch`.
+- Verification: `py_compile` passed for builder and executor. `executor_batch_module_inputs_smoke_report.json` used `transport=set_niagara_module_inputs_batch`, applied `13` existing edits with `failed_count=0`, and dirty package check reported `0/0`. `executor_batch_missing_override_smoke_report.json` created `17` missing overrides with `operation=create_override`, `failed_count=0`, and review summary `pass`. Compile validation for that target reported `script_count=23`, `error_count=0`, `warning_count=0`, `dirty_count=0`, `missing_count=0`, and no outstanding compile requests.
+
+## 2026-06-12 Niagara batch report summary v2
+- Extended module input execution reports with normalized `application_summary` counts for `succeeded`, `failed`, `created_missing_override`, `overwritten_existing`, `edited_existing`, `by_operation`, `by_intent`, and `by_input`.
+- Added normalized `batch_summary` from `set_niagara_module_inputs_batch` so reports do not require parsing the full raw MCP response to see requested/processed/applied/failed/save state.
+- Updated compact review summaries to `summary_version=2` and added `writes.module_inputs` with transport, batch edit count, operation counts, created override count, edited existing count, and batch status.
+- Fixed no-op module input application to remain successful when all target values already match and no batch edits are needed.
+- Verification: `executor_batch_summary_v2_nonzero_report.json` applied `34` module input edits with `failed=0`, including `24` `create_override` and `10` `set_existing` edits; review summary v2 reported `overall_status=pass`. Compile validation for the same target reported `script_count=23`, `error_count=0`, `warning_count=0`, `dirty_count=0`, `missing_count=0`, and no outstanding compile requests. Dirty package check reported `0/0`.
+
+## 2026-06-12 Niagara Previewer capture hardening
+- Found a false-positive Previewer screenshot pass: the output path was named `*_niagara_previewer.png`, but the screen BitBlt capture had recorded the Codex window because the target Preview Player window was occluded.
+- Hardened `Tools/Unreal/capture-unreal-editor-window.ps1` by filtering matched windows to `process_name=UnrealEditor` and using HWND `PrintWindow` capture before falling back to screen BitBlt. Capture JSON now records `process_id`, `process_name`, and `capture_method`.
+- Hardened dirty package checks after Previewer work by sending `execute_python` with `defer_to_ticker=true` and a longer timeout; this avoided the post-preview dirty check timeout.
+- Verification: direct capture produced a real `Niagara Preview Player` image with `capture_method=print_window` and `process_name=UnrealEditor`. Full `--socket-postprocess-only --preview-require-visual-pass` on `red_sword_trail_intent_route_smoke` passed with module input batch `17/17`, compile `error_count=0`, `warning_count=0`, `dirty_count=0`, Preview Player `last_preview_renderable=true`, visual read `pass/high`, and dirty packages `0/0`.
+
+## 2026-06-12 Niagara Scratch Pad interface inspection API
+- Added read-only C++ MCP command `inspect_niagara_scratch_pad_interface` in both the sibling UnrealMCP plugin and the Cubeless project plugin copy.
+- The command reports system/emitter/parent Scratch Pad scripts with owner metadata, usage, supported usage contexts, input nodes, output nodes, control hints, and optional compact graph summaries.
+- Added the sibling Python MCP wrapper and documented the tool in `Docs/Tools/niagara_tools.md`.
+- Safety behavior: no save, no compile request, no graph mutation, no source asset mutation. This prepares the next temp-only Scratch Pad duplication/design step without enabling arbitrary node wiring yet.
+- Verification: sibling `Python/unreal_mcp_server.py` and `Python/tools/niagara_tools.py` passed `py_compile`; sibling `MCPGameProjectEditor Win64 Development` and Cubeless `StylizedCubelessEditor Win64 Development` builds succeeded.
+- Runtime smoke: `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Parry03.FX_S_Parry03` returned success with `0` Scratch Pads, and `/Game/Cubeless/Reactive/NS_Reactive_RTTexturePainter.NS_Reactive_RTTexturePainter` returned `5` system Scratch Pads with `5` inputs and `5` outputs. Dirty package check after the smoke reported `0/0`.
+
+## 2026-06-12 Niagara emitter attach API
+- Added temp-system write C++ MCP command `duplicate_or_attach_emitter_from_source` in both the sibling UnrealMCP plugin and the Cubeless project plugin copy.
+- The command accepts either `source_emitter_path` or `source_system_path` with `source_emitter_index`/`source_emitter_name`, adds the source emitter into `target_system_path`, optionally renames/enables it, requests compile, and saves the target.
+- Safety behavior: target systems outside `/Game/_MCP_Temp/NiagaraGenerated/` are refused unless `allow_source_edit=true`; source emitters/systems are read-only.
+- Added the sibling Python MCP wrapper and documented the tool in `Docs/Tools/niagara_tools.md`.
+- Verification: sibling `Python/unreal_mcp_server.py` and `Python/tools/niagara_tools.py` passed `py_compile`; sibling `MCPGameProjectEditor Win64 Development` and Cubeless `StylizedCubelessEditor Win64 Development` builds succeeded.
+- Runtime smoke: duplicated `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Parry03.FX_S_Parry03` to `/Game/_MCP_Temp/NiagaraGenerated/codex_emitter_attach_smoke_*`, attached one source system emitter handle (`2 -> 3` emitters), then attached the emitter asset `/Game/EL/ART/BG/FX/Viking_Village/VFXUpdate/Niagara/NE_Ember.NE_Ember` (`3 -> 4` emitters). Compile validation reported `error_count=0`, `warning_count=0`, `dirty_count=0`, and dirty package check after the smoke reported `0/0`.
+
+## 2026-06-12 Niagara Scratch Pad duplication API
+- Added temp-system write C++ MCP command `create_or_duplicate_scratch_pad_module` in both the sibling UnrealMCP plugin and the Cubeless project plugin copy.
+- The command selects a source Scratch Pad script by direct script path or by `source_system_path` plus owner/script/emitter selectors, duplicates it with `StaticDuplicateObject`, and adds the copy to a target system or emitter Scratch Pad collection.
+- Safety behavior: target systems outside `/Game/_MCP_Temp/NiagaraGenerated/` are refused unless `allow_source_edit=true`; source Scratch Pad scripts are read-only; this first pass does not insert a module function-call node into the stack and does not wire graph pins.
+- Added the sibling Python MCP wrapper and documented the tool in `Docs/Tools/niagara_tools.md`.
+- Verification: sibling `Python/unreal_mcp_server.py` and `Python/tools/niagara_tools.py` passed `py_compile`; sibling `MCPGameProjectEditor Win64 Development` and Cubeless `StylizedCubelessEditor Win64 Development` builds succeeded.
+- Runtime smoke: duplicated `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Parry03.FX_S_Parry03` to `/Game/_MCP_Temp/NiagaraGenerated/codex_scratchpad_duplicate_smoke_*`, copied two Scratch Pads from `/Game/Cubeless/Reactive/NS_Reactive_RTTexturePainter.NS_Reactive_RTTexturePainter`, one into target system Scratch Pads and one into target emitter Scratch Pads. Inspection reported `system_scratch_pad_count=1`, `emitter_scratch_pad_count=1`; compile validation reported `error_count=0`, `warning_count=0`, `dirty_count=0`; dirty package check reported `0/0`.
+
+## 2026-06-12 Niagara Scratch Pad stack insertion API
+- Added temp-system write C++ MCP command `add_scratch_pad_module_to_stack` in both the sibling UnrealMCP plugin and the Cubeless project plugin copy.
+- The command inserts a target-local `Module` Scratch Pad into a system/emitter stack through `FNiagaraStackGraphUtilities::AddScriptModuleToStack`.
+- Safety behavior: target systems outside `/Game/_MCP_Temp/NiagaraGenerated/` are refused unless `allow_source_edit=true`; the Scratch Pad must already belong to the target system; the command validates supported usage contexts before stack mutation; arbitrary Scratch Pad graph node/link wiring remains deferred.
+- Added the sibling Python MCP wrapper, sibling server tool list entry, and `Docs/Tools/niagara_tools.md` documentation. Updated the capability matrix, implementation plan, and API spec to mark Scratch Pad stack insertion implemented.
+- Verification: sibling `Python/unreal_mcp_server.py` and `Python/tools/niagara_tools.py` passed `py_compile`; sibling `MCPGameProjectEditor Win64 Development` build succeeded; Cubeless `StylizedCubelessEditor Win64 Development` initially hit the expected running-editor DLL lock, then succeeded after dirty packages were confirmed `0/0` and the editor was closed normally.
+- Runtime smoke: duplicated `/Game/Cubeless/Reactive/NS_Reactive_RTTexturePainter.NS_Reactive_RTTexturePainter` to `/Game/_MCP_Temp/NiagaraGenerated/codex_scratchpad_stack_smoke_*`, inserted system Scratch Pad `RenderCircleToGrid` into emitter `PaintGrid` `ParticleUpdateScript`, and created function-call node GUID `B321BF39-41E0-E962-9B2A-4C88C81BE4F9` (`graph_node_count_before=55`, `graph_node_count_after=56`).
+- Compile validation reported `error_count=0`, `warning_count=0`, `dirty_count=0`, `wait_timed_out=false`; stack inspection found `RenderCircleToGrid001` with the new GUID in the target graph; dirty package check after the smoke reported `dirty_content_count=0`, `dirty_map_count=0`.
+- Smoke report path: `Saved/MCP_NiagaraGeneration/scratch_pad_stack_insert_smoke.json`. The pre-insertion scratch-pad inspection response hit a Python UTF-8 decode issue on a large response containing localized type names, but the stack insertion, compile, and post-stack inspection commands succeeded.
+
+## 2026-06-12 Niagara Scratch Pad insertion integration and usage smoke
+- Fixed Python socket receive handling for large localized Scratch Pad responses. `Python/unreal_mcp_server.py`, `niagara_generation_recipe_builder.py`, and `niagara_generation_recipe_executor.py` now treat `UnicodeDecodeError` during chunk accumulation as an incomplete response and keep reading.
+- Decode smoke on `/Game/Cubeless/Reactive/NS_Reactive_RTTexturePainter.NS_Reactive_RTTexturePainter` succeeded with `system_scratch_pad_count=5`, `available_scratch_pad_count=5`, and first script `RenderCircleToGrid`.
+- Extended `niagara_generation_recipe_builder.py` with `scratch_pad_analysis`, `--scratch-pad-inspect-mode`, and conservative `generation_plan.scratch_pad_stack_insertions`. Automatic planning only enables insertion when prompt intent requests Scratch Pad/reactive behavior.
+- Extended `niagara_generation_recipe_executor.py` with `--socket-insert-scratch-pads-only`, full postprocess Scratch Pad insertion before compile validation, and review-summary Scratch Pad write counts.
+- Recipe/executor integration smoke wrote `scratch_pad_recipe_integration_smoke_generation_recipe.json`, duplicated the target temp system, and inserted `ParticleOnerScale` into emitter `Minimal` `ParticleUpdateScript`; new node GUID `0B5586CB-4BF8-A1C0-D0B1-96A313CBE8EB`, graph nodes `30 -> 31`.
+- Compile validation for the integration smoke reported `script_count=45`, `error_count=0`, `warning_count=0`, `dirty_count=0`, `missing_count=0`, and `wait_timed_out=false`.
+- Usage matrix smoke wrote `Saved/MCP_NiagaraGeneration/scratch_pad_usage_matrix_smoke.json`. Compatible insertions passed for `ParticleSpawnScript`, `ParticleUpdateScript`, and `EmitterSpawnScript`; incompatible `SystemUpdateScript` insertion was rejected with the expected supported-usage error. Compile validation after the matrix smoke reported `error_count=0`, `warning_count=0`, `dirty_count=0`, and dirty package check reported `0/0`.
+
+## 2026-06-12 Niagara Scratch Pad duplicate-skip safety
+- Added `skip_if_duplicate=true` default behavior to `add_scratch_pad_module_to_stack` in both the Cubeless UnrealMCP plugin copy and the sibling UnrealMCP workspace.
+- Duplicate detection compares the target-local Scratch Pad script already present in the requested output stack before mutation. Duplicate hits return success with `skipped_duplicate=true`, existing module node metadata, unchanged graph node counts, `compile_requested=false`, and `saved=false`.
+- Updated the sibling Python wrapper and Cubeless executor so planned Scratch Pad insertions request duplicate-skip behavior by default. Executor reports now split Scratch Pad applications into `inserted`, `skipped_duplicate`, and `failed`, and include post-insertion compile validation fatal reasons in the review summary.
+- Verification: Cubeless builder/executor and sibling MCP Python files passed `py_compile`; sibling `MCPGameProjectEditor Win64 Development` and Cubeless `StylizedCubelessEditor Win64 Development` builds succeeded. Runtime duplicate-skip smoke wrote `Saved/MCP_NiagaraGeneration/scratch_pad_duplicate_skip_smoke.json`: first insertion created node `C5DCD23C-4A32-1CAD-41FF-7F995E9A99C1` with graph nodes `55 -> 56`; second identical insertion returned `skipped_duplicate=true` and kept graph nodes `56 -> 56`. Compile validation reported `error_count=0`, `warning_count=0`, `dirty_count=0`, and the dirty package check after the smoke reported `0/0`.
+
+## 2026-06-12 Niagara Scratch Pad duplicate-skip C++ review fix
+- Fixed the C++ duplicate-skip check after review: existing modules are now matched against the same downstream output stack, including `target_usage_id` when present, instead of usage-only comparison. This avoids false duplicate skips for repeated usages such as multiple simulation-stage outputs.
+- Real Scratch Pad stack insertion now reports command failure if `save=true` and `SaveLoadedAsset` fails, rather than returning `success=true` with `saved=false`.
+- Verification: sibling `MCPGameProjectEditor Win64 Development` and Cubeless `StylizedCubelessEditor Win64 Development` builds succeeded. Runtime duplicate-skip fix smoke wrote `Saved/MCP_NiagaraGeneration/scratch_pad_duplicate_skip_fix_smoke.json`: first insertion created node `2E873D22-4E1B-1D39-A705-C98F77C6B2EB` with graph nodes `55 -> 56`; second identical insertion returned `skipped_duplicate=true` and kept graph nodes `56 -> 56`. Compile validation reported `error_count=0`, `warning_count=0`, `dirty_count=0`, `wait_timed_out=false`; dirty package check after the smoke reported `0/0`.

@@ -1,5 +1,47 @@
 # Generative Niagara Implementation Plan
 
+## 2026-06-12 Implementation Status
+
+The active UnrealMCP implementation work is now in the sibling repository
+`C:\Git\unreal-mcp-cubeless` on branch `codex/niagara-mcp-authoring`.
+
+Current implementation and next-work boundaries are summarized in
+`docs/niagara-learning/niagara-mcp-capability-matrix.md`. Treat that matrix as
+the shortest source of truth before choosing the next C++ extension.
+
+Current MCP Niagara coverage:
+
+- Read: aggregated system analysis with `analyze_niagara_system`.
+- Read: renderer/material inspection with `inspect_niagara_renderers`.
+- Read: exposed `User.*` parameter inspection with `inspect_niagara_user_parameters`.
+- Read: system, emitter, and Scratch Pad stack function-call inspection with `inspect_niagara_stack`.
+- Read: Scratch Pad ownership, usage, input, and output inspection with `inspect_niagara_scratch_pad_interface`.
+- Read: module input candidate inspection with `inspect_niagara_module_inputs`.
+- Write: renderer material replacement with `set_niagara_renderer_material`.
+- Write: source emitter asset/system-handle attachment into generated temp systems with `duplicate_or_attach_emitter_from_source`.
+- Write: existing Scratch Pad script duplication into generated temp systems/emitters with `create_or_duplicate_scratch_pad_module`.
+- Write: target-local Scratch Pad module stack insertion with `add_scratch_pad_module_to_stack`.
+- Pipeline: recipe/executor Scratch Pad insertion for target-local primary-source Scratch Pads when prompt intent requests Scratch Pad/reactive behavior.
+- Write: supported exposed User parameter values with `set_niagara_user_parameter`.
+- Write: missing RapidIteration module input overrides with `create_niagara_module_input_override`.
+- Write: existing RapidIteration module input overrides with `set_niagara_module_input_value`.
+- Write: batch RapidIteration module input edits with `set_niagara_module_inputs_batch`.
+- Pipeline: `Tools/Unreal/niagara_generation_recipe_builder.py` promotes renderer binding, matching User parameter overrides, and batch module input overrides into `can_execute_now` when the MCP inspection data is available.
+- Pipeline: `Tools/Unreal/niagara_generation_recipe_executor.py --socket-apply-module-inputs-only` now calls `set_niagara_module_inputs_batch` and can create supported missing RapidIteration overrides for generated temp systems.
+- Pipeline: `Tools/Unreal/niagara_generation_recipe_executor.py --socket-insert-scratch-pads-only` now inserts planned target-local Scratch Pad modules through `add_scratch_pad_module_to_stack`.
+- Pipeline: `Tools/Unreal/niagara_generation_recipe_executor.py --socket-postprocess-only` runs all safe socket post-processing steps on an already duplicated temp Niagara System.
+- Preview: Niagara Preview Player screenshot capture targets the `UnrealEditor`
+  process and uses HWND `PrintWindow` capture so occluded windows do not
+  accidentally capture Codex or another foreground app.
+
+Safety defaults:
+
+- Write tools refuse source assets unless `allow_source_edit=true`.
+- The default editable output scope remains `/Game/_MCP_Temp/NiagaraGenerated/` and related `_MCP_Temp` generated assets.
+- Full Scratch Pad graph creation, arbitrary node wiring, emitter merge, and graph-pin/dynamic-input authoring are still future work. Scratch Pad stack insertion is available only for target-local Module Scratch Pads in generated temp systems by default.
+
+The phase notes below are retained as project history. Some early sections still describe the pre-C++ state and should be read as historical context, not the current branch state.
+
 ## Goal
 
 Build a safe generative Niagara workflow for CubelessStylized:
@@ -294,6 +336,259 @@ Remaining deferred:
 - Mapping `DynamicMaterialParameters` outputs to specific material parameter slots.
 - Scratch Pad creation and insertion into temp systems.
 
+## Phase 0.11b: Graph Topology Inspector
+
+Purpose:
+
+- Move from function-call summaries toward full graph topology awareness.
+- Read the actual Niagara graph nodes, pins, and links before attempting any
+  future Scratch Pad or arbitrary graph authoring.
+- Keep this phase read-only so source systems, generated temp systems, maps,
+  materials, and textures are not dirtied by inspection.
+
+Current implementation:
+
+- UnrealMCP now has a read-only `inspect_niagara_graph` command.
+- It reports system spawn/update graphs, emitter graphs, system Scratch Pads,
+  emitter Scratch Pads, and parent emitter Scratch Pads where exposed by
+  Niagara editor data.
+- Each graph includes node class counts, node positions, node titles, Niagara
+  node kind, optional pins, explicit output-to-input links, truncation flags,
+  and node/link totals.
+- The command is separate from `inspect_niagara_stack`: stack inspection is a
+  semantic/module summary, while graph inspection is the lower-level topology
+  needed before safe node wiring can be designed.
+
+Verification:
+
+- `uv run --python 3.11 python -m py_compile Python/unreal_mcp_server.py Python/tools/niagara_tools.py` passed in the sibling repo.
+- `MCPGameProjectEditor Win64 Development -NoHotReloadFromIDE` built
+  successfully in `C:\Git\unreal-mcp-cubeless`.
+- Cubeless `StylizedCubelessEditor Win64 Development -NoHotReloadFromIDE`
+  initially compiled the UnrealMCP plugin sources but could not link while the
+  editor held `UnrealEditor-UnrealMCP.dll`; after a normal editor close, the
+  same build linked successfully.
+- Runtime smoke on
+  `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Sword_C_Skill01_Trail01.FX_S_Sword_C_Skill01_Trail01`
+  succeeded:
+  - minimal graph read: `5` emitters, `7` graphs, `188` nodes, `190` links,
+    `0` Scratch Pads, `read_only=true`.
+  - pins/links sample: first emitter graph returned `20` nodes and `35` links
+    with pin metadata before the requested truncation limit.
+  - post-inspection dirty check: `dirty_content_count=0`,
+    `dirty_map_count=0`.
+
+Remaining deferred:
+
+- Safe graph mutation APIs. This phase only observes topology.
+
+## Phase 0.11c: Graph Topology Integration
+
+Purpose:
+
+- Make `inspect_niagara_graph` useful in the generation loop instead of leaving
+  it as a standalone smoke command.
+- Surface graph topology in both generated recipes and the Niagara Preview
+  Player analysis panel.
+
+Current implementation:
+
+- `niagara_generation_recipe_builder.py` now supports
+  `--graph-inspect-mode auto|off|required`, defaulting to `auto`.
+- Recipes now include:
+  - `graph_analysis`
+  - `reference_analysis.graph_top_node_classes`
+  - `reference_analysis.graph_scratch_pad_sources`
+  - graph-aware risk notes such as graph count, node count, link count, and
+    Scratch Pad count.
+- The Niagara Preview Player analysis panel now shows:
+  - `Graph topology <graphs> graphs | <nodes> nodes | <links> links`
+  - a compact `Graph node classes` summary.
+
+Verification:
+
+- `py_compile` passed for `Tools/Unreal/niagara_generation_recipe_builder.py`.
+- `StylizedCubelessEditor Win64 Development -NoHotReloadFromIDE` built
+  successfully after the Preview Player update.
+- Required-mode recipe smoke
+  `red sword trail graph topology smoke` produced
+  `Saved/MCP_NiagaraGeneration/graph_topology_recipe_smoke_generation_recipe.json`
+  with `Graph inspect: success`.
+- The recipe graph summary for selected source `FX_S_Parry03` reported `4`
+  graphs, `104` nodes, `106` links, `0` Scratch Pads, and top node classes
+  including `NiagaraNodeFunctionCall`, `NiagaraNodeInput`,
+  `NiagaraNodeParameterMapSet`, `NiagaraNodeOutput`, and `NiagaraNodeEmitter`.
+- Opening `FX_S_Parry03` in the Niagara Preview Player returned an
+  `analysis_summary` containing `Graph topology 4 graphs | 104 nodes | 106 links`.
+- Post-inspection dirty check: `dirty_content_count=0`, `dirty_map_count=0`.
+
+Remaining deferred:
+
+- Use graph topology to design a safe temp-only graph mutation API.
+- Add wait/retry handling for outstanding Niagara compile requests after mutation
+  batches.
+
+## Phase 0.11d: Compile Status Diagnostics
+
+Purpose:
+
+- Add a safe compile-health read API before the generator performs deeper
+  Niagara graph or module-input mutation batches.
+- Surface compile errors, warnings, dirty script states, and outstanding
+  compilation requests in both recipes and the Niagara Preview Player.
+
+Current implementation:
+
+- UnrealMCP now has `inspect_niagara_compile_status`.
+- The command is read-only by default and returns per-script compile status,
+  readiness, error/warning flags, dirty/unknown/missing counts, and
+  `HasOutstandingCompilationRequests(true)` before/after the call.
+- `wait_for_completion=true` now polls Niagara through
+  `UNiagaraSystem::PollForCompilationComplete()` and pumps
+  `FAssetCompilingManager::ProcessAsyncTasks(true)` until outstanding
+  compilation requests clear or the timeout expires.
+- Optional `request_compile=true` exists, but is blocked for source assets
+  outside `/Game/_MCP_Temp/NiagaraGenerated/` unless
+  `allow_source_compile=true` is explicitly passed.
+- The sibling Python MCP layer exposes
+  `inspect_niagara_compile_status(system_path, request_compile=False,
+  force=False, allow_source_compile=False)`.
+- `niagara_generation_recipe_builder.py` now supports
+  `--compile-status-inspect-mode auto|off|required`, stores
+  `compile_status_analysis`, mirrors status counts/notable scripts into
+  `reference_analysis`, and adds compile-health risk notes.
+- `niagara_generation_recipe_builder.py` also writes a `validation.compile_gate`
+  contract with the default compile wait timeout, poll interval, and fatal
+  conditions.
+- `niagara_generation_recipe_executor.py` now has
+  `--socket-validate-compile-only` and runs compile validation automatically at
+  the end of `--socket-postprocess-only`.
+- `niagara_generation_recipe_executor.py` now also has
+  `--socket-validate-preview-only` and runs Preview Player validation after the
+  compile gate at the end of `--socket-postprocess-only`.
+- Preview Player validation opens the generated temp system with
+  `open_niagara_preview_player`, captures the actual `Niagara Preview Player`
+  window through `Tools/Unreal/capture-unreal-editor-window.ps1`, stores the
+  PNG under `Saved/MCP/NiagaraReviews/<slug>/`, and records screenshot brightness
+  statistics in the report.
+- Preview Player validation now captures multiple screenshot candidates and
+  selects the best frame by a viewport brightness/readability score. The
+  selected candidate is copied to the canonical
+  `<slug>_niagara_previewer.png` path, while candidate paths and scores remain
+  in the report.
+- The gate now uses the state returned by `open_niagara_preview_player` as the
+  default state source. `get_niagara_preview_player_state` remains available
+  through `--preview-refresh-state` for explicit refresh checks, which avoids
+  routine timeout noise during screenshot validation.
+- The selected Preview Player screenshot now receives non-fatal visual-read
+  fields: `screenshot_visual_pass`, `screenshot_visual_read_status`,
+  `screenshot_visual_confidence`, `screenshot_visual_warnings`, and
+  `screenshot_visual_failure_reasons`.
+- `--preview-require-visual-pass` promotes a failed visual-read classification
+  to the fatal reason `preview_visual_read_failed`; the default remains
+  advisory for subtle or intentionally dark effects.
+- The Niagara Preview Player analysis panel now shows:
+  - `Compile status errors <n> | warnings <n> | dirty <n> | outstanding <true|false>`.
+
+Verification:
+
+- Sibling `MCPGameProjectEditor Win64 Development -NoHotReloadFromIDE` built
+  successfully after adding the command, bridge route, Python tool, and docs.
+- Cubeless `StylizedCubelessEditor Win64 Development -NoHotReloadFromIDE`
+  built successfully after mirroring the C++ command and adding Preview Player
+  integration.
+- Runtime read-only smoke on `FX_S_Parry03` returned `10` scripts, `0` errors,
+  `0` warnings, `0` dirty scripts, `4` unknown emitter scripts, and
+  `read_only=true`.
+- Source safety guard smoke rejected `request_compile=true` on
+  `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Parry03.FX_S_Parry03`
+  without `allow_source_compile=true`.
+- Post-inspection dirty check reported `dirty_content_count=0`,
+  `dirty_map_count=0`.
+- Required-mode recipe smoke
+  `red sword trail compile status smoke` wrote
+  `Saved/MCP_NiagaraGeneration/compile_status_recipe_smoke_generation_recipe.json`
+  with all Niagara inspection modes successful.
+- Preview Player smoke loaded `FX_S_Parry03` and returned an
+  `analysis_summary` containing
+  `Compile status errors 0 | warnings 0 | dirty 0 | outstanding true`.
+- First generated-temp wait smoke with Sleep-only polling timed out with
+  outstanding compilation still true; after switching to
+  `PollForCompilationComplete()` plus asset-compiling task pumping, the same
+  temp system validated successfully.
+- Compile gate smoke on
+  `/Game/_MCP_Temp/NiagaraGenerated/codex_socket_postprocess_smoke/NS_codex_socket_postprocess_smoke`
+  returned `success=true`, `23` scripts, `0` errors, `0` warnings, `0` dirty
+  scripts, `wait_timed_out=false`, and
+  `outstanding_compilation_requests_after=false`.
+- `--socket-postprocess-only` now produced a report with four successful steps:
+  renderer binding, User parameter application, module input application, and
+  `socket_validate_compile_status`.
+- Preview Player gate smoke wrote
+  `Saved/MCP_NiagaraGeneration/preview_player_gate_smoke_report.json` and
+  captured the actual Preview Player window at
+  `Saved/MCP/NiagaraReviews/codex_socket_postprocess_smoke/codex_socket_postprocess_smoke_niagara_previewer.png`.
+- Full postprocess smoke now produced five successful steps: renderer binding,
+  User parameter application, module input application, compile validation, and
+  Preview Player validation. The report is
+  `Saved/MCP_NiagaraGeneration/preview_player_postprocess_gate_smoke_report.json`.
+- The Preview Player screenshot gate reported `last_preview_renderable=true`,
+  `playback_state=playing`, and `looping=true`. The viewport brightness analysis
+  warned that the captured frame was mostly dark, so the screenshot is useful as
+  Preview Player UI evidence but should not be treated as a strong visual-read
+  pass.
+- Multi-capture Preview Player smoke with `4` candidates selected a visible
+  sword-trail frame and wrote
+  `Saved/MCP_NiagaraGeneration/preview_player_multicapture_smoke_report.json`.
+- Full postprocess multi-capture smoke succeeded with five steps and selected a
+  visible Preview Player screenshot candidate. Report:
+  `Saved/MCP_NiagaraGeneration/preview_player_multicapture_postprocess_report.json`.
+- Visual-read classification smoke wrote
+  `Saved/MCP_NiagaraGeneration/preview_player_visual_read_smoke_report.json`
+  with `screenshot_visual_pass=true` and
+  `screenshot_visual_read_status=pass`.
+- Full postprocess visual-read smoke wrote
+  `Saved/MCP_NiagaraGeneration/preview_player_visual_read_postprocess_report.json`
+  with five successful steps, compile errors/warnings/dirty all `0`,
+  `screenshot_visual_pass=true`, and no visual failure reasons.
+- Required visual-read smoke wrote
+  `Saved/MCP_NiagaraGeneration/preview_player_visual_required_smoke_report.json`
+  with `require_visual_pass=true`, `success=true`, and no fatal reasons.
+- Full postprocess required visual-read smoke wrote
+  `Saved/MCP_NiagaraGeneration/preview_player_visual_required_postprocess_report.json`
+  with five successful steps, compile errors/warnings/dirty all `0`, and
+  `require_visual_pass=true`.
+- Executor runs now write a compact `<report_stem>_review_summary.json` unless
+  `--no-review-summary` is passed. The summary folds compile, preview,
+  visual-read, write-count, artifact, issue, and recommended-next-action fields
+  into one small review object.
+- Review summary smoke wrote
+  `Saved/MCP_NiagaraGeneration/review_summary_required_postprocess_report_review_summary.json`
+  with `overall_status=pass`, compile/preview/visual all `pass`, and no
+  warnings or fatal reasons.
+- Socket executor modes now run a post-run dirty package check by default and
+  store it as `dirty_package_check` in the execution report plus
+  `gates.dirty_packages` in the review summary. `--no-dirty-package-check`
+  disables this check when needed.
+- Dirty summary smoke wrote
+  `Saved/MCP_NiagaraGeneration/dirty_summary_required_postprocess_report.json`
+  and
+  `Saved/MCP_NiagaraGeneration/dirty_summary_required_postprocess_report_review_summary.json`
+  with `dirty_content_count=0`, `dirty_map_count=0`, and overall
+  `pass`.
+- `analyze_niagara_system` aggregation API smoke wrote
+  `Saved/MCP_NiagaraGeneration/analyze_niagara_system_smoke.json` with
+  renderer, User parameter, stack, graph, module input, and compile status
+  sections all successful. Sibling and Cubeless editor builds both passed after
+  releasing the project plugin DLL lock.
+- Post-postprocess dirty check reported `dirty_content_count=0`,
+  `dirty_map_count=0`.
+
+Remaining deferred:
+
+- Add richer compile event/message extraction if a stable public UE API path is
+  identified.
+
 ## Phase 0.12: Preview Player Analysis Panel
 
 Rule:
@@ -310,6 +605,7 @@ Current panel contents:
 - exposed `User.*` count and settable count
 - emitter stack function-call count
 - Scratch Pad count
+- compile status error/warning/dirty counts and outstanding compilation state
 - control hints such as `spawn_control`, `lifetime_control`, `dynamic_material_parameter_control`, `scale_control`, `size_control`, `color_or_tint_control`, and `velocity_control`
 - top module/function names per emitter
 

@@ -1,6 +1,7 @@
 param(
     [string]$OutputPath = "",
     [string]$TitlePattern = "Unreal Editor|CubelessStylized|StylizedCubeless",
+    [string]$ProcessNamePattern = "UnrealEditor",
     [switch]$NoForeground
 )
 
@@ -44,7 +45,13 @@ public class CubelessWin32Capture {
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll")]
     public static extern IntPtr GetDC(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags);
 
     [DllImport("user32.dll")]
     public static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
@@ -157,6 +164,59 @@ function New-BitmapFromScreenBitBlt {
     }
 }
 
+function New-BitmapFromWindowPrintWindow {
+    param(
+        [IntPtr]$Handle,
+        [int]$Width,
+        [int]$Height
+    )
+
+    $screenDc = [CubelessWin32Capture]::GetDC([IntPtr]::Zero)
+    if ($screenDc -eq [IntPtr]::Zero) {
+        throw "GetDC(NULL) failed"
+    }
+
+    $memoryDc = [IntPtr]::Zero
+    $bitmapHandle = [IntPtr]::Zero
+    $oldObject = [IntPtr]::Zero
+
+    try {
+        $memoryDc = [CubelessWin32Capture]::CreateCompatibleDC($screenDc)
+        if ($memoryDc -eq [IntPtr]::Zero) {
+            throw "CreateCompatibleDC failed"
+        }
+
+        $bitmapHandle = [CubelessWin32Capture]::CreateCompatibleBitmap($screenDc, $Width, $Height)
+        if ($bitmapHandle -eq [IntPtr]::Zero) {
+            throw "CreateCompatibleBitmap failed"
+        }
+
+        $oldObject = [CubelessWin32Capture]::SelectObject($memoryDc, $bitmapHandle)
+        $ok = [CubelessWin32Capture]::PrintWindow($Handle, $memoryDc, 2)
+        if (-not $ok) {
+            throw "PrintWindow failed"
+        }
+
+        $image = [System.Drawing.Image]::FromHbitmap($bitmapHandle)
+        try {
+            return New-Object System.Drawing.Bitmap $image
+        } finally {
+            $image.Dispose()
+        }
+    } finally {
+        if ($oldObject -ne [IntPtr]::Zero -and $memoryDc -ne [IntPtr]::Zero) {
+            [void][CubelessWin32Capture]::SelectObject($memoryDc, $oldObject)
+        }
+        if ($bitmapHandle -ne [IntPtr]::Zero) {
+            [void][CubelessWin32Capture]::DeleteObject($bitmapHandle)
+        }
+        if ($memoryDc -ne [IntPtr]::Zero) {
+            [void][CubelessWin32Capture]::DeleteDC($memoryDc)
+        }
+        [void][CubelessWin32Capture]::ReleaseDC([IntPtr]::Zero, $screenDc)
+    }
+}
+
 $windows = New-Object System.Collections.Generic.List[object]
 $callback = [CubelessWin32Capture+EnumWindowsProc]{
     param([IntPtr]$hWnd, [IntPtr]$lParam)
@@ -177,6 +237,18 @@ $callback = [CubelessWin32Capture+EnumWindowsProc]{
         return $true
     }
 
+    $processId = 0
+    [void][CubelessWin32Capture]::GetWindowThreadProcessId($hWnd, [ref]$processId)
+    $processName = ""
+    try {
+        $processName = (Get-Process -Id $processId -ErrorAction Stop).ProcessName
+    } catch {
+        return $true
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ProcessNamePattern) -and $processName -notmatch $ProcessNamePattern) {
+        return $true
+    }
+
     $rect = New-Object CubelessWin32Capture+RECT
     [void][CubelessWin32Capture]::GetWindowRect($hWnd, [ref]$rect)
     $width = [Math]::Max(0, $rect.Right - $rect.Left)
@@ -187,6 +259,8 @@ $callback = [CubelessWin32Capture+EnumWindowsProc]{
         $windows.Add([pscustomobject]@{
             Area = $area
             Handle = $hWnd
+            ProcessId = $processId
+            ProcessName = $processName
             Title = $title
             Left = $rect.Left
             Top = $rect.Top
@@ -224,7 +298,17 @@ if ($width -le 0 -or $height -le 0) {
 }
 
 try {
-    $bitmap = New-BitmapFromScreenBitBlt -Left $left -Top $top -Width $width -Height $height
+    $captureMethod = "print_window"
+    try {
+        $bitmap = New-BitmapFromWindowPrintWindow -Handle $target.Handle -Width $width -Height $height
+    } catch {
+        if ($bitmap) {
+            $bitmap.Dispose()
+            $bitmap = $null
+        }
+        $captureMethod = "screen_bitblt_fallback"
+        $bitmap = New-BitmapFromScreenBitBlt -Left $left -Top $top -Width $width -Height $height
+    }
     $stats = Get-WindowCaptureStats -Bitmap $bitmap
     if ($stats.NonBlackRatio -lt 0.02) {
         throw "Capture produced mostly black image: non_black_ratio=$($stats.NonBlackRatio)"
@@ -246,6 +330,9 @@ $file = Get-Item -LiteralPath $OutputPath
     path = $file.FullName
     bytes = $file.Length
     title = $target.Title
+    process_id = $target.ProcessId
+    process_name = $target.ProcessName
+    capture_method = $captureMethod
     rect = "$left,$top,$right,$bottom"
     non_black_ratio = $stats.NonBlackRatio
 } | ConvertTo-Json -Compress

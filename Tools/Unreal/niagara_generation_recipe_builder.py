@@ -122,7 +122,7 @@ def send_unreal_mcp_command(command: str, params: dict[str, Any], host: str, por
             chunks.append(chunk)
             try:
                 return json.loads(b"".join(chunks).decode("utf-8"))
-            except json.JSONDecodeError:
+            except (UnicodeDecodeError, json.JSONDecodeError):
                 continue
     raise RuntimeError(f"Unreal MCP command returned no complete JSON response: {command}")
 
@@ -242,6 +242,167 @@ def inspect_niagara_module_inputs(system_path: str, mode: str, host: str, port: 
         }
 
 
+def inspect_niagara_graph(system_path: str, mode: str, host: str, port: int) -> dict[str, Any]:
+    if mode == "off" or not system_path:
+        return {
+            "status": "disabled",
+            "system_path": system_path,
+            "emitters": [],
+            "scratch_pad_sources": [],
+        }
+
+    try:
+        response = send_unreal_mcp_command(
+            "inspect_niagara_graph",
+            {
+                "system_path": object_path_from_package_path(system_path),
+                "include_pins": False,
+                "include_links": False,
+                "include_scratch_pads": True,
+                "max_nodes_per_graph": 160,
+                "max_links_per_graph": 0,
+            },
+            host,
+            port,
+            timeout=45.0,
+        )
+        if response.get("status") != "success":
+            raise RuntimeError(json.dumps(response, ensure_ascii=False))
+        return compact_graph_analysis(response.get("result", {}), system_path)
+    except Exception as exc:
+        if mode == "required":
+            raise
+        return {
+            "status": "unavailable",
+            "system_path": system_path,
+            "error": str(exc),
+            "emitters": [],
+            "scratch_pad_sources": [],
+        }
+
+
+def inspect_niagara_compile_status(system_path: str, mode: str, host: str, port: int) -> dict[str, Any]:
+    if mode == "off" or not system_path:
+        return {
+            "status": "disabled",
+            "system_path": system_path,
+            "scripts": [],
+        }
+
+    try:
+        response = send_unreal_mcp_command(
+            "inspect_niagara_compile_status",
+            {
+                "system_path": object_path_from_package_path(system_path),
+                "request_compile": False,
+            },
+            host,
+            port,
+            timeout=20.0,
+        )
+        if response.get("status") != "success":
+            raise RuntimeError(json.dumps(response, ensure_ascii=False))
+        return compact_compile_status_analysis(response.get("result", {}), system_path)
+    except Exception as exc:
+        if mode == "required":
+            raise
+        return {
+            "status": "unavailable",
+            "system_path": system_path,
+            "error": str(exc),
+            "scripts": [],
+        }
+
+
+def inspect_niagara_scratch_pads(system_path: str, mode: str, host: str, port: int) -> dict[str, Any]:
+    if mode == "off" or not system_path:
+        return {
+            "status": "disabled",
+            "system_path": system_path,
+            "candidates": [],
+        }
+
+    try:
+        response = send_unreal_mcp_command(
+            "inspect_niagara_scratch_pad_interface",
+            {
+                "system_path": object_path_from_package_path(system_path),
+                "include_graph_summary": False,
+                "include_parent_scratch_pads": False,
+                "max_scripts": 48,
+                "max_function_calls": 24,
+            },
+            host,
+            port,
+            timeout=60.0,
+        )
+        if response.get("status") != "success":
+            raise RuntimeError(json.dumps(response, ensure_ascii=False))
+        return compact_scratch_pad_analysis(response.get("result", {}), system_path)
+    except Exception as exc:
+        if mode == "required":
+            raise
+        return {
+            "status": "unavailable",
+            "system_path": system_path,
+            "error": str(exc),
+            "candidates": [],
+        }
+
+
+def choose_stack_usage(supported_usages: list[str]) -> str:
+    priority = [
+        "ParticleUpdateScript",
+        "ParticleSpawnScript",
+        "EmitterUpdateScript",
+        "EmitterSpawnScript",
+        "SystemUpdateScript",
+        "SystemSpawnScript",
+        "ParticleSimulationStageScript",
+    ]
+    for usage in priority:
+        if usage in supported_usages:
+            return usage
+    return ""
+
+
+def compact_scratch_pad_analysis(result: dict[str, Any], fallback_system_path: str) -> dict[str, Any]:
+    candidates = []
+    for script in result.get("scratch_pad_scripts", []):
+        if script.get("usage") != "Module":
+            continue
+        supported_usages = list(script.get("supported_usage_contexts", []))
+        target_usage = choose_stack_usage(supported_usages)
+        if not target_usage:
+            continue
+        owner_kind = script.get("owner_kind", "")
+        if owner_kind not in {"system", "emitter"}:
+            continue
+        candidates.append(
+            {
+                "scratch_pad_name": script.get("name", ""),
+                "scratch_pad_owner_kind": owner_kind,
+                "scratch_pad_script_index": script.get("script_index", -1),
+                "scratch_pad_emitter_index": script.get("owner_emitter_index", -1),
+                "scratch_pad_owner_name": script.get("owner_name", ""),
+                "target_usage": target_usage,
+                "supported_usage_contexts": supported_usages,
+                "input_count": script.get("input_count", 0),
+                "output_count": script.get("output_count", 0),
+                "control_hints": script.get("control_hints", []),
+            }
+        )
+    return {
+        "status": "success",
+        "system_path": result.get("system_path", fallback_system_path),
+        "system_scratch_pad_count": result.get("system_scratch_pad_count", 0),
+        "emitter_scratch_pad_count": result.get("emitter_scratch_pad_count", 0),
+        "available_scratch_pad_count": result.get("available_scratch_pad_count", 0),
+        "candidate_count": len(candidates),
+        "candidates": candidates[:24],
+    }
+
+
 def compact_module_input_analysis(result: dict[str, Any], fallback_system_path: str) -> dict[str, Any]:
     top_candidates = []
     resolved_input_examples = []
@@ -301,6 +462,107 @@ def compact_module_input_analysis(result: dict[str, Any], fallback_system_path: 
         "candidate_emitters": emitter_names,
         "top_candidates": top_candidates,
         "resolved_input_examples": resolved_input_examples,
+    }
+
+
+def compact_compile_status_analysis(result: dict[str, Any], fallback_system_path: str) -> dict[str, Any]:
+    status_counts: dict[str, int] = {}
+    scripts = []
+
+    for script in result.get("scripts", []):
+        compile_status = script.get("compile_status", "unknown")
+        status_counts[compile_status] = status_counts.get(compile_status, 0) + 1
+        if script.get("has_error") or script.get("has_warning") or compile_status in {"NCS_Dirty", "NCS_Unknown", "missing"}:
+            scripts.append(
+                {
+                    "owner_kind": script.get("owner_kind", ""),
+                    "owner_name": script.get("owner_name", ""),
+                    "script_name": script.get("script_name", ""),
+                    "usage": script.get("usage", ""),
+                    "compile_status": compile_status,
+                    "has_error": script.get("has_error", False),
+                    "has_warning": script.get("has_warning", False),
+                }
+            )
+
+    return {
+        "status": "success",
+        "system_path": result.get("system_path", fallback_system_path),
+        "read_only": result.get("read_only", True),
+        "request_compile": result.get("request_compile", False),
+        "outstanding_compilation_requests_before": result.get("outstanding_compilation_requests_before", False),
+        "outstanding_compilation_requests_after": result.get("outstanding_compilation_requests_after", False),
+        "script_count": result.get("script_count", 0),
+        "error_count": result.get("error_count", 0),
+        "warning_count": result.get("warning_count", 0),
+        "dirty_count": result.get("dirty_count", 0),
+        "unknown_count": result.get("unknown_count", 0),
+        "missing_count": result.get("missing_count", 0),
+        "status_counts": status_counts,
+        "notable_scripts": scripts[:24],
+    }
+
+
+def compact_graph_analysis(result: dict[str, Any], fallback_system_path: str) -> dict[str, Any]:
+    emitters = []
+    scratch_pad_sources = []
+    node_classes: dict[str, int] = {}
+
+    def merge_node_classes(graph: dict[str, Any]) -> None:
+        for item in graph.get("node_class_counts", []):
+            node_class = item.get("node_class", "")
+            if not node_class:
+                continue
+            node_classes[node_class] = node_classes.get(node_class, 0) + int(item.get("count", 0))
+
+    for script in result.get("system_scripts", []):
+        merge_node_classes(script.get("graph", {}))
+
+    if result.get("system_scratch_pad_count", 0):
+        scratch_pad_sources.append("system")
+
+    for emitter in result.get("emitters", []):
+        graph = emitter.get("graph", {})
+        merge_node_classes(graph)
+        scratch_pads = emitter.get("scratch_pad_scripts", [])
+        parent_scratch_pads = emitter.get("parent_scratch_pad_scripts", [])
+        if scratch_pads or parent_scratch_pads:
+            scratch_pad_sources.append(emitter.get("name", ""))
+
+        emitters.append(
+            {
+                "name": emitter.get("name", ""),
+                "enabled": emitter.get("enabled", False),
+                "node_count": graph.get("node_count", 0),
+                "link_count": graph.get("link_count", 0),
+                "node_class_counts": graph.get("node_class_counts", [])[:12],
+                "scratch_pad_count": len(scratch_pads),
+                "parent_scratch_pad_count": len(parent_scratch_pads),
+                "nodes_truncated": graph.get("nodes_truncated", False),
+                "links_truncated": graph.get("links_truncated", False),
+            }
+        )
+
+    top_node_classes = [
+        {"node_class": name, "count": count}
+        for name, count in sorted(node_classes.items(), key=lambda item: (-item[1], item[0]))[:16]
+    ]
+
+    return {
+        "status": "success",
+        "system_path": result.get("system_path", fallback_system_path),
+        "read_only": result.get("read_only", True),
+        "include_pins": result.get("include_pins", False),
+        "include_links": result.get("include_links", False),
+        "emitter_count": result.get("emitter_count", 0),
+        "system_script_count": result.get("system_script_count", 0),
+        "total_graph_count": result.get("total_graph_count", 0),
+        "total_scratch_pad_count": result.get("total_scratch_pad_count", 0),
+        "total_node_count": result.get("total_node_count", 0),
+        "total_link_count": result.get("total_link_count", 0),
+        "top_node_classes": top_node_classes,
+        "scratch_pad_sources": scratch_pad_sources,
+        "emitters": emitters,
     }
 
 
@@ -725,6 +987,70 @@ def build_user_parameters(colors: list[str], duration: float | None) -> dict[str
     return params
 
 
+def should_reuse_scratch_pads(prompt: str, desired_roles: list[str]) -> bool:
+    lowered = prompt.casefold()
+    intent_terms = (
+        "scratch",
+        "scratch pad",
+        "reactive",
+        "interaction",
+        "runtime texture",
+        "render target",
+        "grid",
+        "스크래치",
+        "스크래치패드",
+        "반응",
+        "상호작용",
+        "리액티브",
+    )
+    return "reactive_runtime" in desired_roles or any(term in lowered for term in intent_terms)
+
+
+def first_target_emitter(stack_analysis: dict[str, Any]) -> dict[str, Any]:
+    for index, emitter in enumerate(stack_analysis.get("emitters", [])):
+        if emitter.get("enabled", True):
+            return {"target_emitter_index": index, "target_emitter_name": emitter.get("name", "")}
+    return {"target_emitter_index": 0, "target_emitter_name": ""}
+
+
+def build_scratch_pad_stack_insertions(
+    slug: str,
+    scratch_pad_analysis: dict[str, Any],
+    stack_analysis: dict[str, Any],
+    prompt: str,
+    desired_roles: list[str],
+) -> list[dict[str, Any]]:
+    if scratch_pad_analysis.get("status") != "success":
+        return []
+    if not should_reuse_scratch_pads(prompt, desired_roles):
+        return []
+
+    target_emitter = first_target_emitter(stack_analysis)
+    insertions = []
+    for candidate in scratch_pad_analysis.get("candidates", []):
+        target_usage = candidate.get("target_usage", "")
+        if not target_usage:
+            continue
+        insertion = {
+            "target_system_path": f"{TEMP_ROOT}/{slug}/NS_{slug}",
+            "scratch_pad_owner_kind": candidate.get("scratch_pad_owner_kind", "system"),
+            "scratch_pad_script_index": candidate.get("scratch_pad_script_index", -1),
+            "scratch_pad_name": candidate.get("scratch_pad_name", ""),
+            "target_usage": target_usage,
+            "target_index": -1,
+            "suggested_name": f"MCP_{candidate.get('scratch_pad_name', 'ScratchPad')}",
+            "source_policy": "target_local_after_primary_system_duplication",
+        }
+        if candidate.get("scratch_pad_owner_kind") == "emitter":
+            insertion["scratch_pad_emitter_index"] = candidate.get("scratch_pad_emitter_index", -1)
+            insertion["scratch_pad_emitter_name"] = candidate.get("scratch_pad_owner_name", "")
+        if target_usage not in {"SystemSpawnScript", "SystemUpdateScript"}:
+            insertion.update(target_emitter)
+        insertions.append(insertion)
+        break
+    return insertions
+
+
 def build_generation_plan(
     layers: list[dict[str, Any]],
     material_plan: list[dict[str, Any]],
@@ -732,6 +1058,10 @@ def build_generation_plan(
     colors: list[str],
     duration: float | None,
     module_input_analysis: dict[str, Any] | None = None,
+    scratch_pad_analysis: dict[str, Any] | None = None,
+    prompt: str = "",
+    desired_roles: list[str] | None = None,
+    stack_analysis: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     can_execute_now = []
     blocked_by_api = []
@@ -805,9 +1135,28 @@ def build_generation_plan(
                 "step": "apply_matching_module_input_overrides",
                 "source": "module_input_analysis",
                 "target": f"{TEMP_ROOT}/{slug}/NS_{slug}",
-                "requires_mcp_command": "set_niagara_module_input_value",
+                "requires_mcp_command": "set_niagara_module_inputs_batch",
                 "execution_mode": "external_socket_after_unreal_python_duplication",
-                "rule": "Only set existing RapidIteration module inputs on generated temp systems when name/type hints match the request intent.",
+                "rule": "Batch set existing RapidIteration values and create supported missing RapidIteration overrides on generated temp systems when name/type hints match the request intent.",
+            }
+        )
+
+    scratch_pad_stack_insertions = build_scratch_pad_stack_insertions(
+        slug,
+        scratch_pad_analysis or {},
+        stack_analysis or {},
+        prompt,
+        desired_roles or [],
+    )
+    if scratch_pad_stack_insertions:
+        can_execute_now.append(
+            {
+                "step": "insert_planned_scratch_pad_modules",
+                "source": "scratch_pad_analysis",
+                "target": f"{TEMP_ROOT}/{slug}/NS_{slug}",
+                "requires_mcp_command": "add_scratch_pad_module_to_stack",
+                "execution_mode": "external_socket_after_unreal_python_duplication",
+                "rule": "Only insert target-local Module Scratch Pads preserved by primary system duplication, and only when prompt intent requests Scratch Pad/reactive behavior.",
             }
         )
 
@@ -815,6 +1164,7 @@ def build_generation_plan(
         "target_system": f"{TEMP_ROOT}/{slug}/NS_{slug}",
         "can_execute_now": can_execute_now,
         "blocked_by_api": blocked_by_api,
+        "scratch_pad_stack_insertions": scratch_pad_stack_insertions,
         "preview_after_generation": {
             "tool": "Niagara Preview Player",
             "fallback_tool": "Niagara Preview Lab",
@@ -829,11 +1179,14 @@ def build_risk_notes(
     renderer_analysis: dict[str, Any] | None = None,
     stack_analysis: dict[str, Any] | None = None,
     module_input_analysis: dict[str, Any] | None = None,
+    graph_analysis: dict[str, Any] | None = None,
+    compile_status_analysis: dict[str, Any] | None = None,
+    scratch_pad_analysis: dict[str, Any] | None = None,
 ) -> list[str]:
     risk_notes = [
         "Recipe is no-C++ and inference-based.",
         "Original source assets are read-only.",
-        "Emitter add/remove and Scratch Pad reuse require future Niagara edit APIs.",
+        "Emitter add/remove and arbitrary Scratch Pad graph wiring require future Niagara edit APIs.",
         "User parameter overrides are limited to existing exposed User.* parameters on generated temp systems.",
     ]
     if renderer_analysis:
@@ -860,6 +1213,30 @@ def build_risk_notes(
             )
         elif status == "unavailable":
             risk_notes.append(f"Module input inspect unavailable; exact module-input candidates are missing. Reason: {module_input_analysis.get('error', '')}")
+    if graph_analysis:
+        status = graph_analysis.get("status", "unknown")
+        if status == "success":
+            risk_notes.append(
+                f"Graph inspect succeeded: {graph_analysis.get('total_graph_count', 0)} graphs, {graph_analysis.get('total_node_count', 0)} nodes, {graph_analysis.get('total_link_count', 0)} links, {graph_analysis.get('total_scratch_pad_count', 0)} scratch pads."
+            )
+        elif status == "unavailable":
+            risk_notes.append(f"Graph inspect unavailable; node/link topology is missing. Reason: {graph_analysis.get('error', '')}")
+    if compile_status_analysis:
+        status = compile_status_analysis.get("status", "unknown")
+        if status == "success":
+            risk_notes.append(
+                f"Compile status inspect succeeded: {compile_status_analysis.get('script_count', 0)} scripts, {compile_status_analysis.get('error_count', 0)} errors, {compile_status_analysis.get('warning_count', 0)} warnings, {compile_status_analysis.get('dirty_count', 0)} dirty."
+            )
+        elif status == "unavailable":
+            risk_notes.append(f"Compile status inspect unavailable; compile health is missing. Reason: {compile_status_analysis.get('error', '')}")
+    if scratch_pad_analysis:
+        status = scratch_pad_analysis.get("status", "unknown")
+        if status == "success":
+            risk_notes.append(
+                f"Scratch Pad interface inspect succeeded: {scratch_pad_analysis.get('available_scratch_pad_count', 0)} available, {scratch_pad_analysis.get('candidate_count', 0)} stack-insert candidates."
+            )
+        elif status == "unavailable":
+            risk_notes.append(f"Scratch Pad interface inspect unavailable. Reason: {scratch_pad_analysis.get('error', '')}")
     for source in sources[:5]:
         if source.get("bp_linkage_hints"):
             risk_notes.append(f"BP linkage hint on {source['object_path']}: {', '.join(source['bp_linkage_hints'])}")
@@ -875,7 +1252,10 @@ def build_recipe(
     output_name: str | None,
     renderer_inspect_mode: str = "auto",
     stack_inspect_mode: str = "auto",
+    graph_inspect_mode: str = "auto",
+    compile_status_inspect_mode: str = "auto",
     module_input_inspect_mode: str = "auto",
+    scratch_pad_inspect_mode: str = "auto",
     unreal_mcp_host: str = UNREAL_MCP_HOST,
     unreal_mcp_port: int = UNREAL_MCP_PORT,
 ) -> dict[str, Any]:
@@ -904,9 +1284,27 @@ def build_recipe(
         unreal_mcp_host,
         unreal_mcp_port,
     )
+    graph_analysis = inspect_niagara_graph(
+        primary_source,
+        graph_inspect_mode,
+        unreal_mcp_host,
+        unreal_mcp_port,
+    )
+    compile_status_analysis = inspect_niagara_compile_status(
+        primary_source,
+        compile_status_inspect_mode,
+        unreal_mcp_host,
+        unreal_mcp_port,
+    )
     module_input_analysis = inspect_niagara_module_inputs(
         primary_source,
         module_input_inspect_mode,
+        unreal_mcp_host,
+        unreal_mcp_port,
+    )
+    scratch_pad_analysis = inspect_niagara_scratch_pads(
+        primary_source,
+        scratch_pad_inspect_mode,
         unreal_mcp_host,
         unreal_mcp_port,
     )
@@ -937,8 +1335,13 @@ def build_recipe(
                 for material in renderer_analysis.get("renderer_materials", [])
             ],
             "stack_control_hints": stack_analysis.get("control_hints", []),
+            "graph_top_node_classes": graph_analysis.get("top_node_classes", []),
+            "graph_scratch_pad_sources": graph_analysis.get("scratch_pad_sources", []),
+            "compile_status_counts": compile_status_analysis.get("status_counts", {}),
+            "compile_status_notable_scripts": compile_status_analysis.get("notable_scripts", []),
             "module_input_control_candidates": module_input_analysis.get("top_candidates", []),
             "module_input_control_kinds": module_input_analysis.get("control_kinds", []),
+            "scratch_pad_stack_candidates": scratch_pad_analysis.get("candidates", []),
             "bp_linkage_sources": [
                 source["object_path"]
                 for source in sources[:10]
@@ -948,16 +1351,30 @@ def build_recipe(
                 source["object_path"]
                 for source in sources[:10]
                 if source.get("scratch_pad_hints")
-            ] + stack_analysis.get("scratch_pad_sources", []),
-            "risk_notes": build_risk_notes(sources, renderer_analysis, stack_analysis, module_input_analysis),
+            ] + stack_analysis.get("scratch_pad_sources", []) + graph_analysis.get("scratch_pad_sources", []),
+            "risk_notes": build_risk_notes(sources, renderer_analysis, stack_analysis, module_input_analysis, graph_analysis, compile_status_analysis, scratch_pad_analysis),
         },
         "renderer_analysis": renderer_analysis,
         "stack_analysis": stack_analysis,
+        "graph_analysis": graph_analysis,
+        "compile_status_analysis": compile_status_analysis,
         "module_input_analysis": module_input_analysis,
+        "scratch_pad_analysis": scratch_pad_analysis,
         "layers": layers,
         "material_plan": material_plan,
         "user_parameters": build_user_parameters(colors, duration),
-        "generation_plan": build_generation_plan(layers, material_plan, slug, colors, duration, module_input_analysis),
+        "generation_plan": build_generation_plan(
+            layers,
+            material_plan,
+            slug,
+            colors,
+            duration,
+            module_input_analysis,
+            scratch_pad_analysis,
+            prompt,
+            desired_roles,
+            stack_analysis,
+        ),
         "validation": {
             "required_checks": [
                 "load_generated_asset",
@@ -968,6 +1385,40 @@ def build_recipe(
                 "capture_one_quick_preview_from_first_reviewable_bookmark",
                 "capture_frame_sequence_for_timing_sensitive_effects",
             ],
+            "compile_gate": {
+                "tool": "inspect_niagara_compile_status",
+                "request_compile": True,
+                "wait_for_completion": True,
+                "timeout_seconds": 20.0,
+                "poll_interval_seconds": 0.1,
+                "fatal_conditions": [
+                    "compile wait timed out",
+                    "outstanding compilation requests remain after wait",
+                    "compile errors are present",
+                    "dirty script statuses are present",
+                    "missing scripts are present",
+                ],
+                "warning_policy": "Warnings are reported but not fatal in the first gate.",
+            },
+            "preview_player_gate": {
+                "tool": "open_niagara_preview_player",
+                "state_source": "open_niagara_preview_player response by default",
+                "optional_state_tool": "get_niagara_preview_player_state",
+                "screenshot_tool": "Tools/Unreal/capture-unreal-editor-window.ps1",
+                "screenshot_title_pattern": "Niagara Preview Player",
+                "preview_settle_seconds": 1.0,
+                "capture_count": 3,
+                "capture_interval_seconds": 0.75,
+                "selection_rule": "Capture multiple Preview Player window candidates and select the screenshot with the highest viewport brightness/readability score.",
+                "visual_read_classification": "Advisory by default. Pass --preview-require-visual-pass to make a failed visual-read classification fatal.",
+                "require_visual_pass_default": False,
+                "fatal_conditions": [
+                    "Preview Player failed to load the generated temp system",
+                    "Preview Player reports the loaded system is not renderable",
+                    "Preview Player screenshot capture failed",
+                    "Preview Player visual-read classification failed when --preview-require-visual-pass is enabled",
+                ],
+            },
             "review_map": REVIEW_MAP,
             "preview_system": "Niagara Preview Player first, Niagara Preview Lab for gated screenshots",
             "camera_bookmarks": {
@@ -1010,7 +1461,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-name", default=None)
     parser.add_argument("--renderer-inspect-mode", choices=["auto", "off", "required"], default="auto")
     parser.add_argument("--stack-inspect-mode", choices=["auto", "off", "required"], default="auto")
+    parser.add_argument("--graph-inspect-mode", choices=["auto", "off", "required"], default="auto")
+    parser.add_argument("--compile-status-inspect-mode", choices=["auto", "off", "required"], default="auto")
     parser.add_argument("--module-input-inspect-mode", choices=["auto", "off", "required"], default="auto")
+    parser.add_argument("--scratch-pad-inspect-mode", choices=["auto", "off", "required"], default="auto")
     parser.add_argument("--unreal-mcp-host", default=UNREAL_MCP_HOST)
     parser.add_argument("--unreal-mcp-port", type=int, default=UNREAL_MCP_PORT)
     parser.add_argument("--print-json", action="store_true")
@@ -1038,7 +1492,10 @@ def main() -> int:
         args.output_name,
         renderer_inspect_mode=args.renderer_inspect_mode,
         stack_inspect_mode=args.stack_inspect_mode,
+        graph_inspect_mode=args.graph_inspect_mode,
+        compile_status_inspect_mode=args.compile_status_inspect_mode,
         module_input_inspect_mode=args.module_input_inspect_mode,
+        scratch_pad_inspect_mode=args.scratch_pad_inspect_mode,
         unreal_mcp_host=args.unreal_mcp_host,
         unreal_mcp_port=args.unreal_mcp_port,
     )
@@ -1059,7 +1516,10 @@ def main() -> int:
         print(f"Blocked by API: {len(recipe['generation_plan']['blocked_by_api'])}")
         print(f"Renderer inspect: {recipe.get('renderer_analysis', {}).get('status', 'missing')}")
         print(f"Stack inspect: {recipe.get('stack_analysis', {}).get('status', 'missing')}")
+        print(f"Graph inspect: {recipe.get('graph_analysis', {}).get('status', 'missing')}")
+        print(f"Compile status inspect: {recipe.get('compile_status_analysis', {}).get('status', 'missing')}")
         print(f"Module input inspect: {recipe.get('module_input_analysis', {}).get('status', 'missing')}")
+        print(f"Scratch Pad inspect: {recipe.get('scratch_pad_analysis', {}).get('status', 'missing')}")
         print(f"Preview system: {recipe['validation']['preview_system']}")
         print(f"Review map: {recipe['validation']['review_map']}")
     return 0
