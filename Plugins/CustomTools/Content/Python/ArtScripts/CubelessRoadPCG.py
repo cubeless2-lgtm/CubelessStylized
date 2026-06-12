@@ -44,21 +44,36 @@ ASSET_PATHS = {
 RUNTIME_ROAD_MATERIAL_SPECS = {
     "core": {
         "path_key": "runtime_road_core_material",
-        "base_color": [0.205, 0.132, 0.062],
-        "roughness": 0.96,
-        "specular": 0.015,
+        "base_color": [0.205, 0.148, 0.082],
+        "base_color_lerp": {
+            "a": [0.095, 0.065, 0.038],
+            "b": [0.205, 0.148, 0.082],
+        },
+        "roughness": 0.985,
+        "specular": 0.008,
+        "procedural": True,
     },
     "edge": {
         "path_key": "runtime_road_edge_material",
-        "base_color": [0.145, 0.132, 0.062],
-        "roughness": 0.98,
-        "specular": 0.015,
+        "base_color": [0.088, 0.097, 0.044],
+        "base_color_lerp": {
+            "a": [0.046, 0.063, 0.026],
+            "b": [0.088, 0.097, 0.044],
+        },
+        "roughness": 0.99,
+        "specular": 0.008,
+        "procedural": True,
     },
     "soften": {
         "path_key": "runtime_road_soften_material",
-        "base_color": [0.085, 0.128, 0.046],
-        "roughness": 0.98,
-        "specular": 0.02,
+        "base_color": [0.068, 0.112, 0.042],
+        "base_color_lerp": {
+            "a": [0.034, 0.071, 0.025],
+            "b": [0.068, 0.112, 0.042],
+        },
+        "roughness": 0.99,
+        "specular": 0.01,
+        "procedural": True,
     },
 }
 
@@ -752,7 +767,12 @@ def ensure_runtime_road_materials():
         color = spec["base_color"]
         roughness = spec["roughness"]
         specular = spec["specular"]
-        material, was_created = _ensure_constant_material(path, color, roughness, specular)
+        material = unreal.load_object(None, path)
+        was_created = False
+        if not material:
+            material, was_created = _ensure_constant_material(path, color, roughness, specular)
+        elif not spec.get("procedural"):
+            _update_constant_material_graph(material, color, roughness, specular)
         materials[key] = material
         if was_created:
             created.append(path)
@@ -1540,7 +1560,7 @@ def run_regeneration_smoke_test(keep_preview=False, points=None, route_source="R
             "cleared_before": cleared_before,
             "generated": generated,
             "validation": validation,
-            "bookmark_policy": "bookmark 1/2 are user-owned and are not modified by this smoke test",
+            "capture_safety_policy": "screenshot automation may read existing view states only; it does not create or overwrite bookmark slots",
         }
         report_path = _saved_regen_report_path(report_name)
         os.makedirs(os.path.dirname(report_path), exist_ok=True)
@@ -1595,7 +1615,7 @@ def create_or_update_pcg_graph_skeleton():
             "The editable route handle is "
             "/Game/_MCP_Temp/PCG/Blueprints/BP_Cubeless_ForestRoadAuthoringHandle "
             "with SplineComponent Road_SourceSpline. "
-            "Bookmark 1/2 are user-owned and must not be overwritten."
+            "Screenshot automation should prefer explicit active-viewport or camera captures and must not create or overwrite bookmark slots."
         )
         node_update["graph_description"] = "set"
     except Exception as exc:
@@ -2024,7 +2044,16 @@ def _pcg_configure_make_vector2_node(settings, x_attribute, y_attribute, output_
     return result
 
 
-def _pcg_configure_spline_mesh_node(settings, mesh_path, material_path, lateral_offset_cm=0.0, attribute_overrides=None):
+def _pcg_configure_spline_mesh_node(
+    settings,
+    mesh_path,
+    material_path,
+    lateral_offset_cm=0.0,
+    vertical_offset_cm=0.0,
+    width_scale=1.0,
+    z_scale=1.0,
+    attribute_overrides=None,
+):
     result = {}
     try:
         descriptor = settings.get_editor_property("spline_mesh_descriptor")
@@ -2040,11 +2069,41 @@ def _pcg_configure_spline_mesh_node(settings, mesh_path, material_path, lateral_
 
     try:
         params = settings.get_editor_property("spline_mesh_params")
-        params.set_editor_property("forward_axis", unreal.PCGSplineMeshForwardAxis.X)
-        params.set_editor_property("start_offset", _make_vector2d(lateral_offset_cm, 0.0))
-        params.set_editor_property("end_offset", _make_vector2d(lateral_offset_cm, 0.0))
+        # PCGSplineMeshParams exposes StartScale/EndScale in text export but
+        # not as Python set_editor_property fields in UE 5.7, so use struct
+        # import_text for stable static branch defaults.
+        params.import_text(
+            (
+                "(ForwardAxis=X,"
+                "bScaleMeshToBounds=False,"
+                "bScaleMeshToLandscapeSplineFullWidth=False,"
+                "SplineUpDir=(X=0.000000,Y=0.000000,Z=1.000000),"
+                "NaniteClusterBoundsScale=1.000000,"
+                "SplineBoundaryMin=0.000000,"
+                "SplineBoundaryMax=0.000000,"
+                "bSmoothInterpRollScale=True,"
+                "StartOffset=(X={lateral:.6f},Y={vertical:.6f}),"
+                "EndOffset=(X={lateral:.6f},Y={vertical:.6f}),"
+                "StartPosition=(X=0.000000,Y=0.000000,Z=0.000000),"
+                "StartTangent=(X=0.000000,Y=0.000000,Z=0.000000),"
+                "StartRollDegrees=0.000000,"
+                "StartScale=(X={width:.6f},Y={z:.6f}),"
+                "EndPosition=(X=0.000000,Y=0.000000,Z=0.000000),"
+                "EndTangent=(X=0.000000,Y=0.000000,Z=0.000000),"
+                "EndRollDegrees=0.000000,"
+                "EndScale=(X={width:.6f},Y={z:.6f}))"
+            ).format(
+                lateral=float(lateral_offset_cm),
+                vertical=float(vertical_offset_cm),
+                width=float(width_scale),
+                z=float(z_scale),
+            )
+        )
         settings.set_editor_property("spline_mesh_params", params)
-        result["params"] = "ForwardAxis=X, lateral offset {:.1f} cm".format(lateral_offset_cm)
+        result["params"] = (
+            "ForwardAxis=X, lateral offset {:.1f} cm, vertical offset {:.1f} cm, "
+            "scale ({:.3f}, {:.4f})"
+        ).format(lateral_offset_cm, vertical_offset_cm, width_scale, z_scale)
     except Exception as exc:
         result["params_error"] = str(exc)
 
@@ -2382,8 +2441,9 @@ def create_or_update_runtime_road_native_skeleton_graph(source_points_override=N
             "mesh": ASSET_PATHS["runtime_road_strip_mesh"],
             "material": ASSET_PATHS["runtime_road_core_material"],
             "lateral_offset_cm": 0.0,
-            "lateral_variation_cm": 36.0,
-            "width_scale": 4.60,
+            "lateral_variation_cm": 42.0,
+            "vertical_offset_cm": 42.0,
+            "width_scale": 4.15,
             "z_scale": 0.004,
             "subdivision_symbol": "C",
             "y": -760,
@@ -2394,9 +2454,10 @@ def create_or_update_runtime_road_native_skeleton_graph(source_points_override=N
             "target_count": SPLINE_MESH_ROAD_COUNTS["Edge"] // 2,
             "mesh": ASSET_PATHS["runtime_road_strip_mesh"],
             "material": ASSET_PATHS["runtime_road_edge_material"],
-            "lateral_offset_cm": -230.0,
-            "lateral_variation_cm": 56.0,
-            "width_scale": 0.35,
+            "lateral_offset_cm": -82.0,
+            "lateral_variation_cm": 44.0,
+            "vertical_offset_cm": 36.0,
+            "width_scale": 0.80,
             "z_scale": 0.002,
             "subdivision_symbol": "L",
             "y": -460,
@@ -2407,9 +2468,10 @@ def create_or_update_runtime_road_native_skeleton_graph(source_points_override=N
             "target_count": SPLINE_MESH_ROAD_COUNTS["Edge"] // 2,
             "mesh": ASSET_PATHS["runtime_road_strip_mesh"],
             "material": ASSET_PATHS["runtime_road_edge_material"],
-            "lateral_offset_cm": 230.0,
-            "lateral_variation_cm": 56.0,
-            "width_scale": 0.35,
+            "lateral_offset_cm": 82.0,
+            "lateral_variation_cm": 44.0,
+            "vertical_offset_cm": 36.0,
+            "width_scale": 0.80,
             "z_scale": 0.002,
             "subdivision_symbol": "R",
             "y": -180,
@@ -2420,9 +2482,10 @@ def create_or_update_runtime_road_native_skeleton_graph(source_points_override=N
             "target_count": SPLINE_MESH_ROAD_COUNTS["Soften"] // 2,
             "mesh": ASSET_PATHS["runtime_road_strip_mesh"],
             "material": ASSET_PATHS["runtime_road_soften_material"],
-            "lateral_offset_cm": -310.0,
-            "lateral_variation_cm": 88.0,
-            "width_scale": 0.55,
+            "lateral_offset_cm": -160.0,
+            "lateral_variation_cm": 72.0,
+            "vertical_offset_cm": 31.0,
+            "width_scale": 0.95,
             "z_scale": 0.0015,
             "subdivision_symbol": "A",
             "y": 100,
@@ -2433,9 +2496,10 @@ def create_or_update_runtime_road_native_skeleton_graph(source_points_override=N
             "target_count": SPLINE_MESH_ROAD_COUNTS["Soften"] // 2,
             "mesh": ASSET_PATHS["runtime_road_strip_mesh"],
             "material": ASSET_PATHS["runtime_road_soften_material"],
-            "lateral_offset_cm": 310.0,
-            "lateral_variation_cm": 88.0,
-            "width_scale": 0.55,
+            "lateral_offset_cm": 160.0,
+            "lateral_variation_cm": 72.0,
+            "vertical_offset_cm": 31.0,
+            "width_scale": 0.95,
             "z_scale": 0.0015,
             "subdivision_symbol": "B",
             "y": 380,
@@ -2644,7 +2708,7 @@ def create_or_update_runtime_road_native_skeleton_graph(source_points_override=N
             (prefix + "_attr_forward_axis", "RoadForwardAxis", unreal.PCGMetadataTypes.INTEGER32, 0),
             (prefix + "_attr_start_offset_x", "RoadStartOffsetX", unreal.PCGMetadataTypes.FLOAT, branch["lateral_offset_cm"]),
             (prefix + "_attr_end_offset_x", "RoadEndOffsetX", unreal.PCGMetadataTypes.FLOAT, branch["lateral_offset_cm"]),
-            (prefix + "_attr_offset_y", "RoadOffsetY", unreal.PCGMetadataTypes.FLOAT, 0.0),
+            (prefix + "_attr_offset_y", "RoadOffsetY", unreal.PCGMetadataTypes.FLOAT, branch["vertical_offset_cm"]),
             (prefix + "_attr_start_scale_x", "RoadStartScaleX", unreal.PCGMetadataTypes.FLOAT, branch["width_scale"]),
             (prefix + "_attr_end_scale_x", "RoadEndScaleX", unreal.PCGMetadataTypes.FLOAT, branch["width_scale"]),
             (prefix + "_attr_scale_y", "RoadScaleY", unreal.PCGMetadataTypes.FLOAT, branch["z_scale"]),
@@ -2731,6 +2795,9 @@ def create_or_update_runtime_road_native_skeleton_graph(source_points_override=N
                 branch["mesh"],
                 branch["material"],
                 branch["lateral_offset_cm"],
+                branch["vertical_offset_cm"],
+                branch["width_scale"],
+                branch["z_scale"],
                 attribute_overrides=[],
             )
         )
@@ -3079,6 +3146,7 @@ def create_or_update_runtime_road_native_skeleton_graph(source_points_override=N
                     "diagnostic_segment_module_size_cm": round(baseline_route_length_cm / max(float(branch["target_count"]), 1.0), 2),
                     "lateral_offset_cm": branch["lateral_offset_cm"],
                     "lateral_variation_cm": branch["lateral_variation_cm"],
+                    "vertical_offset_cm": branch["vertical_offset_cm"],
                     "width_scale": branch["width_scale"],
                     "width_variation_scale": round(min(float(branch["width_scale"]) * 0.06, 0.18), 4),
                     "z_scale": branch["z_scale"],
@@ -3190,6 +3258,64 @@ def _runtime_material_value_node(material, material_property):
         return None
 
 
+def _runtime_material_constant3_value(node):
+    try:
+        color = node.get_editor_property("constant")
+        return [
+            round(float(color.r), 4),
+            round(float(color.g), 4),
+            round(float(color.b), 4),
+        ]
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+def _runtime_material_scalar_value(node):
+    try:
+        return round(float(node.get_editor_property("r")), 4)
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+def _runtime_material_base_color_value(material, node):
+    class_name = node.get_class().get_name()
+    if class_name == "MaterialExpressionConstant3Vector":
+        value = _runtime_material_constant3_value(node)
+        if isinstance(value, dict):
+            return {"base_color_error": value["error"]}
+        return {"base_color": value, "base_color_mode": "constant"}
+
+    if class_name == "MaterialExpressionLinearInterpolate":
+        try:
+            input_names = list(unreal.MaterialEditingLibrary.get_material_expression_input_names(node))
+            input_nodes = list(unreal.MaterialEditingLibrary.get_inputs_for_material_expression(material, node))
+            node_by_input = {
+                input_names[index]: input_nodes[index]
+                for index in range(min(len(input_names), len(input_nodes)))
+            }
+            color_a = _runtime_material_constant3_value(node_by_input.get("A"))
+            color_b = _runtime_material_constant3_value(node_by_input.get("B"))
+            if isinstance(color_a, dict) or isinstance(color_b, dict):
+                return {
+                    "base_color_mode": "lerp",
+                    "base_color_lerp_error": {
+                        "a": color_a.get("error") if isinstance(color_a, dict) else None,
+                        "b": color_b.get("error") if isinstance(color_b, dict) else None,
+                    },
+                }
+            return {
+                "base_color_mode": "lerp",
+                "base_color_lerp": {
+                    "a": color_a,
+                    "b": color_b,
+                },
+            }
+        except Exception as exc:
+            return {"base_color_mode": "lerp", "base_color_lerp_error": str(exc)}
+
+    return {"base_color_mode": class_name, "base_color_error": "unsupported base color node"}
+
+
 def collect_runtime_road_material_values():
     values = {}
     for key, spec in RUNTIME_ROAD_MATERIAL_SPECS.items():
@@ -3201,25 +3327,19 @@ def collect_runtime_road_material_values():
             roughness = _runtime_material_value_node(material, unreal.MaterialProperty.MP_ROUGHNESS)
             specular = _runtime_material_value_node(material, unreal.MaterialProperty.MP_SPECULAR)
             if base_color:
-                try:
-                    color = base_color.get_editor_property("constant")
-                    item["base_color"] = [
-                        round(float(color.r), 4),
-                        round(float(color.g), 4),
-                        round(float(color.b), 4),
-                    ]
-                except Exception as exc:
-                    item["base_color_error"] = str(exc)
+                item.update(_runtime_material_base_color_value(material, base_color))
             if roughness:
-                try:
-                    item["roughness"] = round(float(roughness.get_editor_property("r")), 4)
-                except Exception as exc:
-                    item["roughness_error"] = str(exc)
+                value = _runtime_material_scalar_value(roughness)
+                if isinstance(value, dict):
+                    item["roughness_error"] = value["error"]
+                else:
+                    item["roughness"] = value
             if specular:
-                try:
-                    item["specular"] = round(float(specular.get_editor_property("r")), 4)
-                except Exception as exc:
-                    item["specular_error"] = str(exc)
+                value = _runtime_material_scalar_value(specular)
+                if isinstance(value, dict):
+                    item["specular_error"] = value["error"]
+                else:
+                    item["specular"] = value
         values[key] = item
     return values
 
@@ -3230,15 +3350,24 @@ def runtime_road_material_value_mismatches(values=None):
     for key, spec in RUNTIME_ROAD_MATERIAL_SPECS.items():
         item = values.get(key, {})
         expected = {
-            "base_color": [round(float(value), 4) for value in spec["base_color"]],
             "roughness": round(float(spec["roughness"]), 4),
             "specular": round(float(spec["specular"]), 4),
         }
         actual = {
-            "base_color": item.get("base_color"),
             "roughness": item.get("roughness"),
             "specular": item.get("specular"),
         }
+        if spec.get("base_color_lerp"):
+            expected["base_color_mode"] = "lerp"
+            expected["base_color_lerp"] = {
+                channel: [round(float(value), 4) for value in color]
+                for channel, color in spec["base_color_lerp"].items()
+            }
+            actual["base_color_mode"] = item.get("base_color_mode")
+            actual["base_color_lerp"] = item.get("base_color_lerp")
+        else:
+            expected["base_color"] = [round(float(value), 4) for value in spec["base_color"]]
+            actual["base_color"] = item.get("base_color")
         if not item.get("exists") or actual != expected:
             mismatches[key] = {
                 "expected": expected,
@@ -3659,7 +3788,7 @@ def start_runtime_road_native_graph_visual_review(timeout_seconds=6.0, target_le
         "status": "scheduled",
         "world": _world_path(),
         "target_level_path": target_level_path,
-        "bookmark_policy": "bookmark 1/2 are user-owned and are not modified by native visual review",
+        "capture_safety_policy": "native visual review does not create or overwrite bookmark slots",
         "visual_review_policy": {
             "keep_preview": True,
             "show_authoring_spline": True,
@@ -3738,7 +3867,7 @@ def finalize_runtime_road_native_graph_visual_review_report():
         "status": smoke_report.get("status", "missing"),
         "world": _world_path(),
         "target_level_path": visual_report.get("target_level_path") or smoke_report.get("target_level_path"),
-        "bookmark_policy": "bookmark 1/2 are user-owned and are not modified by native visual review",
+        "capture_safety_policy": "native visual review does not create or overwrite bookmark slots",
         "visual_review_policy": visual_report.get("visual_review_policy", {}),
         "visibility": visibility,
         "smoke": smoke_report,
@@ -4577,7 +4706,7 @@ def create_or_update_authoring_handle():
     validation = validate_scene()
     report = {
         "level": _world_path(),
-        "bookmark_policy": "bookmark 1/2 are user-owned and are not modified by this authoring handle step",
+        "capture_safety_policy": "authoring handle setup does not create or overwrite bookmark slots",
         "blueprint": blueprint_result,
         "actor": actor_result,
         "spline": spline_result,
@@ -5162,7 +5291,7 @@ def regenerate_runtime_road_from_actor(clear_superseded=False):
     report = {
         "level": _world_path(),
         "runtime_scope": "/Game/Cubeless/PCG/Runtime road Blueprint/materials/PCG bridge plus _MCP_Temp validation actors",
-        "bookmark_policy": "bookmark 1/2 are user-owned and are not modified by runtime road regeneration",
+        "capture_safety_policy": "runtime road regeneration does not create or overwrite bookmark slots",
         "blueprint": blueprint_result,
         "graph": graph_result,
         "runtime_materials_created": runtime_material_result["created"],
@@ -5307,7 +5436,7 @@ def run_runtime_road_control_smoke_test():
     report = {
         "level": _world_path(),
         "runtime_scope": "/Game/Cubeless/PCG/Runtime road Blueprint/materials plus _MCP_Temp validation actors",
-        "bookmark_policy": "bookmark 1/2 are user-owned and are not modified by this runtime control smoke test",
+        "capture_safety_policy": "runtime control smoke test does not create or overwrite bookmark slots",
         "blueprint": blueprint_result,
         "runtime_asset_save": runtime_asset_save,
         "runtime_materials_created": runtime_material_result["created"],
@@ -5388,7 +5517,7 @@ def apply_spline_visual_road_tuning():
     report = {
         "level": _world_path(),
         "route_source": AUTHORING_ACTOR_LABEL + "." + AUTHORING_SPLINE_NAME,
-        "bookmark_policy": "bookmark 1/2 are user-owned and are not modified by this visual tune step",
+        "capture_safety_policy": "visual tune step does not create or overwrite bookmark slots",
         "visual_goal": "dark forest soil road, softer irregular edge, less flat orange strip, more small dust/duff patches",
         "authoring_spline": {
             "actor_label": spline_read["actor_label"],
@@ -5445,7 +5574,7 @@ def apply_spline_mesh_road_prototype():
     report = {
         "level": _world_path(),
         "route_source": AUTHORING_ACTOR_LABEL + "." + AUTHORING_SPLINE_NAME,
-        "bookmark_policy": "bookmark 1/2 are user-owned and are not modified by this spline mesh prototype step",
+        "capture_safety_policy": "spline mesh prototype step does not create or overwrite bookmark slots",
         "visual_goal": "continuous dark forest-soil road generated from editable Road_SourceSpline using SplineMeshActor strips",
         "prototype_scope": "_MCP_Temp validation prototype; production /Game/Cubeless/PCG/Runtime promotion still requires user approval",
         "authoring_spline": {
@@ -5533,7 +5662,7 @@ def apply_runtime_road_promotion_validation():
         "level": _world_path(),
         "route_source": source_label,
         "runtime_scope": "/Game/Cubeless/PCG/Runtime road Blueprint/materials plus _MCP_Temp validation actors",
-        "bookmark_policy": "bookmark 1/2 are user-owned and are not modified by this runtime promotion validation step",
+        "capture_safety_policy": "runtime promotion validation does not create or overwrite bookmark slots",
         "blueprint": blueprint_result,
         "runtime_materials_created": runtime_material_result["created"],
         "runtime_actor": {
@@ -5576,10 +5705,10 @@ def write_wrapper_spec_json(output_path=None):
         "spec_version": SPEC_VERSION,
         "source_level": LEVEL_PATH,
         "current_level": _world_path(),
-        "bookmark_policy": {
-            "bookmark_1": "user-owned overview camera; do not overwrite",
-            "bookmark_2": "user-owned ground-quality camera; do not overwrite",
-            "automation": "use explicit viewport/camera capture paths without saving bookmark slots",
+        "capture_safety_policy": {
+            "default_route": "active viewport or explicit camera capture",
+            "existing_bookmarks": "optional capture-only inputs when explicitly requested",
+            "automation": "do not create, save, or overwrite bookmark slots",
         },
         "source": {
             "electric_dreams_learned_data": ASSET_PATHS["electric_dreams_source_data"],

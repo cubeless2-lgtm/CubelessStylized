@@ -19,22 +19,24 @@ workarounds prove which API surface is worth making durable.
 
 ## Current Candidates
 
-### 1. Bookmark and Screenshot Capture API
+### 1. Screenshot Capture Route API
 
 - Current workaround: Python sets viewport camera locations, uses temporary
-  validation cameras or OS/window capture, and then waits for screenshot files.
+  validation cameras, active viewport capture, optional existing bookmark
+  capture, or OS/window capture, and then waits for screenshot files.
 - Pain: bookmark recall can read the wrong/stale viewport buffer, keyboard
-  shortcut recall can be blocked by the Windows session, and multi-bookmark
-  validation costs too much operator time.
+  shortcut recall can be blocked by the Windows session, and capture-route
+  failures are hard to distinguish from actual PCG visual failures.
 - Latest evidence: `AutomationLibrary.take_high_res_screenshot` produced the
   first validation PNG but later capture requests reported scheduled tasks
   without writing files. The fallback `PrintWindow` OS capture succeeded, but
   it captures the whole editor window and can show a stale viewport if the
   camera update path fails.
-- Desired API: UnrealMCP command that reads user-owned bookmark camera data
-  without overwriting it, applies the view to a known editor viewport, captures
-  a screenshot, waits until the final image is written, and reports resolution,
-  path, and capture camera transform.
+- Desired API: UnrealMCP command that captures a screenshot from an explicit
+  route: active viewport by default, explicit camera/transform when supplied,
+  or existing bookmark slots only when requested. It must wait until the final
+  image is written and report resolution, path, capture source, camera
+  transform, file size, image hash, and dirty-package delta.
 - Partial implementation: `Plugins/UnrealMCP` now exposes
   `list_viewport_bookmarks` and `capture_viewport_bookmark_screenshot`.
   The capture command can jump to an existing bookmark slot without overwriting
@@ -61,10 +63,10 @@ workarounds prove which API surface is worth making durable.
   `dirty_package_added_count=0`, proving the capture command did not introduce
   new dirty packages.
 - Full QA batch evidence: added `Tools/Unreal/run_pcg_bookmark_visual_qa.py`,
-  which calls the native bookmark capture command, captures bookmark slots `1`
-  and `2`, parses current level PCG/ISM counts, writes
-  `Saved/MCP_PCG/pcg_bookmark_visual_qa_report.json`, and separates capture
-  health from visual-density approval. On
+  which now defaults to active viewport screenshot capture, optionally captures
+  explicitly requested existing bookmark slots, parses current level PCG/ISM
+  counts, writes a JSON report under `Saved/MCP_PCG`, and separates capture
+  route health from visual-density approval. On
   `/Game/_MCP_Temp/PCG/LVL_Cubeless_PCG_IntentGallery_MCP`, the pass completed
   in about `1.2s`, wrote both screenshots, reported different SHA-256 hashes,
   and `dirty_package_added_count=0` for both captures.
@@ -755,6 +757,13 @@ workarounds prove which API surface is worth making durable.
   editor process alive and port `127.0.0.1:55557` listening, but both MCP Slate
   status and direct socket `ping` received no response while the command loop
   was blocked.
+- Latest reproduction: field volume-owned grass staging attempted to create a
+  Blueprint subclass of `PCGVolume` through `execute_python`. The command timed
+  out after `120s` before writing a report or temp asset, and subsequent
+  `execute_python` plus a native `get_actors_in_level` bridge command also
+  timed out while the editor window remained responsive. The staging script was
+  patched to avoid `PCGVolume` Blueprint subclassing, but the bridge still needs
+  an independent stuck-command recovery/cancel path.
 - Desired API: keep transport chunking covered by an explicit bridge regression
   test, avoid sending huge source strings when file execution is available, and
   add a lightweight bridge health/recovery path that can report or cancel a
@@ -763,6 +772,25 @@ workarounds prove which API surface is worth making durable.
   response command, and a deliberately slow command; verify that timeout is
   reported cleanly, the next `ping` returns `pong`, and the bridge accepts a new
   short command afterward.
+
+### 7. PCG-Native Block Mask / Difference Authoring
+
+- Current workaround: the field volume-owned grass staging layer detects
+  `block` tagged StaticMesh actor bounds and prunes overlapping generated grass
+  instances after PCG async generation settles.
+- Pain: `PCGDataFromActor -> Difference` detected the block actor in the
+  review graph, but after async regeneration it over-subtracted the whole review
+  volume and produced zero grass. Leaving block exclusion as Python post-prune is
+  acceptable for a non-production review layer, but it is not the desired final
+  PCG ownership model.
+- Desired API/tooling: add a reliable MCP/editor helper or documented graph
+  pattern that builds a PCG-native block mask from actor/component tags without
+  over-subtracting unrelated volume data. It should handle actor tags and
+  component tags, preserve generated grass outside the block bounds, and expose a
+  structured validation report with pre/post instance counts.
+- Verification gate: run the field volume-owned grass staging graph with a
+  visible `block` tagged cube, verify nonzero grass output, `block_overlap=0`,
+  road clearance violations `0`, and no Python instance prune required.
 
 ## Keep In Python For Now
 

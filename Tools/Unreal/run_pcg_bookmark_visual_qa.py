@@ -1,8 +1,9 @@
-"""Run a fast PCG visual QA pass through the UnrealMCP bridge.
+"""Run a fast PCG screenshot/visual QA pass through the UnrealMCP bridge.
 
 The pass is intentionally read-only for Unreal assets: it gathers current level
-PCG/ISM summary data, captures user-owned viewport bookmarks without
-overwriting them, and writes a generated JSON report under Saved/MCP_PCG.
+PCG/ISM summary data, captures the active viewport by default, optionally
+captures existing viewport bookmarks without creating or overwriting slots, and
+writes a generated JSON report under Saved/MCP_PCG.
 """
 
 from __future__ import annotations
@@ -278,6 +279,37 @@ print(json.dumps(RESULT, ensure_ascii=False))
 """
 
 
+UNREAL_SET_GAME_VIEW_CODE = r"""
+import json
+
+import unreal
+
+
+TARGET_GAME_VIEW = __TARGET_GAME_VIEW__
+
+result = {
+    "success": False,
+    "target_game_view": TARGET_GAME_VIEW,
+    "previous_game_view": None,
+    "current_game_view": None,
+}
+
+try:
+    subsystem = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
+    if not subsystem:
+        raise RuntimeError("LevelEditorSubsystem is unavailable")
+    result["previous_game_view"] = bool(subsystem.editor_get_game_view())
+    subsystem.editor_set_game_view(bool(TARGET_GAME_VIEW))
+    subsystem.editor_invalidate_viewports()
+    result["current_game_view"] = bool(subsystem.editor_get_game_view())
+    result["success"] = result["current_game_view"] == bool(TARGET_GAME_VIEW)
+except Exception as exc:
+    result["error"] = str(exc)
+
+print(json.dumps(result, ensure_ascii=False))
+"""
+
+
 def command_succeeded(response: dict[str, Any] | None) -> bool:
     if not response:
         return False
@@ -331,6 +363,22 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def set_editor_game_view(unreal: UnrealConnection, enabled: bool) -> dict[str, Any]:
+    code = UNREAL_SET_GAME_VIEW_CODE.replace(
+        "__TARGET_GAME_VIEW__",
+        "True" if enabled else "False",
+    )
+    response = send(
+        unreal,
+        "execute_python",
+        {"code": code, "mode": "ExecuteFile"},
+    )
+    result = parse_execute_python_log_json(response)
+    if not result.get("success"):
+        raise RuntimeError(f"editor_set_game_view failed: {json.dumps(result, ensure_ascii=False)}")
+    return result
+
+
 def capture_bookmark(
     unreal: UnrealConnection,
     output_dir: Path,
@@ -338,23 +386,46 @@ def capture_bookmark(
     redraw_count: int,
     output_prefix: str,
 ) -> dict[str, Any]:
+    return capture_viewport(
+        unreal,
+        output_dir,
+        "bookmark",
+        redraw_count,
+        output_prefix,
+        bookmark_index=bookmark_index,
+    )
+
+
+def capture_viewport(
+    unreal: UnrealConnection,
+    output_dir: Path,
+    capture_source: str,
+    redraw_count: int,
+    output_prefix: str,
+    bookmark_index: int | None = None,
+) -> dict[str, Any]:
     safe_prefix = "".join(
         character if character.isalnum() or character in ("-", "_") else "_"
         for character in output_prefix
     ).strip("_")
     if not safe_prefix:
         safe_prefix = "pcg"
-    filepath = output_dir / f"{safe_prefix}_bookmark{bookmark_index}_visual_qa.png"
+    suffix = "active_viewport" if bookmark_index is None else f"bookmark{bookmark_index}"
+    filepath = output_dir / f"{safe_prefix}_{suffix}_visual_qa.png"
+    params: dict[str, Any] = {
+        "filepath": str(filepath),
+        "redraw_count": redraw_count,
+    }
+    if bookmark_index is not None:
+        params["bookmark_index"] = bookmark_index
     response = send(
         unreal,
         "capture_viewport_bookmark_screenshot",
-        {
-            "bookmark_index": bookmark_index,
-            "filepath": str(filepath),
-            "redraw_count": redraw_count,
-        },
+        params,
     )
     result = response_result(response)
+    result["capture_source"] = capture_source
+    result["requested_bookmark_index"] = bookmark_index
     file_path = Path(result.get("filepath") or filepath)
     result["exists_on_disk"] = file_path.exists()
     if file_path.exists():
@@ -411,7 +482,7 @@ def build_content_review(
 
     capture_hashes = [capture.get("sha256") for capture in captures if capture.get("sha256")]
     if len(capture_hashes) != len(set(capture_hashes)):
-        warnings.append("At least two bookmark captures have identical hashes; check for stale viewport reuse.")
+        warnings.append("At least two screenshot captures have identical hashes; check for stale viewport reuse.")
 
     visual_density_pass = (
         grass_count >= args.min_grass_instances
@@ -433,6 +504,32 @@ def build_content_review(
     }
 
 
+def build_capture_route_health(captures: list[dict[str, Any]], args: argparse.Namespace) -> dict[str, Any]:
+    capture_hashes = [capture.get("sha256") for capture in captures if capture.get("sha256")]
+    duplicate_hash_count = len(capture_hashes) - len(set(capture_hashes))
+    checks = {
+        "requires_at_least_one_capture": bool(captures),
+        "captures_exist_on_disk": all(capture.get("exists_on_disk") for capture in captures),
+        "captures_have_nonzero_size": all(int(capture.get("file_size", 0) or 0) > 0 for capture in captures),
+        "capture_must_not_add_dirty_packages": all(
+            int(capture.get("dirty_package_added_count", 0) or 0) == 0
+            for capture in captures
+        ),
+        "capture_hashes_unique_when_multiple": (
+            True
+            if args.allow_duplicate_capture_hashes or len(capture_hashes) <= 1
+            else duplicate_hash_count == 0
+        ),
+    }
+    return {
+        "pass": all(checks.values()),
+        "checks": checks,
+        "duplicate_hash_count": duplicate_hash_count,
+        "capture_count": len(captures),
+        "capture_sources": [capture.get("capture_source") for capture in captures],
+    }
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     unreal = UnrealConnection()
     output_dir = args.output_dir
@@ -451,25 +548,50 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     captures = []
     skipped = []
-    for bookmark_index in args.bookmarks:
-        if bookmark_index not in existing:
-            skipped.append({"bookmark_index": bookmark_index, "reason": "missing"})
-            continue
-        captures.append(
-            capture_bookmark(
-                unreal,
-                output_dir,
-                bookmark_index,
-                args.redraw_count,
-                args.output_prefix,
-            )
+    clean_game_view_state: dict[str, Any] = {
+        "requested": bool(args.clean_game_view),
+        "set_before_capture": None,
+        "restore_after_capture": None,
+    }
+    previous_game_view: bool | None = None
+    if args.clean_game_view:
+        clean_game_view_state["set_before_capture"] = set_editor_game_view(unreal, True)
+        previous_game_view = bool(
+            clean_game_view_state["set_before_capture"].get("previous_game_view", False)
         )
+    try:
+        if not args.no_active_viewport:
+            captures.append(
+                capture_viewport(
+                    unreal,
+                    output_dir,
+                    "active_viewport",
+                    args.redraw_count,
+                    args.output_prefix,
+                )
+            )
+        for bookmark_index in args.bookmarks:
+            if bookmark_index not in existing:
+                skipped.append({"bookmark_index": bookmark_index, "reason": "missing"})
+                continue
+            captures.append(
+                capture_bookmark(
+                    unreal,
+                    output_dir,
+                    bookmark_index,
+                    args.redraw_count,
+                    args.output_prefix,
+                )
+            )
+    finally:
+        if args.clean_game_view and previous_game_view is not None:
+            clean_game_view_state["restore_after_capture"] = set_editor_game_view(
+                unreal,
+                previous_game_view,
+            )
 
-    capture_qa_pass = (
-        bool(captures)
-        and all(capture.get("exists_on_disk") for capture in captures)
-        and all(int(capture.get("dirty_package_added_count", 0) or 0) == 0 for capture in captures)
-    )
+    capture_route_health = build_capture_route_health(captures, args)
+    capture_qa_pass = bool(capture_route_health.get("pass"))
     content_review = build_content_review(level_stats, captures, args)
 
     report = {
@@ -483,6 +605,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "captures": captures,
         "skipped_bookmarks": skipped,
         "capture_qa_pass": capture_qa_pass,
+        "screenshot_validation_route": {
+            "default_capture": "active_viewport",
+            "native_command": "capture_viewport_bookmark_screenshot",
+            "active_viewport_enabled": not args.no_active_viewport,
+            "clean_game_view": clean_game_view_state,
+            "requested_bookmarks": args.bookmarks,
+            "existing_bookmarks": sorted(existing),
+            "bookmark_behavior": "optional existing-slot capture only; missing slots are skipped and no slots are created or overwritten",
+        },
+        "capture_route_health": capture_route_health,
         "content_review": content_review,
         "qa_pass": capture_qa_pass
         if args.capture_only
@@ -490,29 +622,36 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "qa_rules": {
             "requires_at_least_one_capture": True,
             "capture_must_exist_on_disk": True,
-            "bookmark_capture_must_not_add_dirty_packages": True,
+            "capture_must_have_nonzero_size": True,
+            "screenshot_capture_must_not_add_dirty_packages": True,
+            "capture_hashes_unique_when_multiple": not args.allow_duplicate_capture_hashes,
             "visual_density_required": not args.capture_only,
         },
     }
 
     report_path = args.report_path
+    report["report_path"] = str(report_path)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    report["report_path"] = str(report_path)
     return report
 
 
 def parse_args() -> argparse.Namespace:
     default_saved = PROJECT_ROOT / "Saved"
     parser = argparse.ArgumentParser(
-        description="Capture bookmark screenshots and current PCG level stats through UnrealMCP."
+        description="Capture active-viewport/bookmark screenshots and current PCG level stats through UnrealMCP."
     )
     parser.add_argument(
         "--bookmarks",
         nargs="+",
         type=int,
-        default=[1, 2],
-        help="Viewport bookmark indices to capture.",
+        default=[],
+        help="Optional existing viewport bookmark indices to capture after the active viewport.",
+    )
+    parser.add_argument(
+        "--no-active-viewport",
+        action="store_true",
+        help="Skip the default active viewport capture and capture only explicitly requested bookmarks.",
     )
     parser.add_argument(
         "--output-dir",
@@ -559,6 +698,16 @@ def parse_args() -> argparse.Namespace:
         "--capture-only",
         action="store_true",
         help="Do not fail qa_pass on visual-density warnings.",
+    )
+    parser.add_argument(
+        "--clean-game-view",
+        action="store_true",
+        help="Temporarily enable editor game view during capture and restore the previous state afterwards.",
+    )
+    parser.add_argument(
+        "--allow-duplicate-capture-hashes",
+        action="store_true",
+        help="Do not fail capture_qa_pass when multiple requested captures produce identical image hashes.",
     )
     return parser.parse_args()
 
