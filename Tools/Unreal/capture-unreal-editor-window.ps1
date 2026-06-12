@@ -44,6 +44,12 @@ public class CubelessWin32Capture {
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, int nFlags);
+
+    [DllImport("user32.dll")]
     public static extern IntPtr GetDC(IntPtr hWnd);
 
     [DllImport("user32.dll")]
@@ -157,6 +163,40 @@ function New-BitmapFromScreenBitBlt {
     }
 }
 
+function New-BitmapFromPrintWindow {
+    param(
+        [IntPtr]$Handle,
+        [int]$Width,
+        [int]$Height
+    )
+
+    $bitmap = New-Object System.Drawing.Bitmap $Width, $Height
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    $hdc = [IntPtr]::Zero
+
+    try {
+        $hdc = $graphics.GetHdc()
+        $ok = [CubelessWin32Capture]::PrintWindow($Handle, $hdc, 2)
+        if (-not $ok) {
+            throw "PrintWindow failed"
+        }
+        return $bitmap
+    } catch {
+        if ($bitmap) {
+            $bitmap.Dispose()
+            $bitmap = $null
+        }
+        throw
+    } finally {
+        if ($hdc -ne [IntPtr]::Zero) {
+            $graphics.ReleaseHdc($hdc)
+        }
+        if ($graphics) {
+            $graphics.Dispose()
+        }
+    }
+}
+
 $windows = New-Object System.Collections.Generic.List[object]
 $callback = [CubelessWin32Capture+EnumWindowsProc]{
     param([IntPtr]$hWnd, [IntPtr]$lParam)
@@ -207,6 +247,7 @@ if ($null -eq $target) {
 }
 
 if (-not $NoForeground) {
+    [void][CubelessWin32Capture]::ShowWindow($target.Handle, 9)
     [void][CubelessWin32Capture]::SetForegroundWindow($target.Handle)
     Start-Sleep -Milliseconds 800
 }
@@ -224,10 +265,25 @@ if ($width -le 0 -or $height -le 0) {
 }
 
 try {
-    $bitmap = New-BitmapFromScreenBitBlt -Left $left -Top $top -Width $width -Height $height
+    $captureMethod = "BitBlt"
+    try {
+        $bitmap = New-BitmapFromScreenBitBlt -Left $left -Top $top -Width $width -Height $height
+    } catch {
+        $bitBltError = $_.Exception.Message
+        $captureMethod = "PrintWindow"
+        if ($bitmap) {
+            $bitmap.Dispose()
+            $bitmap = $null
+        }
+        $bitmap = New-BitmapFromPrintWindow -Handle $target.Handle -Width $target.Width -Height $target.Height
+        $left = $target.Left
+        $top = $target.Top
+        $right = $target.Right
+        $bottom = $target.Bottom
+    }
     $stats = Get-WindowCaptureStats -Bitmap $bitmap
     if ($stats.NonBlackRatio -lt 0.02) {
-        throw "Capture produced mostly black image: non_black_ratio=$($stats.NonBlackRatio)"
+        throw "Capture produced mostly black image using ${captureMethod}: non_black_ratio=$($stats.NonBlackRatio)"
     }
     $bitmap.Save($OutputPath, [System.Drawing.Imaging.ImageFormat]::Png)
 } finally {
@@ -248,4 +304,6 @@ $file = Get-Item -LiteralPath $OutputPath
     title = $target.Title
     rect = "$left,$top,$right,$bottom"
     non_black_ratio = $stats.NonBlackRatio
+    method = $captureMethod
+    bitblt_error = $bitBltError
 } | ConvertTo-Json -Compress

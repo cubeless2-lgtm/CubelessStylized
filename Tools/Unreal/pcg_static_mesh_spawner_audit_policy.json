@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "description": "Non-destructive policy for classifying PCG StaticMeshSpawner actor-property audit findings.",
+  "production_path_prefixes": [
+    "/Game/Cubeless/PCG/Runtime/"
+  ],
+  "runtime_cleanup_path_prefixes": [
+    "/Game/Cubeless/PCG/RuntimeGrass/"
+  ],
+  "learning_path_prefix": "/Game/Cubeless/PCG/ElectricDreamsLearning/",
+  "legacy_learning_allowlist": [
+    "/Game/Cubeless/PCG/ElectricDreamsLearning/AmountPresets/PCG_Cubeless_ED_DitchAmount_Dense.PCG_Cubeless_ED_DitchAmount_Dense",
+    "/Game/Cubeless/PCG/ElectricDreamsLearning/AmountPresets/PCG_Cubeless_ED_DitchAmount_Normal.PCG_Cubeless_ED_DitchAmount_Normal",
+    "/Game/Cubeless/PCG/ElectricDreamsLearning/AmountPresets/PCG_Cubeless_ED_DitchAmount_Sparse.PCG_Cubeless_ED_DitchAmount_Sparse",
+    "/Game/Cubeless/PCG/ElectricDreamsLearning/AmountPresets/PCG_Cubeless_ED_GroundAmount_Dense.PCG_Cubeless_ED_GroundAmount_Dense",
+    "/Game/Cubeless/PCG/ElectricDreamsLearning/AmountPresets/PCG_Cubeless_ED_GroundAmount_Normal.PCG_Cubeless_ED_GroundAmount_Normal",
+    "/Game/Cubeless/PCG/ElectricDreamsLearning/AmountPresets/PCG_Cubeless_ED_GroundAmount_Sparse.PCG_Cubeless_ED_GroundAmount_Sparse",
+    "/Game/Cubeless/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_GroundFoliage_CoolLeaf.PCG_Cubeless_ED_MaterialOverride_GroundFoliage_CoolLeaf",
+    "/Game/Cubeless/PCG/ElectricDreamsLearning/PCG_Cubeless_DitchHierarchyPrototype.PCG_Cubeless_DitchHierarchyPrototype",
+    "/Game/Cubeless/PCG/ElectricDreamsLearning/PCG_Cubeless_GroundControlsPrototype.PCG_Cubeless_GroundControlsPrototype"
+  ],
+  "cleanup_candidates": {},
+  "archived_candidates": {
+    "static_mesh_spawner_actor_property_audit_20260612": {
+      "archive_root": "/Game/Cubeless/_Archive/PCG_StaticMeshSpawnerActorPropertyAudit_20260612",
+      "legacy_unreferenced": [
+        {
+          "source": "/Game/Cubeless/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_CompactConifer_DarkPine.PCG_Cubeless_ED_MaterialOverride_CompactConifer_DarkPine",
+          "archive": "/Game/Cubeless/_Archive/PCG_StaticMeshSpawnerActorPropertyAudit_20260612/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_CompactConifer_DarkPine.PCG_Cubeless_ED_MaterialOverride_CompactConifer_DarkPine"
+        },
+        {
+          "source": "/Game/Cubeless/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_CompactConifer_Default.PCG_Cubeless_ED_MaterialOverride_CompactConifer_Default",
+          "archive": "/Game/Cubeless/_Archive/PCG_StaticMeshSpawnerActorPropertyAudit_20260612/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_CompactConifer_Default.PCG_Cubeless_ED_MaterialOverride_CompactConifer_Default"
+        },
+        {
+          "source": "/Game/Cubeless/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_CompactConifer_SoftPine.PCG_Cubeless_ED_MaterialOverride_CompactConifer_SoftPine",
+          "archive": "/Game/Cubeless/_Archive/PCG_StaticMeshSpawnerActorPropertyAudit_20260612/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_CompactConifer_SoftPine.PCG_Cubeless_ED_MaterialOverride_CompactConifer_SoftPine"
+        },
+        {
+          "source": "/Game/Cubeless/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_GroundFoliage_WarmLeaf.PCG_Cubeless_ED_MaterialOverride_GroundFoliage_WarmLeaf",
+          "archive": "/Game/Cubeless/_Archive/PCG_StaticMeshSpawnerActorPropertyAudit_20260612/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_GroundFoliage_WarmLeaf.PCG_Cubeless_ED_MaterialOverride_GroundFoliage_WarmLeaf"
+        },
+        {
+          "source": "/Game/Cubeless/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_SmallRocks_CoolRock.PCG_Cubeless_ED_MaterialOverride_SmallRocks_CoolRock",
+          "archive": "/Game/Cubeless/_Archive/PCG_StaticMeshSpawnerActorPropertyAudit_20260612/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_SmallRocks_CoolRock.PCG_Cubeless_ED_MaterialOverride_SmallRocks_CoolRock"
+        },
+        {
+          "source": "/Game/Cubeless/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_SmallRocks_DarkRock.PCG_Cubeless_ED_MaterialOverride_SmallRocks_DarkRock",
+          "archive": "/Game/Cubeless/_Archive/PCG_StaticMeshSpawnerActorPropertyAudit_20260612/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_SmallRocks_DarkRock.PCG_Cubeless_ED_MaterialOverride_SmallRocks_DarkRock"
+        },
+        {
+          "source": "/Game/Cubeless/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_SmallRocks_Default.PCG_Cubeless_ED_MaterialOverride_SmallRocks_Default",
+          "archive": "/Game/Cubeless/_Archive/PCG_StaticMeshSpawnerActorPropertyAudit_20260612/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_SmallRocks_Default.PCG_Cubeless_ED_MaterialOverride_SmallRocks_Default"
+        }
+      ],
+      "legacy_temp_referenced": [
+        {
+          "source": "/Game/Cubeless/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_GroundFoliage_Default.PCG_Cubeless_ED_MaterialOverride_GroundFoliage_Default",
+          "archive": "/Game/Cubeless/_Archive/PCG_StaticMeshSpawnerActorPropertyAudit_20260612/PCG/ElectricDreamsLearning/MaterialOverridePresets/PCG_Cubeless_ED_MaterialOverride_GroundFoliage_Default.PCG_Cubeless_ED_MaterialOverride_GroundFoliage_Default"
+        }
+      ],
+      "empty_unreferenced": []
+    }
+  },
+  "deleted_candidates": {
+    "static_mesh_spawner_actor_property_audit_20260612": {
+      "empty_unreferenced": [
+        {
+          "source": "/Game/Cubeless/PCG/RuntimeGrass/NewPCGGraph.NewPCGGraph",
+          "reason": "Archived copy produced an AssetCheck missing soft reference error for /Game/DynamicGrassSystem/Meshes/Bush1_SM; source graph was unreferenced and empty."
+        }
+      ]
+    }
+  }
+}
