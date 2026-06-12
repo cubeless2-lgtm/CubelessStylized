@@ -62,21 +62,22 @@
 - Report `connected`, `not connected`, or `unknown` as a detail after the primary `성공`/`실패` result.
 - This shortcut is a status check only; it does not modify Unreal assets.
 
-## Keilan Invocation Shortcut
+## Image / Texture Source Art Shortcut
 
-- When the user sends `케일란` as a standalone call, show the available Keilan work menu and wait for the user's next answer. Do not start image generation, Unreal asset work, or source-art work from the standalone menu call alone.
+- Image-generation and texture source-art work is owned by 이에타 (see the 이에타 role's source-art responsibilities). There is no separate image-generation agent.
+- When the user sends `텍스쳐 작업` (or an equivalent standalone image/texture source-art call), show the available source-art work menu and wait for the user's next answer. Do not start image generation, Unreal asset work, or source-art work from the standalone menu call alone.
 - The menu must show exactly these options:
   - `1. 구름 그리기 - 스태틱 스카이 클라우드 생성 하는일`
   - `2. 선택 매쉬 텍스쳐링 설계`
 - After this menu is shown in the current thread, treat a follow-up answer that starts with a number and then a description as the execution command, for example `1 노을용 방사형 구름` or `2 낡은 빨간 금속 자판기 스타일`.
-- If the answer starts with `1`, execute Keilan's static sky cloud generation workflow: use the Ultra Dynamic Sky static-cloud, Polar/Radial UV, and RGBA packing rules already defined for Keilan.
-- If the answer starts with `2`, execute the Selected Static Mesh Texture Workflow: capture the selected mesh and UV context first, then design the texture through Keilan and review it through Ieta before Tivret applies any Unreal asset changes.
+- If the answer starts with `1`, execute the static sky cloud source-art workflow: use the Ultra Dynamic Sky static-cloud, Polar/Radial UV, and RGBA packing rules defined in the 이에타 role's source-art responsibilities.
+- If the answer starts with `2`, execute the Selected Static Mesh Texture Workflow: capture the selected mesh and UV context first, then design the texture through 이에타 and review it before 티브렛 applies any Unreal asset changes.
 - If the user enters only `1` or `2` without a description, ask for the missing style, target, or material direction before executing.
-- Existing explicit Keilan commands such as `케일란 텍스쳐링해` may still trigger their matching workflow directly; only standalone `케일란` should show the menu and wait.
+- Existing explicit texture commands such as `텍스쳐링해` may still trigger their matching workflow directly; only the standalone source-art call should show the menu and wait.
 
 ## Agent Roles
 
-This project uses three named agent roles. The Korean names are display names; the English role names are the stable internal meanings.
+This project uses two named agent roles. The Korean names are display names; the English role names are the stable internal meanings.
 
 ### 이에타 - Planner Agent
 
@@ -86,6 +87,25 @@ This project uses three named agent roles. The Korean names are display names; t
 - If the task needs asset edits, hand the concrete work off to 티브렛.
 - Always show the user the exact instruction that will be given to 티브렛 before 티브렛 executes it.
 - Use a visible section titled `티브렛에게 전달할 지시` when handing work to 티브렛.
+
+#### 이에타 - Image / Source Art Responsibilities
+
+Image-generation and texture source-art work is owned by 이에타. 이에타 plans the source art, documents intent/prompt/channel-packing notes, and hands implementation/import to 티브렛.
+
+- Own image-generation and source-art planning for sky/cloud textures and mesh textures. There is no separate image-generation agent.
+- For Ultra Dynamic Sky static-cloud work, source imagery must fit Polar/Radial UV sampling rather than ordinary flat screen-space composition.
+- Until the user replaces it, treat `/Script/Engine.Texture2D'/Game/UltraDynamicSky/Textures/StaticClouds/Custom/cloub02.cloub02'` as the current Polar/Radial UV reference cloud texture for generated cloud art.
+- Treat RGBA static-cloud output as packed cloud data, not final beauty color: `R` is upper-right key light response, `G` is upper-left key light response, `B` is overhead/front fill response, and `A` is opacity/density.
+- Keep cloud forms readable under radial/polar distortion, avoid hard seams across radial wrap boundaries, and keep edge alpha soft enough for sky blending.
+- For 3D or PBR texture source images, plan neutral, shadow-free source art by default: no cast shadows, no baked ambient occlusion/contact shadows, no directional key/fill lighting, no reflection/specular highlights, and no final beauty lighting unless the user explicitly asks for a lit preview.
+- For modeling/reference concept art, keep each view, part callout, material sample, trim strip, and optional preview render clearly separated with enough margin. Do not allow overlapping, occlusion, cropping, or tangency between reference elements, because those overlaps can contaminate later UV fitting, masking, or texture extraction.
+- Keep BaseColor/albedo source imagery separable from lighting. Normal, Roughness, Metallic, Height, and AO maps should be derived or authored as material data, not baked into the BaseColor image.
+- For material sample textures and material effect source images such as glitch, dissolve, breakup, distortion, flow/noise, scratches, dust, scanline dirt, impact, energy, or stylized mask sources, define and state the final material/shader purpose before image generation.
+- For a material/effect image request, prioritize image quality while preserving the stated shader purpose. Do not turn data or mask source art into a final beauty-lit image unless the user explicitly asks for a preview-only beauty image.
+- Channel packing for material effect and mask textures is case-specific. 이에타 defines channel meanings per request, and 티브렛 packs/imports the result only after the requested channel roles are clear.
+- 이에타 does not modify Unreal assets directly. Produce source image intent, prompt notes, channel-packing notes, preview expectations, and risks, then hand implementation/import to 티브렛.
+- Image generation must follow the project cost-control rules: do not use `OPENAI_API_KEY`, the OpenAI Images API, or any user-billed API path unless the user explicitly approves that billing route.
+- 이에타 organizes source-art output into project docs, Notion summaries, source-art paths, texture-packing notes, and handoff instructions.
 
 ### 이에타 C++ 리뷰 - Unreal C++ Reviewer Mode
 
@@ -113,29 +133,12 @@ This project uses three named agent roles. The Korean names are display names; t
 - Outside the UnrealMCP, GFur, and OptimizationPreviewTools plugin exceptions, if C++ appears necessary, explain why and ask before writing it.
 - When executing a plan from 이에타, treat the visible `티브렛에게 전달할 지시` section as the source of truth.
 
-### 케일란 - Image Generation Agent
-
-- Own image-generation work for sky and cloud texture source art.
-- For Ultra Dynamic Sky static-cloud work, generate cloud source imagery that fits Polar/Radial UV sampling rather than ordinary flat screen-space composition.
-- Until the user replaces it, treat `/Script/Engine.Texture2D'/Game/UltraDynamicSky/Textures/StaticClouds/Custom/cloub02.cloub02'` as the current Polar/Radial UV reference cloud texture for Keilan's generated cloud art.
-- Treat RGBA output as packed cloud data, not final beauty color: `R` is upper-right key light response, `G` is upper-left key light response, `B` is overhead/front fill response, and `A` is opacity/density.
-- Keep cloud forms readable under radial/polar distortion, avoid hard seams across radial wrap boundaries, and keep edge alpha soft enough for sky blending.
-- For 3D or PBR texture source images, generate neutral, shadow-free source art by default: no cast shadows, no baked ambient occlusion/contact shadows, no directional key/fill lighting, no reflection/specular highlights, and no final beauty lighting unless the user explicitly asks for a lit preview.
-- For modeling/reference concept art, keep each view, part callout, material sample, trim strip, and optional preview render clearly separated with enough margin. Do not allow overlapping, occlusion, cropping, or tangency between reference elements, because those overlaps can contaminate later UV fitting, masking, or texture extraction.
-- Keep BaseColor/albedo source imagery separable from lighting. Normal, Roughness, Metallic, Height, and AO maps should be derived or authored as material data, not baked into the BaseColor image.
-- For material sample textures and material effect source images such as glitch, dissolve, breakup, distortion, flow/noise, scratches, dust, scanline dirt, impact, energy, or stylized mask sources, Ieta must first explain the final material/shader purpose to Keilan before image generation.
-- When Keilan receives a material/effect image request, prioritize image quality while preserving the stated shader purpose. Do not turn data or mask source art into a final beauty-lit image unless the user explicitly asks for a preview-only beauty image.
-- Channel packing for material effect and mask textures is case-specific. Ieta defines channel meanings per request before handoff, and Tivret packs/imports the result only after the requested channel roles are clear.
-- Do not modify Unreal assets directly. Provide source image intent, prompt notes, channel-packing notes, preview expectations, and any risks for Ieta to document and for Tivret to implement/import.
-- Image generation must still follow the project cost-control rules: do not use `OPENAI_API_KEY`, the OpenAI Images API, or any user-billed API path unless the user explicitly approves that billing route.
-- Ieta is responsible for organizing Keilan's output into project docs, Notion summaries, source-art paths, texture packing notes, and handoff instructions.
-
 ## Selected Static Mesh Texture Workflow
 
-- When the user asks to add, draw, generate, or replace texture art for the currently selected Static Mesh, route the source-art step to 케일란 first.
-- When the user selects an actor and says `케일란 텍스쳐링해`, treat it as the full selected Static Mesh texture workflow trigger.
-- 케일란 must ask 티브렛 to capture a screenshot centered on the currently selected Static Mesh before generating or editing texture source art. The screenshot should show the mesh clearly enough to infer form, material scale, and visible UV-facing surfaces.
-- 케일란 then creates the concept/source art first with built-in image generation, following the user's visual prompt and the project's image generation cost-control rules.
+- When the user asks to add, draw, generate, or replace texture art for the currently selected Static Mesh, 이에타 handles the source-art step first.
+- When the user selects an actor and says `텍스쳐링해`, treat it as the full selected Static Mesh texture workflow trigger.
+- 이에타 must ask 티브렛 to capture a screenshot centered on the currently selected Static Mesh before generating or editing texture source art. The screenshot should show the mesh clearly enough to infer form, material scale, and visible UV-facing surfaces.
+- 이에타 then plans/creates the concept/source art first with built-in image generation, following the user's visual prompt and the project's image generation cost-control rules.
 - Concept/source art used as modeling or UV-fitting reference must not contain overlapping reference views or parts. If an isometric preview, side view, loose stone sample, trim strip, or material swatch is included, it must be spatially separated from the main reference area and must not cover, touch, or intrude into it.
 - After the source art is accepted as directionally useful, create the actual model texture with image generation using both the source art and the real selected model UV layout as guides.
 - Show the generated source art, real UV layout, and generated UV-fitted texture to the user and submit them to 이에타 for review before any Unreal texture asset or material is modified.
@@ -144,7 +147,7 @@ This project uses three named agent roles. The Korean names are display names; t
 - 이에타 reviews the source art, generated UV-fitted texture, UV layout, and UV texture preview together. The review must check whether the image matches the requested style, material intent, mesh form, UV direction, UV scale, and UV island placement. It must also check that important source-art motifs such as side guide stones, trim stones, borders, rails, large cracks, moss bands, or other user-visible structural cues were not accidentally omitted while fitting the texture to UVs.
 - For repeated forms such as stairs, tiles, bricks, planks, fence slats, windows, or panels, 이에타 must compare the source art's count, spacing, rhythm, and major alignment against the UV-fitted texture before approval. Do not approve a texture if the source has seven stair rows but the fitted texture reads as five, or if a similar count/rhythm mismatch changes the intended design.
 - For UV review, show or reason about both texture-space orientation and UV/editor display orientation when they may differ. Confirm whether V is flipped between the exported UV guide, the imported texture image, the user-facing preview image, and the actual mesh application before approving. If only the displayed preview image is vertically flipped while the final applied texture UV is correct, label it as a preview-display issue and do not treat it as a final texture UV error.
-- If the review does not pass, 이에타 must request a specific correction from 케일란 or 티브렛 and repeat the preview/review loop until the issue is resolved.
+- If the review does not pass, 이에타 must redo the source art or request a specific correction from 티브렛 and repeat the preview/review loop until the issue is resolved.
 - When the UV texture preview fits correctly and the art direction is acceptable, 이에타 explicitly approves the work before implementation continues.
 - Only after 이에타 approves, 티브렛 may proceed with Unreal asset work: identify the UV regions that correspond to the concept/source image, match the generated image to those UV regions, and paint or import the texture onto the selected Static Mesh.
 - After implementation finishes, 이에타 posts a final opinion covering art match, UV fit, implementation result, and any residual risk.
@@ -178,7 +181,7 @@ This project uses three named agent roles. The Korean names are display names; t
 - When running Niagara Preview Lab work in `/Game/SampleTestMap/Niagara_TestMap`, do not call `EditorLoadingAndSavingUtils.load_map` to reload the same map after preview actors, Python references, callbacks, or captured world objects have existed. Re-loading the same dirty or referenced map can trigger Unreal `World Memory Leaks` fatal shutdown through Python's reference collector. Reuse the already loaded map, delete preview actors by the `MCP_NiagaraPreviewLab_` label prefix, also clean legacy `MCP_NiagaraReview_` actors when present, clear Python references, and avoid saving. If the Preview Lab map must be reset, restart the editor and open the map fresh instead of reloading it from the same Python session.
 - Treat `/Content/_MCP_Temp/` as the shared temporary output root for MCP-recreated content and validation artifacts. Use package paths such as `/Game/_MCP_Temp/<SourceName>_MCP` for recreate/validation targets.
 - `_MCP_Temp` outputs are disposable generated artifacts that may change on every validation run. They are gitignored and must not be staged or committed unless the user explicitly asks to version a specific generated asset.
-- This `_MCP_Temp` rule is shared by 이에타, 케일란, and 티브렛. Use `/Content/MCPTestFixtures/` only for deliberate stable test fixtures, not for ordinary temporary MCP output.
+- This `_MCP_Temp` rule is shared by 이에타 and 티브렛. Use `/Content/MCPTestFixtures/` only for deliberate stable test fixtures, not for ordinary temporary MCP output.
 - Treat `/Content/_MCP_Sample/` as a local learning/sample resource folder for MCP-related study assets. It is gitignored by default and must not be staged or committed unless the user explicitly asks to version a specific sample asset.
 
 ## Unreal Packaging Output Rules
@@ -207,7 +210,7 @@ This project uses three named agent roles. The Korean names are display names; t
 - Do not convert a whole material into one opaque Custom node by default. Custom nodes should be small, named, isolated, and have explicit validated inputs and output types.
 - Do not force node-only conversion unless the user explicitly asks for a node-only test or a native-only graph. Node-only expansion is allowed for verification, but production material work should prefer the hybrid approach.
 - When converting public GLSL/HLSL or Unity/Godot shader code, first classify which parts should stay as native nodes and which parts require Custom-node isolation. Preserve render-state, material-domain, shading-model, parameter, texture, and root-property meaning in the Unreal graph.
-- When material work needs sample textures or effect images, classify the texture purpose first. Use Keilan/image generation for organic or stylized source art where visual quality matters, and use procedural generation for exact numeric data, UV test grids, deterministic gradients, LUTs, or strict channel validation patterns.
+- When material work needs sample textures or effect images, classify the texture purpose first. Use image generation for organic or stylized source art where visual quality matters, and use procedural generation for exact numeric data, UV test grids, deterministic gradients, LUTs, or strict channel validation patterns.
 - For packed effect textures, define the channel roles per request before generation or packing; do not assume a fixed RGBA layout except where a specific workflow, such as Ultra Dynamic Sky static clouds, already defines one.
 - Always verify hybrid material work through UnrealMCP after creation or modification: list material nodes, confirm Custom-node count and connected inputs, compile with structured error reporting, confirm `compile_error_count=0`, and save only after compile success unless the user asked for a draft asset.
 - If a Custom node compile error, unconnected input, editor crash, or MCP graph-editing failure occurs, fix the MCP/editor scripting issue or isolate the failing shader logic before continuing the batch or asset work.

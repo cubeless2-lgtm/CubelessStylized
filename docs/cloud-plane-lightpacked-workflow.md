@@ -13,9 +13,9 @@ This workflow keeps Ultra Dynamic Sky assets untouched. All editable assets live
 - Multi-plane field preset: `/Game/Cubeless/Env/Sky/Blueprints/BP_CloudField_LightPacked_Preset`
 - UDS static-sky material generator: `SourceArt/Sky/create_uds_static_cloud_placard_material.py`
 
-## Keilan Image Generation Brief
+## Image Generation Brief
 
-Keilan owns future image-generation work for this cloud source art. Ieta records Keilan's output and keeps the project documents, Notion summaries, source-art paths, and texture-packing notes aligned. Tivret handles Unreal import, material hookup, and asset verification when implementation is requested.
+이에타 owns image-generation work for this cloud source art and keeps the project documents, Notion summaries, source-art paths, and texture-packing notes aligned. 티브렛 handles Unreal import, material hookup, and asset verification when implementation is requested.
 
 The target use case is Ultra Dynamic Sky static-cloud texture work, so generated cloud art must be designed for Polar/Radial UV sampling rather than a normal flat viewport composition.
 
@@ -35,7 +35,7 @@ Generation requirements:
 - Do not bake final day/sunset/night color into the source. The material applies lighting color later.
 - Prefer broad, sky-scale cloud masses and wispy breakup over near-camera card silhouettes.
 
-Keilan deliverables:
+Deliverables:
 
 - Source image intent and prompt notes.
 - Expected radial/polar UV behavior.
@@ -43,7 +43,7 @@ Keilan deliverables:
 - Preview expectation for day/sunset/night readability.
 - Any risks, such as seam visibility, overly dense alpha, or detail that will collapse after radial sampling.
 
-Keilan handoff template:
+Handoff template:
 
 ```text
 Target: UDS static cloud texture, Polar/Radial UV.
