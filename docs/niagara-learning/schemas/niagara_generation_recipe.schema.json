@@ -51,6 +51,12 @@
             "number",
             "null"
           ]
+        },
+        "source_match_keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": false
@@ -96,6 +102,31 @@
             "type": "string"
           }
         },
+        "renderer_material_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stack_control_hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "module_input_control_candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "module_input_control_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "bp_linkage_sources": {
           "type": "array",
           "items": {
@@ -112,6 +143,165 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "renderer_analysis": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "system_path": {
+          "type": "string"
+        },
+        "emitter_count": {
+          "type": "number"
+        },
+        "renderer_count": {
+          "type": "number"
+        },
+        "error": {
+          "type": "string"
+        },
+        "renderers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "renderer_materials": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "stack_analysis": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "system_path": {
+          "type": "string"
+        },
+        "emitter_count": {
+          "type": "number"
+        },
+        "system_script_count": {
+          "type": "number"
+        },
+        "system_scratch_pad_count": {
+          "type": "number"
+        },
+        "total_scratch_pad_count": {
+          "type": "number"
+        },
+        "total_emitter_function_call_count": {
+          "type": "number"
+        },
+        "control_hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scratch_pad_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "emitters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "module_input_analysis": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "system_path": {
+          "type": "string"
+        },
+        "emitter_count": {
+          "type": "number"
+        },
+        "include_resolved_stack_inputs": {
+          "type": "boolean"
+        },
+        "module_count": {
+          "type": "number"
+        },
+        "candidate_count": {
+          "type": "number"
+        },
+        "top_candidate_count": {
+          "type": "number"
+        },
+        "can_author_module_inputs": {
+          "type": "boolean"
+        },
+        "authoring_status": {
+          "type": "string"
+        },
+        "control_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_modules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "candidate_emitters": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "top_candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "resolved_input_examples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "emitters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
           }
         }
       },
@@ -184,6 +374,16 @@
           "target_material": {
             "type": "string"
           },
+          "source_kind": {
+            "type": "string"
+          },
+          "renderer_bindings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
           "parameter_overrides": {
             "type": "object"
           }
@@ -203,6 +403,100 @@
           "null"
         ]
       }
+    },
+    "generation_plan": {
+      "type": "object",
+      "required": [
+        "target_system",
+        "can_execute_now",
+        "blocked_by_api",
+        "preview_after_generation",
+        "promotion_gate"
+      ],
+      "properties": {
+        "target_system": {
+          "type": "string"
+        },
+        "can_execute_now": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "step",
+              "source",
+              "target"
+            ],
+            "properties": {
+              "step": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              },
+              "requires_mcp_command": {
+                "type": "string"
+              },
+              "execution_mode": {
+                "type": "string"
+              },
+              "rule": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "blocked_by_api": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "step",
+              "source",
+              "missing_api"
+            ],
+            "properties": {
+              "step": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "missing_api": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "preview_after_generation": {
+          "type": "object",
+          "required": [
+            "tool",
+            "fallback_tool",
+            "rule"
+          ],
+          "properties": {
+            "tool": {
+              "type": "string"
+            },
+            "fallback_tool": {
+              "type": "string"
+            },
+            "rule": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "promotion_gate": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
     "validation": {
       "type": "object",

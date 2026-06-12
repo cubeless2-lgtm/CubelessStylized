@@ -2,6 +2,32 @@
 
 Durable local fallback for project memory when Notion capture is unavailable.
 
+## 2026-06-11 - Niagara Natural-Language Recipe Compiler Pass
+
+### Summary
+- Returned to the generative Niagara goal after stabilizing and pushing the Niagara Preview Player shutdown fix.
+- Tightened `Tools/Unreal/niagara_generation_recipe_builder.py` as the first natural-language recipe compiler layer.
+- Replaced mojibake Korean keyword hints with valid UTF-8 Korean/English role, material, color, and motion terms.
+- Added `generation_plan` output so recipes separate safe temp steps (`can_execute_now`) from steps blocked by missing Niagara edit APIs (`blocked_by_api`).
+- Added `Tools/Unreal/niagara_generation_recipe_executor.py` as the safe temp execution layer for `generation_plan`.
+- Added the first temp material stack: likely Material Instance candidates are duplicated under the generated temp folder, and visible safe vector color parameters are set from the parsed color intent.
+- Updated the generation recipe schema and implementation plan to document the new plan shape.
+- No Unreal source Niagara, Material, Blueprint, map, or production content assets were modified.
+
+### Verification
+- `py_compile` passed for `Tools/Unreal/niagara_generation_recipe_builder.py`.
+- `py_compile` passed for `Tools/Unreal/niagara_generation_recipe_executor.py`.
+- Smoke recipes were generated under `Saved/MCP_NiagaraGeneration/Smoke` for `붉은색 검 궤적`, `푸른 번개 장판`, `연기 폭발`, `스타일라이즈 화염`, and `초록 독 안개`.
+- Parsed intent checks passed: red sword trail maps to `ribbon_trail/ribbon_slash/red`; blue lightning field maps to `ground_area + lightning_arc`; green poison fog maps to `smoke_volume/soft_smoke/green`.
+- Standard-library JSON validation confirmed the schema file parses, every smoke recipe includes `generation_plan`, and temp targets stay under `/Game/_MCP_Temp/NiagaraGenerated/`.
+- Dry-run execution report passed for `red_sword_trail`.
+- Unreal Editor execution duplicated the primary source system to `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail/NS_red_sword_trail.NS_red_sword_trail`, saved the temp asset, and wrote `Saved/MCP_NiagaraGeneration/Smoke/red_sword_trail_execute_report.json`.
+- Preview Player smoke opened the generated temp system with `last_preview_renderable=true`, `playback_state=playing`, and `looping=true`.
+- Material stack execution duplicated eight temp Material Instance candidates for `붉은색 검 궤적` and applied red vector values to `EmissionColor`, `LineColor`, `DarkColor`, and `BrightColor` where those parameters existed.
+- Unreal readback confirmed the applied temp MI vector values as `[1.0, 0.08, 0.035, 1.0]`.
+- A later direct socket Preview Player reopen attempt timed out, but the primary `unrealMCP` bridge remained connected through `ieta_status`; no editor crash occurred. Treat this as the existing socket sequencing issue, not a material-stack failure.
+- Notion capture fallback: Notion page lookup was not available through the exposed connector path in this session, so this local work-log entry is the durable capture.
+
 ## 2026-06-11 - Niagara Preview Player shutdown crash fix
 
 ### Summary
@@ -2513,3 +2539,228 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Verification: `StylizedCubelessEditor Win64 Development` build succeeded. Runtime socket smoke opened the player with `/Game/EL/ART/FX/Niagara/System/SQ/Aster/FX_Aster_S_Eye.FX_Aster_S_Eye` and returned `window_open=true`, `last_preview_renderable=true`, and `playback_state=playing`.
 - Log check: the latest checked editor log tail showed the preview-player command execution and no new error/fatal lines for this smoke test.
 - Notion capture fallback: Notion lookup was not re-attempted for this small UI iteration; this local work-log entry is the durable capture.
+
+# Generative Niagara Renderer Material Binding API
+
+- Date: 2026-06-11 KST
+- Scope: added UnrealMCP Niagara renderer inspection/material binding commands and connected the generative Niagara temp recipe executor to an external socket binding pass. Source Niagara systems and source Materials remain read-only by default.
+- UnrealMCP commands: `inspect_niagara_renderers` lists enabled emitters/renderers, renderer classes, renderer indexes, used materials, Sprite/Ribbon primary materials, and Mesh material overrides. `set_niagara_renderer_material` sets Sprite/Ribbon `Material` or Mesh `OverrideMaterials[slot].ExplicitMat`.
+- Safety: `set_niagara_renderer_material` refuses writes outside `/Game/_MCP_Temp/NiagaraGenerated/` unless `allow_source_edit=true` is explicitly provided.
+- Build verification: `StylizedCubelessEditor Win64 Development` failed once because Live Coding was active, then succeeded after the editor was closed. The first C++ compile also caught a unity-build anonymous namespace name collision; renamed the helpers and rebuilt successfully.
+- Runtime verification: inspected `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail/NS_red_sword_trail` and read `21` emitters / `22` enabled renderers. Set emitter index `4`, renderer index `0` to `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail/Materials/MI_red_sword_trail_FX_MI_Glow_Y003.MI_red_sword_trail_FX_MI_Glow_Y003`; inspect readback confirmed the temp MI as both `used_materials` and `primary_material`.
+- Executor integration: `Tools/Unreal/niagara_generation_recipe_executor.py --socket-bind-only` now maps recipe material-plan source materials to duplicated temp MIs and applies matching renderer bindings through the UnrealMCP socket after the Unreal Python duplication step.
+- Red sword trail binding smoke: `--socket-bind-only` bound one additional matching renderer (`FX_M_RadialBlur01_Y001`) and wrote `Saved/MCP_NiagaraGeneration/red_sword_trail_renderer_binding_report.json`.
+- Residual gap: current `material_plan` is inferred from material-role/style indices, not from the actual renderer material list of the chosen primary Niagara System. Next step should feed `inspect_niagara_renderers` output back into recipe building so actual renderer materials are duplicated and bound first.
+- Notion capture fallback: Notion lookup was not available in this session, so this local work-log entry is the durable capture.
+
+# Generative Niagara Renderer-First Material Plan
+
+- Date: 2026-06-11 KST
+- Scope: upgraded the natural-language Niagara recipe builder so the chosen primary Niagara System's actual renderer materials are inspected first and promoted to the front of `material_plan`. Source Niagara and Material assets remain read-only.
+- Builder: `niagara_generation_recipe_builder.py` now supports `--renderer-inspect-mode auto|required|off`, defaulting to `auto`. It calls UnrealMCP `inspect_niagara_renderers` after primary source selection, records `renderer_analysis`, and writes `reference_analysis.renderer_material_sources`.
+- Material plan: entries now include `source_kind` and `renderer_bindings`. Actual renderer materials become `source_kind=renderer_bound`; style/name-index materials remain as `source_kind=style_variant`. Case-insensitive duplicate material paths are collapsed.
+- UnrealMCP: `set_niagara_renderer_material` now supports Decal and Volume renderers in addition to Sprite, Ribbon, and Mesh.
+- Build verification: `StylizedCubelessEditor Win64 Development` succeeded after closing the editor to clear Live Coding.
+- Red sword trail recipe verification: `--renderer-inspect-mode required` inspected `22` enabled renderers and found `13` unique renderer materials. The regenerated recipe had `19` material entries: `13` renderer-bound and `6` style variants.
+- Temp execution: regenerated `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail/NS_red_sword_trail` and duplicated renderer/style material candidates under its temp `Materials` folder.
+- Binding verification: `--socket-bind-only` bound `21` material renderers, skipped only the Light renderer, and reported `0` failed bindings. Final inspect readback confirmed `21/21` material renderers use temp materials and `0` material renderers still point to source materials.
+- Remaining deferred: exposed `User.*` Niagara parameter writes, Scratch Pad/module stack extraction, and renderer-aware style-variant targeting.
+- Notion capture fallback: Notion lookup was not available in this session, so this local work-log entry is the durable capture.
+
+# Generative Niagara User Parameter API And Source Matching
+
+- Date: 2026-06-11 KST
+- Scope: added first-pass UnrealMCP API coverage for Niagara exposed user parameters and improved natural-language source matching for generative Niagara recipes. Source Niagara assets remain read-only; parameter writes are limited to generated temp systems under `/Game/_MCP_Temp/NiagaraGenerated/` by default.
+- UnrealMCP commands: `inspect_niagara_user_parameters` lists exposed `User.*` parameters, their type, byte size, settable support, and current value when readable. `set_niagara_user_parameter` writes only supported scalar/vector value types on temp systems unless source editing is explicitly allowed.
+- Supported first-pass parameter types: float, int, bool, color, vec2, vec3, vec4, and position.
+- Executor integration: `Tools/Unreal/niagara_generation_recipe_executor.py --socket-apply-user-parameters-only` inspects the generated temp system and applies prompt color/duration only to existing exposed `User.*` parameters with safe name/type matches. When no match exists, it records the unapplied intent rather than creating unused parameters.
+- Source matching: `niagara_generation_recipe_builder.py` now derives direct match keywords such as `sword`, `trail`, `slash`, and `ribbon` from the prompt. Niagara object path/package/display-name/tag matches are weighted above incidental material/mesh matches.
+- Red sword trail verification: old temp `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail/NS_red_sword_trail` inspected successfully with `0` exposed `User.*` parameters. The user-parameter executor wrote `Saved/MCP_NiagaraGeneration/red_sword_trail_user_parameter_report.json` with `application_count=0` and a safe no-match reason.
+- Source selection verification: regenerating the red sword trail recipe from a UTF-8 prompt file selected `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Sword_C_Skill01_Trail01.FX_S_Sword_C_Skill01_Trail01` instead of a Shockwave system that only had incidental SwordTrail material references.
+- Build/runtime verification: `StylizedCubelessEditor Win64 Development` succeeded after the User Parameter API C++ additions. UnrealMCP bridge `127.0.0.1:55557` was reachable, and the Ieta Slate status call succeeded.
+- Residual gap: full all-sample generation still needs deeper Scratch Pad/module stack extraction, Blueprint/AnimNotify runtime-input mapping, and renderer-aware style-variant targeting.
+- Notion capture fallback: Notion lookup was not available in this session, so this local work-log entry is the durable capture.
+
+# Generative Niagara Stack And Scratch Pad Inspector
+
+- Date: 2026-06-11 KST
+- Scope: added a read-only Niagara stack/Scratch Pad inspector to the UnrealMCP plugin and connected its compact output to the natural-language Niagara recipe builder. No source Niagara assets, maps, materials, textures, or generated temp assets were modified by this inspection step.
+- UnrealMCP command: `inspect_niagara_stack` loads a Niagara System and returns system spawn/update script graph summaries, emitter graph function-call/module summaries, input/output node summaries, script usage summaries, and accessible system/emitter Scratch Pad script containers.
+- Safety: the command is read-only. It does not compile, save, rewire, add modules, remove modules, or write parameters.
+- Build changes: added `NiagaraEditor` as a private UnrealMCP dependency so `UNiagaraGraph`, `UNiagaraNodeFunctionCall`, `UNiagaraNodeInput`, `UNiagaraNodeOutput`, and `UNiagaraScriptSource` can be inspected.
+- Build verification: `StylizedCubelessEditor Win64 Development` failed once on a `FNiagaraVariableBase` signature-output type mismatch and once on a non-exported `UNiagaraNodeOutput::GetStackContextOverride` call; both were corrected. Final build succeeded.
+- Runtime verification: Unreal Editor relaunched, bridge `127.0.0.1:55557` was reachable, and Ieta Slate status call succeeded.
+- Red sword trail stack verification: inspected `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Sword_C_Skill01_Trail01.FX_S_Sword_C_Skill01_Trail01`; result reported `5` emitters, `70` emitter function calls, `0` Scratch Pads, and control hints including `spawn_control`, `lifetime_control`, `dynamic_material_parameter_control`, `scale_control`, `size_control`, `color_or_tint_control`, and `velocity_control`.
+- Recipe integration: `niagara_generation_recipe_builder.py` now supports `--stack-inspect-mode auto|required|off`. Regenerating the red sword trail smoke recipe with `--stack-inspect-mode required` produced `stack_analysis.status=success` and selected the Sword Trail source as primary.
+- Generated validation files: raw stack inspect output was written to `Saved/MCP_NiagaraGeneration/red_sword_trail_stack_inspect.json`; smoke recipe was written to `Saved/MCP_NiagaraGeneration/Smoke/red_sword_trail_stack_smoke_generation_recipe.json`.
+- Residual gap: this reveals module/function candidates but does not yet read resolved rapid-iteration/default override values, map DynamicMaterialParameters to exact material slots, or author stack edits.
+- Notion capture fallback: Notion lookup was not available in this session, so this local work-log entry is the durable capture.
+
+# Niagara Preview Player Analysis Panel
+
+- Date: 2026-06-11 KST
+- Scope: extended the UnrealMCP Niagara Preview Player so analysis results are visible in the viewer, not only in Codex-side JSON/log output. No source Niagara systems, maps, materials, textures, or generated temp assets were modified.
+- UI: added a right-side scrollable analysis panel next to the live preview viewport. The panel updates whenever a Niagara System is opened or dropped into the Preview Player.
+- Analysis source: the panel reuses the UnrealMCP Niagara inspection commands in-process: `inspect_niagara_renderers`, `inspect_niagara_user_parameters`, and `inspect_niagara_stack`.
+- Displayed summary: system name, emitter count, renderer count/classes, exposed `User.*` count, settable user parameter count, stack function-call count, Scratch Pad count, control hints, and top module/function names per emitter.
+- State reporting: `get_niagara_preview_player_state` now includes `analysis_summary` so automation can verify that the viewer-side panel was populated.
+- Build verification: `StylizedCubelessEditor Win64 Development` succeeded after completing the static analysis-state wiring.
+- Runtime verification: Unreal Editor relaunched, bridge `127.0.0.1:55557` was reachable, and Ieta Slate status call succeeded.
+- Red sword trail viewer verification: opened `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Sword_C_Skill01_Trail01.FX_S_Sword_C_Skill01_Trail01` in the Preview Player. State returned `window_open=true`, `last_preview_renderable=true`, `playback_state=playing`, `looping=true`, and an `analysis_summary` reporting `5` emitters, `5` renderers, `0` exposed `User.*`, `70` stack calls, `0` Scratch Pads, and modules including `DynamicMaterialParameters`, `ScaleMeshSize`, `ScaleColor`, and `AddVelocity`.
+- Log check: latest checked editor log tail showed no `Error:` or `Fatal` lines after the viewer smoke test.
+- Workflow rule: future Niagara analysis/review should surface the compact analysis in the Preview Player whenever a system is opened for visual inspection.
+- Notion capture fallback: Notion lookup was not available in this session, so this local work-log entry is the durable capture.
+
+# First Generated Niagara Temp Variant Preview
+
+- Date: 2026-06-11 KST
+- Scope: ran the first generated temp Niagara variant through the existing recipe/executor path and opened it in the Niagara Preview Player. Source Niagara systems, source materials, maps, and production assets remained read-only.
+- Generation recipe: `Saved/MCP_NiagaraGeneration/Smoke/red_sword_trail_stack_smoke_generation_recipe.json`.
+- Generated system: `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail_stack_smoke/NS_red_sword_trail_stack_smoke.NS_red_sword_trail_stack_smoke`.
+- Execution: duplicated the selected Sword Trail Niagara System and `13` material candidates into `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail_stack_smoke/`.
+- Material intent: applied the red prompt intent to safe vector parameters on matching duplicated temp Material Instances. Successful parameter names included `DarkColor`, `BrightColor`, `LineColor`, and `EmissionColor`; some materials correctly reported `no_safe_vector_color_parameter_found`.
+- Renderer readback: inspected the generated temp system and found `5` material renderers, `5` unique temp material references, and `0` source material references.
+- User parameter pass: generated temp system had `0` exposed `User.*` parameters, so no user parameter values were applied.
+- Preview Player verification: opened the generated temp system through `open_niagara_preview_player`; state returned `window_open=true`, `last_preview_renderable=true`, `playback_state=playing`, `looping=true`, and an analysis summary for the generated temp system.
+- Automation hardening: updated `niagara_generation_recipe_builder.py` to strip UTF-8 BOM from prompt text and updated both builder/executor to reconfigure stdout as UTF-8 when possible, avoiding Windows `cp949` JSON print failures.
+- Dirty asset check: Unreal reported `dirty_content_count=0` and `dirty_map_count=0` after the run.
+- Log check: latest checked editor log tail showed no `Error:` or `Fatal` lines.
+- Distinction: this is a generated temp variant using duplicated system/materials, not yet a fully new module-composed Niagara. The next step should map `DynamicMaterialParameters` and rapid-iteration/default module inputs for real stack behavior editing.
+- Notion capture fallback: Notion lookup was not available in this session, so this local work-log entry is the durable capture.
+
+# Generative Niagara Module Input Candidate Inspector
+
+- Date: 2026-06-11 KST
+- Scope: added a read-only UnrealMCP module-input candidate inspector and surfaced its output in the Niagara Preview Player analysis panel. No source Niagara systems, maps, materials, textures, or production assets were modified.
+- UnrealMCP command: `inspect_niagara_module_inputs` reports emitter/module input candidates, linked source counts, default values/objects when visible, inferred control kind, priority, and `can_author_now=false`.
+- Filtering: removed low-signal graph plumbing pins such as `InputMap`, `OutputMap`, parameter-map pins, and `Write Parameter Index` toggles from candidate output.
+- Preview Player: the analysis panel now includes `Module input candidates` and a `Control candidates` section. `get_niagara_preview_player_state.analysis_summary` includes the same text for automation verification.
+- Build verification: `StylizedCubelessEditor Win64 Development` failed once on a C++ forward-declaration order issue, then succeeded after adding the declaration. Final build succeeded after the candidate-priority refinement.
+- Runtime verification: bridge `127.0.0.1:55557` was reachable, and Ieta Slate status calls succeeded.
+- Red sword trail temp verification: inspected `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail_stack_smoke/NS_red_sword_trail_stack_smoke.NS_red_sword_trail_stack_smoke`; result reported `5` emitters, `70` modules, `283` candidates, and top candidates from `ScaleColor` including `ScaleRGBA`, `ScaleRGB`, `ScaleA`, and `ColorCurve`.
+- Viewer verification: opened the same generated temp system in the Niagara Preview Player; state returned `last_preview_renderable=true`, and `analysis_summary` contained both `Module input candidates` and `Control candidates`.
+- Recipe builder integration: `niagara_generation_recipe_builder.py` now supports `--module-input-inspect-mode auto|required|off` and writes `module_input_analysis`, `reference_analysis.module_input_control_candidates`, and `reference_analysis.module_input_control_kinds`.
+- Recipe verification: generated `Saved/MCP_NiagaraGeneration/Smoke/red_sword_trail_module_input_smoke_generation_recipe.json` with all three inspect modes set to `required`. It selected the Sword Trail source, reported `module_input_analysis.status=success`, `candidate_count=283`, and control kinds `color`, `velocity`, `spawn`, `scale_or_size`, and `width`.
+- Residual gap: this is still a read-only candidate layer. Exact Stack UI input values, rapid-iteration/default overrides, `DynamicMaterialParameters` slot mapping, and safe temp-system module-input writes remain deferred.
+- Notion capture fallback: Notion lookup was not re-attempted for this implementation slice; this local work-log entry is the durable capture.
+
+# Generative Niagara Resolved Stack Input Readback
+
+- Date: 2026-06-11 KST
+- Scope: extended the read-only Niagara module-input inspector so it can optionally resolve Niagara Stack input variables and RapidIteration values. Source Niagara systems, maps, materials, textures, and production assets were not saved or modified.
+- UnrealMCP command update: `inspect_niagara_module_inputs` now supports `include_resolved_stack_inputs` and `max_resolved_inputs_per_module`. Default behavior stays lightweight unless resolved readback is explicitly requested.
+- Readback: module entries now include `resolved_stack_inputs_enabled`, `resolved_stack_input_count`, and `resolved_stack_inputs`. Each resolved input reports variable name/type, hidden status, value source, RapidIteration parameter name, and JSON value for supported scalar/vector/color types.
+- Preview Player: the analysis panel now includes a `Resolved stack inputs` section showing limited RapidIteration examples.
+- Recipe builder: `niagara_generation_recipe_builder.py` records limited readback under `module_input_analysis.resolved_input_examples`; schema updated accordingly.
+- Build verification: `StylizedCubelessEditor Win64 Development` failed once on a non-exported `FNiagaraParameterUtilities::ConvertVariableToRapidIterationConstantName` symbol, then succeeded after switching to exported `FNiagaraUtilities::ConvertVariableToRapidIterationConstantName`. Final build succeeded after Preview Player UI integration.
+- Runtime verification: direct inspect on `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Sword_C_Skill01_Trail01.FX_S_Sword_C_Skill01_Trail01` with `include_resolved_stack_inputs=true`, `max_modules=40`, and `max_resolved_inputs_per_module=6` reported `candidate_count=283`, `resolved_total=284`, and RapidIteration values such as `EmitterState.Module.Loop Duration=1`, `SpawnBurst_Instantaneous.Module.Spawn Count=1`, and `SpawnBurst_Instantaneous.Module.Spawn Probability=1`.
+- Viewer verification: opened the Sword Trail source in Niagara Preview Player; state returned `last_preview_renderable=true`, and `analysis_summary` contained `Resolved stack inputs` with the RapidIteration examples.
+- Recipe verification: generated `Saved/MCP_NiagaraGeneration/Smoke/red_sword_trail_resolved_input_smoke_generation_recipe.json` with all inspect modes required. It selected the Sword Trail source and wrote `module_input_analysis.include_resolved_stack_inputs=true` plus `16` resolved input example groups.
+- Performance note: an uncapped resolved readback attempt timed out on the client because the result was large. Keep UI/recipe calls capped and do not request broad resolved readback without a reason.
+- Residual gap: unresolved defaults, dynamic inputs, complex data interfaces, exact Niagara Stack UI parity, and safe temp-only module-input writes remain deferred.
+- Notion capture fallback: Notion lookup was not re-attempted for this implementation slice; this local work-log entry is the durable capture.
+
+# Generative Niagara Temp-Only Module Input Write API
+
+- Date: 2026-06-11 KST
+- Scope: added the first safe module-input write API for generated temp Niagara systems. Source Niagara systems, maps, materials, textures, and production assets were not modified.
+- UnrealMCP command: `set_niagara_module_input_value` writes an existing RapidIteration parameter selected by `emitter_name/index`, `module_name/index/node_guid`, and `input_name`.
+- Safety: default write scope is `/Game/_MCP_Temp/NiagaraGenerated/` only. Source Niagara systems are rejected unless `allow_source_edit=true` is explicitly supplied. The command refuses to create a new override if no existing RapidIteration value is found.
+- Supported first-pass value types: float, int, bool, color, vec2, vec3, vec4, and position.
+- Build verification: `StylizedCubelessEditor Win64 Development` succeeded after adding the command.
+- Runtime write verification: on `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail_stack_smoke/NS_red_sword_trail_stack_smoke.NS_red_sword_trail_stack_smoke`, changed `FX_E_SwordTrail04_L / SpawnBurst_Instantaneous / Module.Spawn Count` from `1` to `2`; readback returned `2`.
+- Restore verification: changed the same temp value from `2` back to `1`; final readback returned `1`.
+- Source safety verification: attempted the same write on `/Game/EL/ART/FX/Niagara/System/PC/Sword/FX_S_Sword_C_Skill01_Trail01.FX_S_Sword_C_Skill01_Trail01`; command returned the expected temp-root refusal error.
+- Viewer verification: opened the temp system in Niagara Preview Player; state returned `last_preview_renderable=true`, and the `Resolved stack inputs` panel reported `Spawn Count = 1`.
+- Residual gap: recipe/executor natural-language module-input edit planning, new override creation, dynamic inputs, curves, data interfaces, and Niagara compile diagnostics remain deferred.
+- Notion capture fallback: Notion lookup was not re-attempted for this implementation slice; this local work-log entry is the durable capture.
+
+# Generative Niagara Natural-Language Module Input Application
+
+- Date: 2026-06-11 KST
+- Scope: connected natural-language recipe intent to the temp-only Niagara module-input write API. Source Niagara systems, source materials, maps, textures, and production assets remained read-only.
+- Recipe builder: `apply_matching_module_input_overrides` is now added when resolved module-input readback is available and the prompt contains supported duration or color intent.
+- Recipe executor: added `--socket-apply-module-inputs-only`, which re-inspects the generated temp Niagara system, selects existing RapidIteration module inputs by conservative name/type hints, then calls `set_niagara_module_input_value`.
+- Safety: the executor still requires the target system to be under `/Game/_MCP_Temp/NiagaraGenerated/`; it does not create missing overrides, rewrite dynamic inputs, edit curves, or touch source systems.
+- Verification recipe: generated `Saved/MCP_NiagaraGeneration/red_sword_trail_module_input_smoke_generation_recipe.json` from the prompt `red sword trail 2 seconds`.
+- Plan verification: the generated recipe contained `5` executable steps including `apply_matching_module_input_overrides`.
+- Execution verification: duplicated the selected Sword Trail source into `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail_module_input_smoke/NS_red_sword_trail_module_input_smoke`.
+- Module input application: `--socket-apply-module-inputs-only` inspected `5` emitters and `70` modules, then applied `5` successful duration edits by setting `EmitterState / Module.Loop Duration` from `1` to `2` on all five matching emitters.
+- Color intent note: the same prompt included `red`, but no safe existing RapidIteration color input matched the conservative first-pass rules, so color was left for material/user-parameter paths instead of forcing an unsafe module edit.
+- Preview Player verification: opened `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail_module_input_smoke/NS_red_sword_trail_module_input_smoke.NS_red_sword_trail_module_input_smoke`; state returned `last_preview_renderable=true`, and `Resolved stack inputs` showed `Loop Duration = 2`.
+- Dirty asset check: Unreal reported `dirty_content_count=0` and `dirty_map_count=0` after the module-input application and Preview Player open.
+- Log note: latest log still includes startup `LogAutomationTest: Error: Condition failed` lines and one verification-call `execute_python` SyntaxError from an incorrectly wrapped Python check. The corrected check succeeded afterward.
+- Residual gap: semantic ranking still needs to decide when a prompt should affect only one layer versus all matching emitters. Color, size, spawn density, velocity, opacity, timing-shape, dynamic material parameter slots, curves, and data interfaces still need deeper mapping.
+- Notion capture fallback: Notion lookup was not re-attempted for this implementation slice; this local work-log entry is the durable capture.
+
+# Generative Niagara Conservative Module Intent Routing
+
+- Date: 2026-06-12 KST
+- Scope: expanded the temp-only natural-language module input route beyond duration. Original Niagara systems, source materials, maps, textures, and production assets remained read-only.
+- Executor update: `niagara_generation_recipe_executor.py` now routes prompt intent families for color, duration, size, spawn density, velocity, and opacity into existing RapidIteration module inputs only.
+- Safety refinement: no-op writes are skipped, spawn probability is clamped to `0..1`, and broad curve values such as `Scale Curve` are no longer treated as safe size controls.
+- Color route fix: `ScaleColor / Module.Scale RGB` is now recognized as a color target even though its name does not contain `Color`, `Tint`, or `Emissive`.
+- Preview Player update: `Resolved stack inputs` now prioritizes review-relevant values such as `Scale RGB`, `Scale Alpha`, `Spawn Count`, velocity, `Loop Duration`, lifetime, size, and `Scale Factor`.
+- Build verification: `StylizedCubelessEditor Win64 Development` succeeded after the Preview Player C++ update.
+- Smoke prompt: `large dense fast red sword trail 2 seconds`.
+- Smoke output: `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail_intent_route_smoke/NS_red_sword_trail_intent_route_smoke.NS_red_sword_trail_intent_route_smoke`.
+- Review loop: the first broad route applied `44` writes and touched too many `Scale Curve` values, so the route was tightened and the temp system was reset from source before rerunning.
+- Final route result: `18` safe writes, including `Loop Duration` `1 -> 2`, `Spawn Count` `1 -> 2`, `Scale Factor` multiplied by `1.5`, editable `Scale RGB` values set to red `[1.0, 0.08, 0.035]`, and editable `Speed Limit` `1000 -> 1500`.
+- Report improvement: module-input application reports now include `application_summary`. The verified smoke summary was `parsed_duration=5`, `parsed_spawn_multiplier=5`, `parsed_size_multiplier=4`, `parsed_color=3`, and `parsed_velocity_multiplier=1`.
+- Preview Player verification: opened the smoke temp system and confirmed `last_preview_renderable=true`; analysis summary showed priority lines for `Loop Duration`, `Spawn Count`, `Scale Factor`, and `Scale RGB`.
+- Dirty asset check: Unreal reported `dirty_content_count=0` and `dirty_map_count=0` after the smoke run.
+- Log check: latest log tail showed the known startup `LogAutomationTest: Error: Condition failed` lines only.
+- Residual gap: layer-aware targeting, stronger Korean synonym/amount parsing, dynamic material parameter slot semantics, curve/data-interface authoring, unresolved default override creation, and Niagara compile diagnostics remain deferred.
+
+# Generative Niagara Amount Word Multipliers
+
+- Date: 2026-06-12 KST
+- Scope: added first-pass amount word parsing for natural-language module input routing. This is script-only and does not modify Unreal source assets.
+- Executor update: `module_intent_from_recipe` now recognizes strength words such as `두 배`, `두배`, `2배`, `double`, `절반`, `반으로`, `half`, `아주`, `매우`, `조금`, `약간`, and `살짝`.
+- Verified local parser examples:
+  - `아주 크게 빨간 검궤적` -> `size_multiplier=1.8`.
+  - `조금 작게 빨간 검궤적` -> `size_multiplier=0.85`.
+  - `두 배 크게 dense fast red trail` -> `2.0` for matching up-route families.
+  - `절반 작게 sparse slow faint trail` -> `0.5` for matching down-route families.
+- Residual gap: amount words are still global to matching route families in the prompt. Phrase-level binding is needed so `두 배 크게` affects size only when dense/fast terms also appear nearby.
+
+# Generative Niagara Layer-Aware Module Targeting
+
+- Date: 2026-06-12 KST
+- Scope: added first-pass layer-aware filtering for natural-language module input application. The system still writes only generated temp Niagara systems under `/Game/_MCP_Temp/NiagaraGenerated/`.
+- Executor update: `module_intent_from_recipe` now includes `target_layers`; module input rows outside the requested target layer are skipped as `outside_requested_layer_target`.
+- Layer terms: line targets include `line only`, `line layer`, `라인`, `선만`; main targets include `main`, `primary`, `core`, `메인`, `주`, `중심`; support targets include `support`, `sub`, `ref`, `afterimage`, `보조`, `서브`, `잔상`.
+- Emitter tags are inferred conservatively from emitter names. `FX_E_Line01_L` becomes `line`, `Ref` emitters become `support`, and non-line/non-ref sword trail emitters become `main`.
+- Parser verification: `line only red sword trail 2 seconds` and `라인만 빨간 검궤적` produced `target_layers=["line"]`; `main red sword trail large` and `메인만 크게 빨간 검궤적` produced `target_layers=["main"]`; `잔상만 빨간 검궤적` produced `target_layers=["support"]`.
+- Line-only smoke: `line only red sword trail 2 seconds` generated `red_sword_trail_line_only_smoke`; final module input application wrote only `FX_E_Line01_L`, with `Loop Duration` and `Scale RGB` edits.
+- Main-only smoke: `main red sword trail large 2 seconds` generated `red_sword_trail_main_only_smoke`; final module input application wrote only `FX_E_SwordTrail04_L` and `FX_E_SwordTrail05_L`, with `Loop Duration` and `Scale Factor` edits.
+- Preview Player verification: opened the main-only smoke and confirmed `last_preview_renderable=true`; analysis showed main emitters changed while `Ref` support values remained at source defaults.
+- Residual gap: layer detection still uses name heuristics. Future work should derive layer roles from renderer materials, module stacks, motion, and visual analysis, then support phrase binding such as `라인은 빨갛게, 메인은 크게`.
+
+# Generative Niagara Phrase-Level Layer Intent Binding
+
+- Date: 2026-06-12 KST
+- Scope: added first-pass phrase-level binding for natural-language module input application. Writes remain temp-only under `/Game/_MCP_Temp/NiagaraGenerated/`.
+- Executor update: prompts are split into simple clauses by comma, semicolon, slash, newline, `and`, `then`, `그리고`, and `그다음`.
+- Binding rule: a clause becomes a binding when it has an explicit layer target and at least one actionable intent. When bindings exist, each emitter row is evaluated only against the binding matching its layer tag.
+- Report update: module input application reports now include `module_intent.bindings`; each write records `intent_source_text` and `intent_target_layers`.
+- Parser verification:
+  - `line red, main large` -> line/color plus main/size bindings.
+  - `line red 2 seconds, main large` -> line/color+duration plus main/size bindings.
+  - `라인은 빨갛게, 메인은 크게` -> line/color plus main/size bindings.
+  - `라인은 빨갛게 2초, 메인은 아주 크게` -> line/color+duration plus main/size `1.8` bindings.
+- Smoke prompt: `sword trail, line red 2 seconds, main large`.
+- Smoke result: selected the Sword Trail source and generated `/Game/_MCP_Temp/NiagaraGenerated/red_sword_trail_phrase_binding_smoke/NS_red_sword_trail_phrase_binding_smoke.NS_red_sword_trail_phrase_binding_smoke`.
+- Module input result: total writes `4`; `main large` changed `Scale Factor` on `FX_E_SwordTrail04_L` and `FX_E_SwordTrail05_L`; `line red 2 seconds` changed `Loop Duration` and `Scale RGB` on `FX_E_Line01_L`.
+- Preview Player update: increased resolved stack preview lines to `18` so phrase-binding review shows both main and line values.
+- Preview Player verification: opened the phrase-binding temp system; `last_preview_renderable=true`; analysis showed main `Scale Factor` edits, line `Loop Duration=2`, line `Scale RGB=[1.0, 0.08, 0.035]`, and support/ref emitters remaining at source defaults.
+- Build verification: `StylizedCubelessEditor Win64 Development` succeeded after the Preview Player C++ update.
+- Residual gap: Korean connective/particle parsing is still simple, and multiple bindings for the same layer need conflict resolution.
+
+## 2026-06-12 - Cubeless SkySystem anime sky (WebGL reference port)
+
+- Built `/Game/Cubeless/SkySystem`: env LUT texture (procedural 256x8, cream preset from `traditional.html`), `MPC_SkySystem`, three hybrid materials (`M_SkySystem_SkyDome`, `M_SkySystem_CloudCard`, `M_SkySystem_FarClouds`), ground material, and showcase map `Maps/SkySystem_Showcase` (sky dome, far-cloud dome, 120 light-packed cloud cards, calibrated PPV).
+- Near/mid clouds reuse `CloudPlaneAtlas_LightPacked_UDSLike_Preview_2048` (4x2 cells, R/G/B directional light, A alpha) with toon ramp, backlit rim, distance haze; cell/flip via CustomPrimitiveData. Far clouds sample UDS `FarCloud` ring texture through a zenith-angle polar projection (UDS assets untouched).
+- All materials compile with `compile_error_count=0` and are saved; verification screenshots at day/golden-hour/sunset times confirmed gradient, sun disc, far ring, and card shading.
+- Detailed contract and MCP pitfalls (Rotator python arg order roll/pitch/yaw, AssetImportTask needs defer_to_ticker, modal dialogs blocking the ticker queue, exposure bias 10 unity calibration, no double sRGB decode for the LUT) recorded in `docs/skysystem-anime-sky.md`.
+- Residual: `M_SkySystem_Debug` leftover material could not be deleted while referenced (safe to force-delete later); far-cloud sunset tint and card density are tunable via `MPC_SkySystem`.

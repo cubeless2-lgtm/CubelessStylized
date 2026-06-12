@@ -184,6 +184,175 @@ Examples:
 
 Partial data is better than a failed call as long as the limitation is explicit.
 
+## Implemented Read API: `inspect_niagara_module_inputs`
+
+This is the first implemented module-input candidate API. It is intentionally
+read-only and intended to feed generation planning and the Niagara Preview
+Player analysis panel.
+
+### Request
+
+```json
+{
+  "system_path": "/Game/Path/NS_System.NS_System",
+  "include_linked_sources": true,
+  "include_resolved_stack_inputs": true,
+  "max_modules": 120,
+  "max_candidates_per_module": 16,
+  "max_resolved_inputs_per_module": 8,
+  "max_top_candidates": 20
+}
+```
+
+### Response Shape
+
+```json
+{
+  "success": true,
+  "system_path": "/Game/Path/NS_System.NS_System",
+  "emitter_count": 5,
+  "module_count": 70,
+  "candidate_count": 283,
+  "top_candidate_count": 20,
+  "include_resolved_stack_inputs": true,
+  "can_author_module_inputs": false,
+  "authoring_status": "read_only; use this result as generation planning input before enabling temp-asset module writes",
+  "emitters": [
+    {
+      "name": "Emitter",
+      "emitter_index": 0,
+      "enabled": true,
+      "module_count": 15,
+      "modules_truncated": false,
+      "modules": [
+        {
+          "function_name": "ScaleColor",
+          "node_guid": "...",
+          "input_candidate_count": 5,
+          "resolved_stack_inputs_enabled": true,
+          "resolved_stack_input_count": 2,
+          "input_candidates": [
+            {
+              "emitter_name": "Emitter",
+              "module_name": "ScaleColor",
+              "pin_name": "ScaleRGB",
+              "control_kind": "color",
+              "priority": 100,
+              "default_value": "true",
+              "linked_to_count": 0,
+              "can_author_now": false
+            }
+          ],
+          "resolved_stack_inputs": [
+            {
+              "variable": {
+                "name": "Module.Spawn Count",
+                "type": "Int 32"
+              },
+              "is_hidden": false,
+              "value_source": "rapid_iteration",
+              "rapid_iteration_parameter": {
+                "name": "Constants.Emitter.SpawnBurst_Instantaneous.Spawn Count",
+                "type": "Int 32",
+                "has_value": true,
+                "value": 1
+              },
+              "can_author_now": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "top_candidates": []
+}
+```
+
+### Current Semantics
+
+- The command reads function-call input pins from emitter graph sources.
+- When `include_resolved_stack_inputs=true`, it also uses Niagara Stack graph
+  utilities to read module input variables and RapidIteration values where
+  available.
+- Low-signal graph plumbing pins such as `InputMap`, `OutputMap`, parameter-map
+  pins, and `Write Parameter Index` toggles are filtered out.
+- Candidate priority favors generation-relevant modules such as `ScaleColor`,
+  `DynamicMaterialParameters`, `ScaleMeshSize`, `AddVelocity`, and
+  `SpawnBurst_Instantaneous`.
+- `can_author_module_inputs` is currently `false`. This API is not yet allowed
+  to write rapid-iteration values or module override pins.
+- Resolved stack input readback is intentionally capped. Use
+  `max_resolved_inputs_per_module` and avoid uncapped UI calls.
+
+### Known Gap
+
+The command now resolves many RapidIteration values, but does not yet resolve
+every default source exactly as the Niagara Stack UI displays it. Unresolved
+defaults, dynamic inputs, and complex data interfaces still need more mapping
+before safe temp-asset module writing is enabled.
+
+## Implemented Safe Edit API: `set_niagara_module_input_value`
+
+This is the first module-input write API. It only edits existing RapidIteration
+parameters and refuses source Niagara systems by default.
+
+### Request
+
+```json
+{
+  "system_path": "/Game/_MCP_Temp/NiagaraGenerated/Test/NS_Test.NS_Test",
+  "emitter_name": "FX_E_SwordTrail04_L",
+  "module_name": "SpawnBurst_Instantaneous",
+  "input_name": "Spawn Count",
+  "value": 2,
+  "save": true
+}
+```
+
+Supported selectors:
+
+- `emitter_name` or `emitter_index`
+- `module_name`, `module_index`, or `module_node_guid`
+- `input_name`, with either `Spawn Count` or `Module.Spawn Count`
+
+### Response Shape
+
+```json
+{
+  "success": true,
+  "system_path": "/Game/_MCP_Temp/NiagaraGenerated/Test/NS_Test.NS_Test",
+  "emitter_name": "FX_E_SwordTrail04_L",
+  "emitter_index": 0,
+  "module_name": "SpawnBurst_Instantaneous",
+  "module_node_guid": "...",
+  "module_index": 1,
+  "input_name": "Module.Spawn Count",
+  "input_type": "Int 32",
+  "rapid_iteration_parameter": {
+    "name": "Constants.FX_E_SwordTrail04_L.SpawnBurst_Instantaneous.Spawn Count",
+    "type": "Int 32",
+    "has_data": true,
+    "value": 2
+  },
+  "previous_value": 1,
+  "new_value": 2,
+  "saved": true,
+  "write_scope": "existing_rapid_iteration_parameter_only"
+}
+```
+
+### Safety Rules
+
+- Default write scope is `/Game/_MCP_Temp/NiagaraGenerated/` only.
+- Source Niagara systems are rejected unless `allow_source_edit=true` is
+  explicitly passed.
+- The command refuses to create a new override. It only edits an existing
+  RapidIteration value found by resolved stack input readback.
+- Supported first-pass types are float, int, bool, color, vec2, vec3, vec4, and
+  position.
+- Complex data interfaces, dynamic inputs, unresolved defaults, and new
+  override-pin creation are intentionally deferred.
+
 ## API 2: `analyze_niagara_references`
 
 Batch wrapper for multiple systems.
@@ -270,8 +439,10 @@ These are not first-step APIs, but the Inspector should be designed so these can
 Needed later:
 
 - `duplicate_niagara_system`
-- `set_niagara_user_parameter_default`
 - `set_niagara_renderer_material`
+- `inspect_niagara_user_parameters`
+- `set_niagara_user_parameter`
+- `inspect_niagara_stack`
 - `add_niagara_emitter`
 - `remove_niagara_emitter`
 - `duplicate_material_instance_for_fx`
@@ -293,6 +464,13 @@ Do not:
 - Rename Scratch Pad inputs.
 - Generate Scratch Pad graph nodes until the Inspector can validate existing Scratch Pads reliably.
 
+Current read-only stack inspector:
+
+- `inspect_niagara_stack(system_path, include_pins=false, max_function_calls=200)`
+- Returns system spawn/update graphs, emitter graph function calls, input/output node summaries, script usage summaries, and Scratch Pad script containers.
+- The recipe builder stores a compact summary instead of the full graph dump.
+- This is intended for classification and planning, not authoring.
+
 ## Blueprint/User Parameter Linkage Rules
 
 Inspector should preserve enough names for BP safety:
@@ -304,7 +482,8 @@ Inspector should preserve enough names for BP safety:
 Generation rule:
 
 - Existing `User.*` names must be preserved.
-- New generator-owned values use `User.Gen_*`.
+- New generator-owned values use `User.Gen_*`, but adding them is useful only after a generated module or Scratch Pad actually reads them.
+- First-pass generation should set only existing exposed `User.*` parameters on temp systems when type/name hints match safely.
 
 ## Material Rules
 
