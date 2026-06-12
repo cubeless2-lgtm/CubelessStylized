@@ -3,6 +3,9 @@
 2026-06-12 이에타 기획 확정본. v1(`docs/skysystem-anime-sky.md`) 위에 쌓는 확장 계획.
 다른 머신에서 이어받을 때 이 문서가 단일 기준이다.
 
+- **v2 작업 루트: `/Game/Cubeless/Sky`** (v1은 `/Game/Cubeless/SkySystem`에 유지, v2 신규 에셋은 Sky 하위에 제작). 테스트 맵: `/Game/Cubeless/Sky/SkyTestMap`.
+- **작업 브랜치: `feature/sky-v2`** (기획 문서·맵 베이스라인은 main에 커밋됨).
+
 ## 배경 / 레퍼런스 조사 결론
 
 - **v1 현황**: `/Game/Cubeless/SkySystem` — Opaque Unlit 단일 돔(`M_SkySystem_SkyDome`)에 그라디언트+태양+별+**원경 폴라 구름(UDS 기법)** 합성, 근·중경은 RGBA 라이트팩 카드(`M_SkySystem_CloudCard`, 4×2=8셀), `T_SkySystem_EnvLUT`+MPC TimeOfDay로 시간 컬러. PPV 수동노출+Bias 10, ToneCurve 0 캘리브레이션.
