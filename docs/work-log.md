@@ -2,6 +2,25 @@
 
 Durable local fallback for project memory when Notion capture is unavailable.
 
+## 2026-06-12 - UnrealMCP execute_python 래퍼 누수로 인한 "참조 경고 반복" 수정 (범용 툴 픽스)
+
+### 증상
+- MCP 자동화로 만든 머티리얼 에셋이 레벨 참조를 전부 끊어도 `delete_asset`/ForceDelete에 계속 실패하고, 자동화가 삭제를 재시도할 때마다 에디터에 "Material ... 사용 중입니다" / "...생성에 실패했습니다. 다른 콘텐츠에 참조되어 있습니다" 모달이 반복 표시됨. 로그: `ForceDeleteObject failed ... this package is now potentially corrupt`.
+
+### 근본 원인 (플러그인 C++ + 엔진 소스 + 로그 교차 분석)
+- **UnrealMCP 플러그인 C++는 무혐의.** 진범은 엔진 PythonScriptPlugin: 인라인 `execute_python` 코드는 `.py` 파일 경로가 아니면 무조건 `RunString` → **영속 콘솔 네임스페이스**(에디터 종료까지 생존)에서 실행된다. `mode="ExecuteFile"`·`FileExecutionScope=Public`은 인라인 코드에 무의미(실제 파일 실행에만 적용).
+- 스크립트의 톱레벨 `unreal.Object` 변수가 그 네임스페이스에 잔류 → `FPyReferenceCollector`가 매 GC마다 UObject에 하드 레퍼런스 추가 → 삭제 영구 차단. 래퍼 타입은 `Py_TPFLAGS_HAVE_GC`가 없어 `gc.get_objects()`로 안 보이고, 실행 스코프의 `globals()`/`locals()` 청소로도 과거 호출 잔류분은 안 잡힘(실측).
+- deferred 티커 큐는 원샷 정상(누수 아님).
+
+### 영구 수정
+1. **`Tools/McpBridge/bridge_exec.py`(브리지 직결 클라이언트, 신규): 전송 코드를 일회용 함수 스코프로 자동 래핑** (`def __ieta_scoped__(): ...; del; gc.collect()`). 함수 로컬은 리턴 시 해제 → 래퍼 잔류 원천 차단. `--raw`로 우회 가능.
+2. **이미 잠긴 에셋 해제는 `unreal.purge_object_references(obj, True)`** (엔진 공식 API, 살아있는 모든 래퍼에서 해당 UObject 참조 절단) → 직후 `delete_asset` 성공 실측.
+
+### 운영 규칙 (이후 모든 MCP 파이썬 작업 공통)
+- 브리지로 보내는 스크립트는 bridge_exec 기본 래핑 사용(--raw는 콘솔 전역 조작이 진짜 필요할 때만).
+- 에셋 삭제 전 체크리스트: 레벨 참조 제거 → `purge_object_references` → `delete_asset`. ForceDelete 다이얼로그가 떴다면 즉시 중단(재시도 금지 — 모달이 티커를 블로킹하고 패키지에 corrupt 딱지가 붙는다).
+- 레벨이 참조 중인 머티리얼 재작업은 delete/create 대신 제자리 수정(`delete_all_material_expressions` 후 재구성).
+
 ## 2026-06-11 - Landscape PCG Validation Full-Coverage Pass
 
 ### Summary
