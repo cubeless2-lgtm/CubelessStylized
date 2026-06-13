@@ -4,9 +4,9 @@ The native road graph is already functionally validated. This pass keeps the
 graph topology and spline mesh counts stable, and only rewrites the three road
 materials used by the graph:
 
-- core: opaque dirt with procedural color variation
-- shoulder: opaque muted earth edge
-- duff: opaque green-brown outer blend into the forest floor
+- core: very rough low-saturation dirt with procedural color variation
+- shoulder: muted earth/green edge kept opaque for stable landscape depth
+- duff: green-brown outer blend into the forest floor kept opaque for stable landscape depth
 """
 
 import json
@@ -22,35 +22,44 @@ MATERIAL_SPECS = {
     "/Game/Cubeless/PCG/Runtime/Materials/M_Cubeless_PCG_ForestRoad_Core": {
         "label": "core",
         "blend": "opaque",
-        "base_a": (0.095, 0.065, 0.038, 1.0),
-        "base_b": (0.205, 0.148, 0.082, 1.0),
-        "noise_scale": 18.0,
+        "base_a": (0.016, 0.014, 0.011, 1.0),
+        "base_b": (0.038, 0.030, 0.020, 1.0),
+        "edge_color": (0.035, 0.044, 0.023, 1.0),
+        "edge_blend_min": 0.48,
+        "edge_blend_max": 0.98,
+        "noise_scale": 22.0,
         "noise_levels": 5,
-        "roughness": 0.985,
-        "specular": 0.008,
-        "emissive": (0.004, 0.003, 0.0016, 1.0),
+        "roughness": 0.995,
+        "specular": 0.003,
+        "emissive": None,
     },
     "/Game/Cubeless/PCG/Runtime/Materials/M_Cubeless_PCG_ForestRoad_Shoulder": {
         "label": "shoulder",
         "blend": "opaque",
-        "base_a": (0.046, 0.063, 0.026, 1.0),
-        "base_b": (0.088, 0.097, 0.044, 1.0),
-        "noise_scale": 26.0,
+        "base_a": (0.018, 0.030, 0.016, 1.0),
+        "base_b": (0.035, 0.044, 0.023, 1.0),
+        "edge_color": (0.040, 0.080, 0.020, 1.0),
+        "edge_blend_min": 0.34,
+        "edge_blend_max": 0.94,
+        "noise_scale": 34.0,
         "noise_levels": 4,
-        "roughness": 0.99,
-        "specular": 0.008,
-        "emissive": (0.0015, 0.0028, 0.001, 1.0),
+        "roughness": 0.995,
+        "specular": 0.003,
+        "emissive": None,
     },
     "/Game/Cubeless/PCG/Runtime/Materials/M_Cubeless_PCG_ForestRoad_Duff": {
         "label": "duff",
         "blend": "opaque",
-        "base_a": (0.034, 0.071, 0.025, 1.0),
-        "base_b": (0.068, 0.112, 0.042, 1.0),
-        "noise_scale": 30.0,
+        "base_a": (0.015, 0.040, 0.014, 1.0),
+        "base_b": (0.026, 0.055, 0.020, 1.0),
+        "edge_color": (0.045, 0.100, 0.025, 1.0),
+        "edge_blend_min": 0.18,
+        "edge_blend_max": 0.88,
+        "noise_scale": 38.0,
         "noise_levels": 4,
-        "roughness": 0.99,
-        "specular": 0.01,
-        "emissive": (0.0012, 0.0032, 0.001, 1.0),
+        "roughness": 0.995,
+        "specular": 0.003,
+        "emissive": None,
     },
 }
 
@@ -122,6 +131,51 @@ def _color_variation(material, spec):
     return color
 
 
+def _edge_distance_alpha(material, spec):
+    texcoord = _expr(material, unreal.MaterialExpressionTextureCoordinate, -1180, 440)
+    mask_v = _expr(material, unreal.MaterialExpressionComponentMask, -1000, 440)
+    mask_v.set_editor_property("r", False)
+    mask_v.set_editor_property("g", True)
+    mask_v.set_editor_property("b", False)
+    mask_v.set_editor_property("a", False)
+    _connect(texcoord, mask_v, "")
+
+    minus_half = _constant(material, -0.5, -1000, 580)
+    centered = _expr(material, unreal.MaterialExpressionAdd, -800, 500)
+    _connect(mask_v, centered, "A")
+    _connect(minus_half, centered, "B")
+
+    abs_centered = _expr(material, unreal.MaterialExpressionAbs, -600, 500)
+    _connect(centered, abs_centered, "")
+
+    two = _constant(material, 2.0, -600, 640)
+    edge_distance = _expr(material, unreal.MaterialExpressionMultiply, -400, 520)
+    _connect(abs_centered, edge_distance, "A")
+    _connect(two, edge_distance, "B")
+
+    fade_min = _constant(material, spec["edge_blend_min"], -400, 680)
+    fade_max = _constant(material, spec["edge_blend_max"], -400, 820)
+    smooth = _expr(material, unreal.MaterialExpressionSmoothStep, -180, 580)
+    _connect(fade_min, smooth, "Min")
+    _connect(fade_max, smooth, "Max")
+    _connect(edge_distance, smooth, "Value")
+    return smooth
+
+
+def _road_surface_color(material, spec):
+    inner_color = _color_variation(material, spec)
+    if not spec.get("edge_color"):
+        return inner_color
+
+    edge_color = _constant3(material, spec["edge_color"], -180, 120)
+    edge_alpha = _edge_distance_alpha(material, spec)
+    color = _expr(material, unreal.MaterialExpressionLinearInterpolate, 80, 40)
+    _connect(inner_color, color, "A")
+    _connect(edge_color, color, "B")
+    _connect(edge_alpha, color, "Alpha")
+    return color
+
+
 def _edge_opacity(material, spec):
     texcoord = _expr(material, unreal.MaterialExpressionTextureCoordinate, -1000, 420)
     mask_v = _expr(material, unreal.MaterialExpressionComponentMask, -820, 420)
@@ -164,7 +218,7 @@ def _edge_opacity(material, spec):
 def _set_common_material_properties(material, spec):
     material.set_editor_property("two_sided", True)
     material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_OPAQUE)
-    material.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    material.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_DEFAULT_LIT)
     if spec["blend"] == "translucent_edge":
         material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
     try:
@@ -190,7 +244,7 @@ def _build_material(path, spec):
     lib.delete_all_material_expressions(material)
     _set_common_material_properties(material, spec)
 
-    color = _color_variation(material, spec)
+    color = _road_surface_color(material, spec)
     _connect_prop(color, unreal.MaterialProperty.MP_BASE_COLOR)
 
     roughness = _constant(material, spec["roughness"], -440, 200)
@@ -199,7 +253,9 @@ def _build_material(path, spec):
     specular = _constant(material, spec["specular"], -440, 340)
     _connect_prop(specular, unreal.MaterialProperty.MP_SPECULAR)
 
-    _connect_prop(color, unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    if spec.get("emissive"):
+        emissive = _constant3(material, spec["emissive"], -120, 80)
+        _connect_prop(emissive, unreal.MaterialProperty.MP_EMISSIVE_COLOR)
 
     if spec["blend"] == "translucent_edge":
         opacity = _edge_opacity(material, spec)
@@ -220,6 +276,9 @@ def _build_material(path, spec):
         "save_ok": save_ok,
         "base_a": spec["base_a"],
         "base_b": spec["base_b"],
+        "edge_color": spec.get("edge_color"),
+        "edge_blend_min": spec.get("edge_blend_min"),
+        "edge_blend_max": spec.get("edge_blend_max"),
         "noise_scale": spec["noise_scale"],
         "opacity": spec.get("opacity"),
     }

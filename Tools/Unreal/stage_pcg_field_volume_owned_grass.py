@@ -87,6 +87,7 @@ BLOCK_TAG = "block"
 
 DYNAMIC_MESH_ATTR = "DynamicMeshPath"
 DYNAMIC_MATERIAL_SLOT0_ATTR = "DynamicMaterialSlot0"
+BLOCK_DISTANCE_ATTR = "BlockClearanceDistance"
 
 GRASS_MESH = (
     "/Game/DreamscapeSeries/DreamscapeMountains/Meshes/Foliage/Grass/"
@@ -99,6 +100,8 @@ GRASS_MATERIAL = (
 
 POINTS_PER_SQM = __POINTS_PER_SQM__
 ROAD_CLEARANCE_CM = __ROAD_CLEARANCE_CM__
+ROAD_FILTER_EXTRA_CLEARANCE_CM = 220.0
+ROAD_REFERENCE_DISTANCE_INCREMENT_CM = 120.0
 HIDE_OLD_SPLINE_GRASS = __HIDE_OLD_SPLINE_GRASS__
 SAVE_DIRTY_PACKAGES = __SAVE_DIRTY_PACKAGES__
 
@@ -497,6 +500,18 @@ def _configure_get_road_spline(node):
     settings.set_editor_property("track_actors_only_within_bounds", False)
 
 
+def _configure_spline_sampler(node):
+    settings = node.get_settings()
+    params = settings.get_editor_property("sampler_params")
+    params.set_editor_property("dimension", unreal.PCGSplineSamplingDimension.ON_SPLINE)
+    params.set_editor_property("mode", unreal.PCGSplineSamplingMode.DISTANCE)
+    params.set_editor_property("distance_increment", float(ROAD_REFERENCE_DISTANCE_INCREMENT_CM))
+    params.set_editor_property("subdivisions_per_segment", 8)
+    params.set_editor_property("compute_distance", True)
+    params.set_editor_property("compute_segment_index", True)
+    settings.set_editor_property("sampler_params", params)
+
+
 def _configure_distance(node):
     settings = node.get_settings()
     settings.set_editor_property("output_to_attribute", True)
@@ -540,7 +555,7 @@ def _configure_clearance_filter(node):
     settings.set_editor_property("use_constant_threshold", True)
     settings.set_editor_property(
         "attribute_types",
-        _constant(unreal.PCGMetadataTypes.DOUBLE, ROAD_CLEARANCE_CM),
+        _constant(unreal.PCGMetadataTypes.DOUBLE, ROAD_CLEARANCE_CM + ROAD_FILTER_EXTRA_CLEARANCE_CM),
     )
     settings.set_editor_property("generate_output_data_even_if_empty", True)
     try:
@@ -549,32 +564,59 @@ def _configure_clearance_filter(node):
         pass
 
 
-def _configure_block_actor_data(node):
+def _configure_block_mask_points(node, block_bounds):
     settings = node.get_settings()
-    actor_selector = settings.get_editor_property("actor_selector")
-    actor_selector.set_editor_property("actor_filter", unreal.PCGActorFilter.ALL_WORLD_ACTORS)
-    actor_selector.set_editor_property("actor_selection", unreal.PCGActorSelection.BY_TAG)
-    actor_selector.set_editor_property("actor_selection_tag", BLOCK_TAG)
-    actor_selector.set_editor_property("select_multiple", True)
-    actor_selector.set_editor_property("ignore_self_and_children", False)
-    settings.set_editor_property("actor_selector", actor_selector)
-    settings.set_editor_property("always_requery_actors", True)
-    settings.set_editor_property("track_actors_only_within_bounds", False)
-    try:
-        settings.set_editor_property("also_output_single_point_data", False)
-        settings.set_editor_property("merge_single_point_data", False)
-    except Exception:
-        pass
+    points = settings.get_editor_property("points_to_create")
+    points.clear()
+    for index, entry in enumerate(block_bounds):
+        mn = entry["min"]
+        mx = entry["max"]
+        center = unreal.Vector(
+            (mn[0] + mx[0]) * 0.5,
+            (mn[1] + mx[1]) * 0.5,
+            (mn[2] + mx[2]) * 0.5,
+        )
+        extent = unreal.Vector(
+            max(1.0, (mx[0] - mn[0]) * 0.5),
+            max(1.0, (mx[1] - mn[1]) * 0.5),
+            max(1.0, (mx[2] - mn[2]) * 0.5),
+        )
+        point = unreal.PCGPoint()
+        transform = point.get_editor_property("transform")
+        transform.set_editor_property("translation", center)
+        point.set_editor_property("transform", transform)
+        point.set_editor_property("bounds_min", unreal.Vector(-extent.x, -extent.y, -extent.z))
+        point.set_editor_property("bounds_max", unreal.Vector(extent.x, extent.y, extent.z))
+        point.set_editor_property("density", 1.0)
+        point.set_editor_property("steepness", 1.0)
+        point.set_editor_property("seed", 6134000 + index)
+        points.append(point)
+    settings.set_editor_property("points_to_create", points)
+    settings.set_editor_property("cull_points_outside_volume", False)
 
 
-def _configure_difference(node):
+def _configure_block_distance(node):
     settings = node.get_settings()
+    settings.set_editor_property("output_to_attribute", True)
+    settings.set_editor_property("output_attribute", _selector(BLOCK_DISTANCE_ATTR, unreal.PCGAttributePropertySelector))
+    settings.set_editor_property("maximum_distance", 1000000.0)
+    settings.set_editor_property("set_density", False)
+    settings.set_editor_property("source_shape", unreal.PCGDistanceShape.CENTER)
+    settings.set_editor_property("target_shape", unreal.PCGDistanceShape.BOX_BOUNDS)
+
+
+def _configure_block_filter(node):
+    settings = node.get_settings()
+    settings.set_editor_property(
+        "target_attribute",
+        _selector(BLOCK_DISTANCE_ATTR, unreal.PCGAttributePropertyInputSelector),
+    )
+    settings.set_editor_property("operator", unreal.PCGAttributeFilterOperator.GREATER_OR_EQUAL)
+    settings.set_editor_property("use_constant_threshold", True)
+    settings.set_editor_property("attribute_types", _constant(unreal.PCGMetadataTypes.DOUBLE, 120.0))
+    settings.set_editor_property("generate_output_data_even_if_empty", True)
     try:
-        settings.set_editor_property("mode", unreal.PCGDifferenceMode.INFERRED)
-    except Exception:
-        pass
-    try:
-        settings.set_editor_property("keep_zero_density_points", False)
+        settings.set_editor_property("warn_on_data_missing_attribute", False)
     except Exception:
         pass
 
@@ -671,16 +713,17 @@ def _create_or_update_graph():
             pass
 
     block_bounds = _collect_block_bounds()
-    # Current UE 5.7 PCGDataFromActor -> Difference over-subtracts this review
-    # volume after async regeneration. Keep the graph road/actor-property owned
-    # and apply a settled instance prune for block overlap during staging.
-    has_block_bounds = False
+    # Difference over-subtracted this review volume in UE 5.7. Use a distance
+    # filter against the tagged StaticMesh bounds instead; this keeps block
+    # exclusion graph-native without the destructive Difference path.
+    has_block_bounds = len(block_bounds) > 0
 
     nodes = {
         "landscape": _add_node(graph, unreal.PCGGetLandscapeSettings, "Get Field Landscape", -1500, 0),
         "grid": _add_node(graph, unreal.PCGCreatePointsGridSettings, "Create Volume-Owned Grass Grid", -1160, 0),
         "project": _add_node(graph, unreal.PCGProjectionSettings, "Project Grass Grid To Landscape", -820, 0),
         "road": _add_node(graph, unreal.PCGGetSplineSettings, "Get Runtime Road_SourceSpline", -1160, -360),
+        "road_reference_points": _add_node(graph, unreal.PCGSplineSamplerSettings, "Sample Road Clearance Reference Points", -820, -360),
         "distance": _add_node(graph, unreal.PCGDistanceSettings, "Compute RoadClearanceDistance", -480, 0),
         "road_filter": _add_node(graph, unreal.PCGAttributeFilteringSettings, "Keep Grass Outside Road Core", -120, 0),
         "get_mesh": _add_node(graph, unreal.PCGGetActorPropertySettings, "Get Actor GrassMesh", 220, -360),
@@ -693,16 +736,23 @@ def _create_or_update_graph():
     if has_block_bounds:
         nodes["block_data"] = _add_node(
             graph,
-            unreal.PCGDataFromActorSettings,
-            "Get block-tagged StaticMesh actors",
+            unreal.PCGCreatePointsSettings,
+            "Create block-tag bounds mask points",
             -120,
             -360,
         )
-        nodes["block_diff"] = _add_node(
+        nodes["block_distance"] = _add_node(
             graph,
-            unreal.PCGDifferenceSettings,
-            "Subtract block actor data",
+            unreal.PCGDistanceSettings,
+            "Compute BlockClearanceDistance",
             220,
+            0,
+        )
+        nodes["block_filter"] = _add_node(
+            graph,
+            unreal.PCGAttributeFilteringSettings,
+            "Keep Grass Outside Block Bounds",
+            560,
             0,
         )
 
@@ -710,11 +760,13 @@ def _create_or_update_graph():
     _configure_grid(nodes["grid"])
     _configure_projection(nodes["project"])
     _configure_get_road_spline(nodes["road"])
+    _configure_spline_sampler(nodes["road_reference_points"])
     _configure_distance(nodes["distance"])
     _configure_clearance_filter(nodes["road_filter"])
     if has_block_bounds:
-        _configure_block_actor_data(nodes["block_data"])
-        _configure_difference(nodes["block_diff"])
+        _configure_block_mask_points(nodes["block_data"], block_bounds)
+        _configure_block_distance(nodes["block_distance"])
+        _configure_block_filter(nodes["block_filter"])
     _configure_get_actor_property(nodes["get_mesh"], "GrassMesh", "GrassMesh")
     _configure_copy_attr(nodes["copy_mesh"], "GrassMesh", DYNAMIC_MESH_ATTR)
     _configure_get_actor_property(nodes["get_material"], "GrassMaterial", "GrassMaterial")
@@ -722,32 +774,33 @@ def _create_or_update_graph():
     _configure_transform(nodes["transform"])
     _configure_by_attribute_spawner(nodes["spawn"])
 
-    post_filter_node = nodes["road_filter"]
-    post_filter_pin = "InsideFilter"
-
     edges = [
         _add_edge(graph, nodes["grid"], nodes["project"], "Out", "In"),
         _add_edge(graph, nodes["landscape"], nodes["project"], "Out", "Projection Target"),
-        _add_edge(graph, nodes["project"], nodes["distance"], "Out", "Source"),
-        _add_edge(graph, nodes["road"], nodes["distance"], "Out", "Target"),
+        _add_edge(graph, nodes["project"], nodes["copy_mesh"], "Out", "Target"),
+        _add_edge(graph, nodes["get_mesh"], nodes["copy_mesh"], "Out", "Source"),
+        _add_edge(graph, nodes["copy_mesh"], nodes["copy_material"], "Out", "Target"),
+        _add_edge(graph, nodes["get_material"], nodes["copy_material"], "Out", "Source"),
+        _add_edge(graph, nodes["copy_material"], nodes["distance"], "Out", "Source"),
+        _add_edge(graph, nodes["road"], nodes["road_reference_points"], "Out", "Spline"),
+        _add_edge(graph, nodes["road_reference_points"], nodes["distance"], "Out", "Target"),
         _add_edge(graph, nodes["distance"], nodes["road_filter"], "Out", "In"),
     ]
+    post_filter_node = nodes["road_filter"]
+    post_filter_pin = "InsideFilter"
     if has_block_bounds:
         edges.extend(
             [
-                _add_edge(graph, nodes["road_filter"], nodes["block_diff"], "InsideFilter", "Source"),
-                _add_edge(graph, nodes["block_data"], nodes["block_diff"], "Out", "Differences"),
+                _add_edge(graph, nodes["road_filter"], nodes["block_distance"], "InsideFilter", "Source"),
+                _add_edge(graph, nodes["block_data"], nodes["block_distance"], "Out", "Target"),
+                _add_edge(graph, nodes["block_distance"], nodes["block_filter"], "Out", "In"),
             ]
         )
-        post_filter_node = nodes["block_diff"]
-        post_filter_pin = "Out"
+        post_filter_node = nodes["block_filter"]
+        post_filter_pin = "InsideFilter"
     edges.extend(
         [
-            _add_edge(graph, post_filter_node, nodes["copy_mesh"], post_filter_pin, "Target"),
-            _add_edge(graph, nodes["get_mesh"], nodes["copy_mesh"], "Out", "Source"),
-            _add_edge(graph, nodes["copy_mesh"], nodes["copy_material"], "Out", "Target"),
-            _add_edge(graph, nodes["get_material"], nodes["copy_material"], "Out", "Source"),
-            _add_edge(graph, nodes["copy_material"], nodes["transform"], "Out", "In"),
+            _add_edge(graph, post_filter_node, nodes["transform"], post_filter_pin, "In"),
             _add_edge(graph, nodes["transform"], nodes["spawn"], "Out", "In"),
             _add_edge(graph, nodes["spawn"], graph.get_output_node(), "Out", "Out"),
         ]
@@ -756,9 +809,10 @@ def _create_or_update_graph():
     try:
         graph.description = (
             "Temporary field review graph for volume-owned grass. "
-            "A volume-owned grid is projected to the Landscape, filtered by the "
-            "runtime road spline and block-tag actor data, then StaticMeshSpawner "
-            "reads GrassMesh and GrassMaterial from the owner actor properties."
+            "A volume-owned grid is projected to the Landscape, filtered by "
+            "reference points sampled from the runtime road spline and block-tag "
+            "StaticMesh bounds, then StaticMeshSpawner reads GrassMesh and "
+            "GrassMaterial from the owner actor properties."
         )
         graph.get_input_node().set_node_position(-1780, 0)
         graph.get_output_node().set_node_position(1580, 0)
@@ -772,14 +826,14 @@ def _create_or_update_graph():
         "points_per_squared_meter": POINTS_PER_SQM,
         "grid_cell_size_cm": round(_grid_cell_size_cm(), 3),
         "road_clearance_cm": ROAD_CLEARANCE_CM,
+        "road_filter_extra_clearance_cm": ROAD_FILTER_EXTRA_CLEARANCE_CM,
+        "road_reference_point_distance_increment_cm": ROAD_REFERENCE_DISTANCE_INCREMENT_CM,
+        "road_filter_mode": "PCGGetSplineSettings runtime road + PCGSplineSamplerSettings reference points + PCGDistanceSettings CENTER + AttributeFilter",
         "block_bounds_detected": len(block_bounds),
         "block_graph_enabled": has_block_bounds,
-        "block_graph_disabled_reason": (
-            "PCGDataFromActor->Difference over-subtracts the review volume; "
-            "settled validation prunes block overlaps for this non-production staging layer."
-        )
-        if block_bounds and not has_block_bounds
-        else None,
+        "block_filter_mode": "block-tag StaticMesh bounds -> PCGCreatePointsSettings mask + PCGDistanceSettings BOX_BOUNDS + AttributeFilter",
+        "block_filter_clearance_cm": 120.0 if has_block_bounds else None,
+        "block_graph_disabled_reason": None if has_block_bounds else "No block-tagged StaticMesh bounds detected.",
         "edges": edges,
         "edge_errors": [edge for edge in edges if not edge.get("ok")],
         "nodes": [_node_summary(node) for node in nodes.values()],

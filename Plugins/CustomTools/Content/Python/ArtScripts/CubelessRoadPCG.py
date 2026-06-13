@@ -44,35 +44,38 @@ ASSET_PATHS = {
 RUNTIME_ROAD_MATERIAL_SPECS = {
     "core": {
         "path_key": "runtime_road_core_material",
-        "base_color": [0.205, 0.148, 0.082],
+        "base_color": [0.038, 0.030, 0.020],
         "base_color_lerp": {
-            "a": [0.095, 0.065, 0.038],
-            "b": [0.205, 0.148, 0.082],
+            "a": [0.016, 0.014, 0.011],
+            "b": [0.038, 0.030, 0.020],
         },
-        "roughness": 0.985,
-        "specular": 0.008,
+        "edge_color": [0.035, 0.044, 0.023],
+        "roughness": 0.995,
+        "specular": 0.003,
         "procedural": True,
     },
     "edge": {
         "path_key": "runtime_road_edge_material",
-        "base_color": [0.088, 0.097, 0.044],
+        "base_color": [0.035, 0.044, 0.023],
         "base_color_lerp": {
-            "a": [0.046, 0.063, 0.026],
-            "b": [0.088, 0.097, 0.044],
+            "a": [0.018, 0.030, 0.016],
+            "b": [0.035, 0.044, 0.023],
         },
-        "roughness": 0.99,
-        "specular": 0.008,
+        "edge_color": [0.040, 0.080, 0.020],
+        "roughness": 0.995,
+        "specular": 0.003,
         "procedural": True,
     },
     "soften": {
         "path_key": "runtime_road_soften_material",
-        "base_color": [0.068, 0.112, 0.042],
+        "base_color": [0.026, 0.055, 0.020],
         "base_color_lerp": {
-            "a": [0.034, 0.071, 0.025],
-            "b": [0.068, 0.112, 0.042],
+            "a": [0.015, 0.040, 0.014],
+            "b": [0.026, 0.055, 0.020],
         },
-        "roughness": 0.99,
-        "specular": 0.01,
+        "edge_color": [0.045, 0.100, 0.025],
+        "roughness": 0.995,
+        "specular": 0.003,
         "procedural": True,
     },
 }
@@ -3293,6 +3296,21 @@ def _runtime_material_base_color_value(material, node):
                 input_names[index]: input_nodes[index]
                 for index in range(min(len(input_names), len(input_nodes)))
             }
+            node_a = node_by_input.get("A")
+            node_b = node_by_input.get("B")
+            if (
+                node_a
+                and node_b
+                and node_a.get_class().get_name() == "MaterialExpressionLinearInterpolate"
+            ):
+                inner = _runtime_material_base_color_value(material, node_a)
+                edge_color = _runtime_material_constant3_value(node_b)
+                if inner.get("base_color_mode") == "lerp" and not isinstance(edge_color, dict):
+                    return {
+                        "base_color_mode": "edge_blend_lerp",
+                        "base_color_lerp": inner["base_color_lerp"],
+                        "edge_color": edge_color,
+                    }
             color_a = _runtime_material_constant3_value(node_by_input.get("A"))
             color_b = _runtime_material_constant3_value(node_by_input.get("B"))
             if isinstance(color_a, dict) or isinstance(color_b, dict):
@@ -3358,13 +3376,19 @@ def runtime_road_material_value_mismatches(values=None):
             "specular": item.get("specular"),
         }
         if spec.get("base_color_lerp"):
-            expected["base_color_mode"] = "lerp"
+            expected["base_color_mode"] = "edge_blend_lerp" if spec.get("edge_color") else "lerp"
             expected["base_color_lerp"] = {
                 channel: [round(float(value), 4) for value in color]
                 for channel, color in spec["base_color_lerp"].items()
             }
+            if spec.get("edge_color"):
+                expected["edge_color"] = [
+                    round(float(value), 4) for value in spec["edge_color"]
+                ]
             actual["base_color_mode"] = item.get("base_color_mode")
             actual["base_color_lerp"] = item.get("base_color_lerp")
+            if spec.get("edge_color"):
+                actual["edge_color"] = item.get("edge_color")
         else:
             expected["base_color"] = [round(float(value), 4) for value in spec["base_color"]]
             actual["base_color"] = item.get("base_color")

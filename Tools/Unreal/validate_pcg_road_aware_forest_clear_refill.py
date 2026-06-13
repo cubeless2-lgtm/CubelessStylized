@@ -35,6 +35,7 @@ GRID_ORIGIN = unreal.Vector(0.0, 0.0, 0.0)
 GRID_EXTENTS = unreal.Vector(4500.0, 3500.0, 50.0)
 GRID_CELL_SIZE = unreal.Vector(500.0, 500.0, 100.0)
 ROAD_CLEARANCE_CM = 650.0
+ROAD_FILTER_EXTRA_CLEARANCE_CM = 80.0
 WAIT_SECONDS = 5.0
 
 CUBE_MESH = "/Engine/BasicShapes/Cube.Cube"
@@ -235,6 +236,18 @@ def _configure_get_road_spline(node):
     settings.set_editor_property("track_actors_only_within_bounds", False)
 
 
+def _configure_spline_sampler(node):
+    settings = node.get_settings()
+    params = settings.get_editor_property("sampler_params")
+    params.set_editor_property("dimension", unreal.PCGSplineSamplingDimension.ON_SPLINE)
+    params.set_editor_property("mode", unreal.PCGSplineSamplingMode.DISTANCE)
+    params.set_editor_property("distance_increment", 120.0)
+    params.set_editor_property("subdivisions_per_segment", 8)
+    params.set_editor_property("compute_distance", True)
+    params.set_editor_property("compute_segment_index", True)
+    settings.set_editor_property("sampler_params", params)
+
+
 def _configure_distance(node):
     settings = node.get_settings()
     settings.set_editor_property("output_to_attribute", True)
@@ -258,7 +271,7 @@ def _configure_clearance_filter(node):
     settings.set_editor_property("use_constant_threshold", True)
     settings.set_editor_property(
         "attribute_types",
-        _constant(unreal.PCGMetadataTypes.DOUBLE, ROAD_CLEARANCE_CM),
+        _constant(unreal.PCGMetadataTypes.DOUBLE, ROAD_CLEARANCE_CM + ROAD_FILTER_EXTRA_CLEARANCE_CM),
     )
     settings.set_editor_property("generate_output_data_even_if_empty", True)
     try:
@@ -308,19 +321,22 @@ def _create_or_update_graph():
     nodes = {
         "grid": _add_node(graph, unreal.PCGCreatePointsGridSettings, "Create Deterministic Forest Point Grid", 0, 0),
         "get_road": _add_node(graph, unreal.PCGGetSplineSettings, "Get Runtime Road Spline", 0, -300),
+        "road_reference_points": _add_node(graph, unreal.PCGSplineSamplerSettings, "Sample Road Clearance Reference Points", 360, -300),
         "distance": _add_node(graph, unreal.PCGDistanceSettings, "Compute RoadClearanceDistance", 360, 0),
         "filter": _add_node(graph, unreal.PCGAttributeFilteringSettings, "Keep Points Outside Road Clearance", 720, 0),
         "spawn": _add_node(graph, unreal.PCGStaticMeshSpawnerSettings, "Spawn Road-Aware Forest Cubes", 1080, 0),
     }
     _configure_grid(nodes["grid"])
     _configure_get_road_spline(nodes["get_road"])
+    _configure_spline_sampler(nodes["road_reference_points"])
     _configure_distance(nodes["distance"])
     _configure_clearance_filter(nodes["filter"])
     _configure_spawner(nodes["spawn"])
 
     edges = [
         _add_edge(graph, nodes["grid"], nodes["distance"], "Out", "Source"),
-        _add_edge(graph, nodes["get_road"], nodes["distance"], "Out", "Target"),
+        _add_edge(graph, nodes["get_road"], nodes["road_reference_points"], "Out", "Spline"),
+        _add_edge(graph, nodes["road_reference_points"], nodes["distance"], "Out", "Target"),
         _add_edge(graph, nodes["distance"], nodes["filter"], "Out", "In"),
         _add_edge(graph, nodes["filter"], nodes["spawn"], "InsideFilter", "In"),
         _add_edge(graph, nodes["spawn"], graph.get_output_node(), "Out", "Out"),
@@ -329,8 +345,8 @@ def _create_or_update_graph():
     try:
         graph.description = (
             "Temporary validation graph for road-aware forest clear/refill. "
-            "A grid of forest points is filtered by distance to a tagged runtime road spline "
-            "before StaticMeshSpawner output."
+            "A grid of forest points is filtered by distance to reference points sampled "
+            "from a tagged runtime road spline before StaticMeshSpawner output."
         )
         graph.get_input_node().set_node_position(-260, 0)
         graph.get_output_node().set_node_position(1420, 0)
@@ -341,6 +357,9 @@ def _create_or_update_graph():
         "graph": graph,
         "created": created,
         "saved": saved,
+        "road_clearance_cm": ROAD_CLEARANCE_CM,
+        "road_filter_extra_clearance_cm": ROAD_FILTER_EXTRA_CLEARANCE_CM,
+        "road_reference_point_distance_increment_cm": 120.0,
         "edges": edges,
         "edge_errors": [edge for edge in edges if not edge.get("ok")],
         "nodes": [_node_summary(node) for node in nodes.values()],
