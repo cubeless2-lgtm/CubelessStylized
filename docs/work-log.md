@@ -3023,3 +3023,34 @@ These entries were visible from Notion search/fetch results earlier in this Code
 
 ### Note
 - If the sibling sample project reports missing `K2Node_EnhancedInputAction.h` or `PCGCommon.h` after syncing, clear generated `MCPGameProject/Intermediate/Build/Win64` and `MCPGameProject/Plugins/UnrealMCP/Intermediate/Build/Win64` before rebuilding. The failure can come from stale UnrealBuildTool makefile/rules cache, not from the source plugin.
+
+## 2026-06-13 - Applied material expansion code-review fixes
+
+### Summary
+- Preserved target `FExpressionInput` metadata when replacing links during material function expansion, including target `InputName` and existing output mask fields.
+- Added batch commit/rollback state so `allow_partial_save=false` restores successful partial expansions after later errors, instead of leaving dirty in-memory graph edits.
+- Regenerated duplicated material expression parameter GUIDs and explicitly reject `UMaterialExpressionComposite` during expansion instead of copying an incomplete composite subgraph.
+- Mirrored the C++ changes in both `Plugins/UnrealMCP` and `../unreal-mcp-cubeless/MCPGameProject/Plugins/UnrealMCP`.
+
+### Verification
+- `StylizedCubelessEditor Win64 Development` build passed before editor relaunch; `MCPGameProjectEditor Win64 Development` build also passed.
+- UnrealMCP bridge responded on `127.0.0.1:55557` after relaunch.
+- Rollback regression passed: one valid function call expanded, the next required-input failure triggered `rolled_back=true`, `expanded=false`, `final_function_call_count=2`, and `dirty_after_expand=false`.
+- Mask preservation regression passed: a `Constant3Vector.R` caller input survived expansion and `MP_Roughness` ended connected to `MaterialExpressionConstant3Vector` output `R`.
+- Parameter GUID regression passed: two duplicated `ScalarParameter` nodes ended with distinct GUIDs and `guid_duplicate=false`.
+- `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master` reports `node_count=377`, `material_function_call_count=0`, `MD_Volume`, `BLEND_Additive`, and compiles with `compile_error_count=0`.
+- Temporary test asset file under `_MCP_Temp/FunctionExpansionFixValidation` was removed from disk and dirty packages returned to `0`; the running editor may keep a stale asset-registry entry for that deleted test asset until restart.
+
+## 2026-06-14 - Editor restart validation for material expansion fixes
+
+### Summary
+- Relaunched `StylizedCubeless.uproject` in Unreal Editor and reconnected to the UnrealMCP bridge on `127.0.0.1:55557`.
+- Confirmed the previous `_MCP_Temp/FunctionExpansionFixValidation` stale registry entry disappeared after restart.
+- Added and verified a composite-expression rejection smoke test for material function expansion.
+
+### Verification
+- UnrealMCP ping returned `pong`.
+- `_MCP_Temp/FunctionExpansionFixValidation` listed no assets after restart, with `dirty_content_count=0` and `dirty_map_count=0`.
+- Composite rejection regression passed: a function containing `MaterialExpressionComposite` returned `expanded=false`, preserved `final_function_call_count=1`, and reported `Composite expression ... is not supported by material function expansion.`
+- Temporary `_MCP_Temp/FunctionExpansionCompositeValidation` assets were deleted through editor APIs with no dirty packages left behind.
+- `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master` compiled with `compile_error_count=0`, has `material_function_call_count=0`, and remains `MD_Volume` / `BLEND_Additive`.
