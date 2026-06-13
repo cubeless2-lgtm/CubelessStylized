@@ -1,7 +1,10 @@
 # SkySystem v2 계획 — 애니메 스타일 스카이 (커브아틀라스 + 라이팅/날씨 연동)
 
-2026-06-12 이에타 기획 확정본. v1(`docs/skysystem-anime-sky.md`) 위에 쌓는 확장 계획.
-다른 머신에서 이어받을 때 이 문서가 단일 기준이다.
+> **[2026-06-13 갱신]** 이 문서의 구 전제("Unlit 돔 단독, SkyAtmosphere 비활성, v1 유지, LUT 베이크")는 폐기.
+> 실제 v2는 **SkyAtmosphere + Is Sky 돔 + CurveLinearColorAtlas** 구조로 구현 완료(작업 0~5, BP_SkySystem/M_Sky_Dome/M_Sky_CloudCard/CA_Sky/MPC_Sky/DA_Weather 3종).
+> v1 에셋은 미복구(커밋 66d832b에만 존재). 최신 상태·계약·잔여 작업: `docs/work-log.md` 2026-06-13 항목 참조.
+
+2026-06-12 이에타 기획 확정본(역사 기록용).
 
 - **v2 작업 루트: `/Game/Cubeless/Sky`** (v1은 `/Game/Cubeless/SkySystem`에 유지, v2 신규 에셋은 Sky 하위에 제작). 테스트 맵: `/Game/Cubeless/Sky/SkyTestMap`.
 - **작업 브랜치: `feature/sky-v2`** (기획 문서·맵 베이스라인은 main에 커밋됨).

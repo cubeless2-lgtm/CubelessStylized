@@ -2977,3 +2977,25 @@ These entries were visible from Notion search/fetch results earlier in this Code
 ### Residual Risk
 - Startup still reports `LogAutomationTest: Error=4`. Source inspection points to UE 5.7's engine-side LowLevelTest/AutomationTest adapter, not a project asset path; this was not suppressed by project log-category filtering.
 - Startup still reports five missing Slate resources under the engine install, including VisionOS launcher icons and `ButtonHoverHint.png`; these are engine resource warnings outside project content.
+
+## 2026-06-13 - SkySystem v2 구현 (작업 0~5, feature/sky-v2)
+
+### Summary
+- SkyAtmosphere 기반 애니메 스타일 스카이 v2를 `/Game/Cubeless/Sky`에 신규 구축 (v1 미복구, 계획: `.claude/plans` SkySystem v2).
+- 스파이크: SkyAtmosphereViewLuminance 노드 MCP 투입 OK, CurveLinearColorAtlas HDR(16F) 왕복 OK, 수동노출 ExposureBias≈10 캘리브, UDS `Ultra_Dynamic_Sky_Mat` 합성 구조 분석(덤프 `Saved/MCP/Spike/`).
+- 에셋: `Curves/` 컬러 12종+플로트 6종(키는 v1 EnvLUT cream PNG에서 이식, Linear 보간 — Auto 탱전트는 수동 전환 필요), `CA_Sky`(256 TC_HDR, 행 매핑 0~11), `MPC_Sky`(TimeOfDay/WeatherBlend/Coverage/DissolveAmount/WindSpeed/CardDensityScale), `Materials/M_Sky_Dome`(103노드: ViewLuminance×커브틴트+포스터라이즈+태양/별/달+UV1 폴라 원경 구름 A/B+지평선 페이드, bIsSky), `Materials/M_Sky_CloudCard`(SDF 디졸브+4색 2단 음영+림+버텍스 포그), `Textures/T_CloudCardAtlas_SDF_2048`(베이커 `SourceArt/Sky/bake_cloudcard_sdf_atlas.py`, 소스는 RGBA_2048 — Preview_2048은 알파 없음), `Data/BP_SkyWeatherStateAsset`+DA 3종(Clear/Cloudy/Overcast), `BP_SkySystem`(컴포넌트 7종 내장, UpdateSky/SetWeather/RebuildCards/Tick, 카드 48장 스폰).
+- SkyTestMap 교체: 기존 라이트/포그/대기/돔/테스트카드 12액터 삭제, BP_SkySystem 단독.
+- 검증: 4시점×3날씨 12컷+전환+디졸브 캡처(`Saved/SkyV2_Captures/task5/`), 지평선 정합 OK, 카드 포그 수신 OK, GPU ≈5.6ms.
+
+### 실측 함정 (재발 방지)
+- `add_material_node`에 CurveAtlasRowParameter → 에디터 크래시(UnrealMCPMaterialCommands.cpp:2742). 머티리얼 expression은 파이썬 `create_material_expression` 경로 고정. 플러그인 수정 태스크 별도.
+- MPC 런타임 반영은 `unreal.MaterialLibrary.set_scalar_parameter_value(world, mpc, ...)` (에셋 default_value 수정은 렌더 미반영).
+- CurveAtlasRowParameter 입력 핀명 = `CurveTime`. CurveLinearColor 키는 파이썬 직접 접근 불가 → CSVImportFactory(Linear 보간 됨).
+- BP `bCallInEditor`는 protected — UpdateSky 등 CallInEditor 체크는 에디터 수동 1회 필요.
+- SceneCapture 캡처 적정 EV는 씬 의존(이번 +11) — 고정값 신뢰 금지.
+
+### 잔여 (후속 작업 후보)
+- 아트 튜닝: 밤하늘 적갈색(Zenith/Horizon 0.1 키), 아침 0.3 주황 과다, Moon_Color/MoonIntensity 상향, Overcast 회색화, SunLight 0.22/0.84 강도·색 팝(보간 폭 추가), 별이 달 위에 겹침(달 마스크 차감), 디졸브 임계 폭.
+- 카드 48장이 트랜지언트 — 에디터 재시작 시 소실, RebuildCards 재실행 필요. 영속화 검토.
+- 원경 폴라 텍스처 자체 제작(T_FarCloud_Polar_3종, 케일란 워크플로우) — 현재 UDS FarCloud/cloub02 참조 중.
+- 모바일(Android Vulkan) 프리뷰·오버드로우 컬러 뷰모드 수동 확인, 일반 맵 드롭 테스트(bOwnPPV off).
