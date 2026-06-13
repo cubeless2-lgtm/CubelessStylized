@@ -2,6 +2,60 @@
 
 Durable local fallback for project memory when Notion capture is unavailable.
 
+## 2026-06-13 - Sky cleanup after V3 reset
+
+### Summary
+- Removed the placed `BP_SkySystem_V3_C` actor from `SkyTestMap`.
+- Deleted `/Game/Cubeless/Sky/BP_SkySystem_V3`.
+- Deleted the orphaned `/Game/Cubeless/Sky/Materials/M_Sky_Dome_V3` after confirming it had no referencers.
+- Removed empty root-level folders under `Content/Cubeless/Sky`: `Curves`, `Data`, `Spike`, `Textures`, and then `Materials`.
+
+### Residual Notes
+- `Content/Cubeless/Sky/BP_SkySystem.uasset` remains as a small redirector/stale package file at the original root path. Unreal reports it as an unreferenced `ObjectRedirector`, but the running editor process holds the file lock, so OS deletion failed during this pass. It can be removed after the editor releases the file.
+- `Content/Cubeless/Sky/Backup/SkyV2_Pass2_20260613` remains as the backup copy of prior SkySystem work, and `SkyTestMap` remains in place.
+
+## 2026-06-13 - SkySystem V3 reset baseline
+
+### Summary
+- Kept `SkyTestMap` as the working test level.
+- Moved the existing SkySystem v2 experiment assets, excluding the test level and HLOD layer, into `/Game/Cubeless/Sky/Backup/SkyV2_Pass2_20260613`.
+- Created a new minimal baseline instead of extending the overloaded v2 graph:
+  - `/Game/Cubeless/Sky/BP_SkySystem_V3`
+  - `/Game/Cubeless/Sky/Materials/M_Sky_Dome_V3`
+- `BP_SkySystem_V3` currently contains only `SkyDomeMesh`, `SunLight`, `SkyLight`, and an exposed `TimeOfDayHHMM` authoring value. No cloud cards, weather curves, MPC, or dynamic boundary logic were added.
+- Replaced the `SkySystem` actor in `SkyTestMap` with `BP_SkySystem_V3_C`.
+
+### Verification
+- `BP_SkySystem_V3` compile and validation passed with `compile_error_count=0` and `compile_warning_count=0`.
+- `M_Sky_Dome_V3` compiled with `compile_error_count=0` after fixing the initial ComponentMask input link.
+- Review capture: `Saved/MCP/SkyFollowups/sky_v3_baseline_final.png`.
+
+### Residual Notes
+- The V3 baseline is intentionally plain and neutral. Lighting is only good enough for inspection; anime color styling, cloud art, time transitions, and boundary tuning should be added one at a time.
+- Latest editor log still contains the pre-existing `TextureRenderTarget2D_3` failed import from `SkyTestMap`.
+- Git now shows old Sky assets as moved/deleted from their original locations and newly added under the backup folder, which is expected for this reset.
+
+## 2026-06-13 - SkySystem v2 follow-up pass 2 cloud scale and horizon tuning
+
+### Summary
+- Continued on `codex/sky-v2-followups`.
+- Reworked `BP_SkySystem` persistent cloud-card placement after size review: cards now use higher sky layers, larger vertical scale, softer material-instance opacity, lower rim intensity, and expanded SDF body settings so they no longer read as tiny edge-on strokes in sky-view captures.
+- Updated the 8 `MI_Sky_CloudCard_Tile_##` instances with softer card defaults: lower `CardOpacity`/`RimStrength`, lower `BaseAlphaThreshold`, and higher `DissolveSoftness`.
+- Further softened `M_Sky_Dome` horizon/far-cloud boundary defaults: lower `HorizonFadeSharpness`, wider/fainter far-cloud band, higher desaturation, and HHMM-derived dawn/day/dusk/night normalized defaults.
+- Kept dynamic HHMM-to-material MPC synchronization as a follow-up because `PushMPC` is the correct integration point, but graph rewiring should be handled as a separate controlled Blueprint pass.
+
+### Verification
+- `BP_SkySystem` compile and validation passed with `compile_error_count=0` and `compile_warning_count=0`.
+- `M_Sky_Dome` and `M_Sky_CloudCard` compiled and saved with `compile_error_count=0`.
+- Review captures:
+  - `Saved/MCP/SkyFollowups/sky_v2_pass2_cloud_size_body.png`
+  - `Saved/MCP/SkyFollowups/sky_v2_pass2_horizon_raised_cards.png`
+
+### Residual Notes
+- `SkyTestMap` and one external actor package are modified because the placed `SkySystem` instance was refreshed to match the new card placement for viewport verification.
+- Latest editor log still contains the pre-existing `TextureRenderTarget2D_3` failed import from `SkyTestMap`; not fixed in this pass.
+- Cloud cards are now higher and softer, but the current source atlas still reads more like wispy brush strokes than full anime cloud masses. A future source-atlas/art pass is likely needed for larger puffy cloud silhouettes.
+
 ## 2026-06-12 - PCG production validation steps 1-3 branch pass
 
 ### Summary
@@ -3023,3 +3077,451 @@ These entries were visible from Notion search/fetch results earlier in this Code
 
 ### Note
 - If the sibling sample project reports missing `K2Node_EnhancedInputAction.h` or `PCGCommon.h` after syncing, clear generated `MCPGameProject/Intermediate/Build/Win64` and `MCPGameProject/Plugins/UnrealMCP/Intermediate/Build/Win64` before rebuilding. The failure can come from stale UnrealBuildTool makefile/rules cache, not from the source plugin.
+## 2026-06-13 - SkySystem v2 follow-up pass 1 (codex/sky-v2-followups)
+
+### Summary
+- Created branch `codex/sky-v2-followups` from `feature/sky-v2`.
+- `BP_SkySystem`: converted the missing transient cloud-card setup into 48 persistent default `StaticMeshComponent` cards named `SkyCard_Persistent_00` through `_47`; set `CardCount=48`.
+- Added 8 persistent cloud-card material instances, `/Game/Cubeless/Sky/Materials/MI_Sky_CloudCard_Tile_00` through `_07`, with per-tile `CellIndex` values.
+- Added editor-facing time controls to `BP_SkySystem`: `TimeOfDayHHMM` (`0..2400`), `TimeStepHHMM`, `ApplyTimeOfDayHHMM`, `StepTimeHHMM`, and `ToggleAdvanceTime`. Internal `TimeOfDay` remains normalized `0..1`; `ApplyTimeOfDayHHMM` clamps and divides by `2400`.
+- Added exposed HHMM boundary variables on `BP_SkySystem`: `DawnStartHHMM=500`, `DayStartHHMM=700`, `DuskStartHHMM=1800`, `NightStartHHMM=2000`.
+- `M_Sky_Dome`: softened the visible horizon band by changing `HorizonFadeSharpness` from `6.0` to `2.4`, `FarCloudBandTop` from `0.35` to `0.46`, `FarCloudBandSoftness` from `0.15` to `0.28`, `FarCloudOpacity` from `0.55` to `0.42`, and `FarCloudDesat` from `0.30` to `0.55`.
+- `M_Sky_Dome`: replaced the old hardcoded `NightMask` HLSL consumer with a new `NightMaskBoundaries` Custom node driven by scalar parameters `DawnStart01=0.208333`, `DayStart01=0.291667`, `DuskStart01=0.75`, and `NightStart01=0.833333`.
+- First follow-up capture showed persistent cards reading as white strokes over the terrain. Raised all 48 persistent cards into higher sky bands (`~18/25/33/43` degree elevation) and reduced their scale so they read as sky-layer cards instead of ground overlays.
+
+### Verification
+- `BP_SkySystem` compile/validate passed: `compile_error_count=0`, `compile_warning_count=0`.
+- `M_Sky_Dome` compile passed: `compile_error_count=0`.
+- `M_Sky_CloudCard` compile passed: `compile_error_count=0`.
+- Reopened `/Game/Cubeless/Sky/SkyTestMap`; `SkySystem` instance reports `persistent_card_count=48`.
+- Verified BP defaults: `TimeOfDay=0.5`, `TimeOfDayHHMM=1200`, `TimeStepHHMM=100`, `bAdvanceTime=False`, `CardCount=48`.
+- Captures saved under `Saved/MCP/SkyFollowups/`: `sky_v2_followup_viewport.png` before card raise and `sky_v2_followup_viewport_cards_raised.png` after card raise.
+
+### Residual Risks / Next Pass
+- `DawnStartHHMM`/`DayStartHHMM`/`DuskStartHHMM`/`NightStartHHMM` are exposed on BP, while the material currently uses normalized scalar parameters with matching defaults. Full automatic BP-to-material boundary synchronization remains a next-pass task.
+- Visual capture review is still needed for the user-reported straight horizon band; parameter changes are compiled but not yet visually approved.
+- Cloud cards are now persistent and above the terrain, but the current card art still reads as thin bright strokes from the test view; cloud-card art scale/opacity should be tuned in the next pass.
+- Latest editor log still contains `SkyTestMap` `TextureRenderTarget2D_3` load/import errors from an external actor and some transient Python probe errors from this session. Compile checks passed, but the stale render-target reference should be cleaned if it persists after map resave.
+
+## 2026-06-13 - UDS static-cloud master material extraction
+
+### Summary
+- Reviewed `/Game/UltraDynamicSky/Materials/Ultra_Dynamic_Sky_Mat` and isolated the static-cloud path around UDS `Composite_Static_Clouds`.
+- Created `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky` for Cubeless-owned sky/cloud controls.
+- Created `/Game/Cubeless/Sky/Materials/M_UDS_StaticClouds_Master` from scratch as an Unlit/Opaque sky material.
+- Kept the UDS texture source reference unchanged: `/Game/UltraDynamicSky/Textures/Weather/ParticleClouds`.
+- Decomposed the static-cloud logic into the master graph: base sky vertical gradient, UDS static cloud texture alpha/contrast, light/dark cloud color blend, sun/moon rim masks, and final emissive composite.
+- Did not use UDS material functions, project material functions, static switches, or Custom HLSL nodes in the new master. Added node descriptions/comments for the major graph regions.
+
+### Verification
+- `M_UDS_StaticClouds_Master` compile/save passed with `compile_error_count=0`.
+- MCP graph analysis reports `node_count=62`, `texture_sample_count=1`, `material_function_call_count=0`, `custom_hlsl_count=0`, and `static_switch_count=0`.
+- The only texture sample resolves to `/Game/UltraDynamicSky/Textures/Weather/ParticleClouds.ParticleClouds`.
+- Existing dirty/deleted SkySystem v2 assets were left untouched.
+
+### MCP C++ / API Follow-up Candidates
+- Material node connection helpers should normalize single-input pins whose displayed input name is `None` to the actual empty-string input key. This affected `ComponentMask` and `Saturate` nodes during graph construction.
+- `connect_material_nodes` / Python material helpers should expose clearer diagnostics when a requested input label does not match the underlying Unreal pin key.
+- Material graph reporting should avoid direct reads of protected `Material.Expressions`; use `MaterialEditingLibrary.get_num_material_expressions` or existing analyzer paths instead.
+- `list_material_nodes` should expose `MaterialExpressionCollectionParameter` parameter names and collection asset paths directly, so MPC validation does not require extra Unreal Python probing.
+- The material creation API would benefit from an idempotent "create or replace dedicated material graph" command that safely clears only the target generated asset and reports compile status in one response.
+
+## 2026-06-13 - UDS 2D dynamic-cloud master material extraction
+
+### Summary
+- Rechecked the post-reboot UnrealMCP connection and resumed the UDS 2D dynamic cloud extraction.
+- Reviewed the UDS dynamic 2D cloud path around `Composite_Cloud_Layers`, `Cloud_Layer`, and `Map_Cloud_Textures`.
+- Created `/Game/Cubeless/Sky/Materials/M_UDS_Dynamic2DClouds_Master` from scratch as an Unlit/Opaque sky material.
+- Reused the existing Cubeless-owned MPC `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky` instead of keeping a separate dynamic-cloud MPC. Shared parameter names such as `SkyIntensity`, `HorizonBlendPower`, `CloudOpacity`, `CloudContrast`, `CloudBrightness`, `CloudSkyBlend`, `CloudLightColor`, `CloudDarkColor`, `CloudRimColor`, `SunDirection`, `SunRimPower`, and `SunRimIntensity` are used by both static and 2D dynamic masters.
+- Added only dynamic-specific shared MPC parameters: `CloudCoverage`, `CloudSoftness`, `Layer1Scale`, `Layer2Scale`, `Layer1Speed`, `Layer2Speed`, `Layer1Weight`, `Layer2Weight`, `Layer2Offset`, `SwirlStrength`, `EdgeSharpness`, `WindDirectionA`, and `WindDirectionB`.
+- Deleted the accidental `/Game/Cubeless/Sky/MPC_Cubeless_Dynamic2DClouds` asset so the sky material family uses one Cubeless MPC source.
+- Kept the UDS texture source unchanged for 2D dynamic clouds: `/Game/UltraDynamicSky/Textures/Weather/ParticleClouds.ParticleClouds`.
+- Decomposed the UDS function behavior into native master nodes: base sky gradient, two panning 2D ParticleClouds samples, R/G density filtering, B-channel shading, cross-layer swirl detail, shared cloud light/dark color blend, sun rim mask, and final emissive sky/cloud composite.
+- Did not use UDS material functions, project material functions, static switches, or Custom HLSL nodes. Added node descriptions for the major graph regions and important computation nodes.
+
+### Verification
+- `M_UDS_Dynamic2DClouds_Master` compile/save passed with `compile_error_count=0`.
+- MCP graph analysis reports `node_count=113`, `texture_sample_count=2`, `unique_texture_count=1`, `material_function_call_count=0`, `custom_hlsl_count=0`, and `static_switch_count=0`.
+- Both texture samples resolve to `/Game/UltraDynamicSky/Textures/Weather/ParticleClouds.ParticleClouds`, with `SSM_Wrap_WorldGroupSettings` and `SAMPLERTYPE_Color`.
+- Recompiled `M_UDS_StaticClouds_Master` after extending the shared MPC; it still passes with `compile_error_count=0`.
+- Existing dirty/deleted SkySystem v2 assets were left untouched.
+
+### MCP C++ / API Follow-up Candidates
+- `set_material_node_property` should accept enum strings such as `SAMPLERTYPE_COLOR`, or report the required numeric enum value. It currently required raw numeric value `0` for `SamplerType`.
+- `set_material_node_property` should accept Python-style editor property aliases such as `sampler_type`, or suggest the native Unreal property name `SamplerType`.
+- Material Python/MCP helpers should expose a safe expression iterator/getter. `MaterialEditingLibrary.get_num_material_expressions` exists, but this UE Python environment did not expose a matching `get_material_expression` call.
+- Material comment creation should abstract UE-version-specific comment size properties. `MaterialExpressionComment` accepted the text but did not expose `size_x`/`size_y` in this environment.
+- MPC APIs would benefit from an upsert helper that appends missing scalar/vector parameters while preserving existing collection parameter entries and avoiding accidental replacement of shared parameter IDs.
+
+## 2026-06-13 - UDS volumetric-cloud master material extraction
+
+### Summary
+- Reviewed the UDS volumetric cloud path around `/Game/UltraDynamicSky/Materials/Volumetric_Clouds`.
+- Confirmed the original material uses `MD_Volume`, `BLEND_Additive`, `MSM_DefaultLit`, two UDS material functions, two static switches, and UDS textures for broad 2D coverage, 3D cells, and vertical profile shaping.
+- Created `/Game/Cubeless/Sky/Materials/M_UDS_VolumetricClouds_Master` from scratch as a Volume-domain material.
+- Reused the shared Cubeless MPC `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`. No new volumetric-only MPC was created.
+- Reused shared MPC parameter names where the meaning matches static/2D clouds: `CloudCoverage`, `CloudSoftness`, `CloudOpacity`, `CloudContrast`, `CloudLightColor`, `CloudDarkColor`, `CloudRimColor`, `WindDirectionA`, and `Layer1Speed`.
+- Added only volumetric-specific shared MPC parameters: `VolumeCloudDensity`, `VolumeCloudExtinctionScale`, `VolumeCloudShapeScale`, `VolumeCloudCoverageScale`, `VolumeCloudProfileSlice`, `VolumeCloudBottomFade`, `VolumeCloudTopFade`, `VolumeCloudWindSpeed`, `VolumeCloudDetailInfluence`, `VolumeCloudProfileInfluence`, `VolumeCloudAmbientOcclusion`, and `VolumeCloudEmissiveStrength`.
+- Kept UDS texture sources unchanged:
+  - `/Game/UltraDynamicSky/Textures/3D_Clouds/3D_Cells_32`
+  - `/Game/UltraDynamicSky/Textures/Volumetric_Clouds/Cloud_Profile`
+  - `/Game/UltraDynamicSky/Textures/Weather/ParticleClouds`
+- Decomposed the useful volumetric behavior into the master graph: `CloudSampleAttribute` altitude fade, UDS `Cloud_Profile` vertical shaping, world-space 3D cell noise, broad 2D ParticleClouds coverage, density threshold/contrast, albedo blend, emissive tint, extinction, and ambient occlusion.
+- Did not use UDS material functions, project material functions, Custom HLSL nodes, or static switches. Engine volume nodes such as `CloudSampleAttribute` remain native engine nodes.
+
+### Verification
+- `M_UDS_VolumetricClouds_Master` compile/save passed with `compile_error_count=0`.
+- MCP graph analysis reports `node_count=86`, `texture_sample_count=3`, `unique_texture_count=3`, `material_function_call_count=0`, `custom_hlsl_count=0`, and `static_switch_count=0`.
+- Material settings are `MD_Volume`, `BLEND_Additive`, and `MSM_DefaultLit`.
+- Root connections are active for `BaseColor`, `Emissive`, volume `Extinction` through `MP_SubsurfaceColor`, and `AmbientOcclusion`.
+- Recompiled `M_UDS_StaticClouds_Master` and `M_UDS_Dynamic2DClouds_Master` after extending the shared MPC; both still pass with `compile_error_count=0`.
+- Existing dirty/deleted SkySystem v2 assets were left untouched.
+
+### MCP C++ / API Follow-up Candidates
+- `list_material_nodes` and `analyze_material_graph` should expose `MaterialExpressionCollectionParameter` parameter names and collection paths. This is especially important when validating a shared MPC rule across static, 2D, and volume materials.
+- Material analysis should provide a compact "function flattening candidate" report for material functions: texture references, function inputs/outputs, static switch defaults, and Custom HLSL islands without returning huge truncated reroute payloads.
+- Material creation helpers should provide first-class support for Volume-domain material setup, including semantic aliases for volume `Extinction` and conservative-density-related pins where Unreal maps them through standard `MaterialProperty` enums.
+- `add_material_node` / property setters should document and validate `MaterialExpressionTextureSampleParameterVolume` creation, sampler type, sampler source, and volume texture object assignment.
+- The material graph API would benefit from a dedicated MPC upsert command that adds missing scalar/vector parameters to an existing collection without replacing existing parameter structs or risking shared parameter ID churn.
+
+## 2026-06-13 - Node graph readability cleanup gate
+
+### Decision
+- Future Blueprint, Material, PCG, Niagara, Animation Blueprint, and Control Rig graph work should end with a human-readable layout pass when tooling can prove it is layout-only.
+- The cleanup pass is allowed to move nodes, add or adjust comment boxes, group related logic, improve spacing, and remove visual overlap.
+- The cleanup pass must not change graph semantics: no node deletion/recreation/reconstruction, no reroute-node insertion, no pin reconnection, no type/class/default/parameter changes, and no functional symbol rename unless already approved as part of the implementation.
+
+### Verification Rule
+- Capture a lightweight pre-cleanup baseline when possible: node count, link count, key node names or GUIDs, compile status, and error count.
+- After cleanup, compare against the baseline and compile/validate again. Save only after validation passes.
+- If cleanup breaks validation, revert only layout/comment cleanup and keep the working implementation intact.
+
+### Project Instruction Update
+- Added the same rule to `AGENTS.md` under `Node Graph Readability Cleanup Gate`.
+- Notion capture fallback: the Notion connector required reauthentication earlier in this session, so this local work-log entry is the durable project memory.
+
+## 2026-06-13 - Stylized volumetric cloud texture instance pass
+
+### Summary
+- Investigated the Unreal Editor crash that happened while importing stylized volumetric cloud PNGs through MCP.
+- Root cause: `AssetTools.ImportAssetTasks` entered UE 5.7 Interchange from the normal `execute_python` GameThread task path and hit TaskGraph recursion guard assertion `++Queue(QueueIndex).RecursionGuard == 1`.
+- Fixed the MCP texture-import service in `../unreal-mcp-cubeless/Python/services/unreal_texture_importer.py` so texture imports can route `execute_python` through `defer_to_ticker=True`, matching the existing bridge's Interchange-safe path.
+- Relaunched Unreal Editor and confirmed MCP bridge recovery on `127.0.0.1:55557`.
+- Imported Keilan/Tivret stylized volume-cloud data sources:
+  - `/Game/Cubeless/Sky/Textures/T_StylizedVolCloud_Coverage_RGBA_1024`
+  - `/Game/Cubeless/Sky/Textures/T_StylizedVolCloud_Profile_LUT_256x16`
+- Created `/Game/Cubeless/Sky/Materials/MI_UDS_VolumetricClouds_Stylized` from `/Game/Cubeless/Sky/Materials/M_UDS_VolumetricClouds_Master`.
+- Set all master texture inputs through material-instance texture overrides:
+  - `UDSCloudProfile` -> stylized profile LUT
+  - `UDSParticleClouds_VolumeCoverage` -> stylized RGBA coverage texture
+  - `UDS3DCells32` -> original UDS `/Game/UltraDynamicSky/Textures/3D_Clouds/3D_Cells_32`
+
+### Texture Rules / Packing
+- `T_StylizedVolCloud_Coverage_RGBA_1024` is a tileable data texture, not a beauty render:
+  - R = large cloud mass density
+  - G = soft secondary body
+  - B = edge breakup/detail
+  - A = overall density/mask
+- The current master reads coverage primarily from R; G/B/A are preserved for review and future graph expansion.
+- Coverage texture keeps sRGB enabled because it replaces the UDS `ParticleClouds` texture on a `SAMPLERTYPE_Color` material sampler.
+- `T_StylizedVolCloud_Profile_LUT_256x16` is a linear profile LUT:
+  - R = altitude density profile
+  - G = lower fade
+  - B = upper fade
+  - A = total profile alpha
+- Profile LUT uses linear sampling (`sRGB=False`), clamp addressing, and no mipmaps.
+- The 3D volume texture remains the UDS reference volume texture because this pass should not flatten or invent a replacement 3D volume source.
+
+### Verification
+- Crash recovery path verified: PNG import succeeded when routed through `execute_python` with `defer_to_ticker=True`.
+- `M_UDS_VolumetricClouds_Master` compile/save passed with `compile_error_count=0`.
+- `MI_UDS_VolumetricClouds_Stylized` analysis reports `texture_override_count=3`, `scalar_override_count=0`, `vector_override_count=0`, and parent `/Game/Cubeless/Sky/Materials/M_UDS_VolumetricClouds_Master`.
+- Base material analysis still reports `node_count=86`, `texture_sample_count=3`, `material_function_call_count=0`, `custom_hlsl_count=0`, and `static_switch_count=0`.
+- Existing unrelated dirty/deleted SkySystem v2 assets were left untouched.
+
+### MCP C++ / API Follow-up Candidates
+- `import_texture_to_unreal` and any higher-level texture generation/import tools should default texture imports to `defer_to_ticker=True` or expose an explicit safe-import route, because UE 5.7 Interchange can assert when entered from the immediate GameThread task path.
+- `execute_unreal_python` could optionally auto-detect high-risk Interchange/AssetTools import snippets and warn when `defer_to_ticker` is false.
+- Material instance texture-set helpers should report success based on a follow-up parameter-value readback, because UE Python's `set_material_instance_texture_parameter_value` may return a falsey value even when the override is written.
+
+## 2026-06-13 - Sky material master folder organization
+
+### Summary
+- Created `/Game/Cubeless/Sky/Materials/Master` to keep generated master materials separate from material instances and future working materials.
+- Moved only the generated UDS-derived master materials:
+  - `/Game/Cubeless/Sky/Materials/Master/M_UDS_StaticClouds_Master`
+  - `/Game/Cubeless/Sky/Materials/Master/M_UDS_Dynamic2DClouds_Master`
+  - `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master`
+- Left `/Game/Cubeless/Sky/Materials/MI_UDS_VolumetricClouds_Stylized` in the root `Materials` folder.
+
+### Verification
+- Old root master material paths no longer exist.
+- `MI_UDS_VolumetricClouds_Stylized` parent now resolves to `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master`.
+- All three moved master materials compile/save with `compile_error_count=0`.
+- Existing unrelated deleted/dirty SkySystem v2 material assets were left untouched.
+
+## 2026-06-13 - Volumetric cloud material usage flag fix
+
+### Summary
+- Fixed a missed Unreal material usage flag on `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master`.
+- The material already used `MD_Volume`, but `used_with_volumetric_cloud` was still false.
+- Enabled the usage through `MaterialEditingLibrary.set_material_usage(..., MATUSAGE_VOLUMETRIC_CLOUD)`.
+
+### Verification
+- `has_material_usage(MATUSAGE_VOLUMETRIC_CLOUD)` is now true.
+- `used_with_volumetric_cloud` is now true.
+- `M_UDS_VolumetricClouds_Master` compile/save passed with `compile_error_count=0`.
+- `MI_UDS_VolumetricClouds_Stylized` still points to the moved master material and keeps 3 texture overrides.
+
+## 2026-06-13 - UDS volumetric cloud MPC defaults applied
+
+### Summary
+- Investigated the noisy/speckled volumetric cloud output reported in the viewport.
+- Read UDS volumetric cloud default values from `/Game/UltraDynamicSky/Materials/Material_Functions/UDS_VolumetricClouds_MPC`.
+- Applied the matching UDS volumetric defaults to the shared Cubeless MPC `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky` instead of creating a separate collection.
+- Kept UDS runtime-placeholder zeros such as `Cloud Density`, `Bottom Altitude`, and `Top Altitude` out of the direct copy so the Cubeless default does not collapse the cloud layer.
+
+### MPC Mapping
+- `Macro Offset` -> `CloudCoverage` = `0.5199999809265137`
+- `Macro Variation` -> `CloudSoftness` = `0.5`
+- `3D Erosion Power` -> `CloudContrast` = `3.0`
+- `Clouds B Speed` -> `Layer1Speed` / `VolumeCloudWindSpeed` = `0.0`
+- `Reflection Density Scale` -> `VolumeCloudDensity` = `1.0`
+- `Extinction Scale` -> `VolumeCloudExtinctionScale` = `10.0`
+- `Clouds Scale` -> `VolumeCloudShapeScale` / `VolumeCloudCoverageScale` = `1157414.25`
+- `High Frequency Noise` -> `VolumeCloudDetailInfluence` = `0.20000000298023224`
+- `Ambient Occlusion` -> `VolumeCloudAmbientOcclusion` = `1.0`
+- `Outer Emit Limit` -> `VolumeCloudEmissiveStrength` = `0.05999999865889549`
+
+### Verification
+- Readback from `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky` reported no missing target parameters.
+- Saved `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`.
+- Recompiled and saved `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master` with `compile_error_count=0`.
+- `MI_UDS_VolumetricClouds_Stylized` still resolves to parent `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master`.
+- Current material-instance texture overrides point at the UDS source textures for profile, particle coverage, and 3D cells.
+
+## 2026-06-13 - Current-level UDS volumetric values copied to Cubeless MPC
+
+### Summary
+- User reported that the volumetric clouds were not visible after copying asset-default UDS values.
+- Inspected the currently open `/Game/Cubeless/Sky/SkyTestMap` level and found live `Ultra_Dynamic_Sky` and `Ultra_Dynamic_Weather` actors.
+- Read current level instance values from the UDS/UDW actors instead of the UDS MPC asset defaults.
+- Copied those current-level values into the shared Cubeless MPC `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`.
+
+### Source Values
+- `Ultra_Dynamic_Weather.Cloud Coverage` = `3.855999`
+- `Ultra_Dynamic_Sky.Cloud Speed` = `0.35`
+- `Ultra_Dynamic_Sky.Macro Variation` = `0.16`
+- `Ultra_Dynamic_Sky.Macro Scale` = `1.3`
+- `Ultra_Dynamic_Sky.Volumetric Clouds Scale` = `1.0`
+- `Ultra_Dynamic_Sky.Extinction Scale` = `10.0`
+- UDS `VolumetricCloudComponent.layer_bottom_altitude` = `0.6000000238418579`
+- UDS `VolumetricCloudComponent.layer_height` = `0.699999988079071`
+
+### Cubeless MPC Updates
+- `CloudCoverage`: `0.5199999809265137` -> `3.855998992919922`
+- `VolumeCloudDensity`: `1.0` -> `3.855998992919922`
+- `CloudSoftness`: `0.5` -> `0.1599999964237213`
+- `Layer1Speed`: `0.0` -> `0.3499999940395355`
+- `VolumeCloudWindSpeed`: `0.0` -> `0.3499999940395355`
+- `VolumeCloudCoverageScale`: `1157414.25` -> `1504638.5`
+- `VolumeCloudShapeScale` stayed at UDS base scale `1157414.25`.
+- `VolumeCloudExtinctionScale` stayed at `10.0`.
+
+### Notes
+- `Bottom Altitude` and `layer_height` are UDS component/layer settings, not Cubeless material fade widths, so they were recorded but not forced into `VolumeCloudBottomFade` or `VolumeCloudTopFade`.
+- The current UDS `VolumetricCloud` component is using a level-owned dynamic material instance whose parent is `/Game/UltraDynamicSky/Materials/Material_Instances/Volumetric_Clouds_default`, not the Cubeless stylized material instance.
+
+### Verification
+- Saved `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`.
+- Recompiled and saved `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master` with `compile_error_count=0`.
+- `MI_UDS_VolumetricClouds_Stylized` still resolves to `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master`.
+
+## 2026-06-13 - Current-level UDS volumetric 12-parameter match
+
+### Summary
+- User pointed out the dedicated `VolumeCloud*` scalar parameters in the Cubeless MPC and requested that they match the current level's UDS values.
+- Re-read the current `/Game/Cubeless/Sky/SkyTestMap` UDS and UDW actors, the UDS `VolumetricCloudComponent`, and the UDS volumetric MPC asset defaults.
+- Applied the 12 Cubeless volumetric scalar parameters to `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`.
+- Corrected the earlier `CloudCoverage` assignment: the current UDW coverage value `3.855999` is useful as density input, but it is too high for the Cubeless material's coverage threshold use. `CloudCoverage` was restored to the UDS `Macro Offset` value `0.5199999809265137`.
+
+### Cubeless MPC Updates
+- `VolumeCloudDensity` = `3.855998992919922`
+- `VolumeCloudExtinctionScale` = `10.0`
+- `VolumeCloudShapeScale` = `1157414.25`
+- `VolumeCloudCoverageScale` = `1504638.5`
+- `VolumeCloudProfileSlice` = `0.5`
+- `VolumeCloudBottomFade` = `0.6000000238418579`
+- `VolumeCloudTopFade` = `1.2999999523162842`
+- `VolumeCloudWindSpeed` = `0.3499999940395355`
+- `VolumeCloudDetailInfluence` = `0.20000000298023224`
+- `VolumeCloudProfileInfluence` = `1.0`
+- `VolumeCloudAmbientOcclusion` = `1.0`
+- `VolumeCloudEmissiveStrength` = `0.05999999865889549`
+
+### Additional Shared MPC Safety Updates
+- `CloudCoverage` = `0.5199999809265137`
+- `CloudSoftness` = `0.1599999964237213`
+- `CloudContrast` = `3.0`
+- `CloudOpacity` = `1.0`
+- `Layer1Speed` = `0.3499999940395355`
+
+### Verification
+- Saved `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`.
+- Recompiled and saved `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master` with `compile_error_count=0`.
+- Captured viewport result at `C:/Git/CubelessStylized/Saved/MCP/VolumetricCloud_AfterMPCMatch.png`; the clouds are visible again in the capture.
+
+### Follow-Up
+- Directly assigning `/Game/Cubeless/Sky/Materials/MI_UDS_VolumetricClouds_Stylized` to the current UDS `VolumetricCloudComponent` did not stick. After viewport redraw/readback, UDS regenerated its own level-owned MID again.
+- To make the current UDS actor render with the Cubeless master, the next asset-side step should be either overriding the UDS blueprint/material source that creates the MID or spawning a separate controlled `VolumetricCloud` actor that uses the Cubeless MI.
+- Exact runtime `UMaterialParameterCollectionInstance` readback is not available from the current Python route. If exact runtime MPC reads are needed later, add a small read-only UnrealMCP C++ command that calls `UWorld::GetParameterCollectionInstance`.
+
+## 2026-06-13 - Keep Cubeless cloud materials self-contained
+
+### Summary
+- User clarified that the UDS `VolumetricCloudComponent` does not need to be forced to use the Cubeless MI; Cubeless behavior only needs to be correct inside Cubeless materials.
+- Verified the CollectionParameter references in the three Cubeless UDS-derived master materials.
+- All CollectionParameter nodes point to `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky.MPC_Cubeless_StaticSky`; no direct UDS MPC reference was found.
+- The UDS source textures remain valid references because the standing rule is to reuse UDS texture sources.
+
+### Verification
+- `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master`: 21 CollectionParameter nodes, wrong collection count `0`, compile errors `0`.
+- `/Game/Cubeless/Sky/Materials/Master/M_UDS_StaticClouds_Master`: 17 CollectionParameter nodes, wrong collection count `0`, compile errors `0`.
+- `/Game/Cubeless/Sky/Materials/Master/M_UDS_Dynamic2DClouds_Master`: 27 CollectionParameter nodes, wrong collection count `0`, compile errors `0`.
+- No UDS component material override was applied in this pass.
+
+## 2026-06-13 - Rebuilt volumetric master from actual UDS source material
+
+### Summary
+- User corrected the source material: the actual UDS volumetric cloud material is `/Game/UltraDynamicSky/Materials/Volumetric_Clouds.Volumetric_Clouds`.
+- Replaced the previous Cubeless volumetric master source with a Cubeless-owned duplicate of that material at `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master`.
+- The previous generated master was moved to `/Game/Cubeless/Sky/Backup/M_UDS_VolumetricClouds_Master_PreActualSource_20260613_194742`.
+- Duplicated the two UDS material functions into Cubeless-owned helper functions because current MCP/Python tooling cannot auto-expand material function calls into the master graph:
+  - `/Game/Cubeless/Sky/Materials/Master/MF_UDS_VolumetricClouds_Conservative_Density`
+  - `/Game/Cubeless/Sky/Materials/Master/MF_UDS_VolumetricClouds_Extinction`
+- Updated the master function-call nodes to point at those Cubeless helper functions.
+
+### MPC
+- Merged UDS volumetric MPC parameter names into the shared Cubeless MPC `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`.
+- Retargeted all CollectionParameter nodes in the new master and helper functions to the Cubeless MPC.
+- Current Cubeless MPC now has `83` scalar parameters and `19` vector parameters.
+- Current-level UDS/UDW overrides applied for critical runtime-like values:
+  - `Cloud Density` = `3.855998992919922`
+  - `Clouds B Speed` = `0.3499999940395355`
+  - `Clouds B Time` = `0.8706774711608887`
+  - `Macro Scale` = `1.2999999523162842`
+  - `Macro Variation` = `0.1599999964237213`
+  - `Layer Scale` = `1.0`
+  - `Extinction Scale` = `10.0`
+  - `Bottom Altitude` = `0.6000000238418579`
+  - `Top Altitude` = `1.2999999523162842`
+  - `2D Overcast Turbulence` = `0.800000011920929`
+
+### Verification
+- `M_UDS_VolumetricClouds_Master` direct CollectionParameter count `21`, wrong collection count `0`.
+- `MF_UDS_VolumetricClouds_Conservative_Density` CollectionParameter count `20`, wrong collection count `0`.
+- `MF_UDS_VolumetricClouds_Extinction` CollectionParameter count `14`, wrong collection count `0`.
+- The master references Cubeless helper functions, not the original UDS functions.
+- UDS texture source references are preserved: `ParticleClouds` in the master and `Cloud_Profile` in the helper functions.
+- `M_UDS_VolumetricClouds_Master` has `MD_VOLUME`, `BLEND_ADDITIVE`, and `MATUSAGE_VOLUMETRIC_CLOUD`.
+- The master and both helper functions compile/save with `compile_error_count=0`.
+- `MI_UDS_VolumetricClouds_Stylized` was reparented to the rebuilt master and stale overrides were cleared.
+
+### Follow-Up
+- Full material-function expansion into the master graph still needs an UnrealMCP C++/API command that can invoke or reproduce the editor's material-function expand operation. Current Python/MCP graph tools can retarget function calls and node properties, but not inline function internals into a material graph.
+- Exact runtime MPC instance readback still needs a small read-only UnrealMCP C++ command around `UWorld::GetParameterCollectionInstance`.
+
+## 2026-06-13 - Added UnrealMCP material expansion and MPC readback APIs
+
+### Summary
+- Added UnrealMCP material commands for `expand_material_function_calls` and `get_material_parameter_collection_values`.
+- The function expansion command avoids private MaterialEditor helper linkage and instead duplicates material-function expressions with public `UMaterialEditingLibrary` APIs, rewires `FunctionInput`/`FunctionOutput` references, skips `/Engine` and `/Script` functions by default, and cleans up created nodes if a referenced output cannot be resolved.
+- Added Python MCP wrappers and server help text for the new commands in `../unreal-mcp-cubeless/Python`.
+- Mirrored the C++ command implementation into the active project plugin at `Plugins/UnrealMCP` because the Cubeless editor loads that plugin DLL while the MCP Python server runs from the sibling workspace.
+
+### Verification
+- `uv run --python 3.11 python -m py_compile Python/tools/material_tools.py Python/unreal_mcp_server.py` passed in `../unreal-mcp-cubeless`.
+- `MCPGameProjectEditor Win64 Development` build passed in `../unreal-mcp-cubeless`.
+- `StylizedCubelessEditor Win64 Development` compiled the updated plugin code and reached link, but could not overwrite `Plugins/UnrealMCP/Binaries/Win64/UnrealEditor-UnrealMCP.dll` because the current Unreal Editor process had the DLL loaded.
+- Current live editor still exposes the old MCP tool set until the editor/plugin and MCP Python server are restarted.
+- Pre-expansion baseline for `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master`: `node_count=114`, `material_function_call_count=2`, `compile_error_count=0`.
+
+### Follow-Up
+- Close or restart the current Unreal Editor, rebuild `StylizedCubelessEditor`, restart the MCP Python server, then run `expand_material_function_calls` on `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master`.
+- After expansion, rerun `analyze_material_graph` and `compile_and_save_material`; expected result is no Cubeless helper function calls left in the master and `compile_error_count=0`.
+
+## 2026-06-13 - Expanded Cubeless volumetric cloud master
+
+### Summary
+- Closed the running Unreal Editor, rebuilt `StylizedCubelessEditor`, restarted the editor, and verified the new UnrealMCP material commands through direct bridge calls.
+- Added the missing top-level bridge routing for `expand_material_function_calls` and `get_material_parameter_collection_values`.
+- Fixed function expansion save failures by calling `PostCopyNode` on copied expressions so `NamedRerouteUsage` nodes relink to copied `NamedRerouteDeclaration` nodes instead of private declarations inside the source material function.
+- Expanded `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master` from Cubeless helper-function calls into native master graph nodes.
+
+### Verification
+- Temp validation copy expanded and saved successfully at `/Game/_MCP_Temp/MaterialExpandValidation/M_UDS_VolumetricClouds_Master_ExpandTest`.
+- Original volumetric master before expansion: `node_count=114`, `material_function_call_count=2`.
+- Original volumetric master after expansion: `node_count=377`, `material_function_call_count=0`.
+- Expanded function calls:
+  - `/Game/Cubeless/Sky/Materials/Master/MF_UDS_VolumetricClouds_Extinction`
+  - `/Game/Cubeless/Sky/Materials/Master/MF_UDS_VolumetricClouds_Conservative_Density`
+- `compile_and_save_material` passed on the expanded original with `compile_error_count=0`, `saved=true`, and `dirty_after_compile=false`.
+- Runtime MPC readback worked for `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`; sampled volumetric scalar values had `runtime_resolved=true`.
+- Dirty package check after save: `dirty_content_count=0`, `dirty_map_count=0`.
+- `StylizedCubelessEditor Win64 Development` build passed after the bridge routing and reroute fix.
+- `MCPGameProjectEditor Win64 Development` build also passed in `../unreal-mcp-cubeless`.
+
+## 2026-06-13 - Added FunctionInput preview fallback for material expansion
+
+### Summary
+- Matched Unreal material-function expansion behavior for unconnected `FunctionInput` nodes that use preview defaults.
+- Existing scalar, bool, vector2, vector3, and vector4 fallbacks now also cover `FunctionInput_MaterialAttributes`.
+- `FunctionInput_MaterialAttributes` expansion creates a `MakeMaterialAttributes` node and feeds its `EmissiveColor` input with a `Constant3Vector` from the input `PreviewValue`, matching the engine's non-Substrate preview fallback intent.
+- Empty texture inputs are still treated as unsupported unless the function input has a connected preview expression; this follows engine behavior and avoids inventing a texture default.
+
+### Verification
+- `StylizedCubelessEditor Win64 Development` build passed after the fallback change.
+- `MCPGameProjectEditor Win64 Development` build passed after the fallback change.
+- Restarted Unreal Editor and verified `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master` still has `node_count=377`, `material_function_call_count=0`, and `compile_error_count=0`.
+- Created a disposable `_MCP_Temp` material function with an unconnected `FunctionInput_MaterialAttributes` and a material using that function.
+- `expand_material_function_calls` converted the test material from `material_function_call_count=1` to `0`, created `preview_default_node_count=2`, rewired one function input and one consumer, reported no errors, saved successfully, and compiled with `compile_error_count=0`.
+- Dirty package check after cleanup: `dirty_content_count=0`, `dirty_map_count=0`.
+
+## 2026-06-13 - Fixed UnrealMCP material expansion review findings
+
+### Summary
+- Fixed the material expansion path so an unconnected `FunctionInput` with `bUsePreviewValueAsDefault=false` now blocks expansion instead of silently substituting the preview value.
+- Removed scalar-constant fallback for unconnected `FunctionInput_StaticBool` and `FunctionInput_Bool` preview values. These now fail unless a real preview expression is connected, matching UE 5.7 engine behavior.
+- Changed MPC runtime readback to prefer a PIE world over the editor world and added `world_type` to the result object so callers can tell which world supplied the runtime MPC instance.
+- Mirrored the fixes in both `Plugins/UnrealMCP` and `../unreal-mcp-cubeless/MCPGameProject/Plugins/UnrealMCP`.
+
+### Verification
+- `StylizedCubelessEditor Win64 Development` build passed.
+- `MCPGameProjectEditor Win64 Development` build passed.
+- Restarted the Cubeless editor and verified the bridge on `127.0.0.1:55557`.
+- Referenced scalar required-input regression: expansion returned `expanded=false`, kept `final_function_call_count=1`, and reported `Function input 'RequiredScalar' is unconnected and does not use preview as default.`
+- Referenced static-bool regression: expansion returned `expanded=false`, kept `final_function_call_count=1`, and reported unsupported preview default type for `PreviewStaticBool`.
+- MaterialAttributes preview-default regression still passes: expansion creates the preview fallback nodes and compiles with `compile_error_count=0`.
+- `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master` remains expanded with `node_count=377`, `material_function_call_count=0`, and compiles with `compile_error_count=0`.
+- MPC readback for `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky` reports `world_type=Editor` outside PIE and resolves sampled runtime values.
+- Dirty package check after temporary test cleanup: `dirty_content_count=0`, `dirty_map_count=0`.
+
+## 2026-06-13 - Hardened material expansion recursion and partial-save behavior
+
+### Summary
+- Fixed targeted `expand_material_function_calls` so `node_id` + `recursive=true` follows only function calls created by that targeted expansion, allowing nested function calls inside the selected function to be decomposed without expanding unrelated graph calls.
+- Added `created_function_call_node_ids` to each expanded-node report so callers can audit recursive follow-up targets.
+- Added `allow_partial_save` with a default of `false`; successful partial expansions are no longer saved when another requested expansion reports errors unless the caller explicitly opts in.
+- Changed function-output validation so invalid unreferenced outputs do not block expansion, while referenced outputs still fail and roll back created nodes.
+- Stopped retrying the same failed function call within one recursive expansion run, so required-input errors are reported once instead of repeating across passes.
+- Mirrored the C++ changes in both `Plugins/UnrealMCP` and `../unreal-mcp-cubeless/MCPGameProject/Plugins/UnrealMCP`, and exposed `allow_partial_save` through `../unreal-mcp-cubeless/Python/tools/material_tools.py`.
+
+### Verification
+- `StylizedCubelessEditor Win64 Development` build passed; after relaunch, the Cubeless editor opened the UnrealMCP bridge on `127.0.0.1:55557`.
+- `MCPGameProjectEditor Win64 Development` build passed in `../unreal-mcp-cubeless`.
+- Targeted recursive regression passed: a material calling `MF_Outer_E` expanded the selected call in pass 1, followed the created inner function call in pass 2, and ended with `final_function_call_count=0`.
+- Partial-save regression passed: a material with one valid preview-default call and one required unconnected call expanded only the valid call, reported `partial_expansion_with_errors=true`, returned `saved=false` with `allow_partial_save=false`, and left the required-input error as a single message.
+- Unreferenced invalid regression passed: an unconnected invalid function call was preserved with `expanded=false`, `final_function_call_count=1`, and `dirty_after_expand=false`.
+- Temporary `_MCP_Temp/FunctionExpansionFixValidation` assets were deleted and dirty content packages returned to `0`.
+- `/Game/Cubeless/Sky/Materials/Master/M_UDS_VolumetricClouds_Master` still reports `node_count=377`, `material_function_call_count=0`, `MD_Volume`, `BLEND_Additive`, and `compile_error_count=0`.
+- MPC readback for `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky` reports `world_type=Editor`; `VolumeCloudDensity`/`Cloud Density` both resolve to `3.855998992919922`, and `VolumeCloudExtinctionScale`/`Extinction Scale` both resolve to `10`.
