@@ -746,6 +746,166 @@ workarounds prove which API surface is worth making durable.
   PCG graph introspection command could make this report faster and less noisy,
   but the current Python audit is adequate.
 
+### 5l. Per-Branch PCG Actor-Property Parameter Binding
+
+- Current workaround: `Tools/Unreal/validate_pcg_roadside_ecosystem_falloff.py`
+  manually creates many Blueprint member variables, configures matching
+  `PCGGetActorPropertySettings` nodes, and wires each property into typed PCG
+  pins such as `DistanceIncrement`, `OffsetMin`, and `OffsetMax`.
+- Latest evidence: the spline ecosystem falloff graph now exposes
+  `<Branch>DensitySpacingCm`, `<Branch>SpawnOffsetMin`, and
+  `<Branch>SpawnOffsetMax` for `17` grass/tree/rock branches. The final
+  validation passed with `edge_error_count=0`, grass counts `467/338/67/11`,
+  tree counts `12/10/0/2`, rock counts `39/26/0/2`, and screenshot QA passing.
+- Replacement evidence: the branch-heavy graph was later replaced by a
+  grid-gradient graph with coarse actor properties
+  `EcosystemGridExtents`, `EcosystemGridCellSize`, `EcosystemWidthCm`,
+  `EcosystemGrassSpawnRatio`, `EcosystemTreeSpawnRatio`, and
+  `EcosystemRockSpawnRatio`. Validation passed with grass `1059`, tree `55`,
+  rock `104`, `external_road_clearance_violations=0`, and
+  `endpoint_cluster_pass=true`.
+- Pain: this pattern is correct but verbose, easy to mistype, and version
+  sensitive. One earlier vector-variable attempt used the wrong Blueprint type
+  helper and had to be recovered by reloading the package before saving.
+- Additional API pitfall: in the UE 5.7 editor session,
+  `BlueprintEditorLibrary.get_basic_type_by_name("float")` produced an `int`
+  pin type. Fractional Blueprint actor properties had to be created with
+  `get_basic_type_by_name("real")`; the accidentally-created integer
+  `*DensityScale` variables were hidden and replaced with real-typed
+  `*SpawnRatio` variables.
+- Desired API: a typed UnrealMCP/PCG authoring helper that can add or update
+  Blueprint actor properties, set default values, expose them for instance
+  editing, create matching `GetActorProperty` nodes, validate pin existence and
+  data type, connect the property node to a named PCG settings pin, and report
+  all edge errors before saving.
+- Desired API extension: query Blueprint member variable pin types and either
+  change a variable type safely when Unreal permits it or report that a
+  recreate/manual cleanup path is required. The helper should explicitly map
+  requested scalar `float`/`double`/`real` semantics to the UE version's real
+  pin category instead of trusting display names.
+- Verification gate: rebuild a small fixture graph with float and vector actor
+  properties, set different per-branch values on one placed actor, regenerate
+  through `refresh_pcg_components`, and prove output counts/ranges change while
+  `edge_error_count=0`, `dirty_package_added_count=0` for screenshot capture,
+  and no new log `Error:` lines appear.
+- Partial implementation: `Plugins/UnrealMCP` now exposes
+  `set_blueprint_variable_metadata`, and the sibling MCP Python layer exposes a
+  matching `set_blueprint_variable_metadata(...)` wrapper. This fixes existing
+  variable metadata such as `ClampMax`/`UIMax` without recreating Blueprint
+  variables.
+- Latest verification: `BP_Cubeless_PCG_EcosystemCandidate.PresetType`
+  metadata was updated to `ClampMin=1`, `ClampMax=6`, `UIMin=1`, `UIMax=6`,
+  and the running editor accepted `PresetType=6` after `LiveCoding.CompileSync`.
+  `refresh_pcg_components` then regenerated the selected validation actor with
+  graph
+  `/Game/Cubeless/PCG/ProductionCandidates/Graphs/PCG_Cubeless_EcosystemCandidate_SplineEcosystemFalloff`.
+- Remaining C++ note: the metadata setter is done. The larger helper that
+  creates BP variables, creates matching PCG property nodes, and wires typed
+  pins is still a later maintainability/API candidate.
+
+### 5m. Spline-Local Ribbon / Area Scatter Authoring Helper
+
+- Current workaround: preset-6 `SplineEcosystemFalloff` is authored in Python by
+  chaining stock PCG nodes: `PCGCreatePointsGridSettings` for a low-density
+  local candidate volume, `PCGSplineSampler(OnSpline)` for source-spline
+  distance reference points, `PCGDistanceSettings`, density remap, and spawn
+  filters. This keeps the user-facing shape as a spline-distance falloff volume
+  and avoids both the older `PCGDuplicatePoint` relative-transform crash path
+  and the `OnHorizontal Fill` spline-scale mesh stretching path.
+- Latest evidence: the repaired local-grid graph passes low-density validation
+  with grass `75`, tree `5`, rock `9`, `edge_error_count=0`,
+  `mesh_override_pass=true`, `material_override_pass=true`, and
+  `surface_height_pass=true`. After manually moving the validation spline's last
+  point from local `[4200,0,0]` to `[5100,1050,0]` and running `generate(true)`,
+  output updated to `82` total instances with grass/tree/rock still nonzero and
+  no new PCG assert/crash. The validation screenshots are
+  `Saved/MCP_Screenshots/spline_ecosystem_grid_low_density_review_v2.png` and
+  `Saved/MCP_Screenshots/spline_ecosystem_grid_low_density_after_spline_move.png`.
+- Historical evidence: a denser spline-local row graph passed with grass `768`,
+  tree `40`, rock `73`, but later spline editing exposed stock-node transform
+  and cache issues. Keep that result as a reference, not the current safe route.
+- Crash evidence: moving or extending a preset-6 spline point with the older
+  `PCGDuplicatePoint` row graph produced `IsRotationNormalized()` asserts in
+  `UnrealEditor-PCG` after repeated `Invalid metadata key` warnings. Replacing
+  the duplicate-row graph with `OnHorizontal Fill` removed the relative
+  transform accumulation path. The active `PCG_Style` component remains
+  on-demand while artists edit the spline.
+- Pain: building a spline-following scatter ribbon from scalar controls still
+  requires non-obvious authoring rules. Stock PCG can fill a ribbon from spline
+  point scale, but the artist-facing width lives on the BP actor, so tooling must
+  keep spline point scale and actor properties synchronized and must reassign
+  the graph before generation to invalidate stale spline sample caches.
+- Desired API/tooling: add a graph-authoring helper, or a small native PCG node,
+  that emits a spline-local ribbon point field from `Spline`, `StepCm`,
+  `WidthCm`, optional planar subdivisions, and `Falloff` settings without
+  relying on hidden spline point scale side effects. It should preserve open
+  2-point spline support, output one point data stream, and keep density or a
+  named distance attribute suitable for grass/tree/rock spawn probability. It
+  should normalize or reconstruct point rotation and scale internally so
+  interactive spline editing cannot propagate invalid transforms or width-scale
+  mesh stretching into stock PCG spawners.
+- Desired validation helper: report spline-following health, including projected
+  coverage along the source spline, max lateral distance, endpoint cluster
+  counts, and whether the output point bounds rotate with the spline/actor.
+- Verification gate: create a two-point rotated spline and a bent multi-point
+  spline fixture, regenerate through `refresh_pcg_components`, and require
+  nonzero center/inner/mid/far counts, decreasing falloff, no endpoint cap
+  cluster, and screenshots from both clean perspective and top-down overlay
+  active viewport captures.
+- Latest reproduction: preset-6 live editing now uses an editor tick watcher
+  with debounced `GenerateOnDemand` regeneration because native live regenerate
+  can crash while dragging spline points. Plain `generate(true)` can leave the
+  old spline sample cache alive after point insertion/removal. The current
+  working route is: sync spline width scale, reassign the same graph on change,
+  then run three deferred generate passes at `0.9s` intervals; each deferred pass
+  reassigns the graph again before `notify_properties_changed_from_blueprint()`
+  and `generate(true)`. The graph must reset sampled point scale before spawning;
+  otherwise `EcosystemWidthCm` stored on spline point `Scale.Y` stretches grass
+  meshes into giant strips. This passed 2-point baseline, 6-point expansion,
+  3-point reduction, and a latest endpoint move from `[34200,38600,0]` to
+  `[25500,43000,0]` where output bbox max followed to `[27550.1,43705.3,0]`
+  with `last_error=null`. There is still no native safe "spline component
+  changed, invalidate PCG spline sample cache, regenerate resources, and
+  preserve spline instance data" command.
+- MCP helper gap: in the current bridge session, native `set_spline_component_points`
+  was unavailable and the Python fallback selected a `TRASH_SplineComponent_50`
+  when asked for component name `Spline`. A production-safe spline edit helper
+  should resolve exact component object paths/tags, ignore transient `TRASH_*`
+  components, return the final target component path, and verify final point
+  count/length before reporting success.
+- RegenerateInEditor test: enabling `PCG_Style` as
+  `GenerationTrigger=GenerateOnLoad` with `RegenerateInEditor=true` is likely
+  the correct production direction and can regenerate when actor properties
+  change. However, direct Python `set_location_at_spline_point()` did not emit
+  the same editor spline-handle notification as a user drag; with the watcher
+  stopped, moving the endpoint to `[30000,50000,0]` left the previous output
+  bounds unchanged, and `refresh_pcg_runtime_component()` alone did not update
+  the generated resources. Add a native validation/edit helper that performs the
+  real editor transaction/PostEdit path for spline point edits, so automated
+  tests can distinguish "PCG does not support this" from "Python did not emit the
+  editor change event."
+- Grid-bound gap: the current safe graph no longer depends on spline point
+  `Scale.Y`, but the candidate grid is still an actor-local finite volume. The
+  graph now exposes `EcosystemGridExtents` and wires it directly into
+  `PCGCreatePointsGridSettings.GridExtents`; expanding that property fixed the
+  immediate "added spline point does not spawn" review case. A native/helper
+  route should still derive the candidate grid bounds automatically from the
+  edited spline bounds plus `EcosystemWidthCm`, then invalidate/regenerate PCG
+  output through the same editor transaction path used by viewport spline
+  handles.
+- Editable tangent gap: validation initially forced preset-6 splines to
+  `SplinePointType.LINEAR`, hiding tangent handles. The Python selector now
+  converts only linear/constant points to `CURVE_CUSTOM_TANGENT`, but a native
+  spline authoring helper should preserve user-edited point types and custom
+  arrive/leave tangents explicitly when rebuilding, validating, or copying
+  spline fixtures.
+- Additional graph-authoring gap: `PCGAttributeFilteringSettings` could not be
+  used as a dynamic `SplineDistance <= EcosystemWidthCm` filter from Python
+  graph construction. Supplying actor scalar data through the `Filter` pin, or
+  copying the actor scalar onto points and comparing `threshold_attribute`,
+  produced zero spawned output. Keep the density-band filter for now and add a
+  native helper or documented PCG pattern for dynamic scalar threshold filters.
+
 ### 6. Long Command Transport and Response Framing
 
 - Current workaround: large Python payloads previously stressed the bridge;
@@ -764,6 +924,11 @@ workarounds prove which API surface is worth making durable.
   timed out while the editor window remained responsive. The staging script was
   patched to avoid `PCGVolume` Blueprint subclassing, but the bridge still needs
   an independent stuck-command recovery/cancel path.
+- Additional reproduction: the current editor bridge did not recognize native
+  `refresh_pcg_components`, so preset-6 validation had to fall back to
+  `execute_python` for PCG generation/count polling. Keep the parent plugin and
+  sibling Python command registry in sync, and expose a command-list/version
+  probe so validation scripts can choose native commands without guessing.
 - Desired API: keep transport chunking covered by an explicit bridge regression
   test, avoid sending huge source strings when file execution is available, and
   add a lightweight bridge health/recovery path that can report or cancel a

@@ -1,4 +1,7 @@
+import sys
+import time
 import traceback
+import types
 
 import unreal
 
@@ -53,6 +56,12 @@ TRUE_MATERIAL_STYLE_GRAPH_FOLDER = (
 TRUE_MATERIAL_TREE_GRAPH_FOLDER = (
     "/Game/Cubeless/PCG/ElectricDreamsLearning/TrueMaterialApplied/TreeProfilePresets"
 )
+SPLINE_ECOSYSTEM_FALLOFF_GRAPH_PATH = (
+    "/Game/Cubeless/PCG/ProductionCandidates/Graphs/"
+    "PCG_Cubeless_EcosystemCandidate_SplineEcosystemFalloff."
+    "PCG_Cubeless_EcosystemCandidate_SplineEcosystemFalloff"
+)
+SPLINE_ECOSYSTEM_COMPONENT_TAG = "CubelessPCGProductionCandidateSpline"
 
 COMBO_BY_TYPE = {
     1: "PCG_Sparse",
@@ -217,6 +226,19 @@ PRODUCTION_CANDIDATE_PRESETS = {
         "tree_amount_type": 1,
         "material_domain_type": 1,
         "material_variant_type": 1,
+    },
+    6: {
+        "label": "SplineEcosystemFalloff",
+        "ecosystem_mode": 3,
+        "visual_style_type": 1,
+        "profile_mode": 3,
+        "ground_amount_type": 2,
+        "ditch_amount_type": 1,
+        "tree_style_type": 1,
+        "tree_amount_type": 2,
+        "material_domain_type": 1,
+        "material_variant_type": 2,
+        "spline_ecosystem_falloff": True,
     },
 }
 
@@ -904,6 +926,501 @@ def _find_named_pcg_component(actor, expected_name):
     return None
 
 
+def _pcg_generation_trigger_value(on_demand):
+    enum_names = ("PCGComponentGenerationTrigger", "EPCGComponentGenerationTrigger")
+    value_names = ("GENERATE_ON_DEMAND", "GenerateOnDemand") if on_demand else (
+        "GENERATE_ON_LOAD",
+        "GenerateOnLoad",
+    )
+    for enum_name in enum_names:
+        enum_cls = getattr(unreal, enum_name, None)
+        if not enum_cls:
+            continue
+        for value_name in value_names:
+            value = getattr(enum_cls, value_name, None)
+            if value is not None:
+                return value
+    return None
+
+
+def _try_set_editor_property(target, property_names, value):
+    last_error = None
+    for property_name in property_names:
+        try:
+            target.set_editor_property(property_name, value)
+            return {
+                "ok": True,
+                "property": property_name,
+                "value": str(value),
+            }
+        except Exception as exc:
+            last_error = str(exc)
+    return {
+        "ok": False,
+        "properties": list(property_names),
+        "error": last_error,
+    }
+
+
+def _set_spline_edit_safe_regeneration(component, enabled):
+    result = {
+        "component": component.get_name(),
+        "enabled": bool(enabled),
+        "changes": [],
+    }
+    trigger = _pcg_generation_trigger_value(bool(enabled))
+    if trigger is not None:
+        result["changes"].append(_try_set_editor_property(component, ("generation_trigger", "GenerationTrigger"), trigger))
+    else:
+        result["changes"].append(
+            {
+                "ok": False,
+                "properties": ["generation_trigger", "GenerationTrigger"],
+                "error": "PCG generation trigger enum unavailable",
+            }
+        )
+    result["changes"].append(
+        _try_set_editor_property(component, ("regenerate_in_editor", "b_regenerate_in_editor", "bRegenerateInEditor"), not bool(enabled))
+    )
+    if enabled:
+        result["changes"].append(
+            _try_set_editor_property(
+                component,
+                (
+                    "generate_on_drop_when_trigger_on_demand",
+                    "b_generate_on_drop_when_trigger_on_demand",
+                    "bGenerateOnDropWhenTriggerOnDemand",
+                ),
+                False,
+            )
+        )
+    return result
+
+
+def _live_preview_registry():
+    module_name = "_cubeless_edpcg_spline_live_preview_registry"
+    registry = sys.modules.get(module_name)
+    if registry is None:
+        registry = types.ModuleType(module_name)
+        registry.watchers = {}
+        sys.modules[module_name] = registry
+    return registry.watchers
+
+
+def _actor_registry_key(actor):
+    try:
+        return actor.get_path_name()
+    except Exception:
+        return actor.get_name()
+
+
+def _find_ecosystem_spline(actor):
+    fallback = None
+    for spline in actor.get_components_by_class(unreal.SplineComponent):
+        if fallback is None:
+            fallback = spline
+        try:
+            tags = [str(tag) for tag in spline.get_editor_property("component_tags")]
+        except Exception:
+            tags = []
+        if SPLINE_ECOSYSTEM_COMPONENT_TAG in tags:
+            return spline
+    return fallback
+
+
+def _get_actor_float_property(actor, property_name, default_value):
+    try:
+        value = actor.get_editor_property(property_name)
+    except Exception:
+        return float(default_value)
+    try:
+        return float(value)
+    except Exception:
+        return float(default_value)
+
+
+def _vector_signature(vector):
+    if vector is None:
+        return None
+    return (
+        round(float(vector.x), 1),
+        round(float(vector.y), 1),
+        round(float(vector.z), 1),
+    )
+
+
+def _rotator_signature(rotator):
+    if rotator is None:
+        return None
+    return (
+        round(float(rotator.pitch), 2),
+        round(float(rotator.yaw), 2),
+        round(float(rotator.roll), 2),
+    )
+
+
+def _call_signature(target, method_names, fallback_property_names=()):
+    for method_name in method_names:
+        try:
+            return getattr(target, method_name)()
+        except Exception:
+            pass
+    for property_name in fallback_property_names:
+        try:
+            return target.get_editor_property(property_name)
+        except Exception:
+            pass
+    return None
+
+
+def _actor_transform_signature(actor):
+    return (
+        _vector_signature(_call_signature(actor, ("get_actor_location",))),
+        _rotator_signature(_call_signature(actor, ("get_actor_rotation",))),
+        _vector_signature(_call_signature(actor, ("get_actor_scale3d",))),
+    )
+
+
+def _component_transform_signature(component):
+    return (
+        _vector_signature(
+            _call_signature(
+                component,
+                ("get_component_location", "k2_get_component_location"),
+                ("relative_location",),
+            )
+        ),
+        _rotator_signature(
+            _call_signature(
+                component,
+                ("get_component_rotation", "k2_get_component_rotation"),
+                ("relative_rotation",),
+            )
+        ),
+        _vector_signature(
+            _call_signature(
+                component,
+                ("get_component_scale", "get_component_scale3d"),
+                ("relative_scale3d",),
+            )
+        ),
+    )
+
+
+def _subtract_vectors(lhs, rhs):
+    return unreal.Vector(
+        float(lhs.x) - float(rhs.x),
+        float(lhs.y) - float(rhs.y),
+        float(lhs.z) - float(rhs.z),
+    )
+
+
+def _scale_vector(vector, scale):
+    return unreal.Vector(
+        float(vector.x) * float(scale),
+        float(vector.y) * float(scale),
+        float(vector.z) * float(scale),
+    )
+
+
+def _default_spline_tangent(local_points, index):
+    count = len(local_points)
+    if count < 2:
+        return unreal.Vector(0.0, 0.0, 0.0)
+    if index <= 0:
+        delta = _subtract_vectors(local_points[1], local_points[0])
+    elif index >= count - 1:
+        delta = _subtract_vectors(local_points[index], local_points[index - 1])
+    else:
+        delta = _subtract_vectors(local_points[index + 1], local_points[index - 1])
+        delta = _scale_vector(delta, 0.5)
+    return _scale_vector(delta, 0.5)
+
+
+def _ensure_spline_editable_tangents(spline):
+    try:
+        point_count = int(spline.get_number_of_spline_points())
+    except Exception as exc:
+        return {
+            "ok": False,
+            "reason": str(exc),
+        }
+    local_points = []
+    for index in range(point_count):
+        try:
+            local_points.append(
+                spline.get_location_at_spline_point(index, unreal.SplineCoordinateSpace.LOCAL)
+            )
+        except Exception:
+            local_points.append(unreal.Vector(0.0, 0.0, 0.0))
+
+    changed_types = 0
+    changed_tangents = 0
+    custom_type = getattr(unreal.SplinePointType, "CURVE_CUSTOM_TANGENT", None)
+    if custom_type is None:
+        return {
+            "ok": False,
+            "reason": "SplinePointType.CURVE_CUSTOM_TANGENT unavailable",
+        }
+
+    for index in range(point_count):
+        try:
+            current_type = spline.get_spline_point_type(index)
+        except Exception:
+            current_type = None
+        type_name = str(current_type)
+        should_initialize_tangent = (
+            current_type is None
+            or "LINEAR" in type_name
+            or "CONSTANT" in type_name
+        )
+        if not should_initialize_tangent:
+            continue
+        tangent = _default_spline_tangent(local_points, index)
+        try:
+            spline.set_spline_point_type(index, custom_type, False)
+            changed_types += 1
+        except Exception:
+            pass
+        try:
+            spline.set_tangents_at_spline_point(
+                index,
+                tangent,
+                tangent,
+                unreal.SplineCoordinateSpace.LOCAL,
+                False,
+            )
+            changed_tangents += 1
+        except Exception:
+            try:
+                spline.set_tangent_at_spline_point(
+                    index,
+                    tangent,
+                    unreal.SplineCoordinateSpace.LOCAL,
+                    False,
+                )
+                changed_tangents += 1
+            except Exception:
+                pass
+    return {
+        "ok": True,
+        "point_count": point_count,
+        "changed_types": changed_types,
+        "changed_tangents": changed_tangents,
+    }
+
+
+def _sync_spline_ecosystem_width(actor):
+    spline = _find_ecosystem_spline(actor)
+    if not spline:
+        return {
+            "ok": False,
+            "reason": "missing_spline_component",
+        }
+    width = max(1.0, _get_actor_float_property(actor, "EcosystemWidthCm", 2800.0))
+    changed = 0
+    try:
+        count = int(spline.get_number_of_spline_points())
+    except Exception as exc:
+        return {
+            "ok": False,
+            "reason": str(exc),
+        }
+    for index in range(count):
+        try:
+            current = spline.get_scale_at_spline_point(index)
+            target = unreal.Vector(1.0, width, 1.0)
+            if (
+                abs(float(current.x) - target.x) > 0.01
+                or abs(float(current.y) - target.y) > 0.01
+                or abs(float(current.z) - target.z) > 0.01
+            ):
+                spline.set_scale_at_spline_point(index, target, False)
+                changed += 1
+        except Exception:
+            continue
+    tangent_sync = _ensure_spline_editable_tangents(spline)
+    if changed or bool(tangent_sync.get("changed_types")) or bool(tangent_sync.get("changed_tangents")):
+        try:
+            spline.update_spline()
+        except Exception:
+            pass
+    return {
+        "ok": True,
+        "width_cm": width,
+        "point_count": count,
+        "changed_points": changed,
+        "editable_tangent_sync": tangent_sync,
+    }
+
+
+def _spline_signature(actor):
+    spline = _find_ecosystem_spline(actor)
+    if not spline:
+        return None
+    try:
+        count = int(spline.get_number_of_spline_points())
+        points = []
+        for index in range(count):
+            location = spline.get_location_at_spline_point(index, unreal.SplineCoordinateSpace.LOCAL)
+            try:
+                scale = spline.get_scale_at_spline_point(index)
+                scale_signature = (round(float(scale.x), 1), round(float(scale.y), 1), round(float(scale.z), 1))
+            except Exception:
+                scale_signature = None
+            points.append(
+                (
+                    round(float(location.x), 1),
+                    round(float(location.y), 1),
+                    round(float(location.z), 1),
+                    scale_signature,
+                )
+            )
+        return (
+            spline.get_name(),
+            bool(spline.is_closed_loop()),
+            count,
+            round(float(spline.get_spline_length()), 1),
+            round(_get_actor_float_property(actor, "EcosystemWidthCm", 2800.0), 1),
+            _actor_transform_signature(actor),
+            _component_transform_signature(spline),
+            tuple(points),
+        )
+    except Exception:
+        return None
+
+
+def _stop_spline_ecosystem_live_preview(actor):
+    watchers = _live_preview_registry()
+    key = _actor_registry_key(actor)
+    state = watchers.pop(key, None)
+    if not state:
+        return {"enabled": False, "stopped": False}
+    try:
+        unreal.unregister_slate_post_tick_callback(state["handle"])
+    except Exception:
+        pass
+    return {"enabled": False, "stopped": True}
+
+
+def _install_spline_ecosystem_live_preview(actor, component):
+    watchers = _live_preview_registry()
+    key = _actor_registry_key(actor)
+    previous = watchers.pop(key, None)
+    if previous:
+        try:
+            unreal.unregister_slate_post_tick_callback(previous["handle"])
+        except Exception:
+            pass
+
+    state = {
+        "actor": actor,
+        "component": component,
+        "last_signature": _spline_signature(actor),
+        "dirty_since": None,
+        "elapsed": 0.0,
+        "handle": None,
+        "generate_count": 0,
+        "graph_reassign_count": 0,
+        "deferred_graph_reassign_count": 0,
+        "pending_generate_since": None,
+        "pending_generate_passes": 0,
+        "pending_generate_interval_seconds": 0.9,
+        "debounce_seconds": 0.65,
+        "last_error": None,
+    }
+
+    def _on_tick(delta_seconds):
+        state["elapsed"] += float(delta_seconds)
+        if state["elapsed"] < 0.12:
+            return
+        state["elapsed"] = 0.0
+        try:
+            signature = _spline_signature(actor)
+        except Exception as exc:
+            try:
+                unreal.unregister_slate_post_tick_callback(state["handle"])
+            except Exception:
+                pass
+            watchers.pop(key, None)
+            state["last_error"] = str(exc)
+            unreal.log_warning("Cubeless ED PCG spline live preview stopped for invalid actor: {}".format(exc))
+            return
+        if signature is None:
+            return
+        now = time.time()
+        if signature != state["last_signature"]:
+            state["last_signature"] = signature
+            state["dirty_since"] = now
+            state["pending_generate_since"] = None
+            state["pending_generate_passes"] = 0
+            return
+        if state["pending_generate_since"] is not None:
+            if now - state["pending_generate_since"] < float(state.get("pending_generate_interval_seconds", 0.9)):
+                return
+            try:
+                graph = unreal.EditorAssetLibrary.load_asset(SPLINE_ECOSYSTEM_FALLOFF_GRAPH_PATH)
+                if graph:
+                    component.set_graph(graph)
+                    state["deferred_graph_reassign_count"] += 1
+                component.activate(True)
+                component.notify_properties_changed_from_blueprint()
+                component.generate(True)
+                state["generate_count"] += 1
+                state["last_signature"] = _spline_signature(actor)
+                state["pending_generate_passes"] = max(0, int(state.get("pending_generate_passes", 0)) - 1)
+                state["pending_generate_since"] = now if state["pending_generate_passes"] > 0 else None
+                state["last_error"] = None
+            except Exception as exc:
+                state["pending_generate_since"] = None
+                state["pending_generate_passes"] = 0
+                state["last_error"] = str(exc)
+                unreal.log_error("Cubeless ED PCG spline live preview generate failed: {}".format(exc))
+            return
+        if state["dirty_since"] is None or now - state["dirty_since"] < float(state.get("debounce_seconds", 0.65)):
+            return
+        state["dirty_since"] = None
+        try:
+            width_sync = _sync_spline_ecosystem_width(actor)
+            graph = unreal.EditorAssetLibrary.load_asset(SPLINE_ECOSYSTEM_FALLOFF_GRAPH_PATH)
+            if not graph:
+                raise RuntimeError(
+                    "Missing production candidate spline ecosystem falloff graph: {}".format(
+                        SPLINE_ECOSYSTEM_FALLOFF_GRAPH_PATH
+                    )
+                )
+            # Reassigning the same graph invalidates the PCG component's spline input cache
+            # without destroying generated components. A plain Generate can keep sampling the
+            # previous spline shape after point insertions/removals.
+            component.set_graph(graph)
+            state["graph_reassign_count"] += 1
+            state["last_signature"] = _spline_signature(actor)
+            state["last_width_sync"] = width_sync
+            state["pending_generate_since"] = now
+            state["pending_generate_passes"] = 3
+            state["last_error"] = None
+        except Exception as exc:
+            state["pending_generate_since"] = None
+            state["pending_generate_passes"] = 0
+            state["last_error"] = str(exc)
+            unreal.log_error("Cubeless ED PCG spline live preview regenerate failed: {}".format(exc))
+
+    state["handle"] = unreal.register_slate_post_tick_callback(_on_tick)
+    watchers[key] = state
+    return {
+        "enabled": True,
+        "mode": "debounced_on_demand_spline_watcher",
+        "debounce_seconds": state["debounce_seconds"],
+        "graph_reassign_on_change": True,
+        "deferred_generate_after_graph_reassign": True,
+        "deferred_generate_passes": 3,
+        "deferred_generate_interval_seconds": state["pending_generate_interval_seconds"],
+        "width_scale_sync": True,
+        "actor_key": key,
+        "initial_signature_valid": state["last_signature"] is not None,
+    }
+
+
 def _prepare_component(component, graph, force):
     component.set_graph(graph)
     component.cleanup(True)
@@ -1182,6 +1699,7 @@ def apply_production_candidate_selector(actor, force=True):
     material_domain_type = int(axes["material_domain_type"])
     material_variant_type = int(axes["material_variant_type"])
     debug_material_preview = bool(axes["debug_material_preview"])
+    spline_ecosystem_falloff = bool(axes.get("spline_ecosystem_falloff", False))
 
     # The dynamic material preview graph reads these actor properties.
     _set_actor_property_if_available(actor, "MaterialDomainType", material_domain_type)
@@ -1207,6 +1725,15 @@ def apply_production_candidate_selector(actor, force=True):
         material_domain_type,
         material_variant_type,
     )
+    spline_ecosystem_graph = None
+    if spline_ecosystem_falloff:
+        spline_ecosystem_graph = unreal.EditorAssetLibrary.load_asset(SPLINE_ECOSYSTEM_FALLOFF_GRAPH_PATH)
+        if not spline_ecosystem_graph:
+            raise RuntimeError(
+                "Missing production candidate spline ecosystem falloff graph: {}".format(
+                    SPLINE_ECOSYSTEM_FALLOFF_GRAPH_PATH
+                )
+            )
     if not style_graph:
         raise RuntimeError("Missing production candidate style graph: {}".format(style_graph_path))
     if not tree_graph:
@@ -1226,6 +1753,40 @@ def apply_production_candidate_selector(actor, force=True):
         component.cleanup(True)
         component.deactivate()
 
+    if spline_ecosystem_falloff:
+        spline_ecosystem_width_sync = _sync_spline_ecosystem_width(actor)
+        _prepare_component(style_component, spline_ecosystem_graph, force)
+        pcg_editing_safety = _set_spline_edit_safe_regeneration(style_component, False)
+        pcg_live_preview = _stop_spline_ecosystem_live_preview(actor)
+        tree_component.set_graph(tree_graph)
+        material_component.set_graph(material_graph)
+        counts = _summarize_counts(actor)
+        landscape_conform_cache = {}
+        landscape_conform = _conform_generated_ism_to_landscape(actor, landscape_conform_cache)
+        landscape_conform["landscape_conform_scheduled"] = _schedule_landscape_conform(actor, landscape_conform_cache)
+        return {
+            "selector_type": "production_candidate",
+            "actor": actor.get_actor_label(),
+            "preset_type": axes["preset_type"],
+            "preset_label": axes["label"],
+            "density_override": axes["density_override"],
+            "tree_override": axes["tree_override"],
+            "material_mood": axes["material_mood"],
+            "ecosystem_mode": ecosystem_mode,
+            "spline_ecosystem_falloff": True,
+            "spline_ecosystem_graph": SPLINE_ECOSYSTEM_FALLOFF_GRAPH_PATH,
+            "spline_ecosystem_width_sync": spline_ecosystem_width_sync,
+            "style_graph": style_graph_path,
+            "tree_graph": tree_graph_path,
+            "material_graph": material_graph_path,
+            "material_graph_mode": material_graph_mode,
+            "component_point_counts": counts,
+            "deferred_material_regeneration": False,
+            "landscape_conform": landscape_conform,
+            "pcg_editing_safety": pcg_editing_safety,
+            "pcg_live_preview": pcg_live_preview,
+        }
+
     if ecosystem_mode in (1, 3):
         _prepare_component(style_component, style_graph, force)
     else:
@@ -1241,6 +1802,8 @@ def apply_production_candidate_selector(actor, force=True):
     else:
         material_component.set_graph(material_graph)
 
+    pcg_live_preview = _stop_spline_ecosystem_live_preview(actor)
+    pcg_editing_safety = _set_spline_edit_safe_regeneration(style_component, False)
     counts = _summarize_counts(actor)
     deferred_material_regeneration = False
     if (
@@ -1279,6 +1842,8 @@ def apply_production_candidate_selector(actor, force=True):
         "component_point_counts": counts,
         "deferred_material_regeneration": deferred_material_regeneration,
         "landscape_conform": landscape_conform,
+        "pcg_editing_safety": pcg_editing_safety,
+        "pcg_live_preview": pcg_live_preview,
     }
 
 
