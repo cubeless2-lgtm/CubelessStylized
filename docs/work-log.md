@@ -2999,3 +2999,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - 카드 48장이 트랜지언트 — 에디터 재시작 시 소실, RebuildCards 재실행 필요. 영속화 검토.
 - 원경 폴라 텍스처 자체 제작(T_FarCloud_Polar_3종, 케일란 워크플로우) — 현재 UDS FarCloud/cloub02 참조 중.
 - 모바일(Android Vulkan) 프리뷰·오버드로우 컬러 뷰모드 수동 확인, 일반 맵 드롭 테스트(bOwnPPV off).
+
+### 미구현 요청 (검토만 완료, 다음 세션 구현 대상)
+2026-06-13 유저 요청 — 검토했으나 아직 구현 안 됨:
+- **TimeOfDay 에디터 틱이 작동 안 함** → 틱 on/off 토글 버튼 필요(`bAdvanceTime`이 에디터 틱에 안 먹힘, CallInEditor 토글 함수 + 시각 표시). `bCallInEditor` protected라 에디터 수동 1회 필요한 제약과 연관.
+- **구름 카드가 안 보임** → 카드 트랜지언트 소실 추정(재시작 후 RebuildCards 미실행). 원인 재확인 필요.
+- **TimeOfDay 범위 0~1 → 0~2400** (2400 = 24:00 자정), 시간(HHMM) 단위로 노출. 내부는 /2400로 셰이더 샘플.
+- **낮/황혼/밤 경계 시각 파라미터화**: 현재 BP 0.22/0.78, NightMask HLSL 0.28 하드코드 → DawnStart/DayStart/DuskStart/NightStart(0~2400) 노출 → 0~1 변환 → MPC/다이내믹 머티리얼로 NightMask 임계 구동.
+- **스카이돔 컬러 부자연** → Zenith 커브값 재검토, TintStrength 조정 또는 황혼 구간 커브 키 추가로 완만 전환.
