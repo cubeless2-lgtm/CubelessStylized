@@ -3007,3 +3007,19 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - **TimeOfDay 범위 0~1 → 0~2400** (2400 = 24:00 자정), 시간(HHMM) 단위로 노출. 내부는 /2400로 셰이더 샘플.
 - **낮/황혼/밤 경계 시각 파라미터화**: 현재 BP 0.22/0.78, NightMask HLSL 0.28 하드코드 → DawnStart/DayStart/DuskStart/NightStart(0~2400) 노출 → 0~1 변환 → MPC/다이내믹 머티리얼로 NightMask 임계 구동.
 - **스카이돔 컬러 부자연** → Zenith 커브값 재검토, TintStrength 조정 또는 황혼 구간 커브 키 추가로 완만 전환.
+
+## 2026-06-13 - UnrealMCP source-of-truth and sibling sample sync
+
+### Summary
+- Confirmed `C:\Git\CubelessStylized\Plugins\UnrealMCP` is the source-of-truth UnrealMCP plugin that has been modified and tested in the real project.
+- Synced the separate tracked copy at `C:\Git\unreal-mcp-cubeless\MCPGameProject\Plugins\UnrealMCP` to match the project plugin, including Material, PCG, Ieta status UI, Niagara preview UI, Blueprint node, project, and common utility updates.
+- Added the missing `Niagara` plugin dependency to the source-of-truth `UnrealMCP.uplugin`; the plugin already depends on Niagara modules in `UnrealMCP.Build.cs`.
+- Updated the sibling sample project to UE 5.7 and enabled the minimal required plugins: `Niagara`, `EnhancedInput`, `PCG`, and `UnrealMCP`.
+
+### Verification
+- Built `StylizedCubelessEditor Win64 Development` with UE 5.7 successfully after the source plugin dependency update.
+- Built `MCPGameProjectEditor Win64 Development` with UE 5.7 successfully after clearing stale generated `Intermediate/Build` makefile/cache output.
+- Pushed source plugin commit `64fa182`, sibling sync commit `90ea097`, and top-level CubelessStylized submodule pointer commit `e293319` to remote `main`.
+
+### Note
+- If the sibling sample project reports missing `K2Node_EnhancedInputAction.h` or `PCGCommon.h` after syncing, clear generated `MCPGameProject/Intermediate/Build/Win64` and `MCPGameProject/Plugins/UnrealMCP/Intermediate/Build/Win64` before rebuilding. The failure can come from stale UnrealBuildTool makefile/rules cache, not from the source plugin.
