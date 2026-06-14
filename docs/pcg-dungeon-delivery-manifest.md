@@ -4,7 +4,7 @@ This manifest records the current `/Game/Cubeless/PCG/Dungeon` delivery state fo
 
 ## Current State
 
-- Branch: `codex/pcg-dungeon-geometry-script-mvp`
+- Branch: `main` (integrated from `codex/pcg-dungeon-geometry-script-mvp`)
 - Live preset: `default`
 - Open level: `/Game/Cubeless/PCG/Dungeon/Maps/LVL_Cubeless_PCG_Dungeon_MVP`
 - Source/control actor: `MCP_Cubeless_Dungeon_MVP_PCGBridge`
