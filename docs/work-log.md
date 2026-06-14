@@ -3354,3 +3354,853 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Recommended MVP boundary: use Blueprint, PCG graphs, editor Python, and Geometry Script asset baking first. Generate the module family in editor, bake to Static Mesh assets, then let PCG assemble the dungeon. Avoid runtime Dynamic Mesh asset creation for the first pass because Static Mesh asset creation is editor-only and Geometry Script is still a shipping-caution feature.
 - Later C++/API candidates only: custom native PCG element for advanced room graph solving or large-scale validation, native Geometry Script/asset-bake helper if Python becomes too fragile, safer PCG graph-authoring wrappers for repeated typed node setup, runtime dungeon generation after the editor-baked MVP is proven, and native automation for complex collision/nav validation if Blueprint/Python checks become too slow.
 - Notion capture note: `CubelessStylized 운영 문서` could not be updated because the Notion connection requires reauthentication, so this summary was captured locally instead.
+
+## 2026-06-14 PCG dungeon Geometry Script MVP
+
+- Created branch `codex/pcg-dungeon-geometry-script-mvp` from `main` and implemented the first `/Game/Cubeless/PCG/Dungeon` MVP without C++.
+- Added `Plugins/CustomTools/Content/Python/ArtScripts/CubelessDungeonPCG.py` and `CubelessDungeonPCGEntrypoint.py`. The main script builds Geometry Script module meshes, creates materials, creates/updates a PCG Execute Python bridge graph, creates the validation level, spawns a PCG bridge actor, generates the dungeon, and writes `Saved/MCP_Dungeon/CubelessDungeonMVP_Report.json`.
+- Generated Unreal content under `/Game/Cubeless/PCG/Dungeon`: `9` materials, `9` Geometry Script-baked Static Mesh modules, `PCG_Cubeless_Dungeon_MVP_Bridge`, and `LVL_Cubeless_PCG_Dungeon_MVP`.
+- Current generated dungeon report after PCG bridge refresh: `source=pcg_bridge`, `seed=142857`, `room_count=11`, `edge_count=12`, `cell_count=206`, `door_count=23`, `actor_count=542`, and connectivity `connected=true` with `visited_count=206`.
+- Module actor counts in the validation level: floor `172`, corridor `31`, corner `3`, ceiling sample `35`, wall `216`, door `23`, column `44`, stair `1`, start/exit/chest/enemy markers `9`, and lights `8`.
+- Verification: local Python `py_compile` passed for both scripts; `refresh_pcg_components(actor_name="MCP_Cubeless_Dungeon_MVP_PCGBridge", wait_until_complete=true)` succeeded through the native bridge; `save_current_level` and `save_dirty_packages` returned true; dirty package count was `0`; `git diff --check` passed.
+- Visual QA: active viewport screenshots were written under `Saved/MCP_Dungeon`, with the useful framed cutaway at `Saved/MCP_Dungeon/CubelessDungeonMVP_FramedCutaway.png`. It confirms a visible generated dungeon layout, though lighting/exposure is still prototype-grade.
+- Log note: the only latest `LogPython: Error` found was an early read-only dirty-state probe using unsupported `World.get_map_name()`. After the repaired generation and PCG refresh, no new `LogPCG: Error`, fatal, or assertion lines were found.
+- Residual risk: this is intentionally a PCG Execute Python bridge MVP, not a fully native-node PCG dungeon graph yet. The next production step should promote stable layout/assembly rules into native PCG graph nodes or a focused native helper only after the rules stop changing.
+
+## 2026-06-14 PCG dungeon tag controls and seed suite
+
+- Continued the dungeon MVP without C++. User clarified that C++ is allowed only if the non-C++ route is truly blocked, and then only inside the UnrealMCP plugin; this step stayed in Python/PCG/Geometry Script.
+- Added actor-tag based controls on `MCP_Cubeless_Dungeon_MVP_PCGBridge`: `DungeonSeed`, `DungeonRoomCount`, `DungeonCeilingStride`, `DungeonChestCount`, and `DungeonEnemyCount`. `CubelessDungeonPCGEntrypoint.py` now reads these tags during PCG refresh.
+- Verified a temporary custom tag smoke with `DungeonSeed=142860`, `DungeonRoomCount=12`, `DungeonCeilingStride=5`, `DungeonChestCount=2`, and `DungeonEnemyCount=6`; the PCG bridge regenerated with `room_count=12`, `door_count=28`, `actor_count=552`, and `connectivity.connected=true`.
+- Restored and saved the default bridge tags: `DungeonSeed=142857`, `DungeonRoomCount=11`, `DungeonCeilingStride=6`, `DungeonChestCount=3`, and `DungeonEnemyCount=4`.
+- Added `run_seed_suite()` and report output `Saved/MCP_Dungeon/CubelessDungeonMVP_SeedSuite_Report.json`. The current suite validates seeds `142857..142861`; all `5/5` passed with connected layouts, nonzero room-corridor edges, and valid boundary wall counts.
+- Added usage documentation at `docs/pcg-dungeon-mvp.md`, including main asset paths, regeneration steps, actor tag controls, expected default result, and known limits.
+- Verification: local Python `py_compile` passed for both dungeon scripts; native `refresh_pcg_components` completed after both custom and default tag runs; `save_current_level` and `save_dirty_packages` returned true with dirty package count `0`; `git diff --check` passed.
+
+## 2026-06-14 PCG dungeon progression roles
+
+- Continued the `/Game/Cubeless/PCG/Dungeon` dungeon generator without C++ and without UnrealMCP plugin changes.
+- Added deterministic room-graph progression analysis in `CubelessDungeonPCG.py`: main route from start to exit, side room classification, locked progression door specs, key room placement before the first lock, shop rooms, treasure rooms, combat rooms, and optional boss role.
+- Expanded bridge actor tags with `DungeonKeyCount`, `DungeonShopCount`, `DungeonLockedDoorCount`, and `DungeonBossEnabled`. Existing `DungeonChestCount` remains the treasure-room count, and `DungeonTreasureCount` is accepted as an alias when parsing tags.
+- Added new Geometry Script-baked module `SM_GS_Dungeon_LockedDoorSeal` and new emissive role materials for key, locked door, boss, and shop markers. The generated module family is now `10` meshes.
+- Default PCG bridge refresh report: `source=pcg_bridge`, `seed=142857`, `room_count=11`, `cell_count=206`, `door_count=23`, `locked_door_count=1`, `locked_door_spawn_count=1`, `actor_count=546`, `progression.pass=true`, and overall `pass=true`.
+- Default role counts: start `1`, exit `1`, boss `1`, key `1`, shop `1`, treasure `3`, combat `4`, and locked_after `1`.
+- Custom tag smoke passed with `DungeonCeilingStride=5`, `DungeonChestCount=2`, `DungeonEnemyCount=3`, `DungeonKeyCount=2`, `DungeonShopCount=2`, `DungeonLockedDoorCount=2`, and `DungeonBossEnabled=0`; PCG bridge regenerated with `locked_door_spawn_count=2`, `actor_count=553`, `progression.pass=true`, and `pass=true`.
+- Restored and saved the default bridge tags after the smoke run. `save_current_level` and `save_dirty_packages` returned true; dirty package count was `0`.
+- Updated `docs/pcg-dungeon-mvp.md` with progression roles, new tag controls, current expected validation numbers, and the screenshot path `Saved/MCP_Dungeon/CubelessDungeonMVP_ProgressionMarkers.png`.
+
+## 2026-06-14 PCG dungeon gameplay data layer
+
+- Continued without C++ and without UnrealMCP plugin changes. The next layer is data-oriented: generated actors now receive stable tags so later Blueprint, AI, quest, or validation work can query the generated dungeon without parsing labels.
+- Added actor tags from `CubelessDungeonPCG.py`: `DungeonGenerated`, `DungeonModule`, `DungeonSeed`, `DungeonCell`, `DungeonRoomId`, `DungeonCellKind`, `DungeonRole`, `DungeonGameplayRole`, `DungeonDoorKind`, `DungeonDirection`, and related neighbor/light tags.
+- Added gameplay export files under `Saved/MCP_Dungeon`: `CubelessDungeonMVP_GameplayData.json` with schema `cubeless_pcg_dungeon_gameplay_data_v1`, and `CubelessDungeonMVP_Minimap.txt` with an ASCII layout and role legend.
+- Current PCG bridge refresh report remains `pass=true`: generated actors `546`, rooms `11`, cells `206`, gameplay markers `12`, locked-door spec `1`, locked-door seal `1`, connectivity `connected=true`, and progression `pass=true`.
+- Tag audit passed in the live level: `DungeonGenerated` actors `546`, gameplay marker actors `12`, and locked-door tagged actors `2` exactly, consisting of one door and one `MCP_Dungeon_MVP_LockedSeal_000`. A first implementation tagged every door into the locked room as locked; it was corrected so only the sealed gate receives `DungeonDoorKind=locked`.
+- Seed suite was rerun after the data-layer change and stayed `5/5` passing for seeds `142857..142861`.
+- Verification: `python -m py_compile` passed for both dungeon scripts; native `refresh_pcg_components` completed through the PCG bridge; `save_current_level` and `save_dirty_packages` returned true; `git diff --check` passed.
+
+## 2026-06-14 PCG dungeon gameplay trigger volumes
+
+- Ieta continued the dungeon MVP by handing a C++-free gameplay hook step to Tivret: add TriggerBox volumes for room entry, door interaction, and locked gate detection.
+- Added `TriggerBox` generation in `CubelessDungeonPCG.py`: `RoomVolume` per room, `DoorVolume` per room-corridor doorway, and `GateVolume` per locked gate. All generated volumes are tagged with `DungeonGenerated`, `DungeonModule=volume`, `DungeonVolumeKind`, room/cell tags, role tags, and door/gate metadata where relevant.
+- The live default level now generates `581` dungeon actors. New volume counts are room `11`, door `23`, and gate `1`, for `35` TriggerBox volumes total. Existing module counts remain floor `172`, corridor `31`, corner `3`, ceiling `35`, wall `216`, door `23`, column `44`, stair `1`, marker `12`, seal `1`, and light `8`.
+- `CubelessDungeonMVP_GameplayData.json` now includes `volumes` records and the report's `gameplay_export.volume_record_count=35`.
+- Volume audit passed after native PCG bridge refresh: `DungeonVolumeKind=room` count `11`, `DungeonVolumeKind=door` count `23`, `DungeonVolumeKind=gate` count `1`, and all `35` volume actors are `TriggerBox`.
+- Verification: `build_all()` passed, native `refresh_pcg_components` passed, seed suite stayed `5/5`, `save_current_level` and `save_dirty_packages` returned true, `python -m py_compile` passed for both dungeon scripts, and `git diff --check` passed.
+
+## 2026-06-14 PCG dungeon spawn anchors
+
+- Ieta continued with a C++-free spawn handoff layer: generated `TargetPoint` spawn anchors beside each gameplay marker so later Blueprint systems can spawn player, exit, boss, key, shop, treasure, and combat actors without parsing static marker meshes.
+- Added `DungeonModule=spawn_anchor`, `DungeonSpawnKind`, `DungeonGameplayRole`, `DungeonAnchorIndex`, room/cell tags, and role tags to each generated TargetPoint.
+- `CubelessDungeonMVP_GameplayData.json` now includes `spawn_points` records and the report's `gameplay_export.spawn_point_record_count=12`.
+- Current default PCG bridge report remains `pass=true`: generated actors `593`, spawn anchors `12`, gameplay markers `12`, volumes `35`, rooms `11`, cells `206`, and progression `pass=true`.
+- Anchor audit passed after native PCG bridge refresh: all `12` spawn anchors are `TargetPoint` actors with role counts start `1`, exit `1`, boss `1`, key `1`, shop `1`, treasure `3`, and combat `4`.
+- Verification: `build_all()` passed, native `refresh_pcg_components` passed, seed suite stayed `5/5`, `save_current_level` and `save_dirty_packages` returned true, `python -m py_compile` passed for both dungeon scripts, and `git diff --check` passed.
+
+## 2026-06-14 PCG dungeon encounter profiles
+
+- Continued the `/Game/Cubeless/PCG/Dungeon` MVP without C++ and without UnrealMCP plugin changes. This pass adds deterministic room-level encounter profiles for downstream Blueprint, AI, reward, and lock/door logic.
+- Added encounter data in `CubelessDungeonPCG.py`: `encounter_id`, `kind`, `tier`, `reward_kind`, `lock_state`, `spawn_budget`, `room_id`, and seed. The default profile maps start to safe/start, key and shop rooms to utility tiers, treasure rooms to reward/treasure, combat rooms to light/standard/elite based on progression, and the exit boss room to boss/final.
+- Gameplay-facing actors now receive encounter tags where room context applies: `DungeonEncounterId`, `DungeonEncounterKind`, `DungeonEncounterTier`, `DungeonRewardKind`, `DungeonLockState`, and `DungeonSpawnBudget`. Tags are present on room volumes, door/gate volumes, doors, locked-door seals, markers, and spawn anchors.
+- `CubelessDungeonMVP_GameplayData.json` now includes `encounters` records and the report's `gameplay_export.encounter_record_count=11`.
+- Live level audit after native PCG bridge refresh: tagged encounter actors `83`, room volumes `11`, spawn anchors `12`, JSON encounter records `11`, kind counts safe `1`, combat `4`, utility `2`, reward `3`, boss `1`, and tier counts start `1`, light `1`, standard `2`, elite `1`, key_reward `1`, shop `1`, treasure `3`, final `1`.
+- Seed suite was expanded to report and validate `encounter_profile_count`; seeds `142857..142861` all passed with `encounter_profile_count=11` and overall `5/5`.
+- Verification: native `refresh_pcg_components` passed, `save_current_level` and `save_dirty_packages` returned true, `python -m py_compile` passed for both dungeon scripts, and `git diff --check` passed.
+
+## 2026-06-14 PCG dungeon route anchors
+
+- Continued the dungeon MVP without C++ and without UnrealMCP plugin changes. Added a route anchor layer so later Blueprint, quest, minimap, or AI director logic can find the main route and side branch rooms from level actors instead of parsing the JSON file first.
+- Added one `TargetPoint` route anchor per generated room. Tags include `DungeonModule=route_anchor`, `DungeonRouteKind=main|side`, `DungeonRouteIndex`, `DungeonMainPathRoom`, `DungeonMainPathIndex`, `DungeonRouteDistanceFromStart`, `DungeonRouteDistanceToExit`, room/cell tags, role tags, and encounter tags.
+- `CubelessDungeonMVP_GameplayData.json` now includes `route_points` records and the report's `gameplay_export.route_point_record_count=11`.
+- Current default PCG bridge report remains `pass=true`: generated actors `604`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, encounters `11`, rooms `11`, cells `206`, and progression `pass=true`.
+- Live level audit after native PCG bridge refresh: route anchor actors `11`, main route anchors `5` with indices `0..4`, side route anchors `6` with indices `0..5`, and JSON route records `11` with the same distribution.
+- Seed suite was expanded to report `route_anchor_count`; seeds `142857..142861` all passed with `route_anchor_count=11` and overall `5/5`.
+- Verification: `build_all()` passed, native `refresh_pcg_components` passed, `save_current_level` and `save_dirty_packages` returned true, `python -m py_compile` passed for both dungeon scripts, and `git diff --check` passed.
+
+## 2026-06-14 PCG dungeon door anchors
+
+- Continued the dungeon MVP without C++ and without UnrealMCP plugin changes. Added one `TargetPoint` door anchor per room-corridor doorway so later Blueprint interaction, door prompts, lock checks, or door open/close logic can query stable level actors instead of parsing labels.
+- Door anchor tags include `DungeonModule=door_anchor`, `DungeonDoorIndex`, `DungeonDoorKind`, `DungeonDirection`, `DungeonNeighborCell`, `DungeonRoomCell`, `DungeonCorridorCell`, `DungeonDoorInteraction=entry`, `DungeonDoorActorLabel`, `DungeonDoorVolumeLabel`, `DungeonRouteKind`, `DungeonRouteIndex`, `DungeonMainPathIndex`, room/cell tags, role tags, and encounter tags.
+- `CubelessDungeonMVP_GameplayData.json` now includes `door_points` records and the report's `gameplay_export.door_point_record_count=23` for the default seed.
+- Current default PCG bridge report remains `pass=true`: generated actors `627`, door anchors `23`, door meshes `23`, door volumes `23`, locked gate volume `1`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, encounters `11`, rooms `11`, cells `206`, and progression `pass=true`.
+- Live level audit after native PCG bridge refresh: door anchor actors `23`, normal `22`, locked `1`, route distribution main `14` and side `9`, JSON door records `23`, and missing required door-anchor tag count `0`.
+- Seed suite was expanded to report `door_anchor_count`; seeds `142857..142861` all passed with counts `23`, `24`, `27`, `30`, and `31` respectively, matching each seed's room-corridor edge count.
+- Verification: `build_all()` passed, native `refresh_pcg_components` passed, `save_current_level` and `save_dirty_packages` returned true, `python -m py_compile` passed for both dungeon scripts, and `git diff --check` passed.
+
+## 2026-06-14 PCG dungeon encounter spawn slots
+
+- Continued the dungeon MVP without C++ and without UnrealMCP plugin changes. Added `TargetPoint` encounter spawn slots so combat and boss encounter budgets now exist as stable level actors instead of only JSON/profile numbers.
+- Encounter spawn tags include `DungeonModule=encounter_spawn`, `DungeonEncounterSpawnKind`, `DungeonEncounterSlotIndex`, `DungeonEncounterSlotCount`, `DungeonEncounterSpawnIndex`, `DungeonGameplayRole`, `DungeonRouteKind`, `DungeonRouteIndex`, `DungeonMainPathIndex`, room/cell tags, role tags, and encounter tags.
+- `CubelessDungeonMVP_GameplayData.json` now includes `encounter_spawn_points` records and the report's `gameplay_export.encounter_spawn_point_record_count=13` for the default seed. The report also stores `encounter_spawn_slot_count=13` and validates it against generated actor count.
+- Current default PCG bridge report remains `pass=true`: generated actors `640`, encounter spawn slots `13`, door anchors `23`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, encounters `11`, rooms `11`, cells `206`, and progression `pass=true`.
+- Live level audit after native PCG bridge refresh: encounter spawn actors `13`, JSON encounter spawn records `13`, enemy slots `12`, boss slots `1`, route distribution main `11` and side `2`, tier distribution standard `6`, elite `4`, light `2`, final `1`, and missing required tag count `0`.
+- Seed suite was expanded to report `encounter_spawn_slot_count`; seeds `142857..142861` all passed with counts `13`, `11`, `15`, `11`, and `13` respectively, matching each seed's encounter profile budgets.
+- Verification: `build_all()` passed, native `refresh_pcg_components` passed, `save_current_level` and `save_dirty_packages` returned true, `python -m py_compile` passed for both dungeon scripts, and `git diff --check` passed.
+
+## 2026-06-14 PCG dungeon lock-key linkage
+
+- Continued the dungeon MVP without C++ and without UnrealMCP plugin changes. Added stable lock-key linkage so Blueprint lock checks can connect key pickups to locked gates through tags or the gameplay JSON.
+- Added `lock_key_links` generation in `CubelessDungeonPCG.py`. Default link: `D142857_Key_000` in key room `3` unlocks `D142857_Lock_000` from room `6` to locked-after room `8`.
+- Locked door-facing actors now receive `DungeonLockId`, `DungeonRequiredKeyId`, `DungeonLockIndex`, `DungeonLockPathIndex`, `DungeonLockBeforeRoomId`, and `DungeonLockAfterRoomId`. These tags are present on the locked door mesh, locked door anchor, locked door seal, door volume, and gate volume.
+- Key-facing actors now receive `DungeonKeyId`, `DungeonUnlocksLockIds`, and `DungeonUnlockCount`. These tags are present on the key marker and key spawn anchor.
+- `CubelessDungeonMVP_GameplayData.json` now includes `lock_key_links`, and the report's `gameplay_export.lock_key_link_count=1` for the default seed. Actor count remains `640` because this pass adds metadata, not new actors.
+- Live level audit after native PCG bridge refresh: lock-tagged actors `5`, key-tagged actors `2`, JSON lock-key links `1`, missing lock tag count `0`, missing key tag count `0`, and report `pass=true`.
+- Seed suite was expanded to report and validate `lock_key_link_count` and `lock_key_missing_key_count`; seeds `142857..142861` all passed with link count `1` and missing key count `0`.
+- Verification: `build_all()` passed, native `refresh_pcg_components` passed, `save_current_level` and `save_dirty_packages` returned true, `python -m py_compile` passed for both dungeon scripts, and `git diff --check` passed.
+
+## 2026-06-14 PCG dungeon reward anchors
+
+- Continued the dungeon MVP without C++ and without UnrealMCP plugin changes. Added `TargetPoint` reward anchors so key pickups, shop interaction, treasure chests, and exit-unlock interaction now have stable gameplay actors instead of only marker meshes or JSON records.
+- Reward anchor tags include `DungeonModule=reward_anchor`, `DungeonRewardAnchorKind`, `DungeonRewardId`, `DungeonRewardIndex`, `DungeonInteractionKind`, `DungeonRewardSourceEncounterId`, route tags, room/cell tags, role tags, encounter tags, and key-unlock tags where the reward is a key.
+- `CubelessDungeonMVP_GameplayData.json` now includes `reward_points` records and the report's `gameplay_export.reward_point_record_count=6` for the default seed.
+- Current default PCG bridge report remains `pass=true`: generated actors `646`, reward anchors `6`, encounter spawn slots `13`, door anchors `23`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, encounters `11`, rooms `11`, cells `206`, and progression `pass=true`.
+- Live level audit after PCG bridge refresh: reward anchor actors `6`, reward kinds key `1`, shop `1`, treasure `3`, exit_unlock `1`, interaction kinds pickup `1`, shop `1`, chest `3`, exit_unlock `1`, key-tagged generated actors `3`, and lock-tagged generated actors `5`.
+- The default key reward anchor carries `DungeonKeyId=D142857_Key_000`, `DungeonUnlocksLockIds=D142857_Lock_000`, and `DungeonUnlockCount=1`, so Blueprint pickup logic can resolve the locked gate from actor tags.
+- Seed suite was expanded to report `reward_anchor_count`; seeds `142857..142861` all passed with reward anchor count `6` and overall `5/5`.
+- Verification: PCG bridge refresh passed with `source=pcg_bridge`, `save_current_level=true`, and `save_dirty_packages=true`; `python -m py_compile` passed for both dungeon scripts; `git diff --check` passed; latest editor log still only shows stale pre-existing errors from earlier checks, with no new PCG/Python error from this reward-anchor pass.
+
+## 2026-06-14 PCG dungeon playtest support
+
+- Continued the dungeon MVP without C++ and without UnrealMCP plugin changes. Added a generated `PlayerStart` and `NavMeshBoundsVolume` so the validation level has a concrete entry point and a dungeon-wide navigation bounds actor.
+- New generated actor modules: `DungeonModule=player_start` and `DungeonModule=nav_bounds`. Both receive `DungeonPlaytestRole` and `DungeonPlaytestIndex`; the PlayerStart also receives start room, cell, main route, facing-room, gameplay role, and encounter tags.
+- `CubelessDungeonMVP_GameplayData.json` now includes `playtest_points` records and the report's `gameplay_export.playtest_point_record_count=2` for the default seed.
+- Current default PCG bridge report remains `pass=true`: generated actors `648`, playtest actors `2`, PlayerStart `1`, NavMeshBoundsVolume `1`, reward anchors `6`, encounter spawn slots `13`, door anchors `23`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, encounters `11`, rooms `11`, cells `206`, and progression `pass=true`.
+- Live level audit after PCG bridge refresh: `MCP_Dungeon_MVP_PlayerStart_000` is a `PlayerStart` in start room `0` at cell `4,-6`, and `MCP_Dungeon_MVP_NavBounds_000` is a `NavMeshBoundsVolume` with bounds extent approximately `(5320,4520,520)` covering all `206` dungeon cells.
+- Navigation validation status: `RecastNavMesh-Default` exists, `on_navigation_bounds_updated` and `RebuildNavigation` were callable, but `project_point_to_navigation` at the generated PlayerStart still returned `None`. Treat nav query readiness as an open follow-up rather than proven gameplay navigation.
+- Seed suite remained `5/5` after this pass.
+- Verification: PCG bridge refresh passed with `source=pcg_bridge`, `save_current_level=true`, and `save_dirty_packages=true`; dirty package count was restored to `0` after the nav validation dirtied the level; `python -m py_compile` passed for both dungeon scripts; `git diff --check` passed; latest editor log still only shows stale pre-existing errors from earlier checks, with no new PCG/Python error from this playtest-support pass.
+
+## 2026-06-14 PCG dungeon navigation waypoint graph
+
+- Continued without C++ and without UnrealMCP plugin changes. Investigated why the generated `NavMeshBoundsVolume` did not produce a usable Recast query result.
+- Root cause found for one part of the issue: Geometry Script-baked StaticMesh modules had empty simple collision aggregate geometry. The script now forces module mesh BodySetup `collision_trace_flag` to `CTF_USE_COMPLEX_AS_SIMPLE` after baking and when existing module meshes are loaded.
+- The script also configures `RecastNavMesh-Default` for validation with `runtime_generation=Dynamic` and `force_rebuild_on_load=true`. Even after this, editor and PIE checks still returned `None` from `project_point_to_navigation` at the generated PlayerStart and a path length of `-1`, so Recast navmesh readiness remains unresolved.
+- Added a no-C++ fallback navigation graph: one `TargetPoint` `nav_waypoint` per traversable dungeon cell. Tags include `DungeonModule=nav_waypoint`, `DungeonWaypointIndex`, `DungeonWaypointKind`, `DungeonWaypointDegree`, `DungeonWaypointNeighbors`, route tags, room/cell tags, role tags, and encounter tags where room context exists.
+- `CubelessDungeonMVP_GameplayData.json` now includes `navigation_waypoints` records and the report's `gameplay_export.navigation_waypoint_record_count=206` for the default seed.
+- Current default PCG bridge report remains `pass=true`: generated actors `854`, nav waypoints `206`, playtest actors `2`, reward anchors `6`, encounter spawn slots `13`, door anchors `23`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, encounters `11`, rooms `11`, cells `206`, and progression `pass=true`.
+- Live level audit after PCG bridge refresh: nav waypoint actors `206`, isolated waypoints `0`, missing neighbor references `0`, graph component count `1`, and start-to-exit waypoint path length `27` cells from start cell `4,-6` to exit cell `-6,7`.
+- Seed suite remained `5/5`; seed waypoint counts matched cell counts: `206`, `193`, `187`, `204`, and `205`.
+- Verification: `build_all()` passed, PCG bridge refresh passed with `source=pcg_bridge`, `save_current_level=true`, and `save_dirty_packages=true`; final editor state was `in_pie=false` with dirty package count `0`; `python -m py_compile` passed for both dungeon scripts; `git diff --check` passed. Log review shows transient `LogUtils: Error: The Editor is currently in a play mode` entries from the nav experiment attempts, but the editor was then returned to non-PIE state and the final PCG refresh/report passed.
+
+## 2026-06-14 PCG dungeon room archetypes and detail anchors
+
+- Replanned the next step around PCG dungeon generation itself, excluding the previous movement/AI follow-up. No C++ and no UnrealMCP plugin code were changed.
+- Added deterministic room archetype assignment in `CubelessDungeonPCG.py`: start chamber, main combat room, side combat room, key room, shop room, treasure vault, and boss exit chamber. Room volumes now carry `DungeonRoomArchetype`, `DungeonRoomTheme`, `DungeonRoomSizeClass`, `DungeonRoomAreaCells`, and `DungeonRoomGraphDegree`.
+- Added `TargetPoint` room detail anchors from archetype templates. New detail anchor tags include `DungeonModule=detail_anchor`, `DungeonDetailKind`, `DungeonDetailIndex`, `DungeonDetailLocalIndex`, `DungeonDetailSocket`, and `DungeonDetailPlacement=pcg_room_detail`, plus route, role, room, encounter, and archetype tags.
+- `CubelessDungeonMVP_GameplayData.json` now includes `room_archetypes` and `detail_points`; the report exports `gameplay_export.room_archetype_record_count=11` and `gameplay_export.detail_point_record_count=24`.
+- Current default PCG bridge report remains `pass=true`: generated actors `878`, room archetypes `11`, detail anchors `24`, nav waypoints `206`, reward anchors `6`, encounter spawn slots `13`, door anchors `23`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, encounters `11`, rooms `11`, cells `206`, and progression `pass=true`.
+- Live level audit after PCG bridge refresh passed: room volumes `11` with archetype tags, detail anchor actors `24`, missing required detail tags `0`, and detail anchors distributed by archetype as start chamber `2`, main combat room `6`, side combat room `2`, key room `2`, shop room `3`, treasure vault `6`, and boss exit chamber `3`.
+- Seed suite stayed `5/5`; seeds `142857..142861` all reported `room_archetype_count=11` and `detail_anchor_count=24`.
+- Verification: `build_all()` passed, PCG bridge refresh passed with `source=pcg_bridge`, `save_current_level=true`, and `save_dirty_packages=true`; saved gameplay JSON has `11` room archetype records and `24` detail point records; `python -m py_compile` and `git diff --check` passed. Final editor state was `in_pie=false` with dirty package count `0`; latest editor log still contains stale `Editor is currently in a play mode` errors from the earlier nav experiment, with no new PCG/Python error observed in this pass.
+
+## 2026-06-14 PCG dungeon archetype detail meshes
+
+- Continued the PCG dungeon-generation track, still excluding movement/AI work. No C++ and no UnrealMCP plugin code were changed.
+- Added eight Geometry Script-baked room detail module meshes under `/Game/Cubeless/PCG/Dungeon/Meshes`: `SM_GS_Dungeon_Detail_Pedestal`, `Detail_Cover`, `Detail_WallTrim`, `Detail_Counter`, `Detail_Brazier`, `Detail_Sign`, `Detail_Arch`, and `Detail_BossFocus`. The generated module set is now `18` meshes.
+- Added `detail_mesh` StaticMeshActor spawning from the existing room detail anchor templates. Each detail anchor now links to one detail mesh through `DungeonDetailMeshLabel`, and each detail mesh links back through `DungeonDetailAnchorLabel`.
+- Detail mesh tags include `DungeonModule=detail_mesh`, `DungeonDetailKind`, `DungeonDetailIndex`, `DungeonDetailLocalIndex`, `DungeonDetailSocket`, `DungeonDetailMeshKey`, room archetype tags, route tags, role tags, and encounter tags.
+- `CubelessDungeonMVP_GameplayData.json` now includes `detail_meshes`; the report exports `gameplay_export.detail_mesh_record_count=24`.
+- Current default PCG bridge report remains `pass=true`: generated actors `902`, detail anchors `24`, detail meshes `24`, room archetypes `11`, nav waypoints `206`, reward anchors `6`, encounter spawn slots `13`, door anchors `23`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, rooms `11`, cells `206`, and progression `pass=true`.
+- Live level audit after PCG bridge refresh passed: generated actors `902`, detail mesh actors `24`, detail anchor actors `24`, missing detail mesh tags `0`, missing anchor-to-mesh links `0`, and missing mesh-link targets `0`.
+- Detail mesh module distribution for the default seed: detail_pedestal `5`, detail_cover `7`, detail_wall_trim `5`, detail_counter `1`, detail_brazier `2`, detail_sign `1`, detail_arch `2`, and detail_boss_focus `1`.
+- Seed suite stayed `5/5`; seeds `142857..142861` all reported `room_archetype_count=11`, `detail_anchor_count=24`, and `detail_mesh_count=24`.
+- Verification: `build_all()` passed, PCG bridge entrypoint refresh passed with `source=pcg_bridge`, `save_current_level=true`, and `save_dirty_packages=true`; saved gameplay JSON has `24` detail point records and `24` detail mesh records; `python -m py_compile` and `git diff --check` passed. Final editor state was `in_pie=false` with dirty package count `0`; latest editor log still contains stale play-mode error strings from the earlier nav experiment/log audit, with no new PCG/Python error observed in this pass.
+
+## 2026-06-14 PCG dungeon room theme materials
+
+- Continued the PCG dungeon-generation track without movement/AI work, C++, or UnrealMCP plugin changes.
+- Added room theme material generation in `CubelessDungeonPCG.py`: `M_Dungeon_Theme_EntryStone`, `CombatStone`, `KeyStone`, `UtilityStone`, `RewardStone`, `FinaleStone`, `AmbientStone`, `ConnectorStone`, and `CorridorStone`.
+- Added deterministic `room_themes` derived from room archetypes. Theme tags include `DungeonThemeName`, `DungeonThemeMaterial`, and `DungeonThemeRole`.
+- Applied theme material overrides and tags to floor/corridor cell actors, ceiling samples, boundary walls, doors, room columns, the exit stair, and room detail mesh actors. Locked door seals keep their dedicated locked-door material but still carry the room theme tags where relevant.
+- `CubelessDungeonMVP_GameplayData.json` now includes `room_themes`, and each room record embeds its theme. The report exports `gameplay_export.room_theme_record_count=11`.
+- Current default PCG bridge report remains `pass=true`: generated actors `902`, room themes `11`, room archetypes `11`, detail meshes `24`, nav waypoints `206`, reward anchors `6`, encounter spawn slots `13`, door anchors `23`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, rooms `11`, cells `206`, and progression `pass=true`.
+- Default theme distribution: entry `1`, combat `4`, progression `1`, utility `1`, reward `3`, and finale `1`.
+- Live level audit after PCG bridge refresh passed: themed StaticMesh actors `549` of expected `549`, with missing theme tags `0`. Actor theme distribution was combat `177`, corridor `107`, entry `41`, finale `40`, progression `40`, reward `96`, and utility `48`.
+- Seed suite stayed `5/5`; seeds `142857..142861` all reported `room_theme_count=11` and `pass=true`.
+- Verification: `build_all()` passed, PCG bridge entrypoint refresh passed with `source=pcg_bridge`, saved gameplay JSON has `11` room theme records and all `11` rooms carry theme data, `save_current_level=true`, and `save_dirty_packages=true`; `python -m py_compile` and `git diff --check` passed. Final editor state was `in_pie=false` with dirty package count `0`; latest editor log still contains stale play-mode error strings from the earlier nav experiment/log audit, with no new PCG/Python error observed in this pass.
+
+## 2026-06-14 PCG dungeon room theme lights
+
+- Continued the PCG dungeon-generation track without movement/AI work, C++, or UnrealMCP plugin changes.
+- Added one generated PointLight `theme_light` per room, driven by the room theme profile. Existing review lights remain separate as `DungeonModule=light`; the new room lights use `DungeonModule=theme_light`.
+- Room light tags include `DungeonLightKind=theme_room`, `DungeonLightProfile`, `DungeonLightIndex`, `DungeonLightIntensity`, and `DungeonLightRadius`, plus route, role, room, encounter, archetype, and theme tags.
+- `CubelessDungeonMVP_GameplayData.json` now includes `theme_lights`; the report exports `gameplay_export.theme_light_record_count=11`.
+- Current default PCG bridge report remains `pass=true`: generated actors `913`, room theme lights `11`, legacy review lights `8`, room themes `11`, room archetypes `11`, detail meshes `24`, nav waypoints `206`, reward anchors `6`, encounter spawn slots `13`, door anchors `23`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, rooms `11`, cells `206`, and progression `pass=true`.
+- Live level audit after PCG bridge refresh passed: `theme_light` actors `11`, missing PointLightComponent count `0`, missing required light tags `0`, and legacy review light actors `8`.
+- Default theme light profile distribution: combat_low_amber `4`, entry_soft_green `1`, finale_violet_focus `1`, key_cyan_focus `1`, reward_gold_pool `3`, and shop_teal_warm `1`.
+- Seed suite stayed `5/5`; seeds `142857..142861` all reported `room_theme_count=11`, `theme_light_count=11`, and `detail_mesh_count=24`.
+- Verification: `build_all()` passed, PCG bridge entrypoint refresh passed with `source=pcg_bridge`, saved gameplay JSON has `11` theme light records and `11` room theme records, `save_current_level=true`, and `save_dirty_packages=true`. Final live audit matched generated actors `913`, `theme_light` actors `11`, legacy review light actors `8`, missing PointLightComponent count `0`, missing light tag count `0`, `in_pie=false`, dirty package count `0`, and seed suite `5/5`; `python -m py_compile` and `git diff --check` passed. No C++ or sibling `unreal-mcp-cubeless` files were changed.
+
+## 2026-06-14 PCG dungeon connector details
+
+- Continued the PCG dungeon-generation track without movement/AI work, C++, or UnrealMCP plugin changes.
+- Added two Geometry Script-baked connector module meshes under `/Game/Cubeless/PCG/Dungeon/Meshes`: `SM_GS_Dungeon_Connector_Threshold` and `SM_GS_Dungeon_Connector_LockedThreshold`. The generated module set is now `20` meshes.
+- Added one `connector_detail` StaticMeshActor per room-corridor door anchor. Normal doors use `connector_threshold`; the locked gate uses `connector_locked`.
+- Connector detail tags include `DungeonModule=connector_detail`, `DungeonConnectorKind`, `DungeonConnectorIndex`, `DungeonConnectorMeshKey`, `DungeonDoorIndex`, `DungeonDoorAnchorLabel`, door/cell/route tags, lock-key tags where applicable, and room archetype/theme/encounter tags.
+- `CubelessDungeonMVP_GameplayData.json` now includes `connector_details`; the report exports `gameplay_export.connector_detail_record_count=23`.
+- Current default PCG bridge report remains `pass=true`: generated actors `936`, connector details `23`, door anchors `23`, room theme lights `11`, legacy review lights `8`, room themes `11`, room archetypes `11`, detail meshes `24`, nav waypoints `206`, reward anchors `6`, encounter spawn slots `13`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, rooms `11`, cells `206`, and progression `pass=true`.
+- Live level audit after PCG bridge refresh passed: connector detail actors `23`, missing StaticMeshComponent count `0`, missing required connector tags `0`, connector kinds threshold `22` and locked_threshold `1`, and connector mesh keys connector_threshold `22` and connector_locked `1`.
+- Seed suite stayed `5/5`; seeds `142857..142861` reported connector detail counts `23`, `24`, `27`, `30`, and `31`, matching each seed's door anchor count.
+- Verification: `build_all()` passed, PCG bridge entrypoint refresh passed with `source=pcg_bridge`, saved gameplay JSON has `23` connector detail records, `save_current_level=true`, and `save_dirty_packages=true`. Final live audit matched generated actors `936`, connector details `23`, themed StaticMesh actors `573`, dirty package count `0`, `in_pie=false`, seed suite `5/5`, and report `pass=true`; `python -m py_compile` and `git diff --check` passed. Recent latest-log scan showed no new PCG/Python error. No C++ or sibling `unreal-mcp-cubeless` files were changed.
+
+## 2026-06-14 PCG dungeon corridor details
+
+- Continued the PCG dungeon-generation track without movement/AI work, C++, or UnrealMCP plugin changes.
+- Added four Geometry Script-baked corridor detail module meshes under `/Game/Cubeless/PCG/Dungeon/Meshes`: `SM_GS_Dungeon_CorridorDetail_Straight`, `Corner`, `Junction`, and `Endcap`. The generated module set is now `24` meshes.
+- Added one `corridor_detail` StaticMeshActor per corridor cell. The script classifies corridor cells from neighbor topology as straight, corner, junction, endcap, or doorway and orients the detail mesh with deterministic yaw.
+- Corridor detail tags include `DungeonModule=corridor_detail`, `DungeonCorridorDetailKind`, `DungeonCorridorDetailIndex`, `DungeonCorridorDetailMeshKey`, `DungeonCorridorDetailYaw`, `DungeonCorridorNeighborDirs`, `DungeonCorridorRoomDirs`, waypoint tags, connector route tags, and corridor theme tags.
+- `CubelessDungeonMVP_GameplayData.json` now includes `corridor_details`; the report exports `gameplay_export.corridor_detail_record_count=34`.
+- Current default PCG bridge report remains `pass=true`: generated actors `970`, corridor details `34`, connector details `23`, door anchors `23`, room theme lights `11`, legacy review lights `8`, room themes `11`, room archetypes `11`, detail meshes `24`, nav waypoints `206`, reward anchors `6`, encounter spawn slots `13`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, rooms `11`, cells `206`, and progression `pass=true`.
+- Live level audit after PCG bridge refresh passed: corridor detail actors `34`, missing StaticMeshComponent count `0`, missing required corridor tags `0`, kind distribution straight `10`, corner `2`, junction `3`, endcap `17`, doorway `2`, and mesh-key distribution straight `10`, corner `2`, junction `3`, endcap `19`.
+- Seed suite stayed `5/5`; seeds `142857..142861` reported corridor detail counts `34`, `26`, `31`, `43`, and `30`, matching each seed's corridor cell count.
+- Verification: `build_all()` passed, PCG bridge entrypoint refresh passed with `source=pcg_bridge`, saved gameplay JSON has `34` corridor detail records, `save_current_level=true`, and `save_dirty_packages=true`. Final live audit matched generated actors `970`, corridor details `34`, themed StaticMesh actors `607`, dirty package count `0`, `in_pie=false`, seed suite `5/5`, and report `pass=true`; `python -m py_compile` and `git diff --check` passed. Recent latest-log scan showed no new PCG/Python error. No C++ or sibling `unreal-mcp-cubeless` files were changed.
+
+## 2026-06-14 PCG dungeon room shape variants
+
+- Continued the PCG dungeon-generation track for the user's requested `1,2,3`: room structure variation, modular mesh variation, and room theme refinement. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added deterministic `room_shapes` derived from room archetype and room dimensions. Shape tags include `DungeonRoomShape`, `DungeonRoomShapeFamily`, and `DungeonRoomShapeAxis`; route anchors and other room-aware detail/gameplay actors now carry the same shape context.
+- Added seven Geometry Script-baked room variant module meshes under `/Game/Cubeless/PCG/Dungeon/Meshes`: `SM_GS_Dungeon_RoomVariant_EntryInlay`, `CombatPartition`, `RewardBorder`, `UtilityMarket`, `ProgressionRune`, `FinaleRing`, and `AmbientRubble`. The generated module set is now `31` meshes.
+- Added one `room_variant_detail` StaticMeshActor per room. Variant tags include `DungeonRoomVariantKind`, `DungeonRoomVariantIndex`, `DungeonRoomVariantMeshKey`, and `DungeonRoomVariantYaw`, plus route, role, room archetype, room shape, theme, and encounter tags.
+- `CubelessDungeonMVP_GameplayData.json` now includes `room_shapes` and `room_variant_details`; the report exports `gameplay_export.room_shape_record_count=11` and `gameplay_export.room_variant_record_count=11`.
+- Current default PCG bridge report remains `pass=true`: generated actors `981`, room shapes `11`, room variant details `11`, corridor details `34`, connector details `23`, door anchors `23`, room theme lights `11`, legacy review lights `8`, room themes `11`, room archetypes `11`, detail meshes `24`, nav waypoints `206`, reward anchors `6`, encounter spawn slots `13`, route anchors `11`, spawn anchors `12`, gameplay markers `12`, volumes `35`, rooms `11`, cells `206`, and progression `pass=true`.
+- Default room shape distribution: balanced `2`, large_square `3`, tall `1`, vault `3`, compact `1`, and arena `1`.
+- Live level audit after PCG bridge refresh passed: generated actors `981`, room variant actors `11`, missing required variant tags `0`, missing room shape tags on room-aware route/detail/theme actors `0`, themed StaticMesh actors `630`, dirty package count `0`, and `in_pie=false`.
+- Default room variant distribution: entry_focus_inlay `1`, combat_partition `4`, utility_market `1`, progression_rune `1`, reward_border `3`, and finale_ring `1`.
+- Seed suite stayed `5/5`; seeds `142857..142861` all reported `room_shape_count=11` and `room_variant_detail_count=11`. Connector detail counts remained `23`, `24`, `27`, `30`, and `31`; corridor detail counts remained `34`, `26`, `31`, `43`, and `30`.
+- Verification: `python -m py_compile` passed for both dungeon scripts; `build_all()` wrote `pass=true`, module asset count `31`, seed suite `5/5`, `save_current_level=true`, and `save_dirty_packages=true`; PCG bridge entrypoint refresh passed with `source=pcg_bridge`, `gameplay_route_shape_count=11`, and saved gameplay JSON has `11` room shape records plus `11` room variant detail records. Recent latest-log scan showed the expected MCP `execute_python` 120s wrapper timeout from the long `build_all()` call, but no new PCG/Python generation error.
+
+## 2026-06-14 PCG dungeon wall rotation fix
+
+- Investigated the user's screenshot showing wall panels appearing to face one direction. No C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Root cause: Unreal Python positional `unreal.Rotator(a, b, c)` maps to roll, pitch, yaw in this environment. The script used `unreal.Rotator(0, yaw, 0)` for actor spawns, so intended yaw values on east/west walls became pitch instead of yaw.
+- Added `_actor_rotator()` and `_yaw_rotator()` helper functions that set `pitch`, `yaw`, and `roll` fields explicitly. Actor-spawn rotations now use these helpers for walls, PlayerStart, corridor details, room variant details, room detail meshes/anchors, encounter spawn anchors, lights, stair, nav bounds, and the PCG bridge actor.
+- Before the fix, live wall audit showed wall actors `216`, direction counts N `55`, S `55`, E `53`, W `53`, but yaw distribution was N `0`, S `180`, E `0`, W `0`.
+- After PCG bridge refresh, live wall audit passed: wall actors `216`, direction counts N `55`, S `55`, E `53`, W `53`; yaw distribution N `0`, S `180`, E `90`, W `-90`; pitch and roll are `0` for all four directions. East/west wall bounds now read as thin X and long Y, matching the rotated wall orientation.
+- Verification: `python -m py_compile` passed for both dungeon scripts; PCG bridge entrypoint refresh passed with `source=pcg_bridge`, `pass=true`, `actor_count=981`, and wall count `216`; `save_current_level=true` and `save_dirty_packages=true`.
+
+## 2026-06-14 PCG dungeon spawner contract
+
+- Continued toward the user's requested PCG direction: same Static Mesh should be able to route to the same future PCG Static Mesh Spawner where practical. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `CubelessDungeonMVP_PCGSpawnerContract.json` under `Saved/MCP_Dungeon`. The contract schema is `cubeless_pcg_spawner_contract_v1`.
+- Added generic StaticMeshActor tags in `CubelessDungeonPCG.py`: `DungeonMeshKey`, `DungeonStaticMeshPath`, `DungeonMaterialMode`, and `DungeonMaterialName` where a material override is used. These are separate from gameplay anchors and are intended as future PCG point attributes.
+- Added `build_pcg_spawner_contract()`, which converts the current StaticMeshActor validation result into one point per generated StaticMesh actor and groups those points by `DungeonMeshKey`.
+- The contract keeps actor-like gameplay data separate: TargetPoint anchors, TriggerBox volumes, PlayerStart, NavMeshBoundsVolume, and Light actors are not part of the static mesh spawner groups.
+- A first contract audit exposed a bad cell mesh key: room floor cells were tagged as `DungeonMeshKey=room` even though they used the `floor` Static Mesh. The cell tagging was corrected to use the actual mesh key (`floor`, `corridor`, or `corner`) before export.
+- Current default PCG bridge report remains `pass=true`: generated actors `981`, StaticMeshActor spawn points `630`, spawner groups `30`, material-variant groups `9`, room variant details `11`, corridor details `34`, connector details `23`, rooms `11`, cells `206`, and progression `pass=true`.
+- Contract validation passed: missing `DungeonMeshKey` `0`, missing `DungeonStaticMeshPath` `0`, unknown mesh keys `0`, and static mesh path conflict groups `0`.
+- Largest default spawner groups by `DungeonMeshKey`: wall `216`, floor `172`, column `44`, ceiling `35`, corridor `31`, door `23`, connector_threshold `22`, corridor_detail_endcap `19`, marker `12`, and corridor_detail_straight `10`.
+- Live level audit passed: generated StaticMeshActor count `630`, mesh-key group count `30`, missing mesh-key tags `0`, missing static-mesh-path tags `0`, seed suite `5/5`, and dirty package count `0`.
+- Verification: `python -m py_compile` passed for both dungeon scripts; PCG bridge entrypoint refresh passed with `source=pcg_bridge`; saved gameplay JSON embeds the spawner contract and the separate contract JSON was written successfully; `save_current_level=true` and `save_dirty_packages=true`.
+
+## 2026-06-14 PCG dungeon native graph handoff
+
+- Continued the C++-free dungeon PCG path. No project C++ and no sibling `unreal-mcp-cubeless` files were changed.
+- Added `CubelessDungeonMVP_PCGGraphHandoff.json` under `Saved/MCP_Dungeon`. The handoff schema is `cubeless_pcg_graph_handoff_v1`.
+- Added `build_pcg_graph_handoff()`, which converts the existing `PCGSpawnerContract` into native PCG graph authoring metadata: one point stream/filter candidate per `DungeonMeshKey`, each stream's target Static Mesh path, transform-source notes, material split requirements, and gameplay actor exclusion policy.
+- The PCG bridge graph description now records that the bridge exports both the spawner contract and native graph handoff metadata. It still does not attempt unsafe native PCG node rewiring through Python/MCP.
+- Current default PCG bridge report remains `pass=true`: generated actors `981`, StaticMeshActor spawn points `630`, spawner groups `30`, handoff point streams `30`, mesh-only spawner candidates `30`, material-safe spawner branches `63`, material-variant groups `9`, and progression `pass=true`.
+- Handoff validation passed: source contract pass `true`, stream point total `630`, stream count `30`, missing mesh-key tags `0`, missing static-mesh-path tags `0`, unknown mesh keys `0`, and static mesh path conflict groups `0`.
+- Gameplay actor exclusion is explicit in the handoff: `TargetPoint`, `TriggerBox`, `PlayerStart`, `NavMeshBoundsVolume`, `PointLight`, `DirectionalLight`, and `SkyLight` stay outside Static Mesh Spawner output.
+- Verification: `python -m py_compile` passed for both dungeon scripts; PCG bridge refresh passed through native `refresh_pcg_components`; seed suite stayed `5/5`; live audit matched StaticMeshActor count `630`, mesh-key group count `30`, missing mesh-key tags `0`, missing static-mesh-path tags `0`; `save_current_level=true`, `save_dirty_packages=true`, and dirty package count `0`.
+
+## 2026-06-14 PCG dungeon native skeleton graph
+
+- Continued the PCG dungeon native-promotion path without C++ and without sibling `unreal-mcp-cubeless` changes.
+- Added `/Game/Cubeless/PCG/Dungeon/Graphs/PCG_Cubeless_Dungeon_MVP_NativeSkeleton` as a separate native PCG graph skeleton. The existing bridge graph and validation level remain the active generation path.
+- Added `create_or_update_native_skeleton_graph()` in `CubelessDungeonPCG.py`. It reads `CubelessDungeonMVP_PCGGraphHandoff.json` and builds material-safe native branches from the handoff.
+- The skeleton graph now contains `136` authored nodes: `30` `DungeonMeshKey` AttributeFilter nodes, `42` material split AttributeFilter nodes, `63` StaticMeshSpawner nodes, and `1` Merge node.
+- StaticMeshSpawner nodes use weighted mesh entries pointing at the Geometry Script-baked dungeon module meshes. Where a branch has a single material or material split, the node also carries the matching material override path.
+- The graph is intentionally not connected to Output. Branches are wired Input -> filters -> StaticMeshSpawner -> Merge, but Merge -> Output is left disconnected until a native point-source replacement exists. This prevents the skeleton from replacing or corrupting the current bridge validation output.
+- Added `Saved/MCP_Dungeon/CubelessDungeonMVP_NativeSkeletonGraph_Report.json` with schema `cubeless_pcg_dungeon_native_skeleton_graph_report_v1`.
+- Verification: PCG bridge refresh regenerated the handoff, native skeleton graph generation passed with `node_count=136`, `static_mesh_spawner_node_count=63`, `edge_count=198`, `failed_edge_count=0`, `setup_error_count=0`, `missing_static_mesh_path_count=0`, and `output_connected=false`; seed suite stayed `5/5`; `save_current_level=true`, `save_dirty_packages=true`, and dirty package count `0`.
+
+## 2026-06-14 PCG dungeon native skeleton audit
+
+- Continued the native PCG skeleton promotion path without project C++ and without sibling `unreal-mcp-cubeless` changes.
+- Added `audit_native_skeleton_graph()` in `CubelessDungeonPCG.py` and wrote `Saved/MCP_Dungeon/CubelessDungeonMVP_NativeSkeletonAudit_Report.json` with schema `cubeless_pcg_dungeon_native_skeleton_audit_v1`.
+- The audit compares `CubelessDungeonMVP_PCGGraphHandoff.json` against the actual native skeleton graph: expected filter/spawner titles, graph class counts, node descriptions, Static Mesh Spawner mesh entries, and material override entries.
+- Fixed native skeleton material filter titles to include the mesh key. This removed duplicate material filter node titles where the same `DungeonMaterialName` appeared under multiple mesh streams.
+- Final audit passed: node count `136`, `PCGAttributeFilteringSettings` `72`, `PCGStaticMeshSpawnerSettings` `63`, `PCGMergeSettings` `1`, missing filters `0`, missing spawners `0`, unexpected spawners `0`, spawner mismatches `0`, class-count mismatches `0`, duplicate titles `0`, and missing descriptions `0`.
+- Verification: bridge refresh passed with `source=pcg_bridge`, generated actors `981`, PCG spawn points `630`, handoff streams `30`, and material-safe spawner branches `63`; native skeleton graph generation passed with `node_count=136`, `static_mesh_spawner_node_count=63`, and `output_connected=false`; seed suite stayed `5/5`; `save_current_level=true`, `save_dirty_packages=true`, and dirty content/map package counts were both `0`.
+
+## 2026-06-14 PCG dungeon native point-source readiness
+
+- Continued the native PCG promotion path without project C++ and without sibling `unreal-mcp-cubeless` changes.
+- Added `build_native_point_source_contract()` in `CubelessDungeonPCG.py` and wrote `Saved/MCP_Dungeon/CubelessDungeonMVP_NativePointSource_Report.json` with schema `cubeless_pcg_dungeon_native_point_source_v1`.
+- The new report normalizes the current StaticMeshActor spawner contract into future native PCG point-source data: point transform, `DungeonPointIndex`, `DungeonSourceLabel`, `DungeonMeshKey`, `DungeonStaticMeshPath`, `DungeonMaterialMode`, optional `DungeonMaterialName`, module, seed, cell, room, role, archetype, and theme attributes.
+- The point-source report is still a readiness contract, not production output. Its promotion policy keeps `output_connection_allowed=false` until a real native point-source node or data-source actor exists.
+- Final point-source validation passed: native points `630`, groups `30`, source contract points `630`, handoff stream point total `630`, missing required attributes `0`, invalid transforms `0`, missing handoff stream keys `0`, static mesh path mismatches `0`, material attribute mismatches `0`, stream count mismatches `0`, material split count mismatches `0`, duplicate point indexes `0`, and duplicate source labels `0`.
+- Verification: bridge refresh passed with `source=pcg_bridge`, generated actors `981`, PCG spawn points `630`, handoff streams `30`, and material-safe spawner branches `63`; native skeleton graph generation passed and remained `output_connected=false`; native skeleton audit passed; seed suite stayed `5/5`; `save_current_level=true`, `save_dirty_packages=true`, and dirty content/map package counts were both `0`.
+
+## 2026-06-14 PCG dungeon native point-source graph
+
+- Continued the native PCG promotion path without project C++ and without sibling `unreal-mcp-cubeless` changes.
+- Added `/Game/Cubeless/PCG/Dungeon/Graphs/PCG_Cubeless_Dungeon_MVP_NativePointSource` as a separate native PCG point-source candidate. It outputs points only and is not connected to the Static Mesh Spawner skeleton yet.
+- Added `create_or_update_native_point_source_graph()` in `CubelessDungeonPCG.py` and wrote `Saved/MCP_Dungeon/CubelessDungeonMVP_NativePointSourceGraph_Report.json` with schema `cubeless_pcg_dungeon_native_point_source_graph_v1`.
+- The graph uses `63` material-safe `PCGCreatePointsSettings` branches generated from `CubelessDungeonMVP_NativePointSource_Report.json`. Branches then attach `DungeonMeshKey`, `DungeonStaticMeshPath`, `DynamicMeshPath`, `DungeonMaterialMode`, and `DungeonMaterialName` through `PCGAddAttributeSettings`.
+- A first run failed only because `PCGCreatePointsSettings.use_seed` is protected in this UE Python API; the graph structure had no failed edges. The generator now skips that protected setter and uses per-point seeds instead.
+- Final point-source graph validation passed: native PCG points `630`, branches `63`, graph nodes `379`, CreatePoints nodes `63`, AddAttribute nodes `315`, Merge nodes `1`, Static Mesh Spawner nodes `0`, authored edges `379`, failed edges `0`, setup errors `0`, and output connected `true`.
+- Verification: existing bridge report stayed `pass=true` with actor count `981` and PCG spawn points `630`; native skeleton audit stayed `pass=true`; seed suite stayed `5/5`; `save_current_level=true`, `save_dirty_packages=true`, and dirty content/map package counts were both `0`.
+
+## 2026-06-14 PCG dungeon native integration graph
+
+- Continued the C++-free native PCG promotion path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `/Game/Cubeless/PCG/Dungeon/Graphs/PCG_Cubeless_Dungeon_MVP_NativeIntegration` as the first output-connected native spawning candidate.
+- The integration graph keeps `/Game/Cubeless/PCG/Dungeon/Graphs/PCG_Cubeless_Dungeon_MVP_NativeSkeleton` output-disconnected as a safe diagnostic reference. It does not modify the skeleton's safety policy.
+- Added `create_or_update_native_integration_graph()` in `CubelessDungeonPCG.py`. It creates one `PCGSubgraphSettings` node with `subgraph_override` pointing at `PCG_Cubeless_Dungeon_MVP_NativePointSource`, then builds the same material-safe `DungeonMeshKey` and `DungeonMaterialName` filter/spawner branches and connects the merge to Output.
+- Added `audit_native_integration_graph()` and wrote `Saved/MCP_Dungeon/CubelessDungeonMVP_NativeIntegrationAudit_Report.json` with schema `cubeless_pcg_dungeon_native_integration_audit_v1`.
+- Added `Saved/MCP_Dungeon/CubelessDungeonMVP_NativeIntegrationGraph_Report.json` with schema `cubeless_pcg_dungeon_native_integration_graph_report_v1`.
+- Final integration graph validation passed: graph nodes `137`, edges `199`, Subgraph nodes `1`, AttributeFilter nodes `72`, Static Mesh Spawner nodes `63`, Merge nodes `1`, failed edges `0`, setup errors `0`, and output connected `true`.
+- Final integration audit passed: subgraph override mismatches `0`, missing filters `0`, missing spawners `0`, unexpected spawners `0`, spawner mesh/material mismatches `0`, class-count mismatches `0`, duplicate titles `0`, and missing descriptions `0`.
+- Verification: native point-source graph stayed `pass=true` with `630` points and `379` nodes; native skeleton graph stayed `pass=true` and `output_connected=false`; native skeleton audit stayed `pass=true`; seed suite stayed `5/5`; `save_current_level=true` and `save_dirty_packages=true`.
+
+## 2026-06-14 PCG dungeon native integration smoke test
+
+- Continued the C++-free native PCG promotion path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `MCP_Cubeless_Dungeon_MVP_NativeIntegrationTest` as a separate PCGVolume in `/Game/Cubeless/PCG/Dungeon/Maps/LVL_Cubeless_PCG_Dungeon_MVP`. It references `/Game/Cubeless/PCG/Dungeon/Graphs/PCG_Cubeless_Dungeon_MVP_NativeIntegration`.
+- Added `create_or_update_native_integration_test_actor()` in `CubelessDungeonPCG.py` and wrote `Saved/MCP_Dungeon/CubelessDungeonMVP_NativeIntegrationTestActor_Report.json` with schema `cubeless_pcg_dungeon_native_integration_test_v1`.
+- Added staged smoke helpers because PCG generation/cleanup complete on later editor ticks: `begin_native_integration_smoke_test()`, `verify_native_integration_smoke_generation()`, and `verify_native_integration_smoke_cleanup()`.
+- Added `Saved/MCP_Dungeon/CubelessDungeonMVP_NativeIntegrationTest_Report.json` with schema `cubeless_pcg_dungeon_native_integration_smoke_v1`.
+- First same-call generate/cleanup check proved the API calls were valid but also showed why staged verification is necessary: immediate counts stayed `0` because the PCG scheduler had not ticked yet.
+- Final staged smoke test passed. After generation tick, the test actor had `63` Instanced Static Mesh components and `630` total instances, matching the `63` material-safe Static Mesh Spawner branches and `630` native point-source points.
+- Cleanup verification passed after the next tick: residual generated Static Mesh components `0`, residual generated instances `0`, and `generated=false` on the test PCGComponent.
+- Verification: native point-source graph stayed `pass=true`; native skeleton graph stayed `pass=true` and `output_connected=false`; native integration graph/audit stayed `pass=true`; seed suite stayed `5/5`; `save_current_level=true` and `save_dirty_packages=true`.
+
+## 2026-06-14 PCG dungeon native integration preview screenshot
+
+- Continued the C++-free native PCG promotion path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `MCP_Cubeless_Dungeon_MVP_NativeIntegrationPreview` as a separate PCGVolume in `/Game/Cubeless/PCG/Dungeon/Maps/LVL_Cubeless_PCG_Dungeon_MVP`. It references `/Game/Cubeless/PCG/Dungeon/Graphs/PCG_Cubeless_Dungeon_MVP_NativeIntegration` and intentionally keeps native generated output visible for editor review.
+- Added staged preview helpers in `CubelessDungeonPCG.py`: `begin_native_integration_preview()`, `verify_native_integration_preview_generation()`, and `cleanup_native_integration_preview()`.
+- Wrote `Saved/MCP_Dungeon/CubelessDungeonMVP_NativeIntegrationPreview_Report.json` with schema `cubeless_pcg_dungeon_native_integration_preview_v1`.
+- Native preview generation passed: generated attribute `true`, `63` Instanced Static Mesh components, and `630` total instances, matching the native integration graph's `63` material-safe Static Mesh Spawner branches and the point-source graph's `630` points.
+- Active viewport screenshot QA passed and wrote `Saved/MCP_Dungeon/CubelessDungeonMVP_NativePreview_active_viewport_visual_qa.png`.
+- A native-only editor window screenshot was captured to `Saved/MCP_Dungeon/CubelessDungeonMVP_NativePreview_NativeOnly_Window.png` after temporarily hiding the `630` bridge StaticMeshActors. The bridge actors were restored afterward with `0` left hidden.
+- Visual review: the native PCG output is visible and non-empty. Prototype lighting/exposure is high, and the native-only capture includes editor UI/log warnings, so it is useful as a generation proof but not an art-quality review screenshot.
+- Limitation found: moving the preview PCGVolume to `[14000, 0, 0]` does not offset the generated point-source transforms. Clean side-by-side bridge/native comparison needs a preview-only transform offset in the native point-source path or graph.
+- Verification: `python -m py_compile` passed for both dungeon scripts after the preview helpers were added. The latest native preview report stayed `pass=true`, and the previous native bridge, point-source, skeleton, integration, audit, and seed-suite validations remain the baseline checks.
+
+## 2026-06-14 PCG dungeon native preview offset graph
+
+- Continued the C++-free native PCG promotion path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added preview-only graph assets under `/Game/Cubeless/PCG/Dungeon/Graphs`: `PCG_Cubeless_Dungeon_MVP_NativePointSource_PreviewOffset` and `PCG_Cubeless_Dungeon_MVP_NativeIntegration_PreviewOffset`.
+- Generalized `create_or_update_native_point_source_graph()` and `create_or_update_native_integration_graph()` so the production graphs still use the unoffset paths while preview graphs can be generated with a point transform offset.
+- `begin_native_integration_preview(preview_offset=[14000, 0, 0])` now creates/refreshes the preview-only point-source and integration graphs, applies the offset to the point transforms, attaches the preview actor to `PCG_Cubeless_Dungeon_MVP_NativeIntegration_PreviewOffset`, and requests generation.
+- Preview graph validation passed: preview point-source graph `pass=true`, `63` CreatePoints branches, `630` points, `379` nodes, output connected; preview integration graph `pass=true`, `137` nodes, `63` Static Mesh Spawner nodes, failed edges `0`, setup errors `0`, output connected.
+- Native preview generation passed after the offset graph change: preview actor bounds moved to X `9779.26..19020.74`, and the generated runtime output remained `63` Instanced Static Mesh components with `630` total instances.
+- Side-by-side screenshot QA passed and wrote `Saved/MCP_Dungeon/CubelessDungeonMVP_NativePreview_SideBySide_active_viewport_visual_qa.png`. Visual review: bridge output is visible on the left, native preview output is visible on the right, both are non-empty and separated. Prototype exposure remains high.
+- Production validation stayed intact: production native point-source graph `pass=true`, skeleton graph `pass=true`, skeleton audit `pass=true`, production native integration graph `pass=true`, integration audit `pass=true` with subgraph override mismatches `0`.
+- Production smoke test stayed passing: generation produced `63` Instanced Static Mesh components and `630` instances, then cleanup left `0` residual components and `0` residual instances.
+- Verification: `python -m py_compile` passed, side-by-side screenshot QA passed, `save_current_level=true`, `save_dirty_packages=true`, and dirty package count `0`.
+
+## 2026-06-14 PCG dungeon native preview review capture
+
+- Continued the C++-free native PCG preview review pass. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `setup_native_preview_side_by_side_review_camera()` in `CubelessDungeonPCG.py`. It computes bounds for the bridge StaticMeshActor output and the offset native preview PCG actor, then frames both outputs side-by-side and records the camera in `CubelessDungeonMVP_NativeIntegrationPreview_Report.json`.
+- Tested a review-only PostProcessVolume approach to reduce bloom/exposure, but active viewport captures became too dark. The temporary post-process actor was destroyed and the helper was not kept in code.
+- Tested `viewmode unlit`, but the active viewport capture also became too dark for review. The viewport was returned to `lit`, and the validation level was reopened to reset viewport/render state.
+- Final review screenshot QA passed after the level reload and lit-state reset: `Saved/MCP_Dungeon/CubelessDungeonMVP_NativePreview_ReviewReloadedLit_active_viewport_visual_qa.png`, file size `236654`, dirty package count `0`.
+- Visual review: bridge output remains visible on the left, native preview output remains visible on the right, both layouts are separated and non-empty. Exposure is still prototype-grade but usable for generation comparison.
+- Preview generation stayed passing after the review pass: `63` Instanced Static Mesh components and `630` instances.
+
+## 2026-06-14 PCG dungeon native output candidate
+
+- Continued the C++-free native PCG promotion path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `MCP_Cubeless_Dungeon_MVP_NativeOutput` as the kept production candidate PCGVolume in `/Game/Cubeless/PCG/Dungeon/Maps/LVL_Cubeless_PCG_Dungeon_MVP`. It references the unoffset `/Game/Cubeless/PCG/Dungeon/Graphs/PCG_Cubeless_Dungeon_MVP_NativeIntegration` graph.
+- Added staged output helpers in `CubelessDungeonPCG.py`: `begin_native_integration_output()`, `verify_native_integration_output_generation()`, and `cleanup_native_integration_output()`.
+- Wrote `Saved/MCP_Dungeon/CubelessDungeonMVP_NativeIntegrationOutput_Report.json` with schema `cubeless_pcg_dungeon_native_integration_output_v1`.
+- Native output generation passed: generated attribute `true`, `63` Instanced Static Mesh components, and `630` total instances, matching the native integration graph's `63` material-safe Static Mesh Spawner branches and the point-source graph's `630` points.
+- Output bounds were min `[-4220.74, -3414.0, -1000.0]` and max `[5020.74, 4283.0, 1000.0]`.
+- Bridge StaticMeshActor output remains in the level as the current data/contract source, so the native output intentionally overlaps it at the origin for this step. The offset preview actor/graphs remain the visual comparison route.
+- Smoke test stayed passing after the output actor was added: generation produced `63` Instanced Static Mesh components and `630` instances, then cleanup left `0` residual components and `0` residual instances on the test actor.
+- Verification: native point-source, skeleton, integration, audit, smoke, and preview reports stayed passing; `save_dirty_packages=true`; dirty package count `0`.
+
+## 2026-06-14 PCG dungeon native output-only review mode
+
+- Continued the C++-free native PCG promotion path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added native-output-only review helpers in `CubelessDungeonPCG.py`: `set_native_output_only_review_mode(True)`, `setup_native_output_only_review_camera()`, `record_native_output_only_review_screenshot()`, and `restore_native_output_only_review_mode()`.
+- The review mode hides bridge-generated `MCP_Dungeon_MVP_*` StaticMeshActor validation output and the offset native preview PCG actor, without deleting the bridge actor, native output actor, preview actor, gameplay validation actors, or native PCG generated components.
+- Wrote `Saved/MCP_Dungeon/CubelessDungeonMVP_NativeOutputOnlyReview_Report.json` with schema `cubeless_pcg_dungeon_native_output_only_review_v1`.
+- Native-output-only review passed: bridge StaticMeshActor output actors `630`, visible bridge Static Mesh components `0`, hidden bridge Static Mesh components `630`, visible preview Static Mesh components `0`, hidden preview Static Mesh components `63`, native output generation `63` Instanced Static Mesh components and `630` instances.
+- Active viewport screenshot QA passed using clean game view and wrote `Saved/MCP_Dungeon/CubelessDungeonMVP_NativeOutputOnly_active_viewport_visual_qa.png`; report path `Saved/MCP_Dungeon/CubelessDungeonMVP_NativeOutputOnly_ScreenshotQA.json`; no dirty packages were added by the capture.
+- Visual review: the captured image now shows a single native PCG output layout rather than the previous overlap/side-by-side mix. Exposure remains prototype-grade.
+- Follow-up review found that restore/re-enable had not been explicitly tested. The restore roundtrip passed: restore made bridge visible components `630` and preview visible components `63`; re-enable returned bridge visible components `0` and preview visible components `0`.
+- Adjusted `set_native_output_only_review_mode(True)` so repeated checks in the same native-output-only state preserve the recorded screenshot evidence instead of clearing it.
+- Added `verify_native_output_only_review_restore_roundtrip()` so the restore/re-enable proof is now written into `CubelessDungeonMVP_NativeOutputOnlyReview_Report.json` as `restore_roundtrip.pass=true`; the helper ends back in native-output-only mode.
+
+## 2026-06-14 PCG dungeon native primary refresh workflow
+
+- Continued the C++-free native PCG promotion path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added staged native primary refresh helpers in `CubelessDungeonPCG.py`: `begin_native_primary_output_refresh()` and `verify_native_primary_output_refresh()`.
+- The begin step keeps the existing bridge actor tags, refreshes the bridge validation dungeon/contract, rebuilds native point-source, skeleton, integration graph reports and audits, then requests `MCP_Cubeless_Dungeon_MVP_NativeOutput` generation.
+- The verify step waits for the editor tick path, verifies native output generation, enables native-output-only review mode, frames the output camera, saves dirty packages, and writes `Saved/MCP_Dungeon/CubelessDungeonMVP_NativePrimaryRefresh_Report.json` with schema `cubeless_pcg_dungeon_native_primary_refresh_v1`.
+- Latest staged refresh passed: validation dungeon actors `981`, PCG spawn points `630`, native point-source graph `pass=true`, native skeleton graph/audit `pass=true`, native integration graph/audit `pass=true`, native output `63` Instanced Static Mesh components and `630` instances, output-only review `pass=true`, camera success `true`, dirty package count `0`.
+- Active viewport screenshot QA passed using clean game view and wrote `Saved/MCP_Dungeon/CubelessDungeonMVP_NativePrimaryRefresh_active_viewport_visual_qa.png`; report path `Saved/MCP_Dungeon/CubelessDungeonMVP_NativePrimaryRefresh_ScreenshotQA.json`.
+- Production smoke test stayed passing after the primary refresh: generation produced `63` Instanced Static Mesh components and `630` instances, then cleanup left `0` residual components and `0` residual instances.
+- Added `record_native_primary_refresh_screenshot()`, `record_native_primary_refresh_smoke_result()`, and `record_native_primary_refresh_artifacts()` so `CubelessDungeonMVP_NativePrimaryRefresh_Report.json` now embeds screenshot QA and staged native smoke-test evidence directly.
+- Review fix: the first smoke embedding pass incorrectly treated cleanup residual `0` as false because of a Python `value or -1` fallback. The check now uses `_coerce_int()`, and primary refresh pass recomputes from its checks so a stale false result can recover after corrected evidence is attached.
+- Final self-contained primary refresh report passed with `screenshot_qa_pass=true`, `smoke_test_pass=true`, smoke generation `63` components / `630` instances, and smoke cleanup residual `0` components / `0` instances.
+
+## 2026-06-14 PCG dungeon native primary final gate
+
+- Continued the C++-free native PCG promotion path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `record_native_primary_refresh_final_gate()` in `CubelessDungeonPCG.py`.
+- The final gate writes `Saved/MCP_Dungeon/CubelessDungeonMVP_NativePrimaryRefresh_FinalGate.json` with schema `cubeless_pcg_dungeon_native_primary_refresh_final_gate_v1`.
+- The gate does not regenerate the dungeon. It reads the latest native primary refresh report, primary-refresh screenshot QA report, staged native smoke-test report, and native output-only review report, then checks the live `MCP_Cubeless_Dungeon_MVP_NativeOutput` actor and current editor dirty packages.
+- Final gate passed: primary refresh `passed`, screenshot QA `true`, smoke test `true`, output-only review `true`, live native output `63` Instanced Static Mesh components / `630` instances, dirty package count `0`, and failed check count `0`.
+- Verification: `python -m py_compile` passed for both dungeon scripts before running the Unreal helper, and `git diff --check` passed.
+
+## 2026-06-14 PCG dungeon gameplay placeholders
+
+- Continued the PCG dungeon playable-layer path without project C++ and without sibling `unreal-mcp-cubeless` changes.
+- Added `create_or_update_gameplay_placeholders()` in `CubelessDungeonPCG.py`.
+- Added `/Game/Cubeless/PCG/Dungeon/Blueprints` placeholder Blueprint assets: player start, exit, key pickup, locked gate, reward, enemy spawn, boss spawn, and shop.
+- The helper reads `Saved/MCP_Dungeon/CubelessDungeonMVP_GameplayData.json`, clears only actors tagged `DungeonGameplayPlaceholder` or labeled `MCP_Dungeon_Gameplay_*`, respawns placeholder Blueprint actors from gameplay anchors, audits counts and lock-key tags, saves dirty packages, and writes `Saved/MCP_Dungeon/CubelessDungeonMVP_GameplayPlaceholder_Report.json`.
+- Final placeholder placement passed: spawned `22` actors with counts player start `1`, exit `1`, shop `1`, key `1`, reward `4`, locked gate `1`, enemy `12`, and boss `1`. Count mismatches `0`, missing required tags `0`, lock-key linkage pass `true`, spawn errors `0`, and dirty package count after save `0`.
+- Native primary final gate was rerun afterward and stayed passed with native output `63` components / `630` instances, dirty package count `0`, and failed check count `0`.
+- Residual limit: these are placement/linkage placeholder Blueprints only. Pickup behavior, gate opening, reward interaction, shop UI, enemy AI, boss behavior, and exit behavior still need gameplay implementation.
+
+## 2026-06-14 PCG dungeon gameplay interaction contract
+
+- Continued the C++-free playable-layer path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `build_gameplay_interaction_contract()` in `CubelessDungeonPCG.py`.
+- The helper reads `CubelessDungeonMVP_GameplayPlaceholder_Report.json`, checks live `MCP_Dungeon_Gameplay_*` placeholder actors, tags them with `DungeonInteractionContractId`, `DungeonInteractionKind`, and `DungeonInteractionState`, and writes `Saved/MCP_Dungeon/CubelessDungeonMVP_GameplayInteractionContract.json`.
+- Contract kinds now cover player spawn, exit activation, shop open, key pickup, reward chest, exit unlock reward, locked gate, enemy spawn, and boss spawn.
+- Final contract passed: contract entries `22`, player spawn `1`, exit activation `1`, shop open `1`, key pickup `1`, reward chest `3`, exit unlock reward `1`, locked gate `1`, enemy spawn `12`, boss spawn `1`, key-gate linkage pass `true`, placeholder coverage pass `true`, actor update errors `0`, entry failures `0`, and dirty package count after save `0`.
+- Native primary final gate was rerun afterward and stayed passed with native output `63` components / `630` instances, dirty package count `0`, and failed check count `0`.
+- Residual limit: this is a behavior contract and live tag handoff, not actual Blueprint graph logic. Pickup, gate opening, reward, shop UI, enemy AI, boss, and exit behavior still need implementation against this contract.
+
+## 2026-06-14 PCG dungeon Blueprint runtime handoff variables
+
+- Continued the C++-free playable-layer path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added common runtime handoff variables to the eight gameplay placeholder Blueprints: `InteractionContractId`, `InteractionKind`, `InteractionState`, `bInteractionReady`, and `bInteractionConsumed`.
+- Set those variables to Instance Editable, then compiled and saved all eight placeholder Blueprints through UnrealMCP. All compiled with `compile_error_count=0` and `compile_warning_count=0`.
+- Updated `build_gameplay_interaction_contract()` so it writes the interaction contract id/kind/state and ready/consumed booleans onto the live placeholder actor instances. After placeholder regeneration, instance variable update errors are `0`.
+- Added `simulate_gameplay_interaction_flow()` and report `Saved/MCP_Dungeon/CubelessDungeonMVP_GameplayFlowSimulation_Report.json` with schema `cubeless_pcg_dungeon_gameplay_flow_simulation_v1`.
+- Flow simulation passed: player spawn ready, key pickup, locked gate unlock, reward contracts available, encounter spawns available, and exit activation ready all passed. The simulation collected `D142857_Key_000` and opened `D142857_Lock_000`.
+- Native primary final gate was rerun afterward and stayed passed with native output `63` components / `630` instances, dirty package count `0`, and failed check count `0`.
+- Residual limit: this is still not PIE runtime behavior. The Blueprints now expose state variables and live instance values, but pickup, gate opening, reward, shop UI, enemy AI, boss, and exit behavior still need graph or gameplay-system implementation.
+
+## 2026-06-14 PCG dungeon key/gate Blueprint state events
+
+- Continued the C++-free playable-layer path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added a minimal callable state-transition graph to `BP_DungeonGameplay_KeyPickupPlaceholder`: custom event `DungeonInteract` sets `bInteractionConsumed=true`, `bInteractionReady=false`, and `InteractionState=consumed`.
+- Added a minimal callable state-transition graph to `BP_DungeonGameplay_LockedGatePlaceholder`: custom event `DungeonUnlockGate` sets `InteractionState=unlocked`, `bInteractionReady=true`, and `bInteractionConsumed=false`.
+- Verified the Blueprint graph wiring through UnrealMCP: custom events connect to the expected variable setter chain, and the setter default values are `true/false/consumed` for key pickup and `unlocked/true/false` for locked gate.
+- Compiled and saved both Blueprints. Key and locked gate both compiled with `compile_error_count=0`, `compile_warning_count=0`, and validation pass `true`.
+- Reran gameplay interaction contract and flow simulation. Contract pass stayed `true`, contract entries `22`, instance variable update errors `0`, flow simulation pass `true`, collected key `D142857_Key_000`, and opened lock `D142857_Lock_000`.
+- Native primary final gate was rerun afterward and stayed passed with native output `63` components / `630` instances, dirty package count `0`, and failed check count `0`.
+- Residual limit: these are callable state events, not routed gameplay. Player overlap/input routing, dispatch from key pickup to gate unlock, reward/shop/exit behavior, and combat AI still need implementation.
+
+## 2026-06-14 PCG dungeon key overlap routing
+
+- Continued the C++-free playable-layer path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added minimal overlap routing to `BP_DungeonGameplay_KeyPickupPlaceholder`: `ActorBeginOverlap` now connects to a separate setter chain that sets `bInteractionConsumed=true`, `bInteractionReady=false`, and `InteractionState=consumed`.
+- Kept the existing `DungeonInteract` custom event chain intact, so the key can be consumed either by direct event call or overlap routing.
+- Revalidated `BP_DungeonGameplay_KeyPickupPlaceholder` and `BP_DungeonGameplay_LockedGatePlaceholder`; both compile and save with `compile_error_count=0`, `compile_warning_count=0`, and validation pass `true`.
+- Reran gameplay interaction contract and flow simulation. Contract pass stayed `true`, contract entries `22`, instance variable update errors `0`, flow simulation pass `true`, collected key `D142857_Key_000`, and opened lock `D142857_Lock_000`.
+- Native primary final gate stayed passed with native output `63` components / `630` instances, dirty package count `0`, and failed check count `0`.
+- Residual limit: gate cross-actor dispatch is still not wired. The next gameplay step is to route a consumed key to the matching locked gate's `DungeonUnlockGate` event, then add reward/shop/exit behavior.
+
+## 2026-06-14 PCG dungeon key-to-gate dispatch
+
+- Continued the C++-free playable-layer path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `LinkedGateActor` to `BP_DungeonGameplay_KeyPickupPlaceholder` as an instance-editable reference to `BP_DungeonGameplay_LockedGatePlaceholder`.
+- Updated `build_gameplay_interaction_contract()` so key placeholders resolve `DungeonUnlocksLockIds` to the matching locked gate actor and write that reference to the live key actor instance.
+- Extended the interaction contract validation with `key_linked_gate_reference_count`, `key_linked_gate_reference_fail_count`, and `key_linked_gate_reference_pass`.
+- Wired both key consumption routes to the gate: `ActorBeginOverlap -> consumed state -> LinkedGateActor.DungeonUnlockGate`, and direct `DungeonInteract -> consumed state -> LinkedGateActor.DungeonUnlockGate`.
+- Revalidated the key and locked gate Blueprints. Both compile and save with `compile_error_count=0`, `compile_warning_count=0`, and validation pass `true`.
+- Reran gameplay interaction contract and flow simulation. Contract pass stayed `true`, contract entries `22`, key linked-gate reference count `1`, key linked-gate reference pass `true`, instance variable update errors `0`, flow simulation pass `true`, collected key `D142857_Key_000`, and opened lock `D142857_Lock_000`.
+- Residual limit: this is still not a full PIE gameplay pass. Reward, shop, enemy AI, boss, and exit behavior still need implementation.
+
+## 2026-06-14 PCG dungeon placeholder gameplay events
+
+- Continued the C++-free playable-layer path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added minimal callable runtime state events for the remaining gameplay placeholder Blueprints:
+  - `BP_DungeonGameplay_RewardPlaceholder.DungeonOpenReward`: consumed `true`, ready `false`, state `opened`.
+  - `BP_DungeonGameplay_ShopPlaceholder.DungeonOpenShop`: consumed `false`, ready `true`, state `open`.
+  - `BP_DungeonGameplay_ExitPlaceholder.DungeonActivateExit`: consumed `false`, ready `true`, state `active`.
+  - `BP_DungeonGameplay_ExitPlaceholder.DungeonUseExit`: consumed `true`, ready `false`, state `completed`.
+  - `BP_DungeonGameplay_EnemySpawnPlaceholder.DungeonSpawnEnemy`: consumed `true`, ready `false`, state `spawned`.
+  - `BP_DungeonGameplay_BossSpawnPlaceholder.DungeonSpawnBoss`: consumed `true`, ready `false`, state `boss_spawned`.
+- Verified event graph wiring through UnrealMCP node listings; each event's exec output links into its setter chain.
+- Compiled and saved Reward, Shop, Exit, EnemySpawn, and BossSpawn placeholder Blueprints. All compiled with `compile_error_count=0`, `compile_warning_count=0`, and validation pass `true`.
+- Residual limit: these are state events only. Real reward content spawning, shop UI, enemy AI, boss combat, and exit/level transition logic still need implementation.
+
+## 2026-06-14 PCG dungeon Blueprint state event validation
+
+- Continued the C++-free playable-layer path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `validate_gameplay_blueprint_state_events()` to `CubelessDungeonPCG.py`.
+- The helper rebuilds the interaction contract, calls live placeholder Blueprint custom events in the editor, validates the resulting `InteractionState`, `bInteractionReady`, and `bInteractionConsumed` values, then rebuilds the interaction contract again to restore placeholder instance state.
+- Verified the real key-to-gate event path: calling `MCP_Dungeon_Gameplay_Key_000.DungeonInteract` set the key to `consumed` and the linked gate to `unlocked`.
+- Generated `Saved/MCP_Dungeon/CubelessDungeonMVP_GameplayStateEventValidation_Report.json` with pass `true`, key event results `1`, non-key event results `20`, validation failures `0`, and reset failures `0`.
+- Residual limit: this validates Blueprint state events in the editor, not full PIE gameplay, reward content spawning, shop UI, enemy AI, boss combat, or exit travel.
+
+## 2026-06-14 PCG dungeon final gate gameplay event coverage
+
+- Extended `record_native_primary_refresh_final_gate()` so the native final gate now reads `Saved/MCP_Dungeon/CubelessDungeonMVP_GameplayStateEventValidation_Report.json`.
+- Added final gate checks for gameplay state event report load, validation pass, key event result count, non-key event result count, validation failure count `0`, and reset failure count `0`.
+- Reran `record_native_primary_refresh_final_gate()`. The final gate stayed passed with native output `63` components / `630` instances, dirty package count `0`, gameplay state event validation pass `true`, validation failures `0`, and reset failures `0`.
+- Residual limit: the final gate now protects Blueprint state-event regressions, but it still does not run full PIE gameplay or validate reward content, UI, AI, boss combat, or exit travel.
+
+## 2026-06-14 PCG dungeon gameplay placeholder visuals
+
+- Continued the C++-free playable-layer path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added one visible `StaticMeshComponent` to each gameplay placeholder Blueprint, using only existing Geometry Script-created Static Mesh assets:
+  - player start uses `SM_GS_Dungeon_SpawnMarker`
+  - exit uses `SM_GS_Dungeon_Detail_Arch`
+  - key uses `SM_GS_Dungeon_RoomVariant_ProgressionRune`
+  - locked gate uses `SM_GS_Dungeon_LockedDoorSeal`
+  - reward uses `SM_GS_Dungeon_Detail_Pedestal`
+  - shop uses `SM_GS_Dungeon_Detail_Counter`
+  - enemy spawn uses `SM_GS_Dungeon_RoomVariant_CombatPartition`
+  - boss spawn uses `SM_GS_Dungeon_Detail_BossFocus`
+- Compiled and saved all eight gameplay placeholder Blueprints. All compiled with `compile_error_count=0`, `compile_warning_count=0`, and validation pass `true`.
+- Regenerated the live gameplay placeholder actors so existing level instances received the new StaticMeshComponent templates, then rebuilt the interaction contract. Placeholder pass stayed `true`, spawned actor count stayed `22`, contract pass stayed `true`, and contract entries stayed `22`.
+- Added `validate_gameplay_placeholder_visual_components()` and generated `Saved/MCP_Dungeon/CubelessDungeonMVP_GameplayPlaceholderVisual_Report.json` with pass `true`, actor count `22`, component failures `0`, and mesh failures `0`.
+- Extended `record_native_primary_refresh_final_gate()` so the native final gate now also reads the placeholder visual validation report. The updated final gate stayed passed with native output `63` components / `630` instances, dirty package count `0`, visual validation pass `true`, component failures `0`, and mesh failures `0`.
+- Residual limit: this makes gameplay placeholders visible and validates their mesh components, but it is not a full reward, shop UI, enemy AI, boss combat, exit travel, or screenshot composition pass.
+
+## 2026-06-14 PCG dungeon gameplay visual state feedback
+
+- Continued the C++-free playable-layer path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Wired Blueprint event graph visual feedback using `SceneComponent.SetVisibility(false)` on existing `DungeonVisual_*` StaticMeshComponents:
+  - `BP_DungeonGameplay_KeyPickupPlaceholder`: both `DungeonInteract` and `ActorBeginOverlap` hide `DungeonVisual_Key` before dispatching to the linked gate.
+  - `BP_DungeonGameplay_LockedGatePlaceholder`: `DungeonUnlockGate` hides `DungeonVisual_LockedGate`.
+  - `BP_DungeonGameplay_RewardPlaceholder`: `DungeonOpenReward` hides `DungeonVisual_Reward`.
+  - `BP_DungeonGameplay_ExitPlaceholder`: `DungeonUseExit` hides `DungeonVisual_Exit`; `DungeonActivateExit` leaves it visible.
+  - `BP_DungeonGameplay_EnemySpawnPlaceholder`: `DungeonSpawnEnemy` hides `DungeonVisual_EnemySpawn`.
+  - `BP_DungeonGameplay_BossSpawnPlaceholder`: `DungeonSpawnBoss` hides `DungeonVisual_BossSpawn`.
+- Recompiled and saved the modified gameplay placeholder Blueprints. Key, locked gate, reward, exit, enemy spawn, and boss spawn all compiled with `compile_error_count=0`, `compile_warning_count=0`, and validation pass `true`.
+- Extended `validate_gameplay_blueprint_state_events()` so it now validates visual component visibility in addition to `InteractionState`, `bInteractionReady`, and `bInteractionConsumed`. It resets all `DungeonVisual_*` components visible before and after validation.
+- Reran placeholder regeneration, contract rebuild, visual component validation, state/visibility event validation, and final gate. Results stayed passed: placeholder pass `true`, contract pass `true`, visual validation pass `true`, state event validation pass `true`, non-key event results `21`, state failures `0`, visual failures `0`, reset failures `0`, visual reset failures `0`, final gate pass `true`, native output `63` components / `630` instances.
+- Residual limit: visual feedback now reacts to events in editor validation, but this is still not full PIE gameplay, reward item spawning, shop UI, enemy AI, boss combat, exit travel, or screenshot composition proof.
+
+## 2026-06-14 PCG dungeon gameplay content outcome contract
+
+- Continued the C++-free playable-layer path. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `GAMEPLAY_CONTENT_OUTCOME_CONTRACT_PATH` and `build_gameplay_content_outcome_contract()` to `CubelessDungeonPCG.py`.
+- Generated `Saved/MCP_Dungeon/CubelessDungeonMVP_GameplayContentOutcomeContract.json` with schema `cubeless_pcg_dungeon_gameplay_content_outcome_contract_v1`.
+- The outcome contract maps every live interaction contract to a later real-content handoff: player start proxy, inventory key token, gate unlock token, loot proxy, shop service proxy, exit flow proxy, enemy spawn proxy, and boss spawn proxy.
+- Latest outcome validation passed: outcome count `22`, state-event coverage count `22`, failure count `0`, player start `1`, exit flow `1`, shop service `1`, inventory key `1`, loot `4`, gate unlock `1`, enemy spawn `12`, and boss spawn `1`.
+- Extended `record_native_primary_refresh_final_gate()` so the final gate now requires the gameplay content outcome contract to load, pass, match the Blueprint state-event coverage count, and have zero outcome validation failures.
+- Reran the outcome contract and final gate in Unreal. Results stayed passed: final gate `true`, failed checks `0`, native output `63` components / `630` instances, dirty package count `0`.
+- Residual limit: this is a contract-only content handoff. Real loot spawning, shop UI, enemy AI, boss combat, and exit travel still need implementation.
+
+## 2026-06-14 PCG dungeon generation focus gate
+
+- Pivoted the active scope back to PCG dungeon generation. Gameplay placeholder assets and contracts remain as metadata, but playable reward, shop, enemy, boss, and exit behavior are not part of this gate.
+- Added bridge tag defaults and parsing for `DungeonBranchChancePercent`, `DungeonMaxLoopEdges`, `DungeonGridCellSize`, `DungeonCorridorWidth`, `DungeonUseCeiling`, `DungeonUseThemeMaterials`, and `DungeonPreviewMode`.
+- Applied functional layout controls for branch chance and max loop edges. The current default uses branch chance `100`, max loop edges `2`, and records `added_loop_edges=2`.
+- Added runtime application reporting for seed, room count, branch chance, loop-edge cap, ceiling enable, theme material enable, grid cell size, corridor width, and preview mode. At that checkpoint, `GridCellSize`, `CorridorWidth`, and `PreviewMode` were metadata-only because Geometry Script modules still used the fixed `TILE=400` basis.
+- Regenerated the validation dungeon from the PCG bridge with `source=pcg_generation_focus`: rooms `11`, room graph edges `12`, cells `209`, validation actors `998`, PCG spawn points `642`, wall instances `220`, door instances `24`, corridor detail instances `37`, and ceiling instances `35`.
+- Rebuilt the native point-source, skeleton, and integration graphs from the refreshed point set. Native integration graph validation stayed passed with `137` nodes and `63` Static Mesh Spawner branches.
+- Regenerated the kept native output actor `MCP_Cubeless_Dungeon_MVP_NativeOutput`; live verification passed with `63` Instanced Static Mesh components and `642` total instances.
+- Added `audit_pcg_dungeon_structure_and_orientation()` and `record_pcg_generation_final_gate()`. The structure/orientation audit passed with direction yaw mismatches `0`, tagged yaw mismatches `0`, missing wall directions `0`, single-mesh spawner group failures `0`, and material split group failures `0`.
+- Added `Saved/MCP_Dungeon/CubelessDungeonMVP_PCGGeneration_FinalGate.json` as the active gate for the current scope. Latest gate passed with seed suite `5/5`, native output `63` components / `642` instances, dirty package count `0`, and failed check count `0`.
+- Updated `docs/pcg-dungeon-mvp.md` so the `642`-instance PCG generation gate is the current authority, while older `630`-instance screenshot and primary-refresh records remain documented as previous evidence.
+- No project C++ was changed, and no sibling `unreal-mcp-cubeless` changes were made.
+- Residual limit: the random layout and point-source data are still Python/export-backed into native PCG graph output. A later V2 can promote stable layout generation rules into more native PCG graph logic.
+
+## 2026-06-14 PCG dungeon generation screenshot gate
+
+- Refreshed native-output-only review mode for the current `642`-instance PCG dungeon output. The bridge StaticMeshActor validation output and offset preview output were hidden, while `MCP_Cubeless_Dungeon_MVP_NativeOutput` remained generated.
+- Captured the current top-down native-output-only screenshot to `Saved/MCP_Dungeon/CubelessDungeonMVP_PCGGenerationNativeOutputOnly_active_viewport_visual_qa.png` and report `Saved/MCP_Dungeon/CubelessDungeonMVP_PCGGeneration_NativeOutputOnly_ScreenshotQA.json`. Screenshot QA passed with non-empty file output, capture route health pass, and dirty-package delta `0`.
+- Captured a more readable oblique native-output-only screenshot to `Saved/MCP_Dungeon/CubelessDungeonMVP_PCGGenerationNativeOutputOnly_Oblique_active_viewport_visual_qa.png` and report `Saved/MCP_Dungeon/CubelessDungeonMVP_PCGGeneration_NativeOutputOnly_Oblique_ScreenshotQA.json`. Screenshot QA passed with non-empty file output, capture route health pass, and dirty-package delta `0`.
+- Extended `record_pcg_generation_final_gate()` so the current PCG generation gate now requires both top and oblique screenshot QA reports to load, pass, point at non-empty PNG files, and add no dirty packages during capture.
+- Reran the PCG generation final gate after module reload. Latest result stayed passed: native output `63` components / `642` instances, top screenshot QA `true`, oblique screenshot QA `true`, dirty package count `0`, and failed check count `0`.
+- Visual note: the current material/exposure setup is still bright, but the oblique screenshot makes room shapes, wall panels, corridors, and directional layout readable enough for this gate.
+
+## 2026-06-14 PCG dungeon native-output-only light isolation
+
+- Extended `set_native_output_only_review_mode()` so it now hides bridge-generated review PointLight/ThemeLight actors in addition to bridge StaticMeshActors and the offset native preview output. Review DirectionalLight/SkyLight are intentionally kept.
+- Re-applied native-output-only review mode in Unreal. The report passed with bridge visible StaticMesh components `0`, hidden bridge StaticMesh components `642`, preview visible StaticMesh components `0`, visible review light components `0`, and hidden review light components `17`.
+- Recaptured the PCG generation top screenshot and oblique screenshot after hiding the overlapping validation lights. Both screenshot QA reports stayed passed, both added `0` dirty packages, and the oblique screenshot remains readable for room shapes, wall panels, and corridor connections.
+- Reran `record_pcg_generation_final_gate()`. Latest result stayed passed with native output `63` components / `642` instances, top screenshot QA `true`, oblique screenshot QA `true`, dirty package count `0`, and failed check count `0`.
+- Residual visual note: the dungeon material set still reads bright in lit viewport capture, but the overlapping validation-light bloom is reduced and the current screenshots are stronger evidence than the previous capture set.
+
+## 2026-06-14 PCG dungeon generation scale parameters
+
+- Continued the PCG-generation-only scope. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Made `DungeonGridCellSize` functional for generated world spacing, wall offsets, room/door volume extents, marker/detail offsets, and Static Mesh actor XY scale. The default remains `400`.
+- Made `DungeonCorridorWidth` functional for corridor module width, door/connector/locked seal width, corridor detail width, and related gate/door volume width. The default remains `400`.
+- Corrected the transform-axis policy: straight corridor modules narrow on local Y, while door and connector modules narrow on local X; corner/junction corridor details use both XY axes.
+- Added `validate_generation_scale_parameters()` and `Saved/MCP_Dungeon/CubelessDungeonMVP_GenerationParameterScale_Report.json`. The smoke test samples `DungeonGridCellSize=520` and `DungeonCorridorWidth=280` without changing level actors and passed all checks.
+- Regenerated the default validation dungeon from the bridge config, rebuilt native point-source/skeleton/integration graph reports and audits, and regenerated the kept native output actor. The current default remains rooms `11`, room graph edges `12`, PCG spawn points `642`, native output `63` components / `642` instances.
+- Reran the structure/orientation audit. It passed with direction yaw mismatches `0`, tagged yaw mismatches `0`, missing wall directions `0`, single-mesh spawner group failures `0`, material split group failures `0`, and config functional checks passing for `GridCellSize` and `CorridorWidth`.
+- Recaptured the native-output-only top and oblique screenshots. Both screenshot QA reports passed, both wrote non-empty PNG files, and screenshot capture added `0` dirty packages.
+- Extended `record_pcg_generation_final_gate()` so the active PCG generation gate now requires the generation parameter-scale report. Latest gate passed with failed check count `0`, top screenshot QA `true`, oblique screenshot QA `true`, parameter-scale pass `true`, and dirty package count `0`.
+- Residual limit: module Static Mesh assets are still authored by Geometry Script at the base `TILE=400` size. Non-default grid/corridor sizes are applied through actor and PCG point transforms, not by regenerating separate mesh geometry per size.
+
+## 2026-06-14 PCG dungeon authoring surface validation
+
+- Continued the PCG-generation-only scope. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `CONFIG_AUTHORING_SPECS` so every supported bridge tag now has one source of truth for config key, tag name, alias, type, min/max range, default, and purpose.
+- Refactored bridge tag parsing to use the authoring spec table. Existing aliases still work: `DungeonTreasureCount` maps to `chest_count`, and `DungeonBranchChance` maps to `branch_chance_percent`.
+- Added documented authoring presets in `DUNGEON_AUTHORING_PRESETS`: `default`, `compact_branching`, `wide_looped`, and `open_cutaway`.
+- Added `validate_authoring_surface()` and generated `Saved/MCP_Dungeon/CubelessDungeonMVP_AuthoringSurface_Report.json` with schema `cubeless_pcg_dungeon_authoring_surface_v1`.
+- The authoring report validates live bridge tags and preset layout health. Latest result passed with missing config tags `0`, unknown config tags `0`, duplicate canonical fields `0`, clamped/invalid values `0`, and preset failures `0`.
+- The `wide_looped` preset was corrected from seed `142862` to seed `142858` after validation caught that the previous seed placed only `13` of the requested `14` rooms. A later seed-suite gate reduced it to `11` rooms with `4` added loop edges, because the 14-room version was not stable across the 5-seed suite.
+- Extended `record_pcg_generation_final_gate()` so the active PCG generation gate now requires the authoring surface report. Latest gate passed with failed check count `0`, native output `63` components / `642` instances, authoring surface pass `true`, and dirty package count `0`.
+- Residual limit: this still uses actor tags as the no-C++ authoring surface. A future usability pass can replace or supplement tags with a Blueprint controller UI once the asset-editing route is worth the extra complexity.
+
+## 2026-06-14 PCG dungeon preset apply/restore workflow
+
+- Continued the PCG-generation-only scope. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `apply_authoring_preset_to_bridge(preset_name)` so documented presets can replace the bridge actor's supported dungeon config tags with canonical preset tags instead of requiring manual tag edits.
+- Added `validate_authoring_preset_apply_restore_smoke(preset_name)` and generated `Saved/MCP_Dungeon/CubelessDungeonMVP_AuthoringPresetSmoke_Report.json` with schema `cubeless_pcg_dungeon_authoring_preset_smoke_v1`.
+- The smoke test applies `wide_looped`, validates that it parses to `11` rooms and `4` added loop edges, then restores the exact original default bridge tags.
+- Latest preset smoke passed with failed checks `0`, restored config matching the original default bridge tags, authoring surface pass after restore `true`, and dirty package count `0`.
+- Extended `record_pcg_generation_final_gate()` so the active PCG generation gate now requires the authoring preset smoke report. Latest gate passed with failed check count `0`, native output `63` components / `642` instances, authoring surface pass `true`, preset smoke pass `true`, and dirty package count `0`.
+- Residual limit: applying a preset only changes bridge actor tags. The user still needs to refresh the PCG bridge component afterward to regenerate the validation dungeon from those tags.
+
+## 2026-06-14 PCG dungeon generation refresh helper
+
+- Continued the PCG-generation-only scope. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `PCG_GENERATION_REFRESH_REPORT_PATH`, `begin_pcg_generation_refresh_from_bridge()`, and `verify_pcg_generation_refresh()` to `CubelessDungeonPCG.py`.
+- Added `begin_pcg_generation_refresh_with_authoring_preset(preset_name)` as the staged begin route for applying a documented bridge preset and immediately starting the same PCG-generation-only refresh.
+- The begin helper validates the bridge tag authoring surface, runs preset apply/restore smoke and generation scale smoke checks, regenerates the bridge validation dungeon and point contracts, rebuilds native point-source/skeleton/integration graph reports and audits, and requests the kept NativeOutput PCG generation.
+- The verify helper checks NativeOutput generation, runs the structure/orientation audit, enables native-output-only review mode, frames the output camera, saves dirty packages, and writes `Saved/MCP_Dungeon/CubelessDungeonMVP_PCGGeneration_Refresh_Report.json`.
+- Extended `record_pcg_generation_final_gate()` so the active PCG generation gate now requires the refresh report.
+- Tested the preset-backed route with `default` only, so the saved bridge tags remain the default preset.
+- Latest refresh passed with failed checks `0`, native output `63` components / `642` instances, structure/orientation audit pass `true`, native-output-only review pass `true`, camera success `true`, and dirty package count `0`.
+- Latest PCG generation final gate stayed passed with failed checks `0`.
+- Residual limit: screenshot recapture is still a separate top/oblique QA step. If a non-default preset is applied for a new claimed visual result, recapture screenshot QA before treating the final gate as current visual evidence.
+
+## 2026-06-14 PCG dungeon screenshot freshness gate
+
+- Continued the PCG-generation-only scope. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Extended JSON report loading in `CubelessDungeonPCG.py` to record report file modification time.
+- Extended `record_pcg_generation_final_gate()` so top and oblique screenshot QA reports must be newer than the latest `CubelessDungeonMVP_PCGGeneration_Refresh_Report.json`.
+- Added `setup_pcg_generation_oblique_review_camera()` so the standard oblique NativeOutput review angle can be rebuilt from current output bounds after a preset refresh.
+- Verified the new freshness gate first failed as expected with stale screenshot reports: failed checks were `top_screenshot_after_generation_refresh` and `oblique_screenshot_after_generation_refresh`.
+- Recaptured the current default NativeOutput top and oblique screenshot QA reports with active viewport clean game view. Both capture reports passed, both wrote non-empty PNGs, and both added `0` dirty packages.
+- Reran the PCG generation final gate. Latest result passed with failed checks `0`, refresh report timestamp older than both screenshot reports, native output `63` components / `642` instances, and dirty package count `0`.
+- Residual limit: screenshot capture remains an external active-viewport QA command. The gate now catches stale screenshots, but it does not itself launch the screenshot capture command.
+
+## 2026-06-14 PCG dungeon visual gate QA runner
+
+- Continued the PCG-generation-only scope. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `Tools/Unreal/run_pcg_dungeon_generation_visual_gate_qa.py` as the one-command closeout runner for the current PCG generation visual gate.
+- The runner uses UnrealMCP to enable NativeOutput-only review mode, set the top camera, capture top active-viewport screenshot QA, set the standard oblique camera, capture oblique active-viewport screenshot QA, and call `record_pcg_generation_final_gate()`.
+- The runner reuses `Tools/Unreal/run_pcg_bookmark_visual_qa.py` capture logic in active-viewport mode only. It does not create or overwrite viewport bookmarks.
+- Verification command passed: `python Tools\Unreal\run_pcg_dungeon_generation_visual_gate_qa.py --redraw-count 2`.
+- Latest runner result passed with top capture pass `true`, oblique capture pass `true`, final gate pass `true`, failed checks `0`, native output `63` components / `642` instances, and dirty package count `0`.
+- Residual limit: this runner assumes the latest PCG generation refresh report already exists. Apply/verify a preset-backed refresh first, then run this visual gate runner.
+
+## 2026-06-14 PCG dungeon preset-backed visual gate runner
+
+- Continued the PCG-generation-only scope. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Extended `Tools/Unreal/run_pcg_dungeon_generation_visual_gate_qa.py` with `--preset`, `--refresh-current`, `--keep-existing-output`, `--refresh-wait-seconds`, `--refresh-timeout-seconds`, and `--refresh-poll-seconds`.
+- `--preset <name>` now runs `begin_pcg_generation_refresh_with_authoring_preset()`, polls `verify_pcg_generation_refresh()`, captures top/oblique screenshot QA, and records the final PCG generation gate.
+- `--refresh-current` runs the same flow from the current bridge tags without applying a preset.
+- Added a retry around UnrealMCP `execute_python` calls to tolerate a transient socket reset during long editor operations.
+- First `--preset default` attempt proved the need for polling: early verification saw native output `0` components / `0` instances while PCG generation was still pending.
+- Final verification command passed: `python Tools\Unreal\run_pcg_dungeon_generation_visual_gate_qa.py --preset default --redraw-count 2`.
+- Latest preset-backed runner result passed with refresh pass `true`, top capture pass `true`, oblique capture pass `true`, final gate pass `true`, failed checks `0`, native output `63` components / `642` instances, screenshot freshness pass `true`, and dirty package count `0`.
+- The successful default run kept the live bridge configuration on the `default` preset.
+- Residual limit: non-default preset runs intentionally leave the bridge tags on that preset. Use `--preset default` afterward if the default configuration should be restored.
+
+## 2026-06-14 PCG dungeon wide-looped preset gate fix
+
+- Continued the PCG-generation-only scope. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Added `--archive-label` to `Tools/Unreal/run_pcg_dungeon_generation_visual_gate_qa.py`. It copies the current refresh report, final gate report, top/oblique screenshot QA reports, top/oblique PNGs, and summary report under `Saved/MCP_Dungeon/PresetQA/<label>/`.
+- Tested the previous `wide_looped` preset end-to-end. NativeOutput generated `72` components / `704` instances, but the runner correctly failed because the seed suite failed for seeds `142857` and `142860`.
+- Root cause: the 14-room `wide_looped` draft passed its selected seed `142858`, but it was not stable across the active 5-seed suite. The suite requires all five seeds to satisfy the requested room count and layout checks.
+- Adjusted `wide_looped` from `14` rooms to `11` rooms while keeping the wider `GridCellSize=520`, `CorridorWidth=360`, and `4` loop edges.
+- Reran `python Tools\Unreal\run_pcg_dungeon_generation_visual_gate_qa.py --preset wide_looped --archive-label wide_looped_fixed --redraw-count 2 --refresh-timeout-seconds 240 --refresh-poll-seconds 2`.
+- Fixed `wide_looped` passed with seed suite pass `true`, refresh pass `true`, top/oblique capture pass `true`, final gate pass `true`, failed checks `0`, native output `62` components / `601` instances, screenshot freshness pass `true`, and dirty package count `0`.
+- Archive pass `true`; copied preset evidence under `Saved/MCP_Dungeon/PresetQA/wide_looped_fixed/`.
+- Restored the live bridge to default with `python Tools\Unreal\run_pcg_dungeon_generation_visual_gate_qa.py --preset default --archive-label default_restored_after_wide_looped --redraw-count 2 --refresh-timeout-seconds 240 --refresh-poll-seconds 2`.
+- Default restore passed with final gate pass `true`, failed checks `0`, native output `63` components / `642` instances, seed suite fail count `0`, screenshot freshness pass `true`, and dirty package count `0`.
+- Archive pass `true`; copied restore evidence under `Saved/MCP_Dungeon/PresetQA/default_restored_after_wide_looped/`.
+
+## 2026-06-14 PCG dungeon remaining preset gates
+
+- Continued the PCG-generation-only scope. No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+- Reran `python Tools\Unreal\run_pcg_dungeon_generation_visual_gate_qa.py --preset compact_branching --archive-label compact_branching --redraw-count 2 --refresh-timeout-seconds 240 --refresh-poll-seconds 2`.
+- `compact_branching` passed with refresh pass `true`, top/oblique capture pass `true`, final gate pass `true`, failed checks `0`, native output `62` components / `493` instances, screenshot freshness pass `true`, dirty package count `0`, and archive evidence under `Saved/MCP_Dungeon/PresetQA/compact_branching/`.
+- Reran `python Tools\Unreal\run_pcg_dungeon_generation_visual_gate_qa.py --preset open_cutaway --archive-label open_cutaway --redraw-count 2 --refresh-timeout-seconds 240 --refresh-poll-seconds 2`.
+- `open_cutaway` passed with refresh pass `true`, top/oblique capture pass `true`, final gate pass `true`, failed checks `0`, native output `61` components / `573` instances, screenshot freshness pass `true`, dirty package count `0`, and archive evidence under `Saved/MCP_Dungeon/PresetQA/open_cutaway/`.
+- Restored the live bridge to default with `python Tools\Unreal\run_pcg_dungeon_generation_visual_gate_qa.py --preset default --archive-label default_restored_after_compact_open --redraw-count 2 --refresh-timeout-seconds 240 --refresh-poll-seconds 2`.
+- Current live `default` passed with refresh pass `true`, top/oblique capture pass `true`, final gate pass `true`, failed checks `0`, native output `63` components / `642` instances, screenshot freshness pass `true`, dirty package count `0`, and archive evidence under `Saved/MCP_Dungeon/PresetQA/default_restored_after_compact_open/`.
+- Fixed the visual gate runner archive write order so future archived summary reports are copied after the `archive` metadata block has been written.
+- Verified the archive metadata fix with `python Tools\Unreal\run_pcg_dungeon_generation_visual_gate_qa.py --archive-label default_archive_metadata_fix --redraw-count 1 --refresh-timeout-seconds 240 --refresh-poll-seconds 2`.
+- The no-refresh archive metadata smoke kept the live `default` output, passed with top/oblique capture pass `true`, final gate pass `true`, native output `63` components / `642` instances, dirty package count `0`, and archived summary `archive.pass=true` under `Saved/MCP_Dungeon/PresetQA/default_archive_metadata_fix/`.
+- Notion auto-capture to `CubelessStylized 운영 문서` was unavailable because the Notion app connection required reauthentication, so this local work-log entry is the durable capture for this pass.
+
+## 2026-06-14 PCG dungeon preset archive refresh
+
+- Ieta decision: rerun the non-default preset gates after the archive summary write-order fix, because older archived summary JSON files had valid run results but no copied `archive.pass` metadata.
+- Reran `wide_looped` with `python Tools\Unreal\run_pcg_dungeon_generation_visual_gate_qa.py --preset wide_looped --archive-label wide_looped_fixed --redraw-count 2 --refresh-timeout-seconds 240 --refresh-poll-seconds 2`. It passed with final gate pass `true`, failed checks `0`, native output `62` components / `601` instances, dirty package count `0`, and archived summary `archive.pass=true`.
+- Reran `compact_branching` with `python Tools\Unreal\run_pcg_dungeon_generation_visual_gate_qa.py --preset compact_branching --archive-label compact_branching --redraw-count 2 --refresh-timeout-seconds 240 --refresh-poll-seconds 2`. It passed with final gate pass `true`, failed checks `0`, native output `62` components / `493` instances, dirty package count `0`, and archived summary `archive.pass=true`.
+- The first `open_cutaway` rerun hit the UnrealMCP socket response timeout while waiting for long `verify_pcg_generation_refresh()` work. This was a tooling timeout, not a failed final gate claim.
+- Updated `Tools/Unreal/run_pcg_dungeon_generation_visual_gate_qa.py` with `--mcp-response-timeout-seconds` and raised the default refresh/MCP response timeouts to `600s`.
+- Reran `open_cutaway` with the longer MCP response timeout. It passed with final gate pass `true`, failed checks `0`, native output `61` components / `573` instances, dirty package count `0`, and archived summary `archive.pass=true`.
+- Restored the live bridge to `default` with archive label `default_restored_after_preset_archive_refresh`. Final live output passed with final gate pass `true`, failed checks `0`, native output `63` components / `642` instances, screenshot freshness pass `true`, dirty package count `0`, and archived summary `archive.pass=true`.
+- No project C++ and no sibling `unreal-mcp-cubeless` changes were made.
+
+## 2026-06-14 PCG dungeon handoff snapshot
+
+- Ieta decision: after the preset archive refresh, the next useful step was result handoff hygiene rather than more generation changes.
+- Added a `Handoff Snapshot` section to `docs/pcg-dungeon-mvp.md` with the level to open, review output actor, source bridge actor, production graph candidate, current live preset, final gate report, visual runner summary, screenshot paths, and the fast review command.
+- Recorded the current generated content manifest under `/Game/Cubeless/PCG/Dungeon`: `8` Blueprint assets, `6` PCG graph assets, `1` map, `22` material assets, and `31` Geometry Script-baked Static Mesh modules.
+- Reconfirmed the active completion boundary: PCG dungeon generation only. Gameplay placeholder reports remain metadata, not the current success gate.
+
+## 2026-06-14 PCG dungeon delivery manifest
+
+- Ieta decision: create a separate submit/review manifest so the binary Unreal asset scope, script scope, generated evidence, and non-goals are not buried in the long MVP document.
+- Added `docs/pcg-dungeon-delivery-manifest.md` with the current live `default` state, versioned work scope, exact `/Game/Cubeless/PCG/Dungeon` asset list, preset evidence table, verification commands, and explicit non-goals.
+- Linked the delivery manifest from the `Handoff Snapshot` section of `docs/pcg-dungeon-mvp.md`.
+- No Unreal assets, project C++, or sibling `unreal-mcp-cubeless` files were modified in this manifest pass.
+
+## 2026-06-14 PCG dungeon asset manifest audit
+
+- Ieta decision: after documenting the delivery manifest, add a read-only Unreal AssetRegistry/load audit so the binary asset list is validated by the editor, not only by filesystem enumeration.
+- Added `Tools/Unreal/audit_pcg_dungeon_asset_manifest.py`. It compares local `Content/Cubeless/PCG/Dungeon` `.uasset`/`.umap` files against `/Game/Cubeless/PCG/Dungeon` AssetRegistry packages, loads each expected asset, checks for redirectors, and writes `Saved/MCP_Dungeon/CubelessDungeonMVP_AssetManifestAudit.json`.
+- Latest audit passed: expected assets `68`, registry assets `68`, loaded assets `68`, redirectors `0`, missing registry packages `0`, and load failures `0`.
+- Class counts matched the delivery manifest: Blueprint `8`, PCGGraph `6`, World `1`, Material `22`, and StaticMesh `31`.
+- Updated `docs/pcg-dungeon-delivery-manifest.md` and `docs/pcg-dungeon-mvp.md` to reference the audit tool and latest audit report.
+- No Unreal assets, project C++, or sibling `unreal-mcp-cubeless` files were modified in this audit pass.
+
+## 2026-06-14 PCG dungeon delivery preflight
+
+- Ieta decision: add a local preflight report before any possible commit/stage action, so the expected Git scope, Python syntax, delivery manifest coverage, final gate, asset audit, and preset archives can be checked in one command.
+- Added `Tools/Unreal/check_pcg_dungeon_delivery_preflight.py`. It does not stage, commit, push, modify Unreal assets, or run PCG generation.
+- Latest preflight report: `Saved/MCP_Dungeon/CubelessDungeonMVP_DeliveryPreflight.json`.
+- Latest preflight passed: Python compile `true`, project Git scope expected-only `true`, sibling `unreal-mcp-cubeless` clean `true`, delivery manifest coverage `true`, final gate `true`, asset manifest audit `true`, and preset archive summaries `true`.
+- Updated `docs/pcg-dungeon-delivery-manifest.md` and `docs/pcg-dungeon-mvp.md` to reference the preflight command/report.
+
+## 2026-06-14 PCG dungeon Git LFS attribute preflight
+
+- Ieta decision: verify Unreal binary asset Git attributes before any later commit, because the PCG dungeon delivery includes `68` new `.uasset`/`.umap` files.
+- Confirmed repository `.gitattributes` tracks `*.uasset` and `*.umap` through Git LFS with `filter=lfs`, `diff=lfs`, `merge=lfs`, and `-text`.
+- Extended `Tools/Unreal/check_pcg_dungeon_delivery_preflight.py` with `git_binary_asset_attributes`, which runs `git check-attr filter merge diff text` for every `.uasset`/`.umap` under `Content/Cubeless/PCG/Dungeon`.
+- Latest preflight passed with `68/68` Unreal binary assets using `filter=lfs`, `merge=lfs`, `diff=lfs`, and `text=unset`; failure count `0`.
+- Updated `docs/pcg-dungeon-delivery-manifest.md` to record the Git binary asset attribute result.
+
+## 2026-06-14 PCG dungeon editor log health preflight
+
+- Ieta decision: add latest-editor-log health to the delivery preflight so successful gates are not contradicted by a newer Unreal `Error`, `Fatal`, `Assertion`, or `Ensure` line.
+- Extended `Tools/Unreal/check_pcg_dungeon_delivery_preflight.py` with `latest_editor_log_health`. It scans the newest `Saved/Logs/*.log`, uses the newest delivery evidence timestamp as the checkpoint, and blocks only matching log lines after that checkpoint.
+- Latest log scan passed: latest log `Saved/Logs/StylizedCubeless.log`, checkpoint `2026-06-14T12:25:05Z`, blocking matches after checkpoint `0`.
+- Older exploratory errors remain visible in the log, with latest prior match from `2026-06-14T09:33:24Z` for a transient missing `record_pcg_generation_final_gate` function during development. This is recorded as prior context, not a current delivery blocker.
+- Updated `docs/pcg-dungeon-delivery-manifest.md` and `docs/pcg-dungeon-mvp.md` to describe the log-health policy.
+
+## 2026-06-14 PCG dungeon live dirty-state preflight
+
+- Ieta decision: check current Unreal Editor dirty packages after asset audit and preflight work, because the final gate's dirty count was captured before later read-only checks.
+- Added `Tools/Unreal/check_pcg_dungeon_live_dirty_state.py`. It uses UnrealMCP to read `EditorLoadingAndSavingUtils.get_dirty_content_packages()` and `get_dirty_map_packages()` without saving packages.
+- Latest live dirty-state report: `Saved/MCP_Dungeon/CubelessDungeonMVP_LiveDirtyState.json`.
+- Latest result passed with dirty content packages `0`, dirty map packages `0`, and dirty total `0`.
+- Extended `Tools/Unreal/check_pcg_dungeon_delivery_preflight.py` so delivery preflight now requires the live dirty-state report to pass.
+- Updated `docs/pcg-dungeon-delivery-manifest.md` and `docs/pcg-dungeon-mvp.md` to reference the live dirty-state report.
+## 2026-06-14 - PCG dungeon closed-ceiling default pass
+
+- Updated the PCG dungeon default authoring preset to use full ceiling coverage with `DungeonCeilingStride=1`; `open_cutaway` remains the ceiling-off review preset.
+- Added Geometry Script-baked ceiling module variants `ceiling_room`, `ceiling_corridor`, and `ceiling_corner`, backed by `SM_GS_Dungeon_Ceiling_Room`, `SM_GS_Dungeon_Ceiling_Corridor`, and `SM_GS_Dungeon_Ceiling_Corner`.
+- Regenerated the default PCG dungeon under `/Game/Cubeless/PCG/Dungeon`; the current default output now reports `209` ceiling actors (`172` room, `33` corridor, `4` corner), `816` PCG static mesh points, `32` mesh-key groups, and `65` native output components.
+- Verified the current PCG generation gate: `Saved/MCP_Dungeon/CubelessDungeonMVP_PCGGeneration_FinalGate.json` has `pass=true`, `65` native components, `816` native instances, fresh top/oblique screenshots, and dirty package count `0`.
+- Verified the AssetRegistry manifest audit: `71` expected assets, `71` registry assets, `71` loaded assets, `0` redirectors, class counts `Blueprint=8`, `PCGGraph=6`, `World=1`, `Material=22`, `StaticMesh=34`.
+- Local delivery preflight now passes for the PCG scope: Python compile, expected Git scope, LFS attributes, manifest coverage, latest gate, asset audit, live dirty state, preset archives, sibling workspace cleanliness, and latest editor-log-health checks all pass.
+
+## 2026-06-14 - PCG dungeon closed-ceiling review exposure fix
+
+- Investigated the closed-ceiling screenshots after full ceiling coverage. Ceiling meshes and material slots were correct, and the native output components used `M_Dungeon_Ceiling_SootStone`; the white look came from active viewport exposure/bloom against the mostly black review background, not from missing ceiling material.
+- Reduced review DirectionalLight/SkyLight intensity and added a generated `MCP_Dungeon_MVP_ReviewExposureVolume` PostProcessVolume with manual exposure bias `1.5` and bloom intensity `0.05`. The generated dungeon report now includes `review_postprocess_count=1`.
+- Extended `Tools/Unreal/run_pcg_dungeon_generation_visual_gate_qa.py` so it clears editor actor selection before each screenshot and records PNG exposure stats. The exposure gate now requires near-white pixels <= `1.0%`, bright pixels <= `8.0%`, and non-black pixels >= `3.0%`.
+- Reran the default preset closeout with `--archive-label default_closed_ceiling_postprocess_final`. Latest result passed with native output `65` components / `816` instances, final gate pass `true`, dirty package count `0`, and exposure review pass `true`.
+- Visual result: final top/oblique screenshots show closed ceilings as dark grey readable geometry instead of white clipped blocks. Current top/oblique near-white percentages are both `0.0%`.
+
+## 2026-06-15 - PCG dungeon postprocess preset suite refresh
+
+- Reran `compact_branching` with `--archive-label compact_branching_postprocess`. It passed with native output `64` components / `624` instances, final gate pass `true`, exposure review pass `true`, near-white `0.0%` for both top/oblique screenshots, and dirty package count `0`.
+- Reran `wide_looped` with `--archive-label wide_looped_postprocess`. It passed with native output `64` components / `764` instances, final gate pass `true`, exposure review pass `true`, near-white `0.0%` for both top/oblique screenshots, and dirty package count `0`.
+- Reran `open_cutaway` with `--archive-label open_cutaway_postprocess`. It passed with native output `61` components / `573` instances, final gate pass `true`, exposure review pass `true`, near-white `0.0%` for both top/oblique screenshots, and dirty package count `0`.
+- Restored the live bridge to `default` with `--archive-label default_restored_after_postprocess_preset_suite`. It passed with native output `65` components / `816` instances, final gate pass `true`, exposure review pass `true`, near-white `0.0%` for both top/oblique screenshots, and dirty package count `0`.
+- Updated delivery preflight archive labels to the postprocess archive suite and made `exposure_review_pass=true` mandatory for each checked preset archive.
+
+## 2026-06-15 - PCG dungeon native evidence refresh
+
+- Added `Tools/Unreal/run_pcg_dungeon_native_evidence_refresh.py` as the intended one-command refresh path for native primary refresh, staged native smoke, and native preview evidence after point-contract or ceiling changes.
+- Refreshed the native primary route to the closed-ceiling default contract: `CubelessDungeonMVP_NativePrimaryRefresh_Report.json` now passes with `65` native components / `816` instances, screenshot QA pass `true`, smoke test pass `true`, and dirty package count `0`.
+- Refreshed staged native smoke: generation produced `65` components / `816` instances and cleanup returned the test actor to `0` residual components / `0` residual instances.
+- Refreshed native preview: `CubelessDungeonMVP_NativeIntegrationPreview_Report.json` now passes with `65` components / `816` instances, and the side-by-side screenshot QA passed at `Saved/MCP_Dungeon/CubelessDungeonMVP_NativePreview_SideBySide_active_viewport_visual_qa.png`.
+- Restored/saved the level back to NativeOutput-only review state after preview capture: bridge validation StaticMeshActors visible `0`, preview visible `0`, native output `65` components / `816` instances, and live dirty packages `0`.
+- Extended delivery preflight with a PCG-only native evidence freshness check. It requires primary refresh, smoke, and preview counts to match the active PCG generation final gate; the older native primary final gate is recorded as context because it also reads gameplay placeholder reports outside the current active goal.
+- Note: the first full runner invocation hit the outer shell timeout during the smoke phase, so the remaining smoke/preview steps were completed through smaller UnrealMCP calls. The generated runner remains the reusable target path, but future runs may need a longer outer shell timeout on this machine.
+
+## 2026-06-15 - PCG dungeon native evidence summary closeout
+
+- Ieta decision: close the remaining runner hygiene gap by making native evidence summary regeneration possible without rerunning long Unreal generation work.
+- Added `--summarize-existing` to `Tools/Unreal/run_pcg_dungeon_native_evidence_refresh.py`. It reads the current primary refresh, primary final gate, smoke test, native preview, primary screenshot QA, preview side-by-side screenshot QA, and active PCG generation final gate reports, then writes `Saved/MCP_Dungeon/CubelessDungeonMVP_NativeEvidenceRefresh_Report.json` without touching Unreal assets or project C++.
+- Generated the combined native evidence summary from existing reports. Latest result: `success=true`, mode `summarize_existing_reports`, active gate `65` components / `816` instances, primary refresh pass `true`, smoke cleanup residual `0/0`, preview pass `true`, primary screenshot QA pass `true`, preview side-by-side screenshot QA pass `true`, failed checks `0`.
+- Extended `Tools/Unreal/check_pcg_dungeon_delivery_preflight.py` so native evidence freshness now also requires the combined summary file to exist, pass, match the active gate counts, and have all summary checks passing.
+- Verification: `python -m py_compile` passed for the native evidence runner and delivery preflight; `git diff --check` passed; delivery preflight passed with native evidence summary checks `summary_exists=true`, `summary_success=true`, `summary_count_match=true`, and `summary_checks_pass=true`.
+
+## 2026-06-15 - PCG dungeon V1 handoff readiness gate
+
+- Ieta decision: the next useful PCG-only step is not more generation or gameplay work, but a read-only handoff gate that proves the V1 dungeon output, native PCG graph, screenshots, asset manifest, and clean editor state all point to the same deliverable.
+- Added `Tools/Unreal/check_pcg_dungeon_handoff_readiness.py`. It reads existing reports only and writes `Saved/MCP_Dungeon/CubelessDungeonMVP_HandoffReadiness.json`; it does not call UnrealMCP, modify Unreal assets, or touch project C++.
+- Latest handoff readiness result passed with expected level `/Game/Cubeless/PCG/Dungeon/Maps/LVL_Cubeless_PCG_Dungeon_MVP`, production graph `/Game/Cubeless/PCG/Dungeon/Graphs/PCG_Cubeless_Dungeon_MVP_NativeIntegration`, output actor `MCP_Cubeless_Dungeon_MVP_NativeOutput`, `65` native components, `816` native instances, point-source points `816`, integration graph spawners `65`, bridge validation components hidden `816`, preview components hidden `65`, dirty total `0`, and failed checks `0`.
+- Extended delivery preflight so it now requires the handoff readiness report to exist and pass with all checks true.
+- Updated `docs/pcg-dungeon-mvp.md` and `docs/pcg-dungeon-delivery-manifest.md` with the new handoff readiness command and report.
+
+## 2026-06-15 - PCG dungeon one-command delivery closeout
+
+- Ieta decision: after handoff readiness passed, bundle the read-only closeout sequence so the current V1 delivery can be rechecked with one command instead of several manual steps.
+- Added `Tools/Unreal/run_pcg_dungeon_delivery_closeout.py`. It runs live dirty-state refresh, native evidence summary regeneration, V1 handoff readiness, delivery preflight, and `git diff --check`, then writes `Saved/MCP_Dungeon/CubelessDungeonMVP_DeliveryCloseout.json`.
+- The closeout runner does not generate dungeon output, modify Unreal assets, stage, commit, push, or implement gameplay.
+- Latest closeout result passed: failed steps `[]`, live dirty-state pass `true`, native evidence summary success `true`, handoff readiness pass `true`, delivery preflight pass `true`, and `git diff --check` pass `true`.
+- Extended delivery preflight's Python/scope/manifest coverage to include the closeout runner and updated the MVP handoff and delivery manifest docs with the closeout command.
+
+## 2026-06-15 - PCG dungeon closeout asset audit refresh
+
+- Ieta decision: the closeout runner should refresh the read-only Unreal asset manifest audit instead of relying on a possibly stale `CubelessDungeonMVP_AssetManifestAudit.json`.
+- Updated `Tools/Unreal/run_pcg_dungeon_delivery_closeout.py` so the sequence now runs live dirty-state refresh, read-only asset manifest audit, native evidence summary regeneration, V1 handoff readiness, delivery preflight, and `git diff --check`.
+- Updated the MVP handoff and delivery manifest docs to state that closeout includes the AssetRegistry/load audit refresh.
+
+## 2026-06-15 - PCG dungeon operator guide
+
+- Ieta decision: after closeout/handoff gates passed, add a short operator guide so the V1 dungeon can be opened, reviewed, preset-swapped, restored, and validated without reading the full implementation notes.
+- Added `docs/pcg-dungeon-operator-guide.md` with the level path, source bridge actor, NativeOutput actor, production graph, fast closeout command, visual refresh command, preset workflow, manual bridge tag editing route, explicit gameplay non-goal, useful reports, and failure triage order.
+- Added the guide to `docs/pcg-dungeon-mvp.md`, `docs/pcg-dungeon-delivery-manifest.md`, and delivery preflight's expected Git scope.
+
+## 2026-06-15 - PCG dungeon V2 roadmap
+
+- Ieta decision: document how the stable V1 PCG dungeon can support a later alternate dungeon implementation without destabilizing the current deliverable.
+- Added `docs/pcg-dungeon-v2-roadmap.md`. It separates reusable V1 pieces from V2 redesign candidates, including Geometry Script module meshes, material set, native point-source/spawn graphs, mesh-key/material-safe contracts, handoff gates, layout generator replacement options, and a proposed V2 PCG-only gate.
+- The suggested first V2 path is a separate `/Game/Cubeless/PCG/DungeonV2` folder that reuses V1 module builders and closeout patterns while prototyping a different layout source.
+- Linked the roadmap from the MVP handoff, delivery manifest, and operator guide, and added it to delivery preflight's expected Git scope.
+
+## 2026-06-15 - PCG dungeon review checklist
+
+- Ieta decision: add a review/staging checklist so the V1 PCG dungeon work can be reviewed without accidentally staging generated evidence or treating gameplay placeholders as complete gameplay.
+- Added `docs/pcg-dungeon-review-checklist.md` with required closeout checks, versioned source scope, generated evidence exclusions, reviewer focus points, and explicit non-goals.
+- Linked the checklist from the MVP handoff and delivery manifest, and added it to delivery preflight's expected Git scope.
+
+## 2026-06-15 - PCG dungeon pre-commit readiness review
+
+- Ieta decision: run the final pre-commit readiness review without staging or committing, because Git write operations were not explicitly requested.
+- Reran `python Tools\Unreal\run_pcg_dungeon_delivery_closeout.py`. Latest closeout passed with failed steps `[]`; live dirty-state, asset manifest audit, native evidence summary, handoff readiness, delivery preflight, and `git diff --check` all passed.
+- Delivery preflight timestamp `2026-06-15 01:13:06` passed all sections: Python compile, expected Git scope, Unreal binary asset attributes, manifest coverage, latest gate reports, asset manifest audit, live dirty state, preset archives, native evidence refresh, handoff readiness, and latest editor log health.
+- Git review scope currently has `16` project status entries, `0` unexpected entries, and sibling `unreal-mcp-cubeless` clean. Unreal binary assets under `/Game/Cubeless/PCG/Dungeon` total `71` files (`70` `.uasset`, `1` `.umap`) with `0` LFS attribute failures and `0` manifest coverage gaps.
