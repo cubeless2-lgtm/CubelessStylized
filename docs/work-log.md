@@ -4204,3 +4204,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Reran `python Tools\Unreal\run_pcg_dungeon_delivery_closeout.py`. Latest closeout passed with failed steps `[]`; live dirty-state, asset manifest audit, native evidence summary, handoff readiness, delivery preflight, and `git diff --check` all passed.
 - Delivery preflight timestamp `2026-06-15 01:13:06` passed all sections: Python compile, expected Git scope, Unreal binary asset attributes, manifest coverage, latest gate reports, asset manifest audit, live dirty state, preset archives, native evidence refresh, handoff readiness, and latest editor log health.
 - Git review scope currently has `16` project status entries, `0` unexpected entries, and sibling `unreal-mcp-cubeless` clean. Unreal binary assets under `/Game/Cubeless/PCG/Dungeon` total `71` files (`70` `.uasset`, `1` `.umap`) with `0` LFS attribute failures and `0` manifest coverage gaps.
+
+## 2026-06-15 - InteractionField Water plugin exclusion decision
+
+- Ieta decision: `InteractionField` will not depend on UE Water, WaterAdvanced, or WaterExtras. WaterBody material integration and OceanPatch cloning are out of scope.
+- Updated `docs/interaction-field-system.md` so Phase P now validates a self-contained Grid2D/Niagara seed (`NS_IF_Grid2DSeed`) inside the InteractionField plugin instead of using `/WaterAdvanced/Niagara/Systems/Grid2D_OceanPatch`.
+- Residual risk: without OceanPatch as a clone source, self-contained SimStage seed creation/RT export becomes the new critical feasibility gate. If it is blocked, the fallback is SceneCapture + material accumulated RT.
+- Notion capture fallback: the Notion app required reauthentication during this update, so this local work-log entry is the durable project memory for now.

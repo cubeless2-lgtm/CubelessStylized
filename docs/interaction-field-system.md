@@ -26,6 +26,7 @@
 - **수직 슬라이스로 차근차근**. MVP 1탄 = **눈/모래 발자국(지속 변형)**.
 - 지면 **Landscape + Static/Nanite 메시 둘 다** 지원. 눈 쌓임 = **POM**.
 - **RVT / VirtualHeightfieldMesh 배제**(모바일 고려). Landscape 변형은 **머티리얼 WPO + POM 전용**.
+- **UE Water / WaterAdvanced / WaterExtras 플러그인 미사용**. 물 파장은 이 시스템 안의 독립 물 메시/머티리얼로만 다루고, WaterBody 머티리얼 연동은 범위에서 제외.
 - **그라운드 판정은 CharacterMovement 비의존**(독립 트레이스 기반, 모바일 우선).
 - **C++ 금지**(불가피 시 사유 보고). BP + Niagara + Material + MPC + NDC + RT 로만, 생성/검증은 UnrealMCP.
 - **전달물 = 재사용 가능한 플러그인**(가급적 전부 BP, Content-only).
@@ -43,7 +44,7 @@
     ▼
 [NDC_Interactors]  (Niagara Data Channel, handler=Global, visible_to_gpu=true)
     ▼
-[NS_InteractionField]  (Grid2D_OceanPatch 복제 기반, GPU 지속 시뮬)
+[NS_InteractionField]  (자기완결 Grid2D 기반, GPU 지속 시뮬)
     1) NDC Read → 채널별 브러시 스플랫
     2) 채널 시뮬: 변형(max누적+Rim+슬럼프) / 풀(지수감쇠 복원) / 물(파동 핑퐁) / 트레일 지면투영
     3) Grid2D → RenderTarget export
@@ -124,12 +125,12 @@
 
 ### Phase P — 준비/실현가능성 선검증 (구현 전 필수)
 MCP 실측으로 폴백을 못박는다.
-1. `Grid2D_OceanPatch` 전체 구조 덤프(SimStage 개수/iteration 소스/Grid2D 해상도 바인딩/RT export).
-2. OceanPatch `/Game/_MCP_Temp/` 복제 1회 시험.
+1. 자기완결 `NS_IF_Grid2DSeed` 수동 제작/덤프(SimStage 개수/iteration 소스/Grid2D 해상도 바인딩/RT export). **Water/OceanPatch 자산은 사용하지 않음.**
+2. `NS_IF_Grid2DSeed`를 `/Game/_MCP_Temp/` 또는 플러그인 임시 경로로 복제 1회 시험.
 3. **NDC Read 최소 모듈 1건 에디터 수동 제작** (유일한 100% 수동 지점, 복제 소스로 박제).
 4. 임시 BP에서 `NiagaraDataChannelWriter.write_position` 콜노드 핀 스모크.
 5. 라플라시안/감쇠/diffusion 식을 Material Custom 노드로 뺄지 vs Niagara 복제로 끝낼지 결정.
-6. 플러그인 자기완결 vs WaterAdvanced 의존 결정(§9 (a)/(b)).
+6. Water 계열 플러그인 비의존 상태에서 자기완결 플러그인 패키징 가능성 확정.
 → 결과를 §10 "실현가능성 확정" 표로 기록.
 
 ### Phase 0 — 문서화 + 플러그인 스캐폴드
@@ -139,8 +140,8 @@ MCP 실측으로 폴백을 못박는다.
 `MPC_InteractionField` · `RT_IF_Deform` · `BP_InteractionField`(두 모드, MPC publish) · `MF_SampleInteractionField` 초안 → 디버그 점 1개로 **월드↔UV 정합** 두 모드 검증.
 
 ### Phase 2 — Niagara 시뮬 + NDC 주입 ★크리티컬 패스★
-`NDC_Interactors` · `BPC_InteractionSource`(자체 그라운드 판정) · `NS_InteractionField`(OceanPatch 복제) · NDC Read 모듈 삽입 · Grid2D→RT export. **비플레이어 흔적도 RT에 찍히는지** 검증.
-- 폴백: 복제·NDC Read 막히면 SceneCapture+머티리얼 누적 RT, 또는 `NS_Reactive_RTTexturePainter` 패턴.
+`NDC_Interactors` · `BPC_InteractionSource`(자체 그라운드 판정) · `NS_InteractionField`(자기완결 Grid2D 시드 복제) · NDC Read 모듈 삽입 · Grid2D→RT export. **비플레이어 흔적도 RT에 찍히는지** 검증.
+- 폴백: 자기완결 Grid2D·NDC Read가 막히면 SceneCapture+머티리얼 누적 RT, 또는 `NS_Reactive_RTTexturePainter` 패턴.
 
 ### Phase 3 — 눈/모래 발자국 + POM ★MVP★  (세부 §6.A)
 ### Phase 4 — 풀 눕힘  (세부 §6.B)
@@ -182,10 +183,10 @@ MCP 실측으로 폴백을 못박는다.
 
 ### 6.C 물 파장
 - 파동방정식 explicit: `acc=(이웃합-4h)*c²; vel=(vel+acc*dt)*Damping; h+=vel*dt`. **CFL `c²dt²≤0.5`** clamp/substep. 경계 absorb 기본.
-- 핑퐁: OceanPatch의 `GetPreviousFloatValue` 패턴 재활용(검증) 또는 Grid2D 2장 스왑.
+- 핑퐁: 자기완결 Grid2D 시드에서 previous-frame read 패턴 검증 또는 Grid2D 2장 스왑.
 - 전용 `RT_IF_Water`(RG16F). 입수 임펄스 NDC Channel=Water.
 - 표현 **독립 물 메시 1순위**(모바일 안전): height WPO/노멀(ddx,ddy 또는 인접텍셀)/foam(|height|·|vel| 임계).
-- UE Water 플러그인 연동 2순위: WaterBody 머티리얼 외부 RT 가산 가능성 검증, WaterExtras Local Waves 충돌 검증, Buoyancy는 RT 못 읽음(시각/물리 분리). **검증 전 WaterBody 머티리얼 수정 금지.**
+- UE Water/WaterAdvanced/WaterExtras 연동은 **범위 제외**. WaterBody 머티리얼 수정, WaterExtras Local Waves 충돌 검증, Buoyancy 연계는 하지 않는다.
 
 ### 6.D 검 궤적 / 장풍 (공중 트랜션트)
 - 공중 3D 궤적은 top-down RT에 높이 소실 → **RT 아님**. 트레일 = Niagara Ribbon/Sprite + 머티리얼 마스크(`UltraVolumetrics/NS_Swing` 복제 기반).
@@ -242,7 +243,7 @@ MCP 실측으로 폴백을 못박는다.
 
 **자기완결성 제약(중요)**: 플러그인 콘텐츠는 프로젝트 `/Game` 콘텐츠를 참조 불가(참조 방향: 프로젝트→플러그인만).
 - **POM 눈 머티리얼은 "소비처"** → 기존 `/Game/AI_Generated/...M_SilhouettePOM...`를 플러그인이 fork 불가. **해결**: 플러그인은 MF + (선택)간단 예제 머티리얼만, **실제 POM fork는 소비 프로젝트에 두고 플러그인 MF 참조**. MVP POM 작업은 `/Game`에서.
-- **NS_InteractionField OceanPatch 복제(WaterAdvanced 의존)** → (a) `.uplugin`에 Water/WaterAdvanced 의존 선언(간단·무거움) vs (b) 플러그인 내 자기완결 재구성(재사용성↑·작업량↑). **Phase P에서 결정.**
+- **NS_InteractionField는 Water 계열 플러그인 비의존** → `.uplugin`에 Water/WaterAdvanced/WaterExtras 의존을 선언하지 않는다. Grid2D/SimStage 시드는 플러그인 내부 자기완결 Niagara 자산으로 만든다.
 
 **소비 프로젝트 셋업 가이드**: ①플러그인 활성 ②(선택)트레이스 채널 정의/기본 채널 ③캐릭터·액터에 BPC_InteractionSource 부착 ④레벨에 BP_InteractionField 배치(볼륨) 또는 폴로우 타깃 지정 ⑤지면 머티리얼에 MF_SampleInteractionField 연결 ⑥플랫폼별 RT 해상도 스케일 확인.
 
@@ -254,8 +255,8 @@ MCP 실측으로 폴백을 못박는다.
 
 **막힘(크리티컬)**: 스크래치패드 MCP 인스펙션 전용(Custom HLSL 본문 R/W 불가). Niagara SimulationStage 신규 생성 API 미노출. 시뮬 내 NDC Read DI Python 미노출. 애님 노티파이 트리거 배선 전용 툴 없음.
 
-**게임체인저**: `/WaterAdvanced/Niagara/Systems/Grid2D_OceanPatch`가 Grid2D+SimStage+파동/핑퐁+RT export를 다 보유 → **복제 시드**. NDC Read 모듈만 1회 수동 제작 후 복제.
-**결론: C++ 불필요.** 수동 1회성 지점 = ①NDC Read 모듈 ②(필요시)HLSL 식 ③노티파이 배선.
+**결정**: `/WaterAdvanced/Niagara/Systems/Grid2D_OceanPatch`는 사용하지 않는다. Grid2D+SimStage+RT export는 `InteractionField` 플러그인 안의 자기완결 Niagara 시드로 구성한다.
+**잠정 결론: C++ 불필요.** 단, Water/OceanPatch 없이 자기완결 SimStage 시드 제작이 Phase P의 새 크리티컬 패스다. 수동 1회성 지점 = ①Grid2D 시드 ②NDC Read 모듈 ③(필요시)HLSL 식 ④노티파이 배선.
 
 ---
 
@@ -276,13 +277,14 @@ MCP 실측으로 폴백을 못박는다.
 - **R11 🟡** 모래 diffusion 전체 번짐 → 모래만+낮은 rate.
 - **R12 🟡** 성능 예산 미정량 → Phase 2 직후 모바일 ms 측정.
 - **R13 🟡** 데칼 폴백 인지(발자국 단독 성능 위기 시).
+- **R14 🔴** Water/OceanPatch 비의존으로 SimStage 시드 자산을 직접 만들어야 함 → Phase P에서 자기완결 Grid2D 시드 제작/복제/RT export를 먼저 확정. 막히면 SceneCapture+머티리얼 누적 RT로 스펙 다운.
 
 ---
 
 ## 12. 검증 필요 항목 (구현 중 MCP 실측)
 
-1. NDC Read 모듈/DI 실제 이름·구성 (크리티컬, Phase P).
-2. Grid2D→RT export 정확 경로(OceanPatch 재활용).
+1. 자기완결 Grid2D 시드 제작/복제/RT export 정확 경로 (크리티컬, Phase P).
+2. NDC Read 모듈/DI 실제 이름·구성 (크리티컬, Phase P).
 3. `_MCP_Temp` 복제 동작.
 4. BP write_position 콜노드 핀 생성.
 5. UV V-flip/grid index 방향.
@@ -291,7 +293,7 @@ MCP 실측으로 폴백을 못박는다.
 8. POM 루프 내 RT SampleGrad 모바일 컴파일.
 9. 5.7 Nanite 동적 RT displacement(막히면 POM/WPO만).
 10. (배제됨) RVT/VHM 미사용. Landscape WPO 변위 모바일 비용/타일 LOD 불연속만 점검.
-11. UE Water 머티리얼 외부 RT 가산 + WaterExtras 충돌.
+11. Water 계열 플러그인 없이 독립 물 메시 머티리얼만으로 RT 파장 표현 가능성.
 12. 기존 Foliage MF 핀 구조.
 13. 폴로우 Grid2D wrap/scroll.
 14. UE5.7 NDC 네트워크 복제 특성(MP).
@@ -302,9 +304,9 @@ MCP 실측으로 폴백을 못박는다.
 ## 13. 기존 자산 활용 결정
 
 - **POM 마스터 fork**: `M_SilhouettePOM_Custom_dither_shadow_final_fade` (사용자 "POM 사용" 명시).
-- **Niagara 시드 복제**: `Grid2D_OceanPatch` (SimStage 생성 API 미노출 때문에 사실상 필수).
+- **Niagara 시드 복제**: 플러그인 내부 자기완결 `NS_IF_Grid2DSeed` (SimStage 생성 API 미노출 대응용 수동 시드). Water/OceanPatch 자산은 사용하지 않음.
 - **참고만**: `NS_Reactive_RTTexturePainter`, `BP_ReactiveWater*`, `MF_EL_Foliage_Interaction_PP2_*`, `UltraVolumetrics/NS_Swing`. 중복 RT 페인터 공존 시 구자산 deprecate.
-- 디폴트: 신규 단일화 + POM fork + OceanPatch 시드 복제.
+- 디폴트: 신규 단일화 + POM fork + 자기완결 Grid2D/Niagara 시드.
 
 ---
 
@@ -313,6 +315,7 @@ MCP 실측으로 폴백을 못박는다.
 | 날짜 | Phase | 결과 / 블로커 |
 |------|-------|----------------|
 | 2026-06-14 | (설계) | 설계 문서 작성, 검토 대기. 구현 미착수. |
+| 2026-06-15 | (설계 결정) | Water/WaterAdvanced/WaterExtras 플러그인 비의존 확정. OceanPatch 복제 계획 폐기, 자기완결 Grid2D/Niagara 시드 검증을 Phase P 크리티컬 패스로 변경. |
 
 ---
 
@@ -325,4 +328,5 @@ MCP 실측으로 폴백을 못박는다.
 5. 모바일 Vulkan SM6 프리뷰 비용/크래시.
 6. (MP 구현 안 함) §7 지침과 모순 없는지 설계 검토만.
 7. 플러그인 자기완결성: 소비 프로젝트에서 플러그인만 활성+가이드대로 동작 확인.
+   - Water/WaterAdvanced/WaterExtras 비활성 상태에서도 InteractionField 핵심 데모가 동작해야 함.
 8. 각 Phase 종료 시 본 문서 §14 갱신.
