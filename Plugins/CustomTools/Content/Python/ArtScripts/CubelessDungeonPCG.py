@@ -34,8 +34,18 @@ NATIVE_INTEGRATION_PREVIEW_GRAPH_PATH = GRAPH_DIR + "/" + NATIVE_INTEGRATION_PRE
 REVIEW_DIRECTIONAL_LIGHT_INTENSITY = 0.72
 REVIEW_DIRECTIONAL_LIGHT_COLOR = (232, 238, 242, 255)
 REVIEW_SKY_LIGHT_INTENSITY = 0.18
-REVIEW_EXPOSURE_BIAS = 1.5
-REVIEW_BLOOM_INTENSITY = 0.05
+REVIEW_ROOM_POINT_LIGHT_INTENSITY = 33.75
+REVIEW_ROOM_POINT_LIGHT_RADIUS = 864.0
+REVIEW_EXPOSURE_BIAS = 1.52
+REVIEW_EXPOSURE_MIN_BRIGHTNESS = 0.0
+REVIEW_EXPOSURE_MAX_BRIGHTNESS = 0.0
+REVIEW_BLOOM_INTENSITY = 0.04
+REVIEW_GLOBAL_GAIN = 0.90
+REVIEW_MIDTONE_GAIN = 1.02
+REVIEW_HIGHLIGHT_GAIN = 0.55
+REVIEW_SHADOW_GAIN = 1.55
+REVIEW_SHADOW_GAMMA = 0.78
+REVIEW_SHADOW_CONTRAST = 0.66
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ENTRYPOINT_PATH = os.path.join(SCRIPT_DIR, "CubelessDungeonPCGEntrypoint.py")
@@ -3381,14 +3391,14 @@ def _theme_counts(room_themes):
 
 
 LIGHT_PROFILE_BY_THEME = {
-    "entry": {"profile": "entry_soft_green", "color": (142, 220, 154, 255), "intensity": 720.0, "radius": 820.0, "height": 250.0},
-    "combat": {"profile": "combat_low_amber", "color": (255, 151, 96, 255), "intensity": 620.0, "radius": 760.0, "height": 238.0},
-    "progression": {"profile": "key_cyan_focus", "color": (102, 238, 255, 255), "intensity": 760.0, "radius": 700.0, "height": 252.0},
-    "utility": {"profile": "shop_teal_warm", "color": (108, 236, 190, 255), "intensity": 680.0, "radius": 780.0, "height": 244.0},
-    "reward": {"profile": "reward_gold_pool", "color": (255, 196, 94, 255), "intensity": 740.0, "radius": 730.0, "height": 246.0},
-    "finale": {"profile": "finale_violet_focus", "color": (212, 106, 255, 255), "intensity": 880.0, "radius": 860.0, "height": 262.0},
-    "ambient": {"profile": "ambient_cool_fill", "color": (178, 190, 205, 255), "intensity": 520.0, "radius": 700.0, "height": 240.0},
-    "connector": {"profile": "connector_cool_fill", "color": (166, 196, 222, 255), "intensity": 500.0, "radius": 700.0, "height": 238.0},
+    "entry": {"profile": "entry_soft_green", "color": (142, 220, 154, 255), "intensity": 27.0, "radius": 984.0, "height": 250.0},
+    "combat": {"profile": "combat_low_amber", "color": (255, 151, 96, 255), "intensity": 23.25, "radius": 912.0, "height": 238.0},
+    "progression": {"profile": "key_cyan_focus", "color": (102, 238, 255, 255), "intensity": 28.5, "radius": 840.0, "height": 252.0},
+    "utility": {"profile": "shop_teal_warm", "color": (108, 236, 190, 255), "intensity": 25.5, "radius": 936.0, "height": 244.0},
+    "reward": {"profile": "reward_gold_pool", "color": (255, 196, 94, 255), "intensity": 27.75, "radius": 876.0, "height": 246.0},
+    "finale": {"profile": "finale_violet_focus", "color": (212, 106, 255, 255), "intensity": 33.0, "radius": 1032.0, "height": 262.0},
+    "ambient": {"profile": "ambient_cool_fill", "color": (178, 190, 205, 255), "intensity": 19.5, "radius": 840.0, "height": 240.0},
+    "connector": {"profile": "connector_cool_fill", "color": (166, 196, 222, 255), "intensity": 18.75, "radius": 840.0, "height": 238.0},
 }
 
 
@@ -7118,13 +7128,17 @@ def spawn_validation_dungeon(source="direct", seed=None, config=None):
                     room_id=room["id"],
                     cell_kind="room_center",
                     roles=_room_roles_for(progression, room["id"]),
-                    extra=["DungeonLightKind=room"],
+                    extra=[
+                        "DungeonLightKind=room",
+                        "DungeonLightIntensity={:.1f}".format(REVIEW_ROOM_POINT_LIGHT_INTENSITY),
+                        "DungeonLightRadius={:.1f}".format(REVIEW_ROOM_POINT_LIGHT_RADIUS),
+                    ],
                 ),
             )
             component = light.get_component_by_class(unreal.PointLightComponent)
             if component:
-                component.set_editor_property("intensity", 900.0)
-                component.set_editor_property("attenuation_radius", 720.0)
+                component.set_editor_property("intensity", REVIEW_ROOM_POINT_LIGHT_INTENSITY)
+                component.set_editor_property("attenuation_radius", REVIEW_ROOM_POINT_LIGHT_RADIUS)
                 component.set_editor_property("light_color", unreal.Color(255, 188, 112, 255))
             actors.append(light)
             counts["light"] += 1
@@ -7193,7 +7207,15 @@ def spawn_validation_dungeon(source="direct", seed=None, config=None):
                 extra=[
                     "DungeonReviewExposure=manual",
                     "DungeonReviewExposureBias={:.2f}".format(REVIEW_EXPOSURE_BIAS),
+                    "DungeonReviewExposureMinBrightness={:.2f}".format(REVIEW_EXPOSURE_MIN_BRIGHTNESS),
+                    "DungeonReviewExposureMaxBrightness={:.2f}".format(REVIEW_EXPOSURE_MAX_BRIGHTNESS),
                     "DungeonReviewBloomIntensity={:.2f}".format(REVIEW_BLOOM_INTENSITY),
+                    "DungeonReviewGlobalGain={:.2f}".format(REVIEW_GLOBAL_GAIN),
+                    "DungeonReviewMidtoneGain={:.2f}".format(REVIEW_MIDTONE_GAIN),
+                    "DungeonReviewHighlightGain={:.2f}".format(REVIEW_HIGHLIGHT_GAIN),
+                    "DungeonReviewShadowGain={:.2f}".format(REVIEW_SHADOW_GAIN),
+                    "DungeonReviewShadowGamma={:.2f}".format(REVIEW_SHADOW_GAMMA),
+                    "DungeonReviewShadowContrast={:.2f}".format(REVIEW_SHADOW_CONTRAST),
                 ],
             ),
         )
@@ -7209,11 +7231,41 @@ def spawn_validation_dungeon(source="direct", seed=None, config=None):
         settings.set_editor_property("override_auto_exposure_bias", True)
         settings.set_editor_property("auto_exposure_bias", REVIEW_EXPOSURE_BIAS)
         settings.set_editor_property("override_auto_exposure_min_brightness", True)
-        settings.set_editor_property("auto_exposure_min_brightness", 0.0)
+        settings.set_editor_property("auto_exposure_min_brightness", REVIEW_EXPOSURE_MIN_BRIGHTNESS)
         settings.set_editor_property("override_auto_exposure_max_brightness", True)
-        settings.set_editor_property("auto_exposure_max_brightness", 0.0)
+        settings.set_editor_property("auto_exposure_max_brightness", REVIEW_EXPOSURE_MAX_BRIGHTNESS)
         settings.set_editor_property("override_bloom_intensity", True)
         settings.set_editor_property("bloom_intensity", REVIEW_BLOOM_INTENSITY)
+        settings.set_editor_property("override_color_gain", True)
+        settings.set_editor_property(
+            "color_gain",
+            unreal.Vector4(REVIEW_GLOBAL_GAIN, REVIEW_GLOBAL_GAIN, REVIEW_GLOBAL_GAIN, 1.0),
+        )
+        settings.set_editor_property("override_color_gain_midtones", True)
+        settings.set_editor_property(
+            "color_gain_midtones",
+            unreal.Vector4(REVIEW_MIDTONE_GAIN, REVIEW_MIDTONE_GAIN, REVIEW_MIDTONE_GAIN, 1.0),
+        )
+        settings.set_editor_property("override_color_gain_highlights", True)
+        settings.set_editor_property(
+            "color_gain_highlights",
+            unreal.Vector4(REVIEW_HIGHLIGHT_GAIN, REVIEW_HIGHLIGHT_GAIN, REVIEW_HIGHLIGHT_GAIN, 1.0),
+        )
+        settings.set_editor_property("override_color_gain_shadows", True)
+        settings.set_editor_property(
+            "color_gain_shadows",
+            unreal.Vector4(REVIEW_SHADOW_GAIN, REVIEW_SHADOW_GAIN, REVIEW_SHADOW_GAIN, 1.0),
+        )
+        settings.set_editor_property("override_color_gamma_shadows", True)
+        settings.set_editor_property(
+            "color_gamma_shadows",
+            unreal.Vector4(REVIEW_SHADOW_GAMMA, REVIEW_SHADOW_GAMMA, REVIEW_SHADOW_GAMMA, 1.0),
+        )
+        settings.set_editor_property("override_color_contrast_shadows", True)
+        settings.set_editor_property(
+            "color_contrast_shadows",
+            unreal.Vector4(REVIEW_SHADOW_CONTRAST, REVIEW_SHADOW_CONTRAST, REVIEW_SHADOW_CONTRAST, 1.0),
+        )
         post_process.set_editor_property("settings", settings)
         actors.append(post_process)
         counts["review_postprocess"] += 1

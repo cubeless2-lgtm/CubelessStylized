@@ -36,9 +36,12 @@ OBLIQUE_REPORT_PATH = DUNGEON_REPORT_DIR / "CubelessDungeonMVP_PCGGeneration_Nat
 
 EXPOSURE_BRIGHT_LUMA_THRESHOLD = 220.0
 EXPOSURE_NEAR_WHITE_RGB_THRESHOLD = 245
+EXPOSURE_NEAR_BLACK_LUMA_THRESHOLD = 18.0
 EXPOSURE_MAX_BRIGHT_PERCENT = 8.0
 EXPOSURE_MAX_NEAR_WHITE_PERCENT = 1.0
 EXPOSURE_MIN_NON_BLACK_PERCENT = 3.0
+EXPOSURE_MIN_VISIBLE_AVERAGE_LUMA = 9.0
+EXPOSURE_MAX_VISIBLE_NEAR_BLACK_PERCENT = 92.0
 
 
 def _execute_dungeon_python(unreal: UnrealConnection, body: str, retry_count: int = 1) -> dict[str, Any]:
@@ -353,6 +356,9 @@ def _screenshot_exposure_stats(path_value: str | None) -> dict[str, Any]:
         "max_bright_percent": EXPOSURE_MAX_BRIGHT_PERCENT,
         "max_near_white_percent": EXPOSURE_MAX_NEAR_WHITE_PERCENT,
         "min_non_black_percent": EXPOSURE_MIN_NON_BLACK_PERCENT,
+        "min_visible_average_luma": EXPOSURE_MIN_VISIBLE_AVERAGE_LUMA,
+        "near_black_luma": EXPOSURE_NEAR_BLACK_LUMA_THRESHOLD,
+        "max_visible_near_black_percent": EXPOSURE_MAX_VISIBLE_NEAR_BLACK_PERCENT,
     }
     if not image_path:
         return {
@@ -388,6 +394,8 @@ def _screenshot_exposure_stats(path_value: str | None) -> dict[str, Any]:
         bright_count = 0
         near_white_count = 0
         non_black_count = 0
+        near_black_visible_count = 0
+        visible_luma_total = 0.0
         max_luma = 0.0
         for red, green, blue in pixels:
             luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue
@@ -402,16 +410,23 @@ def _screenshot_exposure_stats(path_value: str | None) -> dict[str, Any]:
                 near_white_count += 1
             if red > 8 or green > 8 or blue > 8:
                 non_black_count += 1
+                visible_luma_total += luma
+                if luma <= EXPOSURE_NEAR_BLACK_LUMA_THRESHOLD:
+                    near_black_visible_count += 1
             max_luma = max(max_luma, luma)
 
     bright_percent = 100.0 * bright_count / pixel_count
     near_white_percent = 100.0 * near_white_count / pixel_count
     non_black_percent = 100.0 * non_black_count / pixel_count
+    visible_average_luma = visible_luma_total / max(1, non_black_count)
+    visible_near_black_percent = 100.0 * near_black_visible_count / max(1, non_black_count)
     average_luma = luma_total / pixel_count
     pass_result = (
         bright_percent <= EXPOSURE_MAX_BRIGHT_PERCENT
         and near_white_percent <= EXPOSURE_MAX_NEAR_WHITE_PERCENT
         and non_black_percent >= EXPOSURE_MIN_NON_BLACK_PERCENT
+        and visible_average_luma >= EXPOSURE_MIN_VISIBLE_AVERAGE_LUMA
+        and visible_near_black_percent <= EXPOSURE_MAX_VISIBLE_NEAR_BLACK_PERCENT
     )
     return {
         "pass": bool(pass_result),
@@ -420,10 +435,12 @@ def _screenshot_exposure_stats(path_value: str | None) -> dict[str, Any]:
         "width": width,
         "height": height,
         "average_luma": round(average_luma, 4),
+        "visible_average_luma": round(visible_average_luma, 4),
         "max_luma": round(max_luma, 4),
         "bright_percent": round(bright_percent, 4),
         "near_white_percent": round(near_white_percent, 4),
         "non_black_percent": round(non_black_percent, 4),
+        "visible_near_black_percent": round(visible_near_black_percent, 4),
         "thresholds": thresholds,
     }
 
