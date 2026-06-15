@@ -133,6 +133,10 @@
 			"Enabled": true
 		},
 		{
+			"Name": "InteractionField",
+			"Enabled": true
+		},
+		{
 			"Name": "OptimizationPreviewTools",
 			"Enabled": true,
 			"PlatformDenyList": [

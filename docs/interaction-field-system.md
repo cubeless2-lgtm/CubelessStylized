@@ -8,9 +8,9 @@
 
 ## 1. 목적 (Context)
 
-풀 눕힘 · 눈/모래 발자국(지속 변형) · 물 파장 · 검 궤적/장풍 같은 "월드 상호작용 흔적·효과"를
+풀 눕힘 · 눈/모래 발자국(지속 변형) · 물 파장 같은 "월드 상호작용 흔적·효과"를
 **제각각이 아니라 하나의 시스템으로 통합 관리**하고, 결과를 **렌더타겟(RT)** 에 기록해
-지면·풀·물·VFX 머티리얼이 **공유 샘플**하게 한다.
+지면·풀·물 머티리얼이 **공유 샘플**하게 한다.
 
 "모든 효과를 한 장에 다 찍는다"가 목표가 아니라, **매니저 1개가 RT 세트·좌표계·Niagara·MPC를 총괄**하고
 효과는 채널/RT로 분리해 **시스템 차원에서 통합 관리**하는 것이 핵심.
@@ -20,15 +20,16 @@
 ## 2. 확정 요구사항
 
 - 타깃 **UE 5.7** (DX12 SM6 주력 + 모바일 Vulkan SM6 → GPU Grid2D/컴퓨트 사용 가능).
-- 기록은 가능하면 **Niagara(Grid2D) → RT export**.
+- 기록은 **Niagara(Grid2D) → RT export 고정**. SceneCapture/머티리얼 누적 RT 대안은 사용하지 않는다.
 - **내 플레이어만 찍히면 안 된다** → NDC 브로드캐스트로 어떤 액터(NPC/투사체/프롭)든 흔적 가능.
 - 캡처 영역 **두 모드 선택**: (A) 플레이어 폴로우(영역 스크롤), (B) 볼륨 설치(월드 고정).
-- **수직 슬라이스로 차근차근**. MVP 1탄 = **눈/모래 발자국(지속 변형)**.
+- **수직 슬라이스로 차근차근**. MVP 1탄 = **풀 눕힘(Grass Bend)**. 눈/모래 POM은 풀 RT/NDC 파이프 검증 후 진행.
 - 지면 **Landscape + Static/Nanite 메시 둘 다** 지원. 눈 쌓임 = **POM**.
 - **RVT / VirtualHeightfieldMesh 배제**(모바일 고려). Landscape 변형은 **머티리얼 WPO + POM 전용**.
 - **UE Water / WaterAdvanced / WaterExtras 플러그인 미사용**. 물 파장은 이 시스템 안의 독립 물 메시/머티리얼로만 다루고, WaterBody 머티리얼 연동은 범위에서 제외.
+- **검 궤적 / 포스 / 장풍 지면투영은 이번 Reactive 작업 범위에서 제외**. 필요하면 별도 VFX/Combat FX 시스템에서 다룬다.
 - **그라운드 판정은 CharacterMovement 비의존**(독립 트레이스 기반, 모바일 우선).
-- **C++ 금지**(불가피 시 사유 보고). BP + Niagara + Material + MPC + NDC + RT 로만, 생성/검증은 UnrealMCP.
+- **InteractionField 런타임 C++ 금지**(불가피 시 사유 보고). BP + Niagara + Material + MPC + NDC + RT 로만, 생성/검증은 UnrealMCP. 단, UnrealMCP 검증/자동화 플러그인 C++ 보강은 런타임 구현과 분리된 tooling 예외로 취급한다.
 - **전달물 = 재사용 가능한 플러그인**(가급적 전부 BP, Content-only).
 - **멀티플레이는 "대응 방법(설계 지침)"만** — 직접 구현/테스트는 범위 외. 아키텍처가 MP-ready 함만 보장.
 - **문서 따로 기록**, 단계마다 갱신.
@@ -38,7 +39,7 @@
 ## 3. 아키텍처 개요
 
 ```
-[BPC_InteractionSource]  (플레이어/NPC/검/투사체 등 아무 액터에 부착)
+[BPC_InteractionSource]  (플레이어/NPC/프롭/투사체 등 흔적 액터에 부착)
     │ 자체 그라운드 판정(무브먼트 비의존, 트레이스) → 접지점 산출
     │ NDC write: Position / Velocity / Radius / Strength / Channel / Shape
     ▼
@@ -46,17 +47,16 @@
     ▼
 [NS_InteractionField]  (자기완결 Grid2D 기반, GPU 지속 시뮬)
     1) NDC Read → 채널별 브러시 스플랫
-    2) 채널 시뮬: 변형(max누적+Rim+슬럼프) / 풀(지수감쇠 복원) / 물(파동 핑퐁) / 트레일 지면투영
+    2) 채널 시뮬: 풀(지수감쇠 복원) / 변형(max누적+Rim+슬럼프) / 물(파동 핑퐁)
     3) Grid2D → RenderTarget export
     ▼
 [RT 세트]  RT_IF_Deform(RGBA16F 공유) + RT_IF_Water(RG16F 전용) [+RT_IF_Grass 옵션]
     │ 월드 XY → RT UV 매핑 = MPC가 공급
     ▼
 [MF_SampleInteractionField]  공용 머티리얼 함수 (월드pos→UV→RT 샘플 + 노멀 재계산)
-    ├─ 지면(Static/Nanite, Landscape) : POM 함몰/Rim + WPO/Nanite 변위 + 노멀   ← MVP
-    ├─ 풀/그래스 : WPO bend(방향+강도)
-    ├─ 물 메시 : height WPO + 노멀 + foam
-    └─ 트레일 : VFX 리본 + 머티리얼 마스크 (+지면 B채널)
+    ├─ 풀/그래스 : WPO bend(방향+강도)   ← 1차 MVP
+    ├─ 지면(Static/Nanite, Landscape) : POM 함몰/Rim + WPO/Nanite 변위 + 노멀
+    └─ 물 메시 : height WPO + 노멀 + foam
 
 [BP_InteractionField (매니저)]  좌표계 총괄
     - 모드 enum FollowPlayer / Volume
@@ -68,7 +68,7 @@
 **핵심 설계 결정**
 - **좌표 분리**: RT↔월드 변환은 전부 `MPC_InteractionField`로 공급 → 모든 머티리얼이 동일 규칙으로 같은 RT 샘플("통합").
 - **입력 = NDC**: 인터랙터가 NDC로 브로드캐스트 → 비플레이어 자동 포함. 폴로우/볼륨은 영역 계산에만 영향, 입력 경로는 공통.
-- **효과 = 채널/RT 분리**: 지면계(변형/풀/트레일 지면투영)는 `RT_IF_Deform` 채널 패킹, 물은 의미·감쇠가 달라 전용 `RT_IF_Water`. 공중 검궤적은 RT가 아니라 VFX 리본+마스크.
+- **효과 = 채널/RT 분리**: 지면계(변형/풀)는 `RT_IF_Deform` 및 선택 `RT_IF_Grass`로 관리하고, 물은 의미·감쇠가 달라 전용 `RT_IF_Water`를 쓴다. 검 궤적/포스/장풍은 이번 Reactive 범위에서 제외한다.
 
 **콘텐츠 경로 (플러그인 마운트)**: `/InteractionField/` → `/Core /Niagara /Materials /Demo`. 임시 검증만 `/Game/_MCP_Temp/`.
 
@@ -79,10 +79,10 @@
 ### 4.1 Channel enum `E_IF_Channel`
 | 값 | 의미 |
 |----|------|
-| 0 Deform | 눈/모래 파임 (MVP) |
+| 0 Deform | 눈/모래 파임 (Phase 4) |
 | 1 Grass | 풀 눕힘 |
 | 2 Water | 입수 임펄스 |
-| 3 Trail | 검궤적/장풍 지면투영 |
+| 3 Reserved | 예약. 검궤적/포스/장풍은 이번 Reactive 범위 제외 |
 
 ### 4.2 렌더타겟
 - **`RT_IF_Deform`** (공유, **RGBA16F** — 부호 변위/누적 위해 float 필수)
@@ -90,13 +90,13 @@
   |------|------|------|
   | R | 변형 깊이 Depth (함몰) | Deform |
   | G | 가장자리 융기 Rim (눈 둑) | Deform |
-  | B | Trail 지면 마스크 | Trail |
+  | B | 예약 | - |
   | A | 예약 (Age / Impact / 모바일 스칼라 grass) | - |
 - **`RT_IF_Water`** (전용, **RG16F**): R=height(부호), G=velocity. 파동 핑퐁용.
 - **`RT_IF_Grass`** (옵션, 데스크탑, **RGBA16F**): RG=BendDir, B=강도. (모바일은 스칼라 bend를 `RT_IF_Deform.A`에 패킹.)
 - 해상도: 데스크탑 512~1024², 모바일 256². **트랜션트로 BeginPlay 생성**(플랫폼별 스케일). 저장 RT 에셋은 디버그용만.
 
-> ⚠ **채널 예산 (R1)**: 눈(Depth+Rim=2ch) + 풀 방향bend(dir 2ch+강도 1ch) + 트레일(1ch)은 단일 RT 4채널 초과. → 풀 방향은 전용 `RT_IF_Grass`로 분리, 모바일은 스칼라로 축소. Phase 4에서 최종 확정.
+> ⚠ **채널 예산 (R1)**: 눈(Depth+Rim=2ch) + 풀 방향bend(dir 2ch+강도 1ch)은 단일 RT 4채널에 빠듯하다. → 풀 방향은 전용 `RT_IF_Grass`로 분리, 모바일은 스칼라로 축소. Phase 3.B에서 최종 확정.
 
 ### 4.3 `MPC_InteractionField` (Material Parameter Collection)
 | 파라미터 | 타입 | 의미 |
@@ -124,7 +124,7 @@
 각 단계는 독립 검증 가능. 각 Phase 종료 시 본 문서 §10 진행 로그 갱신.
 
 ### Phase P — 준비/실현가능성 선검증 (구현 전 필수)
-MCP 실측으로 폴백을 못박는다.
+MCP 실측으로 Niagara 경로를 확정한다. SceneCapture 대안으로 우회하지 않는다.
 1. 자기완결 `NS_IF_Grid2DSeed` 수동 제작/덤프(SimStage 개수/iteration 소스/Grid2D 해상도 바인딩/RT export). **Water/OceanPatch 자산은 사용하지 않음.**
 2. `NS_IF_Grid2DSeed`를 `/Game/_MCP_Temp/` 또는 플러그인 임시 경로로 복제 1회 시험.
 3. **NDC Read 최소 모듈 1건 에디터 수동 제작** (유일한 100% 수동 지점, 복제 소스로 박제).
@@ -132,22 +132,40 @@ MCP 실측으로 폴백을 못박는다.
 5. 라플라시안/감쇠/diffusion 식을 Material Custom 노드로 뺄지 vs Niagara 복제로 끝낼지 결정.
 6. Water 계열 플러그인 비의존 상태에서 자기완결 플러그인 패키징 가능성 확정.
 → 결과를 §10 "실현가능성 확정" 표로 기록.
+- 2026-06-15 실측: `/Niagara/DefaultAssets/Templates/BehaviorExamples/RenderTargetTexturePainter`를 플러그인 내부 `/InteractionField/Niagara/Systems/NS_InteractionField`로 복제했고, Water/OceanPatch 없이 compile error 0으로 통과했다.
+- 2026-06-15 실측 결론: `RenderGrid`의 `Render Target 2D` 입력은 Niagara Data Interface/Object 계열이라 기존 MCP RapidIteration module-input writer로는 직접 바인딩할 수 없었다. SceneCapture로 우회하지 않고 UnrealMCP C++ 명령 `set_niagara_render_target2d_module_input`으로 해결한다.
+- 2026-06-15 RT2D 바인딩 완료: Live Coding compile로 UnrealMCP 변경을 반영한 뒤 `/InteractionField/Niagara/Systems/NS_InteractionField`의 `PaintGrid.RenderGrid.Render Target 2D`를 `User.RT_IF_Deform` + `/InteractionField/Core/Data/RT_IF_Deform`에 바인딩하고 저장했다. 명령 결과의 `data_interface_class=NiagaraDataInterfaceRenderTarget2D`, `data_interface_user_parameter_name=User.RT_IF_Deform`를 확인했고, Niagara compile error/warning은 0이다.
 
 ### Phase 0 — 문서화 + 플러그인 스캐폴드
 본 문서 + `docs/work-log.md` 착수 기록 + `InteractionField` 플러그인 스캐폴드(.uplugin Content-only) + `/InteractionField/` 폴더.
 
 ### Phase 1 — 좌표계 골격 (RT 매핑 검증)
 `MPC_InteractionField` · `RT_IF_Deform` · `BP_InteractionField`(두 모드, MPC publish) · `MF_SampleInteractionField` 초안 → 디버그 점 1개로 **월드↔UV 정합** 두 모드 검증.
+- 2026-06-15 현재 생성 완료: `BP_InteractionField`, `BPC_InteractionSource`, `MPC_InteractionField`, `RT_IF_Deform`, `MF_SampleInteractionField`, `M_IF_DebugFieldPreview`, `M_IF_DebugFieldUV`.
+- 2026-06-15 현재 구현 완료: `BP_InteractionField` Tick에서 `IF_FieldResolution`, `IF_FieldCenter`, `IF_RestoreRate`, `IF_FieldWorldSize`, `IF_FieldExtent`를 `MPC_InteractionField`로 publish.
+- `MF_SampleInteractionField`는 `FieldCenter`, `FieldWorldSize` 입력과 내부 `WorldPosition`으로 `FieldUV_Inside`(`R=U`, `G=V`, `B=inside mask`, `A=reserved`)를 반환한다.
+- 남은 Phase 1 실측: 레벨 배치 후 월드 좌표→RT UV 변환 검증, 디버그 패치 머티리얼을 통한 FollowPlayer/Volume 모드 정합 확인.
+- 보완점: Unreal Python으로 직접 생성한 `MPC_InteractionField`는 `MaterialExpressionCollectionParameter` 노드에서 파라미터 ID resolve가 되지 않아, 현재 `MF_SampleInteractionField`는 compile-safe 함수 입력 방식으로 둔다. 소비 머티리얼에서 MPC 직접 연결은 editor UI 또는 별도 안전 API 확인 후 연결한다.
 
 ### Phase 2 — Niagara 시뮬 + NDC 주입 ★크리티컬 패스★
 `NDC_Interactors` · `BPC_InteractionSource`(자체 그라운드 판정) · `NS_InteractionField`(자기완결 Grid2D 시드 복제) · NDC Read 모듈 삽입 · Grid2D→RT export. **비플레이어 흔적도 RT에 찍히는지** 검증.
-- 폴백: 자기완결 Grid2D·NDC Read가 막히면 SceneCapture+머티리얼 누적 RT, 또는 `NS_Reactive_RTTexturePainter` 패턴.
+- Niagara-only 원칙: 자기완결 Grid2D·NDC Read가 막히면 SceneCapture로 우회하지 않는다. `NS_Reactive_RTTexturePainter`류 Niagara RT 기록 패턴을 참고하거나, Niagara 시드/NDC 제작 문제를 블로커로 보고한다.
+- 현재 생성 완료: `NS_InteractionField`는 `PaintGrid` emitter, Grid2D scratch pad 5개(`RenderCircleToGrid`, `InitializeGridToRenderTargetSize`, `RenderGrid`, `BlurGridValues`, `AdvectGrid`), `SetRenderTargetValue` 기반 RT export 패턴을 포함한다.
+- 현재 연결 완료: `BP_InteractionField`에 `InteractionFieldNiagara` NiagaraComponent를 추가하고 기본 Asset을 `NS_InteractionField`로 지정했다. RT user parameter 계약은 `User.RT_IF_Deform` + `/InteractionField/Core/Data/RT_IF_Deform`로 실제 적용 완료했다. 그래프 검사에서 `RenderGrid.Render Target 2D` 입력 노드가 `NiagaraNodeParameterMapSet`의 동일 입력 핀에 1:1 연결된 것을 확인했다. NDC user parameter 계약은 아직 확정 전이다.
+- 현재 계약 보강 완료: `BPC_InteractionSource`는 `SourceProfile`, `ProbeMode`, `StrengthScale`, `MultiPointOffsets`, `ProbeLocalOffset`, `Shape`, `bDebugDraw`를 생성 클래스 CDO 기준으로 노출한다. `BP_InteractionField`는 `FieldMode`, `bDebugField`, `bProcessSources`, `FollowTarget`, `DefaultRenderTarget`, `DefaultMPC`, `InteractionDataChannel`을 노출하며, 기본 RT/MPC는 각각 `/InteractionField/Core/Data/RT_IF_Deform`, `/InteractionField/Core/Data/MPC_InteractionField`를 가리킨다.
+- RT export probe 진행: `/InteractionField/Niagara/Systems/NS_IF_RTExportProbe`를 생성해 `RenderCircleToGrid`에 중앙 debug stamp(`CircleLocation=0.5,0.5`, `AdditionDelta=1`)를 넣었다. `RT_IF_Deform`은 설계와 맞게 `RTF_RGBA16F` + `supports_uav=true`로 수정했다. probe의 `Emitter.Render Target 2D`, `InitializeGridToRenderTargetSize.Render Target 2D`, `RenderGrid.Render Target 2D`는 모두 `User.RT_IF_Deform` + `/InteractionField/Core/Data/RT_IF_Deform`에 바인딩되어 compile error/warning 0이다.
+- 남은 RT write 블로커: 수동 `advance_simulation_by_time`, solo/seek, 짧은 Editor Simulate tick 모두에서 `RT_IF_Deform` raw pixel sample은 아직 전부 0이다. RT 자산 조건과 DI 바인딩은 맞췄으므로 다음 검증은 `RenderCircleToGrid`/Grid2D SimulationStage가 실제로 값을 쓰는지 scratch pad 내부 쓰기 경로를 더 단순화하거나, Preview Lab 전용 맵에서 원본 template 동작을 재현해 비교한다.
+- 2026-06-16 추가 검증: `/InteractionField/Niagara/Systems/NS_IF_RTExportProbe_Fill`을 추가해 `CircleSize=2`, `AdditionDelta=10`, `CircleStrength=10`, `CircleColor=(1,0.25,0,1)`로 극단값 fill 테스트를 만들었다. PIE Simulate world에서 시스템 spawn, `User.RT_IF_Deform`/`RT_IF_Deform` RT 변수 세팅, `advance_simulation(180, 1/60)`, 추가 5초 실제 Simulate tick까지 통과했지만 512x512 RT의 16px grid sample 1024개가 모두 RGB 0이었다. 따라서 현 블로커는 brush 크기/강도/tick 부족보다 Grid2D SimulationStage의 write/export 연결 조건 쪽으로 좁혀졌다.
+- 2026-06-16 C++/MCP API 무수정 추가 검증: `RT_IF_Deform` 직접 clear/write/read는 정상이며, `NS_IF_RTExportProbe_Fill`의 네 SimulationStage(`PaintToGrid`, `BlurGrid`, `AdvectGrid`, `RenderGridToRenderTarget`)와 dispatch 플래그는 원본 `RenderTargetTexturePainter` 템플릿과 일치한다. `RenderGrid` scratch pad는 `SetRenderTargetValue`, `ExecToIndex`, `SamplePreviousGridVector4Value(Attribute=RGBA)`, `ExecToUnit` 경로를 가진다. RT 입력 노드 3개는 그래프 링크와 `TypeDefHandle.RegisteredTypeIndex=57` RT2D 입력으로 확인됐지만, 활성화 전 RT parameter 세팅/`reset_system`/`reinitialize_system`/`advance_simulation(240, 1/60)` 순서에서도 `RT_IF_Deform`은 전부 RGB 0이었다. C++/MCP API 보강 없이 남은 실질 선택지는 dirty map을 정리한 뒤 Preview Lab 전용 맵에서 원본 템플릿을 비교하거나, Niagara Editor UI에서 scratch pad 내부 constant write/Stage 설정을 수동으로 분해 검증하는 것이다.
+- 2026-06-16 MCP C++ API 보강 착수: UnrealMCP에 read-only `inspect_niagara_simulation_stages` 명령을 추가했다. 이 명령은 SimulationStage 이름/클래스/스크립트, Generic stage의 Data Interface binding, iteration/dispatch/thread 설정, optional `FillCompilationData()` 결과와 script compile status를 구조화해 읽는다. InteractionField 런타임 C++는 여전히 추가하지 않는다. 초기 UBT 빌드는 `StaticEnum` 링크 실패로 깨졌고, enum별 switch 변환으로 수정한 뒤 `StylizedCubelessEditor Win64 Development` 빌드가 통과했다. 후속 에디터 런타임 스모크에서 브리지 `127.0.0.1:55557`와 sibling Python MCP 연결 모두 `NS_IF_RTExportProbe_Fill`의 SimulationStage 4개(`PaintToGrid`, `BlurGrid`, `AdvectGrid`, `RenderGridToRenderTarget`)를 정상 반환했으며 각 stage script compile status는 `NCS_UpToDate`, error/warning false였다.
+- 2026-06-16 원본/프로브 비교 추가: `inspect_niagara_module_inputs(include_resolved_stack_inputs=true)`로 원본 `RenderTargetTexturePainter`와 `NS_IF_RTExportProbe_Fill`을 비교했다. Stage/dispatch/Grid2D/RT2D 구조 차이는 없고, diff는 의도한 `RenderCircleToGrid` 극단값(`CircleLocation=(0.5,0.5)`, `CircleSize=2`, `AdditionDelta=10`, `CircleStrength=10`, `CircleColor=(1,0.25,0,1)`, noise 0)뿐이다. 강제 compile/wait 후 GPUComputeScript ready, error/warning 0 상태에서 동일 스폰/RT setter/advance smoke를 재실행했지만 `RT_IF_Deform` 1024개 grid sample은 다시 전부 RGB 0이었다. 따라서 compile 지연/스택 값 오입력은 원인에서 제외한다.
+- 2026-06-16 대체 맵 smoke: 문서에 남아 있던 `/Game/SampleTestMap/Niagara_TestMap`은 현재 프로젝트에 없었다. 대체로 `/Game/Cubeless/TestMap`을 열어 동일 fill probe smoke를 실행했고, `User.RT_IF_Deform`/`RT_IF_Deform` setter와 advance는 모두 성공했지만 `RT_IF_Deform`은 다시 1024개 sample 전부 RGB 0이었다. 테스트 후 `/Game/DreamscapeSeries/DreamscapeMountains/Maps/ExampleMap`으로 복귀했고 dirty content/map은 0이다. 따라서 현상은 현재 대형 ExampleMap에만 묶인 문제도 아니다.
+- NDC 자산 생성 보류: UE 5.7 Python `NiagaraDataChannelAssetFactoryNew`는 `NiagaraDataChannelAsset` shell만 만들고 내부 `data_channel=None` 상태로 남는다. `NiagaraDataChannel` 기본 클래스는 abstract라 직접 생성할 수 없으므로, production `NDC_Interactors` 자산은 editor UI 또는 별도 검증된 툴 경로가 필요하다.
 
-### Phase 3 — 눈/모래 발자국 + POM ★MVP★  (세부 §6.A)
-### Phase 4 — 풀 눕힘  (세부 §6.B)
+### Phase 3 — 풀 눕힘 ★1차 MVP★  (세부 §6.B)
+### Phase 4 — 눈/모래 발자국 + POM  (세부 §6.A)
 ### Phase 5 — 물 파장  (세부 §6.C)
-### Phase 6 — 검 궤적/장풍  (세부 §6.D)
-### Phase 7 — 폴로우 스크롤 영속성 + 최적화 + 모바일 + 플러그인 마감
+### Phase 6 — 폴로우 스크롤 영속성 + 최적화 + 모바일 + 플러그인 마감
 - 폴로우 toroidal grid(Center 셀 스냅, 진입 가장자리만 클리어). Grid2D wrap 미지원 시 가장자리 decay.
 - RT 해상도/포맷/빈도/LOD/토글, 모바일 Vulkan SM6 프로파일.
 - 플러그인 자기완결성·의존성·셋업 가이드 마감.
@@ -175,11 +193,52 @@ MCP 실측으로 폴백을 못박는다.
 - Landscape: **머티리얼 WPO(Depth)+POM 전용**. **RVT/VHM 배제 확정**(모바일).
 - 공통 `MF_SampleInteractionField` + MPC 재사용.
 
-### 6.B 풀 눕힘 (감쇠 복원)
-- `bend = max(bend*exp(-RestoreRate*dt), stamp)`. 방향 `BendDir`(vec2 Velocity EMA; 모바일 폴백 스칼라).
-- RT(R1): 데스크탑=전용 `RT_IF_Grass`(RG=BendDir, B=강도), 모바일=스칼라 bend를 `RT_IF_Deform.A`.
-- 머티리얼: 버텍스 높이마스크 `pow(h,k)` × bend강도 × BendDir 로 수평 WPO. stateless(현재 RT만).
-- 기존 `MF_EL_Foliage_Interaction_PP2_4Pivots` 핀 구조 검증 후 래핑 검토.
+### 6.B 풀 눕힘 (Grass-first MVP, 감쇠 복원)
+**1차 목표**: 눈/POM보다 먼저 NDC 입력, Grid2D 지속 RT, MPC 좌표계, 소비 머티리얼 샘플 경로를 가장 가벼운 풀 눕힘으로 검증한다.
+
+**Phase 3.A — 스칼라 눕힘 MVP**
+- 입력: `BPC_InteractionSource`가 접지점/반경/강도만 NDC에 기록. 방향은 아직 쓰지 않는다.
+- 부착 대상: 플레이어 캐릭터, 더미 NPC, 큰 몬스터 최소 3종. 모두 같은 `BPC_InteractionSource` 계약을 쓴다.
+- 기본 probe: `CapsuleGround`. 큰 몬스터는 `MultiPointOffsets` 계약을 잡고 최소 3 point까지만 검증한다.
+- SourceProfile 최소값: `Player_Humanoid`, `NPC_Humanoid`, `Monster_Large`.
+- 시뮬: `bend = max(bend*exp(-RestoreRate*dt), stamp)`.
+- RT: 모바일 우선 폴백과 같은 단일 스칼라 bend를 `RT_IF_Deform.A`에 기록한다. `RT_IF_Grass`는 아직 만들지 않는다.
+- 머티리얼: 풀 버텍스 높이마스크 `pow(h,k)` × bend강도 × 기본 눕힘 방향(플레이어 이동 방향 또는 필드 wind dir 파라미터)으로 수평 WPO.
+- 검증: 플레이어, 더미 NPC, 큰 몬스터가 같은 볼륨 안에서 풀을 눕히고, 시간이 지나며 복원된다. 영역 밖 액터는 NDC write/trace를 하지 않는다.
+
+**Phase 3.B — 방향 벤드 확장**
+- 방향: `BendDir`은 인터랙터 Velocity XY를 정규화해 EMA로 완화한다.
+- RT: 데스크탑/고품질 경로에서 전용 `RT_IF_Grass`를 추가한다. RG=BendDir, B=강도, A=예약.
+- 모바일: 계속 `RT_IF_Deform.A` 스칼라 bend만 사용한다.
+- 머티리얼: 방향 RT가 있으면 방향 벤드, 없으면 wind/fallback 방향 벤드로 자동 분기한다.
+- `FootSockets`는 이 단계에서도 필수 구현이 아니라 후속 정밀화 항목으로 둔다.
+
+**Source 적용 계약**
+- `BPC_InteractionSource`는 플레이어 전용이 아니라 `CharacterPawn`, NPC, 몬스터, 필요 시 이동 프롭까지 공통으로 붙는 흔적 발생 컴포넌트다.
+- `BPC_InteractionSource`는 지면 판정과 payload 산출까지만 담당하고, RT에 직접 접근하지 않는다.
+- `BP_InteractionField`는 활성 필드 안의 Source만 처리하며, 필드 밖 액터는 trace/NDC write를 하지 않는다.
+- 필수 payload: `Position`(지면 hit 위치), `Normal`(지면 hit normal), `Velocity`(XY), `Radius`, `Strength`, `Channel=Grass`, `Shape`(Sphere/Capsule).
+
+**SourceProfile**
+| Profile | Probe | 우선순위/빈도 | 용도 |
+|---|---|---|---|
+| `Player_Humanoid` | `CapsuleGround` | 최고, 짧은 interval | 플레이어 캐릭터 |
+| `NPC_Humanoid` | `CapsuleGround` | 중간, 플레이어보다 낮은 빈도 | 일반 NPC/휴머노이드 몬스터 |
+| `Monster_Large` | `MultiPointOffsets` | 중간~높음, 느린 interval 허용 | 큰 몬스터/보스 |
+| `Monster_Quadruped` | `MultiPointOffsets` → 후속 `FootSockets` | 중간 | 네발 몬스터 |
+| `SmallActor` | `CapsuleGround` 또는 단일 원점 | 낮음 | 작은 프롭/소형 생물 |
+
+공통 프로필 값: `ProbeMode`, `Radius`, `StrengthScale`, `MinSpeedToWrite`, `TraceLength`, `UpdateInterval`, `Priority`, `MaxProbeCount`, `bWriteOnlyInsideActiveField`.
+
+**기존 자산 래핑**
+- 기존 `MF_EL_Foliage_Interaction_PP2_4Pivots` 핀 구조를 검증한 뒤, 바로 교체하지 말고 `MF_SampleInteractionField_Grass` 래퍼에서 필요한 입력만 맞춘다.
+- 플러그인 코어는 프로젝트 `/Game`의 기존 Foliage MF를 참조하지 않는다. 실제 소비 프로젝트 머티리얼만 플러그인 MF를 참조한다.
+
+**통과 기준**
+- Niagara/머티리얼 compile error 0.
+- `RT_IF_Deform.A` PNG 또는 디버그 머티리얼에서 bend 값이 보인다.
+- 풀 머티리얼이 스칼라 bend만으로도 눈에 띄게 눕고 복원된다.
+- 모바일 프리뷰에서 POM 없이 동작하며, 비용 측정 지점을 남긴다.
 
 ### 6.C 물 파장
 - 파동방정식 explicit: `acc=(이웃합-4h)*c²; vel=(vel+acc*dt)*Damping; h+=vel*dt`. **CFL `c²dt²≤0.5`** clamp/substep. 경계 absorb 기본.
@@ -188,10 +247,10 @@ MCP 실측으로 폴백을 못박는다.
 - 표현 **독립 물 메시 1순위**(모바일 안전): height WPO/노멀(ddx,ddy 또는 인접텍셀)/foam(|height|·|vel| 임계).
 - UE Water/WaterAdvanced/WaterExtras 연동은 **범위 제외**. WaterBody 머티리얼 수정, WaterExtras Local Waves 충돌 검증, Buoyancy 연계는 하지 않는다.
 
-### 6.D 검 궤적 / 장풍 (공중 트랜션트)
-- 공중 3D 궤적은 top-down RT에 높이 소실 → **RT 아님**. 트레일 = Niagara Ribbon/Sprite + 머티리얼 마스크(`UltraVolumetrics/NS_Swing` 복제 기반).
-- 지면 닿는 부분만 `RT_IF_Deform.B`. 검=소켓 부착+애님 노티파이 게이트, 투사체=상시. Channel=Trail.
-- 소비처: 머티리얼 마스크+VFX 우선, 데칼 보조, (옵션) 지면 Grass cross-splat.
+### 6.D 범위 제외: 검 궤적 / 포스 / 장풍
+- 이번 Reactive 작업에서는 검 궤적, 포스, 장풍, 충격파 지면투영 RT를 만들지 않는다.
+- 공중 3D 궤적은 top-down RT에 높이 정보가 손실되므로 InteractionField의 지면 RT에 넣지 않는다.
+- 필요해지면 별도 VFX/Combat FX 시스템에서 Niagara Ribbon/Sprite/Mesh VFX와 전용 `RT_GroundFX` 여부를 다시 설계한다.
 
 ---
 
@@ -204,7 +263,6 @@ MCP 실측으로 폴백을 못박는다.
 | 종류 | 복제 방식 | 근거 |
 |------|-----------|------|
 | 발자국·풀 눕힘(이동기반) | **복제 안 함**. 각 클라가 영역 내 모든 복제된 폰 순회 → 로컬 NDC write | CharacterMovement가 폰 위치 이미 복제 → RPC 0 |
-| 검 궤적·장풍(이벤트성) | 공격/스폰 복제 이벤트에 묶어 Multicast(또는 GAS Gameplay Cue) → 클라 로컬 splat | 이벤트당 1회 Unreliable |
 | 물 파장 | 입수 임펄스 이벤트만 Multicast, 전파 시뮬 클라 로컬 | 시각효과(미세 차이 허용) |
 
 - **서버 타입**: 데디 서버 = GPU/RT/Niagara 비활성(`IsDedicatedServer`), 이벤트 권위 중계만. 리슨 서버 = 호스트 로컬 시뮬.
@@ -214,24 +272,57 @@ MCP 실측으로 폴백을 못박는다.
 
 ---
 
-## 8. 그라운드 판정 (CharacterMovement 비의존)
+## 8. Source 등록과 그라운드 판정 (CharacterMovement 비의존)
 
-흔적 접지 위치를 캡슐 floor(1점)에 기대지 않고 독립 계산. 이유: 발별 위치/경사 노멀 필요, NPC/투사체/프롭도 흔적 가능, 경사·계단 정확도.
+흔적 접지 위치는 CharacterMovement floor에 기대지 않고 `BPC_InteractionSource`가 독립 산출한다. 이유: 플레이어, NPC, 몬스터, 프롭을 같은 계약으로 처리하고, 경사·계단·큰 몸집 probe를 SourceProfile별로 조절하기 위해서다.
 
-`BPC_InteractionSource`가 산출: 접지 월드 XY(Position), 접지 노멀, 접지 여부(planted), 침투 깊이(Strength 가중).
+### 8.1 등록/처리 책임
+- `BPC_InteractionSource`는 플레이어/NPC/몬스터/프롭에 부착되는 공통 ActorComponent다.
+- `BP_InteractionField`는 활성 필드 안의 Source만 등록/처리한다. 필드 밖 Source는 trace와 NDC write를 모두 스킵한다.
+- `BPC_InteractionSource`는 지면 hit와 payload 산출까지만 담당한다. RT 생성, RT 샘플, 감쇠 시뮬은 `BP_InteractionField`/Niagara/머티리얼 쪽 책임이다.
+- Dedicated Server에서는 GPU/RT/Niagara 기반 시각 재생과 trace write를 비활성화한다.
 
-| 방식 | 내용 | 비용 | 용도 |
-|------|------|------|------|
-| M1 풋본+다운 트레이스 (권장) | 발 본/캡슐 바닥에서 -Z LineTrace/SphereTrace → Hit Location/Normal | 발 2개×스로틀 | 스켈레탈 |
-| M2 풋플랜트 노티파이 게이트 (모바일 최적) | FootDown 노티파이 시점에만 트레이스 1회 | 최소 | 정확·저비용 |
-| M3 액터 원점 단일 트레이스 | 액터 위치 -Z 1회 | 최저 | 투사체/프롭/NPC |
-| M4 비동기 트레이스 | 위들을 AsyncLineTrace | 게임스레드 0 | 모바일 다수 |
+### 8.2 기본 Probe: `CapsuleGround`
+1차 풀 MVP의 기본 probe는 모든 Character/Pawn 계열에 적용 가능한 `CapsuleGround`다.
 
-- **트레이스 채널(플러그인 이식성)**: 커스텀 채널 `InteractionGround`는 소비 프로젝트 Config라 콘텐츠 플러그인에 못 담음 → **기본은 기존 채널(Visibility/WorldStatic)+오브젝트타입/태그 필터**로 단독 동작. 커스텀 채널은 소비 프로젝트 선택 최적화.
-- 출력: Hit이면 Position=HitLocation, Normal=HitNormal, planted=true, Strength*=침투량. Miss(공중)면 publish 스킵.
-- **모바일 비용 통제**: 영역 밖 액터 트레이스 안 함, 발당 매프레임 금지(M2 1순위→M1 N프레임+Async), SphereTrace 반경 최소.
-- **MP 정합**: 각 클라가 로컬 트레이스(복제 안 함) → §7 "이동기반 로컬 재생"과 일치.
-- 검증 필요: 사용 스켈레톤 발 소켓/본 이름, 모바일 AsyncTrace 다수 비용.
+- 캡슐 바닥 중심 또는 SourceProfile offset에서 아래 방향 `LineTrace` 또는 작은 `SphereTrace`를 수행한다.
+- 발 소켓 이름, 애님 노티파이, 스켈레톤 차이에 의존하지 않으므로 플레이어/NPC/몬스터 공통 적용이 빠르다.
+- `MinSpeedToWrite` 이하, trace miss, 공중 상태, hit 거리 초과, `HitNormal.Z`가 너무 낮은 급경사는 write하지 않는다.
+- 유효 hit일 때만 `Channel=Grass` NDC payload를 쓴다.
+
+### 8.3 큰 몬스터 Probe: `MultiPointOffsets`
+큰 몬스터를 단일 원형 stamp로 처리하면 몸집 대비 흔적이 부자연스럽다. `Monster_Large`와 `Monster_Quadruped`는 여러 offset 지점으로 나눠 찍는다.
+
+- 액터 local 기준 `Center`, `Front`, `Back`, `Left`, `Right` offset 목록을 둔다.
+- 각 offset에서 아래 방향 trace를 수행한다.
+- 각 probe는 작은 radius를 쓰고, 여러 stamp가 합쳐져 큰 몸집의 풀 눕힘을 만든다.
+- `MaxProbeCount`와 frame budget에 따라 일부 probe는 다음 프레임으로 분산한다.
+- 초기 권장: `Monster_Large` 3~5 point, `Monster_Quadruped` 4 point. 매우 큰 보스는 Phase 3 이후 별도 LOD/Profile을 둔다.
+
+### 8.4 후속 확장: `FootSockets`
+`FootSockets`는 Phase 3.A MVP에 넣지 않는다. Phase 3.B 이후 또는 눈/모래 발자국 Phase 4에서 정밀도를 올릴 때 추가한다.
+
+- `ProbeMode=FootSockets`
+- `FootSocketNames` 배열 사용
+- 각 socket에서 아래 방향 trace
+- 발이 지면 가까울 때만 write
+- Anim Notify는 필수 계약이 아니라 모바일 최적화용 선택 게이트
+
+### 8.5 Trace 대상과 필터
+- 풀 메시가 아니라 풀 아래 지면을 trace한다.
+- 기본 대상은 `Landscape`, `StaticMesh`, `WorldStatic` 계열이다.
+- 기본 trace channel은 플러그인 이식성을 위해 `Visibility` 또는 기존 object type 기반으로 둔다.
+- 커스텀 `InteractionGround` 채널은 소비 프로젝트 선택 최적화로만 제공한다.
+- 허용 태그 예: `InteractionGround`, `Landscape`, `Ground`.
+- 제외 대상 예: foliage instance, grass mesh, VFX mesh, character mesh, trigger volume.
+- 물/눈/모래/풀 같은 표면별 차이는 hit actor/component 태그 또는 material parameter로 후속 분기한다.
+
+### 8.6 성능 예산
+- `BP_InteractionField`가 frame budget을 갖고 Source를 priority 순으로 처리한다.
+- 예산 초과 Source는 다음 프레임으로 넘긴다.
+- 예산 항목: `MaxSourcesPerFrame`, `MaxTracesPerFrame`, `MaxProbePointsPerSource`, `UpdateIntervalByProfile`, `CullDistance`, `bDisableOnDedicatedServer`.
+- 우선순위: 플레이어 → 카메라 근처 NPC/몬스터 → 큰 몬스터 → 빠르게 움직이는 Source → 작은 프롭/먼 NPC.
+- MP 정합: RT 결과를 복제하지 않고, 각 클라이언트가 로컬 `BP_InteractionField` 안의 복제된 Pawn/Actor를 순회해 로컬 trace 후 NDC write한다.
 
 ---
 
@@ -242,7 +333,7 @@ MCP 실측으로 폴백을 못박는다.
 **플러그인에 들어갈 것(자기완결 코어)**: MPC_InteractionField, NDC_Interactors, E_IF_Channel/E_IF_CaptureMode, BP_InteractionField(매니저), BPC_InteractionSource, NS_InteractionField, **MF_SampleInteractionField(소비처가 참조하는 핵심 API)**, 디버그 RT/머티리얼, /Demo 예제.
 
 **자기완결성 제약(중요)**: 플러그인 콘텐츠는 프로젝트 `/Game` 콘텐츠를 참조 불가(참조 방향: 프로젝트→플러그인만).
-- **POM 눈 머티리얼은 "소비처"** → 기존 `/Game/AI_Generated/...M_SilhouettePOM...`를 플러그인이 fork 불가. **해결**: 플러그인은 MF + (선택)간단 예제 머티리얼만, **실제 POM fork는 소비 프로젝트에 두고 플러그인 MF 참조**. MVP POM 작업은 `/Game`에서.
+- **POM 눈 머티리얼은 "소비처"** → 기존 `/Game/AI_Generated/...M_SilhouettePOM...`를 플러그인이 fork 불가. **해결**: 플러그인은 MF + (선택)간단 예제 머티리얼만, **실제 POM fork는 소비 프로젝트에 두고 플러그인 MF 참조**. Phase 4 POM 작업은 `/Game`에서.
 - **NS_InteractionField는 Water 계열 플러그인 비의존** → `.uplugin`에 Water/WaterAdvanced/WaterExtras 의존을 선언하지 않는다. Grid2D/SimStage 시드는 플러그인 내부 자기완결 Niagara 자산으로 만든다.
 
 **소비 프로젝트 셋업 가이드**: ①플러그인 활성 ②(선택)트레이스 채널 정의/기본 채널 ③캐릭터·액터에 BPC_InteractionSource 부착 ④레벨에 BP_InteractionField 배치(볼륨) 또는 폴로우 타깃 지정 ⑤지면 머티리얼에 MF_SampleInteractionField 연결 ⑥플랫폼별 RT 해상도 스케일 확인.
@@ -256,7 +347,7 @@ MCP 실측으로 폴백을 못박는다.
 **막힘(크리티컬)**: 스크래치패드 MCP 인스펙션 전용(Custom HLSL 본문 R/W 불가). Niagara SimulationStage 신규 생성 API 미노출. 시뮬 내 NDC Read DI Python 미노출. 애님 노티파이 트리거 배선 전용 툴 없음.
 
 **결정**: `/WaterAdvanced/Niagara/Systems/Grid2D_OceanPatch`는 사용하지 않는다. Grid2D+SimStage+RT export는 `InteractionField` 플러그인 안의 자기완결 Niagara 시드로 구성한다.
-**잠정 결론: C++ 불필요.** 단, Water/OceanPatch 없이 자기완결 SimStage 시드 제작이 Phase P의 새 크리티컬 패스다. 수동 1회성 지점 = ①Grid2D 시드 ②NDC Read 모듈 ③(필요시)HLSL 식 ④노티파이 배선.
+**잠정 결론: C++ 불필요.** 단, Water/OceanPatch 없이 자기완결 SimStage 시드 제작이 Phase P의 새 크리티컬 패스다. 수동 1회성 지점 = ①Grid2D 시드 ②NDC Read 모듈 ③(필요시)HLSL 식 ④노티파이 배선. 이 경로가 막히면 SceneCapture로 대체하지 않고 Niagara 구현 블로커로 기록한다.
 
 ---
 
@@ -272,12 +363,13 @@ MCP 실측으로 폴백을 못박는다.
 - **R6 🟠** 런타임 트랜션트 RT(플랫폼별 크기), 저장 에셋 RT는 디버그용만.
 - **R7 ✅결정** 단일 활성 필드(글로벌 MPC 1세트).
 - **R8 🟠** 틱 순서(NDC write→center publish→sim read) TickGroup 정렬.
-- **R9 🟡** WPO 콜리전 비반영+테셀 비용 → MVP 얕은 변형.
+- **R9 🟡** WPO 콜리전 비반영+테셀 비용 → 풀 MVP는 시각 WPO만, 눈/모래도 얕은 변형.
 - **R10 🟡** 풋플랜트 노티파이 작업량 → M1 트레이스 폴백 상시 구비.
 - **R11 🟡** 모래 diffusion 전체 번짐 → 모래만+낮은 rate.
 - **R12 🟡** 성능 예산 미정량 → Phase 2 직후 모바일 ms 측정.
-- **R13 🟡** 데칼 폴백 인지(발자국 단독 성능 위기 시).
-- **R14 🔴** Water/OceanPatch 비의존으로 SimStage 시드 자산을 직접 만들어야 함 → Phase P에서 자기완결 Grid2D 시드 제작/복제/RT export를 먼저 확정. 막히면 SceneCapture+머티리얼 누적 RT로 스펙 다운.
+- **R13 🟡** 데칼 폴백 인지(눈/모래 발자국 단독 성능 위기 시).
+- **R14 🔴** Water/OceanPatch 비의존으로 SimStage 시드 자산을 직접 만들어야 함 → Phase P에서 자기완결 Grid2D 시드 제작/복제/RT export를 먼저 확정. 막히면 SceneCapture로 스펙 다운하지 않고 Niagara 제작 블로커로 처리.
+- **R15 🟠** NPC/몬스터 Source 수가 늘면 trace 비용이 급증 → 활성 필드 내부 Source만 처리, SourceProfile별 update interval, `MaxTracesPerFrame`, `MultiPointOffsets` 프레임 분산으로 통제.
 
 ---
 
@@ -297,15 +389,16 @@ MCP 실측으로 폴백을 못박는다.
 12. 기존 Foliage MF 핀 구조.
 13. 폴로우 Grid2D wrap/scroll.
 14. UE5.7 NDC 네트워크 복제 특성(MP).
-15. 그라운드 판정: 트레이스 채널·발 소켓·모바일 Async 다수 비용.
+15. 그라운드 판정: SourceProfile, `CapsuleGround`, `MultiPointOffsets`, 트레이스 채널/필터, 모바일 Async 다수 비용.
 
 ---
 
 ## 13. 기존 자산 활용 결정
 
 - **POM 마스터 fork**: `M_SilhouettePOM_Custom_dither_shadow_final_fade` (사용자 "POM 사용" 명시).
-- **Niagara 시드 복제**: 플러그인 내부 자기완결 `NS_IF_Grid2DSeed` (SimStage 생성 API 미노출 대응용 수동 시드). Water/OceanPatch 자산은 사용하지 않음.
-- **참고만**: `NS_Reactive_RTTexturePainter`, `BP_ReactiveWater*`, `MF_EL_Foliage_Interaction_PP2_*`, `UltraVolumetrics/NS_Swing`. 중복 RT 페인터 공존 시 구자산 deprecate.
+- **Niagara 시드 복제**: 플러그인 내부 자기완결 `/InteractionField/Niagara/Systems/NS_InteractionField` (SimStage 생성 API 미노출 대응용 seed). Water/OceanPatch 자산은 사용하지 않음.
+- **참고만**: `NS_Reactive_RTTexturePainter`, `BP_ReactiveWater*`, `MF_EL_Foliage_Interaction_PP2_*`. 중복 RT 페인터 공존 시 구자산 deprecate.
+- **Reactive 범위 제외 후보**: `UltraVolumetrics/NS_Swing` 같은 검/포스 VFX 자산은 별도 VFX/Combat FX 시스템에서 검토.
 - 디폴트: 신규 단일화 + POM fork + 자기완결 Grid2D/Niagara 시드.
 
 ---
@@ -316,17 +409,44 @@ MCP 실측으로 폴백을 못박는다.
 |------|-------|----------------|
 | 2026-06-14 | (설계) | 설계 문서 작성, 검토 대기. 구현 미착수. |
 | 2026-06-15 | (설계 결정) | Water/WaterAdvanced/WaterExtras 플러그인 비의존 확정. OceanPatch 복제 계획 폐기, 자기완결 Grid2D/Niagara 시드 검증을 Phase P 크리티컬 패스로 변경. |
+| 2026-06-15 | (범위 조정) | 검 궤적/포스/장풍 지면투영 RT를 이번 Reactive 작업 범위에서 제외. 필요 시 별도 VFX/Combat FX 시스템에서 재설계. |
+| 2026-06-15 | (MVP 순서 조정) | 1차 MVP를 눈/모래 POM에서 풀 눕힘으로 변경. Phase 3은 스칼라 bend → 방향 bend 확장 순서로 진행. |
+| 2026-06-15 | (Source 계약) | 티브렛 검토 반영. `BPC_InteractionSource`를 플레이어/NPC/몬스터 공통 컴포넌트로 확정하고, `CapsuleGround` 기본 probe + 큰 몬스터 `MultiPointOffsets` + 후속 `FootSockets` 계획을 문서화. |
+| 2026-06-15 | (Niagara-only 결정) | Reactive RT 기록 경로를 Niagara(Grid2D) → RT export로 고정. SceneCapture/머티리얼 누적 RT 대안은 사용하지 않고, 막히면 Niagara 구현 블로커로 처리. |
+| 2026-06-15 | Phase 0 착수 | `codex/interactionfield-grass-mvp` 브랜치에서 Content-only `Plugins/InteractionField` 스캐폴드 생성. Niagara dependency만 선언하고 Water 계열 의존은 추가하지 않음. |
+| 2026-06-15 | Phase 0 검증 | `python Tools\Unreal\check_interaction_field_scaffold.py` 통과. 실행 중인 에디터는 신규 플러그인 `/InteractionField`를 아직 마운트하지 않아 실제 에셋 생성은 에디터 재시작 후 진행. |
+| 2026-06-15 | Phase 1 골격 | 에디터 재시작 후 `/InteractionField` 마운트 확인. `BP_InteractionField`, `BPC_InteractionSource`, `MPC_InteractionField`, `RT_IF_Deform`, `MF_SampleInteractionField` stub, `M_IF_DebugFieldPreview` 생성 및 컴파일/저장. Niagara/NDC/RT export는 아직 미구현. |
+| 2026-06-15 | Phase 1 MPC/UV | `BP_InteractionField` Tick MPC publish 그래프와 `MF_SampleInteractionField` 월드→필드 UV 변환 출력 구현. `M_IF_DebugFieldUV` 생성 및 컴파일. Python 생성 MPC는 CollectionParameter 직접 연결 ID resolve 보완 필요. |
+| 2026-06-15 | Phase 2 Niagara seed | `/Niagara/DefaultAssets/Templates/BehaviorExamples/RenderTargetTexturePainter`를 `/InteractionField/Niagara/Systems/NS_InteractionField`로 복제. `PaintGrid` Grid2D/SimStage/RT export seed는 compile error 0. `BP_InteractionField`에 `InteractionFieldNiagara` 컴포넌트를 붙이고 기본 Asset 지정. 기존 MCP RapidIteration writer는 `Render Target 2D` 데이터인터페이스 바인딩을 지원하지 않아 별도 RT2D Data Interface 명령이 필요하다고 판정. |
+| 2026-06-15 | Phase 2 RT binding tool | UnrealMCP에 RenderTarget2D Data Interface module-input 바인딩 명령 `set_niagara_render_target2d_module_input`을 추가. Python 래퍼는 sibling `unreal-mcp-cubeless`에 추가했다. Live Coding compile 통과 후 `NS_InteractionField`의 `RenderGrid.Render Target 2D`를 `User.RT_IF_Deform` + `/InteractionField/Core/Data/RT_IF_Deform`에 바인딩하고 저장했다. Niagara compile error/warning 0, dirty content package 0. |
+| 2026-06-15 | Phase 2 BP 계약 보강 | `BPC_InteractionSource`와 `BP_InteractionField`에 플레이어/NPC/몬스터 공통 Source 및 Field manager 인스턴스 변수 계약을 CDO 기준으로 보강했다. 두 Blueprint compile/save error/warning 0. NDC production asset은 Python factory가 내부 data channel을 만들지 못해 보류. |
+| 2026-06-15 | Phase 2 RT export probe | `NS_IF_RTExportProbe` debug stamp 시스템을 추가하고 `RT_IF_Deform`을 `RTF_RGBA16F` + `supports_uav=true`로 수정했다. 세 RT2D DI 입력은 모두 `User.RT_IF_Deform`에 바인딩되고 compile error/warning 0이나, 실제 RT raw sample은 아직 0이라 Grid2D stamp write 경로 추가 검증이 필요하다. |
+| 2026-06-16 | Phase 2 RT fill probe | `NS_IF_RTExportProbe_Fill` 극단값 fill 프로브를 추가했다. PIE Simulate world에서 Niagara spawn, RT user variable 세팅, 180틱 advance, 5초 실제 tick 모두 성공했지만 `RT_IF_Deform` 1024개 grid sample이 전부 RGB 0이었다. 다음 판단은 scratch pad 내부 Grid2D write/export 조건 또는 원본 template 전용 Preview Lab 맵 비교다. |
+| 2026-06-16 | Phase 2 no-C++ RT triage | MCP C++/API를 수정하지 않고 RT 직접 write/read, 템플릿 대비 SimulationStage 설정, RT2D 입력 노드, 활성화 전 파라미터 세팅 순서를 검증했다. RT 자산과 그래프 링크는 정상으로 보이나 Niagara Grid2D write/export가 계속 0이라, 다음 단계는 Preview Lab 맵 원본 템플릿 비교 또는 Niagara Editor UI에서 scratch pad/Stage를 수동 분해 검증하는 쪽이다. |
+| 2026-06-16 | MCP C++ API 보강 | UnrealMCP에 read-only `inspect_niagara_simulation_stages` 명령을 추가해 SimulationStage/Generic stage/compiled data를 구조화해서 읽는 경로를 만들었다. Python MCP wrapper와 sibling 문서도 갱신했다. `StaticEnum` 링크 실패를 enum별 switch 변환으로 수정했고 `StylizedCubelessEditor Win64 Development` UBT 빌드 통과. 에디터 재실행 후 브리지 직접 호출과 sibling Python MCP 연결 호출 모두 `NS_IF_RTExportProbe_Fill`의 4개 stage와 `FillCompilationData()` 결과를 정상 반환했다. |
+| 2026-06-16 | Phase 2 module diff/re-smoke | 런타임 C++ 없이 원본 템플릿과 fill probe의 module input diff를 확인했다. 차이는 의도한 `RenderCircleToGrid` 극단값뿐이고, 강제 compile/wait 후 재스모크에서도 `RT_IF_Deform`은 RGB 0이었다. dirty content/map은 정리 완료. |
+| 2026-06-16 | Phase 2 alternate map smoke | `/Game/SampleTestMap/Niagara_TestMap`은 프로젝트에 없어서 `/Game/Cubeless/TestMap`에서 같은 fill probe smoke를 실행했다. 결과는 동일하게 RT RGB 0이며, 원래 ExampleMap으로 복귀 후 dirty content/map 0. |
 
 ---
 
 ## 15. 전체 검증 (E2E)
 
-1. 데모 레벨: Nanite 평면(눈)+Landscape(눈/모래), 캐릭터+더미 NPC.
-2. 볼륨 모드(1차): 이동 → 발자국 함몰+Rim, **플레이어·NPC 모두**.
-3. 폴로우 전환 → 동작+영역 추종(Phase 7).
+1. 데모 레벨: 풀 패치(Instanced Static Mesh 또는 Foliage 소비 머티리얼), 플레이어 캐릭터+더미 NPC+큰 몬스터. 눈/모래 지면은 Phase 4 이후 추가.
+2. 볼륨 모드(1차): 이동 → 풀 눕힘+복원, **플레이어·NPC·큰 몬스터 모두**.
+3. 폴로우 전환 → 동작+영역 추종(Phase 6).
 4. 각 Phase: Niagara/머티리얼 compile 0, RT PNG export 육안, 전후 캡처, `analyze_*`/`inspect_*` 확인.
 5. 모바일 Vulkan SM6 프리뷰 비용/크래시.
 6. (MP 구현 안 함) §7 지침과 모순 없는지 설계 검토만.
 7. 플러그인 자기완결성: 소비 프로젝트에서 플러그인만 활성+가이드대로 동작 확인.
    - Water/WaterAdvanced/WaterExtras 비활성 상태에서도 InteractionField 핵심 데모가 동작해야 함.
 8. 각 Phase 종료 시 본 문서 §14 갱신.
+
+---
+
+## 16. 2026-06-16 추가 검증 - DataInterface override readback
+
+- UnrealMCP에 read-only `inspect_niagara_data_interface_overrides(...)`를 추가하고 sibling MCP wrapper/docs까지 갱신했다. InteractionField 런타임 C++은 추가하지 않는다.
+- `NS_IF_RTExportProbe_Fill`의 `InitializeGridToRenderTargetSize.Render Target 2D`와 `RenderGrid.Render Target 2D`는 둘 다 `User.RT_IF_Deform`에 연결되어 있고, User object는 `/InteractionField/Core/Data/RT_IF_Deform`(`TextureRenderTarget2D`, 512x512, `RTF_RGBA16f`, UAV 가능)로 확인됐다.
+- 컴포넌트 setter 3종(`set_variable_texture_render_target`, `set_variable_object`, `set_niagara_variable_object`), viewport 가시 배치, `was_recently_rendered=true`, 600 frame advance, 8초 실제 editor tick, transient RGBA16F/RGBA8 RT 비교까지 모두 RT RGB 0으로 동일했다.
+- 따라서 현재 블로커는 RT binding/User parameter/컴포넌트 visibility/readback/RT asset format이 아니라 Grid2D named/unnamed attribute 경고 또는 scratch-pad write/export semantics 쪽으로 좁혀졌다.
+- 다음 asset-only 단계는 `RenderCircleToGrid` 경로를 더 분해해서 최소 constant `SetRenderTargetValue` stage를 만들거나, Grid2D attribute path를 named 방식으로 정리해 `PaintGrid.Grid2D Collection: Unnamed attributes should not be used with named` 경고를 제거하는 것이다.

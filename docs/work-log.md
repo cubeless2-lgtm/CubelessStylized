@@ -4211,3 +4211,198 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Updated `docs/interaction-field-system.md` so Phase P now validates a self-contained Grid2D/Niagara seed (`NS_IF_Grid2DSeed`) inside the InteractionField plugin instead of using `/WaterAdvanced/Niagara/Systems/Grid2D_OceanPatch`.
 - Residual risk: without OceanPatch as a clone source, self-contained SimStage seed creation/RT export becomes the new critical feasibility gate. If it is blocked, the fallback is SceneCapture + material accumulated RT.
 - Notion capture fallback: the Notion app required reauthentication during this update, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField force/trail scope exclusion decision
+
+- Ieta decision: sword trails, force effects, wind/energy blasts, and their ground-projected RT masks are excluded from the current `InteractionField` Reactive work.
+- Updated `docs/interaction-field-system.md` so active scope is limited to snow/sand deformation, grass bending, and independent water ripples. `E_IF_Channel` slot 3 and `RT_IF_Deform.B` are now reserved instead of `Trail`.
+- Follow-up policy: if sword/force effects become needed later, design them as a separate VFX/Combat FX system first, with a dedicated `RT_GroundFX` considered only for ground residue or projection.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField grass-first MVP decision
+
+- Ieta decision: start the Reactive implementation plan with grass bending instead of snow/sand POM. Grass is the first vertical slice because it validates NDC input, Grid2D persistence, RT export, MPC coordinate mapping, and material consumption with less shader and POM risk.
+- Updated `docs/interaction-field-system.md`: Phase 3 is now `풀 눕힘 ★1차 MVP★`, Phase 4 is snow/sand POM, and the E2E demo starts with a grass patch plus player/NPC.
+- Phase 3 plan: first write scalar bend to `RT_IF_Deform.A`, then extend to directional desktop `RT_IF_Grass` with RG=BendDir and B=Strength. Mobile remains scalar bend only.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField shared SourceComponent contract
+
+- Ieta/Tivret decision: `BPC_InteractionSource` is a shared ActorComponent for player characters, NPCs, monsters, and optional moving props, not a player-only grass interaction script.
+- Updated `docs/interaction-field-system.md` with the Builder-facing contract: SourceComponents compute ground hit payloads only, `BP_InteractionField` processes active-field Sources with frame budgets, and Niagara/RT handles accumulation.
+- Phase 3.A now requires `Player_Humanoid`, `NPC_Humanoid`, and `Monster_Large` SourceProfiles, `CapsuleGround` as the default probe, and minimum large-monster `MultiPointOffsets` validation. `FootSockets` remains a later precision extension.
+- Trace policy: trace the ground under grass (`Landscape`, `StaticMesh`, `WorldStatic`) rather than grass meshes; use portable default channels/tags first, with custom `InteractionGround` only as a consuming-project optimization.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField Niagara-only RT decision
+
+- Ieta decision: Reactive RT recording is Niagara-only. SceneCapture and material-accumulated RT are not acceptable alternatives for this system.
+- Updated `docs/interaction-field-system.md` so Phase P and Phase 2 explicitly require self-contained Niagara Grid2D -> RT export. If Grid2D/NDC/RT export is blocked, the task reports a Niagara implementation blocker instead of changing technique.
+- Rationale: Niagara Grid2D owns the persistent simulation state, channel writes, decay/restore math, and RT export timing; SceneCapture would add camera/projection/capture-cost synchronization problems and would not match the intended simulation model.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField branch and content plugin scaffold
+
+- Created branch `codex/interactionfield-grass-mvp` from `main` with the existing InteractionField planning docs carried forward.
+- Added Content-only project plugin scaffold at `Plugins/InteractionField/InteractionField.uplugin` with `CanContainContent=true` and only the `Niagara` plugin dependency. No Water/WaterAdvanced/WaterExtras dependency was added.
+- Added initial content folder layout under `Plugins/InteractionField/Content`: `Core`, `Core/Blueprints`, `Core/Data`, `Niagara`, `Niagara/DataChannels`, `Niagara/Modules`, `Niagara/Systems`, `Materials`, `Materials/Debug`, `Materials/Functions`, `Demo`, `Demo/Blueprints`, and `Demo/Maps`.
+- Enabled `InteractionField` in `StylizedCubeless.uproject`.
+- No Unreal binary assets, C++ files, Niagara assets, Blueprint assets, or sibling `unreal-mcp-cubeless` files were created in this scaffold step.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField scaffold preflight
+
+- Added `Tools/Unreal/check_interaction_field_scaffold.py`, a repo-side preflight that validates the Content-only plugin descriptor, required content folders, `StylizedCubeless.uproject` enablement, Niagara-only planning phrases, and absence of the old SceneCapture fallback wording.
+- Verification passed: `python Tools\Unreal\check_interaction_field_scaffold.py`, `python -m py_compile Tools\Unreal\check_interaction_field_scaffold.py`, JSON parsing for `InteractionField.uplugin` and `StylizedCubeless.uproject`, and `git diff --check` all passed.
+- Runtime editor note: UnrealMCP Python confirmed the plugin exists on disk, but the currently running editor reports `/InteractionField` as not mounted yet. Actual plugin content asset creation should run after an editor restart or plugin reload that mounts the new Content-only plugin.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField Phase 1 asset skeleton
+
+- Restarted Unreal Editor after confirming there were no dirty content or map packages. The reloaded editor mounted `/InteractionField` successfully.
+- Created initial plugin assets: `/InteractionField/Core/Blueprints/BP_InteractionField`, `/InteractionField/Core/Blueprints/BPC_InteractionSource`, `/InteractionField/Core/Data/MPC_InteractionField`, `/InteractionField/Core/Data/RT_IF_Deform`, `/InteractionField/Materials/Functions/MF_SampleInteractionField`, and `/InteractionField/Materials/Debug/M_IF_DebugFieldPreview`.
+- `BPC_InteractionSource` now exposes the shared player/NPC/monster source contract: profile name, probe mode, channel, radius, strength, trace length, update interval, priority, max probe count, optional local offsets, shape, and enable/cull toggles.
+- `BP_InteractionField` now exposes field mode, world size, resolution, source/trace budgets, restore/debug toggles, follow target, and default references to `RT_IF_Deform` and `MPC_InteractionField`.
+- Verification passed: both Blueprints compile with zero errors/warnings; `MF_SampleInteractionField` stub and `M_IF_DebugFieldPreview` compile with zero material errors; `RT_IF_Deform` is 512x512 `RTF_R16F`; the scaffold preflight now also checks required Phase 1 `.uasset` files.
+- Remaining work: MPC publish graph, world-to-RT UV validation, Niagara Grid2D/NDC/RT export creation, and the grass material consumption path.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField Phase 1 MPC publish and UV debug
+
+- Extended `BP_InteractionField` EventGraph so Tick publishes `IF_FieldResolution`, `IF_FieldCenter`, `IF_RestoreRate`, `IF_FieldWorldSize`, and `IF_FieldExtent` to `MPC_InteractionField`.
+- Reworked `MF_SampleInteractionField` from a scalar stub into a compile-safe field mapping function. It takes `FieldCenter` and `FieldWorldSize` inputs, uses world position internally, and outputs `FieldUV_Inside` where `R=U`, `G=V`, `B=inside active field mask`, and `A=reserved`.
+- Added `/InteractionField/Materials/Debug/M_IF_DebugFieldUV`, a debug material that calls `MF_SampleInteractionField` with default center `(0,0,0)` and size `(4000,4000,1000)` and displays UV/inside as BaseColor/Emissive.
+- Verification passed: `BP_InteractionField` compiles with zero errors/warnings; `MF_SampleInteractionField`, `M_IF_DebugFieldUV`, and `M_IF_DebugFieldPreview` compile with zero material errors after the function-input change.
+- Constraint found: `MaterialExpressionCollectionParameter` nodes created through the current Python/MCP path can set `Collection` and `ParameterName`, but their protected parameter IDs do not resolve against Python-created `MPC_InteractionField` parameters. For now, material functions use explicit inputs; direct MPC collection nodes need editor UI selection or a verified safe API before being used in production material graphs.
+- Remaining work: place a validation patch in a test level, verify visible world-to-field UV alignment in FollowPlayer and Volume modes, then proceed to Niagara Grid2D/NDC/RT export.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField Phase 2 Niagara seed
+
+- Duplicated the UE Niagara RT texture painter template from `/Niagara/DefaultAssets/Templates/BehaviorExamples/RenderTargetTexturePainter` into the plugin as `/InteractionField/Niagara/Systems/NS_InteractionField`.
+- The seed system contains one `PaintGrid` emitter with Grid2D/Simulation Stage scratch pad modules: `RenderCircleToGrid`, `InitializeGridToRenderTargetSize`, `RenderGrid`, `BlurGridValues`, and `AdvectGrid`. `RenderGrid` uses `SetRenderTargetValue`, so it is the intended Niagara-only RT export path.
+- Added `InteractionFieldNiagara` to `/InteractionField/Core/Blueprints/BP_InteractionField` and set its default Niagara asset to `/InteractionField/Niagara/Systems/NS_InteractionField`. No C++ was added.
+- Verification passed: `NS_InteractionField` compile requested and completed with zero Niagara errors/warnings; `BP_InteractionField` compiled and saved with zero Blueprint errors/warnings.
+- Asset Registry dependency check found no `/Game/Cubeless`, Water, WaterAdvanced, or WaterExtras dependency from `NS_InteractionField`. Dependencies are Niagara default assets/modules plus `/Script/Niagara`; `/Script/NiagaraEditor` also appears in editor dependency output and must be rechecked during packaging/cook validation.
+- Constraint found: the current MCP RapidIteration module-input writer does not support binding `RenderGrid.Render Target 2D` because that input is a Niagara Render Target 2D data-interface/object input, not a numeric scalar/vector override. `RT_IF_Deform` binding remains blocked until editor UI or a safe Unreal Python/API path is confirmed. SceneCapture remains excluded.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField Niagara RT2D binding tool
+
+- Added UnrealMCP C++ support for `set_niagara_render_target2d_module_input`. The command creates a Niagara stack override for RenderTarget2D Data Interface module inputs, prepares a `UTextureRenderTarget` User parameter such as `User.RT_IF_Deform`, optionally stores a default render target asset, and supports explicit overwrite/source-edit/save/compile flags.
+- Updated the local project UnrealMCP plugin and the sibling `unreal-mcp-cubeless` MCPGameProject copy with the new C++ handler and bridge route. Added the sibling Python MCP wrapper `set_niagara_render_target2d_module_input(...)` and server help text.
+- Intended next application: after rebuilding/restarting UnrealMCP, bind `/InteractionField/Niagara/Systems/NS_InteractionField` module `RenderGrid` input `Render Target 2D` to `User.RT_IF_Deform` with `/InteractionField/Core/Data/RT_IF_Deform`.
+- Verification passed: sibling Python files compile with `python -m py_compile`; `git diff --check` passed for `CubelessStylized`, `Plugins/UnrealMCP`, and `../unreal-mcp-cubeless`; `python Tools\Unreal\check_interaction_field_scaffold.py` passed; read-only Niagara compile status for `NS_InteractionField` remains zero errors/warnings.
+- Verification blocked: `StylizedCubelessEditor` UBT build is blocked while the running editor has Live Coding active, even with `-DisableLiveCoding`. Build and actual command execution require disabling Live Coding or closing/restarting the editor.
+- Editor state note: dirty content packages are `0`; dirty map package is `/Game/DreamscapeSeries/DreamscapeMountains/Maps/ExampleMap`, likely from transient Niagara component binding probes. It was not saved or reloaded.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField Niagara RT2D binding applied
+
+- Reviewed the UnrealMCP C++ RT2D binding path and fixed three issues before applying it: avoided a non-exported NiagaraEditor utility call, made existing override cleanup refuse shared output nodes, and made user-parameter lookup tolerate Niagara's `User.` redirection key display (`RT_IF_Deform` vs `User.RT_IF_Deform`) while keeping the canonical binding name `User.RT_IF_Deform`.
+- Follow-up code review found one remaining failure-path risk: the command could create or clear the Niagara override pin before later user-parameter/DataInterface setup failures. Updated both UnrealMCP C++ copies so existing override pins are found and validated non-destructively first, user-parameter creation runs before clearing an existing value node, and the old override is only removed after preflight passes.
+- Live Coding compile passed for the UnrealMCP changes. A full external UBT build remains blocked while the editor has Live Coding active, but the running editor accepted the compiled module update.
+- Applied `set_niagara_render_target2d_module_input` to `/InteractionField/Niagara/Systems/NS_InteractionField`: emitter `PaintGrid`, module `RenderGrid`, input `Render Target 2D`, user parameter `User.RT_IF_Deform`, render target asset `/InteractionField/Core/Data/RT_IF_Deform`.
+- Command verification returned `data_interface_class=NiagaraDataInterfaceRenderTarget2D`, `data_interface_user_parameter_name=User.RT_IF_Deform`, `data_interface_inherit_user_parameter_settings=true`, `saved=true`, and `write_scope=render_target2d_data_interface_module_input`.
+- Graph verification found `RenderGrid.Render Target 2D` as a Niagara input node linked 1:1 into `NiagaraNodeParameterMapSet_2.RenderGrid.Render Target 2D`. User parameter inspection lists the redirected display name `RT_IF_Deform`.
+- Niagara compile verification passed with `error_count=0`, `warning_count=0`, `dirty_count=0`, and `GPUComputeScript` ready. After an explicit asset save, dirty content packages are `0`; the only dirty map remains `/Game/DreamscapeSeries/DreamscapeMountains/Maps/ExampleMap`, unrelated to the saved Niagara asset.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField BP source and field contract reinforcement
+
+- Strengthened `/InteractionField/Core/Blueprints/BPC_InteractionSource` for the shared player/NPC/monster source contract. CDO verification now sees `SourceProfile=Player_Humanoid`, `ProbeMode=CapsuleGround`, `StrengthScale=1.0`, `MultiPointOffsets=[]`, `ProbeLocalOffset=(0,0,0)`, `Shape=0`, and `bDebugDraw=false` alongside the earlier radius/trace/update/budget variables.
+- Strengthened `/InteractionField/Core/Blueprints/BP_InteractionField` for the field-manager contract. CDO verification now sees `FieldMode=Volume`, `bDebugField=false`, `bProcessSources=true`, `FollowTarget=None`, `DefaultRenderTarget=/InteractionField/Core/Data/RT_IF_Deform`, `DefaultMPC=/InteractionField/Core/Data/MPC_InteractionField`, and `InteractionDataChannel=None`.
+- NDC production asset creation remains blocked: Unreal Python can create a `NiagaraDataChannelAsset` shell, but the asset's internal `data_channel` remains `None`; direct `NiagaraDataChannel` creation fails because the class is abstract. The temporary `/Game/_MCP_Temp/InteractionFieldProbe/NDC_Interactors_Probe` asset was deleted after the probe.
+- Verification passed: both Blueprints compile and save with zero errors/warnings; CDO variable check reports no missing contract fields; `python Tools\Unreal\check_interaction_field_scaffold.py`, `python -m py_compile Tools\Unreal\check_interaction_field_scaffold.py`, and `git diff --check` passed. Dirty content packages are `0`; the unrelated dirty map remains `/Game/DreamscapeSeries/DreamscapeMountains/Maps/ExampleMap`.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-15 - InteractionField RT export probe partial blocker
+
+- Created `/InteractionField/Niagara/Systems/NS_IF_RTExportProbe` as a NDC-free debug stamp copy of `NS_InteractionField`.
+- Probe overrides `RenderCircleToGrid` with `CircleLocation=(0.5,0.5)`, `CircleSize=0.18`, `AdditionDelta=1`, `CircleStrength=1`, and `CircleColor=(1,1,1,1)`.
+- Fixed `/InteractionField/Core/Data/RT_IF_Deform` from `RTF_R16F` with `supports_uav=false` to `RTF_RGBA16F` with `supports_uav=true`.
+- Bound the probe's `Emitter.Render Target 2D`, `InitializeGridToRenderTargetSize.Render Target 2D`, and `RenderGrid.Render Target 2D` inputs to `User.RT_IF_Deform` with `/InteractionField/Core/Data/RT_IF_Deform`.
+- Verification passed: the probe compiles with zero Niagara errors/warnings, and all three RT inputs report `NiagaraDataInterfaceRenderTarget2D` bound through `User.RT_IF_Deform`.
+- Verification failed/blocked: manual advance, force solo/seek, all tested component RT setters, and 3 seconds of Editor Simulate still left `RT_IF_Deform` pixel samples at zero across a 16px grid sample. Latest related log noise is a Grid2D unnamed-attribute deprecation warning, not a compile error.
+- Next work should simplify the scratch-pad/Grid2D write path into a minimal constant RT write or reproduce the source texture-painter template in a controlled PreviewLab map. SceneCapture remains excluded.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField RT fill probe still blocked without MCP C++ changes
+
+- Decision: do not add new MCP C++/API support for this pass. Continue with existing Niagara MCP tools and Unreal Editor Python only.
+- Preview Lab sampling was not run because the command requires `/Game/SampleTestMap/Niagara_TestMap`, while the current editor map is `/Game/DreamscapeSeries/DreamscapeMountains/Maps/ExampleMap`. The map is already dirty, so the workflow did not auto-switch or save/discard it.
+- Re-ran the existing `/InteractionField/Niagara/Systems/NS_IF_RTExportProbe` in PIE Simulate world. Niagara system spawn succeeded, `User.RT_IF_Deform` and `RT_IF_Deform` were both assigned through texture render target and object setters, `force_solo=true`, component ticking was enabled, `advance_simulation(60, 1/60)` succeeded, and an additional 5 seconds of Simulate tick elapsed.
+- Result for `NS_IF_RTExportProbe`: `RT_IF_Deform` remained black. Center/corner samples were `[0,0,0,1]`, and a 16px grid sample reported `1024` samples, `0` nonzero RGB samples, and `max_rgb_metric=0.0`.
+- Created `/InteractionField/Niagara/Systems/NS_IF_RTExportProbe_Fill` by duplicating the probe. It uses extreme `RenderCircleToGrid` overrides: `CircleSize=2`, `AdditionDelta=10`, `CircleStrength=10`, `CircleColor=(1,0.25,0,1)`, and noise disabled.
+- Verification passed: `NS_IF_RTExportProbe_Fill` compiles with zero Niagara errors/warnings, and PIE Simulate world spawn/RT assignment/`advance_simulation(180, 1/60)` all succeeded.
+- Verification failed/blocked: after 5 seconds of real Simulate tick, `NS_IF_RTExportProbe_Fill` still left `RT_IF_Deform` black with `1024` sampled points, `0` nonzero RGB samples, and `max_rgb_metric=0.0`.
+- Additional no-C++/API triage: direct `RT_IF_Deform` clear/write/read works, so the render target asset itself is usable. The fill probe's four SimulationStages are `PaintToGrid`, `BlurGrid`, `AdvectGrid`, and `RenderGridToRenderTarget`; their visible stage names and dispatch flags match the original `/Niagara/DefaultAssets/Templates/BehaviorExamples/RenderTargetTexturePainter` template.
+- Additional no-C++/API triage: `RenderGrid` scratch pad contains `SetRenderTargetValue`, `ExecToIndex`, `SamplePreviousGridVector4Value(Attribute=RGBA)`, and `ExecToUnit`. The three RT2D input nodes for `Emitter.Render Target 2D`, `InitializeGridToRenderTargetSize.Render Target 2D`, and `RenderGrid.Render Target 2D` are present, exposed, linked into the graph, and export as `TypeDefHandle.RegisteredTypeIndex=57`.
+- Additional no-C++/API triage: spawning inactive, assigning `User.RT_IF_Deform`/`RT_IF_Deform` before activation, then calling `reset_system`, `reinitialize_system`, `activate`, `advance_simulation(240, 1/60)`, and `advance_simulation_by_time(2, 60)` still left all sampled RGB values at zero.
+- Updated conclusion: the remaining blocker is unlikely to be brush size, brush strength, component tick, activation order, missing component RT setter, broken RT asset format, or obvious template-copy SimulationStage corruption. It is now narrowed to Grid2D SimulationStage write/export conditions, hidden texture-painter template assumptions, or a required Preview Lab/template map setup. SceneCapture remains excluded.
+- Next no-C++ step: resolve the dirty `ExampleMap` decision externally, then run the original texture-painter template in `/Game/SampleTestMap/Niagara_TestMap` through Preview Lab for comparison, or inspect the Niagara Editor UI manually and reduce the scratch pad to a constant `SetRenderTargetValue` write.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - UnrealMCP Niagara SimulationStage inspection API
+
+- Decision: strengthen MCP tooling C++ instead of adding InteractionField runtime C++. The content plugin remains BP/Niagara/Material-only.
+- Added read-only UnrealMCP command `inspect_niagara_simulation_stages(system_path, include_compile_data=True, include_script_compile_status=True, max_stages=128)` in both the project `Plugins/UnrealMCP` copy and sibling `../unreal-mcp-cubeless` copy.
+- The command reports emitter SimulationStages, Generic stage Data Interface bindings, iteration/dispatch/thread settings, optional script compile status, and optional `FillCompilationData()` output for hidden Niagara stage fields.
+- Added the sibling Python MCP wrapper, server help text, and `Docs/Tools/niagara_tools.md` entry so the command is discoverable after MCP server reload.
+- Verification passed: sibling Python files compile with `python -m py_compile`; `git diff --check` passed for `CubelessStylized`, `Plugins/UnrealMCP`, and `../unreal-mcp-cubeless`; `python Tools\Unreal\check_interaction_field_scaffold.py` passed; UE 5.7 Niagara headers confirm the inspected SimulationStage fields/functions exist.
+- Verification blocked: full `StylizedCubelessEditor` UBT build is blocked because the currently running editor has Live Coding active. Actual C++ load/use needs Live Coding compile in the editor or closing the editor and rerunning UBT.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - UnrealMCP SimulationStage API build fix
+
+- Code review found a P0 linker failure in the new SimulationStage inspection API: generic `StaticEnum<TEnum>()` was used for NiagaraCore/NiagaraShader enums whose `StaticEnum` symbols did not link from the UnrealMCP module.
+- Fixed both the project `Plugins/UnrealMCP` copy and sibling `../unreal-mcp-cubeless` copy by adding explicit switch-based string conversion overloads for `ENiagaraIterationSource`, `ENiagaraGpuDispatchType`, `ENiagaraDirectDispatchElementType`, and `ENiagaraSimStageExecuteBehavior`.
+- Verification passed: `git diff --check` passed for `Plugins/UnrealMCP` and `../unreal-mcp-cubeless`; sibling Python wrapper files still compile; `StylizedCubelessEditor Win64 Development` UBT build passed after the fix.
+- Crash note: the latest editor crash log still points to shutdown-time `python311.dll` / `UnrealEditor-PythonScriptPlugin.dll` after `UnrealMCPBridge: Server stopped`, not to the SimulationStage inspect command body.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - UnrealMCP SimulationStage API runtime smoke
+
+- Relaunched `StylizedCubeless.uproject` in Unreal Editor and confirmed the UnrealMCP bridge on `127.0.0.1:55557`.
+- Runtime bridge smoke passed by sending `inspect_niagara_simulation_stages` directly to port `55557` for `/InteractionField/Niagara/Systems/NS_IF_RTExportProbe_Fill`.
+- Sibling Python MCP connection smoke passed through `uv --directory ../unreal-mcp-cubeless/Python run --python 3.11 python -`, using `UnrealConnection.send_command(...)`.
+- Result: one enabled `PaintGrid` GPU emitter, four enabled SimulationStages, no truncation. Stages are `PaintToGrid`, `BlurGrid`, `AdvectGrid`, and `RenderGridToRenderTarget`.
+- Each stage returned `iteration_source=DataInterface`, `execute_behavior=Always`, `compile_status=NCS_UpToDate`, `has_error=false`, `has_warning=false`, `compile_data_count=1`, and GPU thread defaults `[64, 1, 1]`.
+- `FillCompilationData()` confirms the first three stages iterate `Emitter.Grid2D Collection`; `RenderGridToRenderTarget` iterates `Emitter.Render Target 2D`.
+- Current limitation: Codex's loaded MCP tool schema did not expose the new wrapper name yet, so the direct callable tool list may need an MCP server/session reload. The underlying C++ bridge command and sibling Python connection path are verified.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField fill probe module diff and re-smoke
+
+- Confirmed again that no InteractionField runtime C++ is being added. The C++ work in this thread is limited to UnrealMCP tooling.
+- Compared original `/Niagara/DefaultAssets/Templates/BehaviorExamples/RenderTargetTexturePainter` and `/InteractionField/Niagara/Systems/NS_IF_RTExportProbe_Fill` with `inspect_niagara_module_inputs(include_resolved_stack_inputs=true)`.
+- Result: Stage/dispatch/Grid2D/RT2D module structure matches the original template. The only meaningful module-input diff is the intended `RenderCircleToGrid` fill override: `CircleLocation=(0.5,0.5)`, `CircleSize=2`, `AdditionDelta=10`, `CircleStrength=10`, `CircleColor=(1,0.25,0,1)`, and noise values set to `0`.
+- Forced a Niagara compile and waited for completion. `outstanding_compilation_requests_after=false`, `error_count=0`, `warning_count=0`, and `GPUComputeScript` is `NCS_UpToDate` with `is_ready_gpu=true`.
+- Re-ran the fill smoke after compile completion: spawned `NS_IF_RTExportProbe_Fill`, set both `User.RT_IF_Deform` and `RT_IF_Deform` through `set_variable_texture_render_target` and `set_variable_object`, called `reset_system`, `reinitialize_system`, `activate`, `advance_simulation(240, 1/60)`, and `advance_simulation_by_time(2, 60)`.
+- Result remained blocked: `RT_IF_Deform` center raw sample is `[0,0,0,1]`; 1024 grid samples had `0` nonzero RGB samples and `max_rgb_metric=0.0`.
+- Cleanup: destroyed the transient NiagaraComponent, saved the now-dirty `NS_IF_RTExportProbe_Fill` package after compile, and confirmed dirty content packages `0` and dirty map packages `0`.
+- Current conclusion: compile lag, module input override values, component activation order, and component RT setter calls are no longer plausible causes. The next no-runtime-C++ choices are Preview Lab original-template comparison or UnrealMCP tooling readback for the actual RT2D data-interface override object.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField alternate map RT smoke
+
+- Tried to run the recorded Preview Lab path `/Game/SampleTestMap/Niagara_TestMap`, but that map is not present in the project.
+- Used `/Game/Cubeless/TestMap` as the closest lightweight project map substitute. The script opened it, cleared `RT_IF_Deform`, spawned `NS_IF_RTExportProbe_Fill`, assigned `User.RT_IF_Deform` and `RT_IF_Deform` through both texture-render-target and object setters, advanced simulation, sampled the RT, destroyed the transient component, and restored `/Game/DreamscapeSeries/DreamscapeMountains/Maps/ExampleMap`.
+- Result is still blocked: center raw sample `[0,0,0,1]`; `1024` grid samples, `0` nonzero RGB samples, `max_rgb_metric=0.0`.
+- Dirty state after restore is clean: dirty content packages `0`, dirty map packages `0`.
+- Updated conclusion: the failure is not specific to the original large `ExampleMap`. The remaining likely areas are the actual RT2D data-interface override object/user-parameter binding internals or scratch-pad Grid2D write/export behavior.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - UnrealMCP DataInterface override readback and RT smoke narrowing
+
+- Decision: keep `Plugins/InteractionField` runtime content-only. C++ changes in this pass are limited to the allowed UnrealMCP tooling exception.
+- Added read-only UnrealMCP command `inspect_niagara_data_interface_overrides(...)` in both the project `Plugins/UnrealMCP` copy and sibling `../unreal-mcp-cubeless` copy. The command reports Data Interface module inputs, linked override nodes, RT2D `RenderTargetUserParameter`, inherited settings, and the current User render target object.
+- Added sibling Python MCP wrapper, server help, and `Docs/Tools/niagara_tools.md` documentation. Later extended input-node JSON with reflection-based `data_interface.properties` snapshots, avoiding non-exported `UNiagaraNodeInput::GetDataInterface()`/`GetObjectAsset()` linker calls.
+- Verification passed: `python -m py_compile` for sibling Python files, `git diff --check` for all three workspaces, and `StylizedCubelessEditor Win64 Development` UBT build after replacing direct `UNiagaraNodeInput` getter calls with reflected private UPROPERTY reads.
+- Runtime readback passed: `NS_IF_RTExportProbe_Fill` has both `InitializeGridToRenderTargetSize.Render Target 2D` and `RenderGrid.Render Target 2D` linked to `User.RT_IF_Deform`; the User object is `/InteractionField/Core/Data/RT_IF_Deform`, `TextureRenderTarget2D`, `512x512`, `RTF_RGBA16f`, `can_create_uav=true`.
+- Additional comparison: the original `RenderTargetTexturePainter` template has the same two RT2D override links but no `RenderTargetUserParameter` object by default; our external RT binding is present and the engine RT2D DI expects a `UTextureRenderTarget` user parameter type, so the parameter type is not wrong.
+- Additional smoke still failed: after setting `User.RT_IF_Deform`/`RT_IF_Deform` through `set_variable_texture_render_target`, `set_variable_object`, and `set_niagara_variable_object`, with `force_solo`, visible viewport placement, `was_recently_rendered=true`, 600-frame advance, and an 8-second real editor tick, `RT_IF_Deform` remained `[0,0,0,1]` with `0/1024` nonzero RGB samples.
+- Transient RT test also failed: storage-free RGBA16F and RGBA8 render targets created through `RenderingLibrary.create_render_target2d(..., support_ua_vs=true)` stayed black after the same Niagara run. This excludes the saved RT asset and RT format as likely causes.
+- Latest useful runtime warning: `PaintGrid.Grid2D Collection: Unnamed attributes should not be used with named. This is a deprecated workflow`. Grid2D input-node DI object is also empty in the original template, so that alone is not copy corruption, but the warning points to Grid2D named/unnamed attribute handling or scratch-pad write semantics.
+- Updated conclusion: RT binding, User parameter type, component setter path, visibility/culling, map choice, readback timing, and saved/transient RT target choice are no longer likely causes. The next asset-only step is to split the Niagara probe into a minimal constant `SetRenderTargetValue` stage or normalize the Grid2D attribute path so named/unnamed attributes are not mixed. No runtime C++ is planned.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
