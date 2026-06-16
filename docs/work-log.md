@@ -4415,3 +4415,504 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Verification before commit: `git diff --check` passed for all three workspaces; sibling Python files passed `python -m py_compile`; `python Tools\Unreal\check_interaction_field_scaffold.py` passed.
 - Remaining review notes before merge: trim DI reflection payload exposure, improve failure cleanup/atomicity in `set_niagara_render_target2d_module_input`, and narrow the render target asset type check to `TextureRenderTarget2D`.
 - Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - UnrealMCP Niagara API review hardening follow-up
+
+- Applied the merge-readiness C++ API follow-up in `Plugins/UnrealMCP` and mirrored it in sibling `../unreal-mcp-cubeless`.
+- `inspect_niagara_data_interface_overrides` now omits reflected Data Interface property snapshots by default. Deep property snapshots require `include_data_interface_properties=true`, are limited by `max_data_interface_properties`, and cap each value string by `max_data_interface_property_value_length`.
+- Data Interface property snapshots now include editable, non-transient properties only by default, with skipped/truncated counts in the response.
+- `set_niagara_render_target2d_module_input` now requires `render_target_asset_path` to load as `TextureRenderTarget2D`, delays new User parameter creation until after the DI override object is created, and clears the newly linked DI node on DI creation or parameter-add failure.
+- Sibling Python wrapper, server help text, and `Docs/Tools/niagara_tools.md` were updated for the new opt-in property snapshot parameters.
+- Verification passed: `git diff --check` for `Plugins/UnrealMCP` and sibling `../unreal-mcp-cubeless`; sibling Python files passed `python -m py_compile`; project/sibling C++ mirror files are identical by `git diff --no-index`.
+- Verification blocked: UBT `StylizedCubelessEditor Win64 Development` build is blocked while Live Coding is active in the running editor. The latest project log still has stale automation `Error:` lines from `2026-06-15`, not a fresh compile error from this patch.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - UnrealMCP Scratch Pad constant RT write API
+
+- Added UnrealMCP command `set_niagara_scratch_pad_function_input_default(...)` in `Plugins/UnrealMCP` and mirrored it in sibling `../unreal-mcp-cubeless`.
+- Purpose: allow a narrow diagnostic edit inside a target-local Niagara Scratch Pad graph, such as replacing `RenderGrid.SetRenderTargetValue.Value` with a constant color and breaking the existing Grid2D sample link. This lets the next RT smoke isolate RT write/export from Grid2D brush/sample behavior.
+- Safety: source assets remain guarded by `/Game/_MCP_Temp/NiagaraGenerated/` unless `allow_source_edit=true`; the command now requires an explicit Scratch Pad selector (`scratch_pad_script_path`, `scratch_pad_name`, or `scratch_pad_script_index`) and refuses multi-link breaks unless explicitly allowed.
+- Added sibling Python wrapper, server help text, and `Docs/Tools/niagara_tools.md` documentation. `function_node_index` now matches `inspect_niagara_graph` graph node indices, with `function_call_index` also supported for function-call-only selection.
+- Verification passed: `git diff --check` for `Plugins/UnrealMCP` and sibling `../unreal-mcp-cubeless`; sibling Python files passed `python -m py_compile`; the mirrored Niagara command C++ files are identical by `git diff --no-index`.
+- Verification blocked: UBT `StylizedCubelessEditor Win64 Development` build is still blocked while Live Coding is active in the running editor. The new command cannot be loaded or used until the editor Live Coding build is triggered or the editor is closed and UBT is rerun.
+- Code review result: no static blocking findings after fixing the UE 5.7 `UEdGraphSchema::TrySetDefaultValue` void-return mismatch and tightening Scratch Pad selector safety.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField RT write confirmed through DirectSet stage
+
+- Loaded the Scratch Pad constant-write API through Live Coding successfully; the latest log reported `Live coding succeeded`.
+- Created/used temp probe `/Game/_MCP_Temp/NiagaraGenerated/NS_IF_RTConstantWriteProbe` from `/InteractionField/Niagara/Systems/NS_IF_RTExportProbe_Fill` and changed `RenderGrid.SetRenderTargetValue.Value` to constant `(R=1.0,G=0.125,B=0.0,A=1.0)`, breaking the previous Grid2D sample link.
+- Bound `Emitter.Render Target 2D`, `InitializeGridToRenderTargetSize.Render Target 2D`, and `RenderGrid.Render Target 2D` to `User.RT_IF_Deform` / `/InteractionField/Core/Data/RT_IF_Deform`.
+- Added UnrealMCP command `set_niagara_simulation_stage_settings(...)` in `Plugins/UnrealMCP`, mirrored it in sibling `../unreal-mcp-cubeless`, and exposed sibling Python/docs help. The command edits one generic SimulationStage under `/Game/_MCP_Temp/NiagaraGenerated/` by default and reports before/after `FillCompilationData()`.
+- Code review result for the new SimulationStage C++ API: no blocking findings after checking temp-path guard, single-stage selector matching, DirectSet positive element-count validation, save/compile behavior, and route exposure. Runtime C++ remains untouched.
+- Verification passed: `git diff --check` for all three workspaces, sibling `python -m py_compile`, mirrored Niagara C++ header/source equality by `git diff --no-index`, and Unreal Editor Live Coding compile success.
+- `RenderGridToRenderTarget` was changed only on the temp probe from `DataInterface / Emitter.Render Target 2D / element_count=[0,0,0]` to `DirectSet / TwoD / element_count=[512,512,1]`; Niagara compile status stayed `error_count=0`, `warning_count=0`.
+- Result before DirectSet: both `advance_simulation` and real Simulate tick kept `RT_IF_Deform` black, with `0` nonzero RGB samples and center `[0,0,0,1]`.
+- Result after DirectSet: `advance_simulation` still stayed black, but real Simulate tick succeeded. After 8 seconds in PIE Simulate, `RT_IF_Deform` had `289/289` sampled pixels nonzero, `max_rgb_metric=1.0`, and center `[1.0,0.125,0.0,1.0]`.
+- Updated conclusion: external RT binding, RT asset format/UAV support, Scratch Pad `SetRenderTargetValue`, and GPU render-target write path are proven. The remaining issue is the original DataInterface iteration path not dispatching/writing in this runtime smoke; the next asset step should either keep/export the final RT stage as a DirectSet 2D pass or explicitly repair the DataInterface iteration source behavior.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField source DirectSet RT export applied
+
+- No new C++ or MCP API change was needed in this step. The previously reviewed `set_niagara_simulation_stage_settings(...)` and `set_niagara_render_target2d_module_input(...)` commands were enough.
+- Applied source edits with explicit `allow_source_edit=true` to `/InteractionField/Niagara/Systems/NS_IF_RTExportProbe_Fill` and `/InteractionField/Niagara/Systems/NS_InteractionField`.
+- Bound `Emitter.Render Target 2D`, `InitializeGridToRenderTargetSize.Render Target 2D`, and `RenderGrid.Render Target 2D` to `User.RT_IF_Deform` with `/InteractionField/Core/Data/RT_IF_Deform`.
+- Set `RenderGridToRenderTarget` to `DirectSet / TwoD / NumThreads / element_count=[512,512,1]` on both source systems.
+- Niagara compile verification passed for both systems with `error_count=0`, `warning_count=0`, and no dirty packages after save.
+- PIE Simulate source smoke passed for `NS_IF_RTExportProbe_Fill`: after spawn and RT variable assignment, `RT_IF_Deform` sampled `289/289` nonzero RGB pixels, `max_rgb_metric=1.0`, and center `[1.0,0.443115234375,1.0,1.0]`.
+- Current conclusion: the production source RT export path is now proven through real Simulate tick. Next work should wire real InteractionSource/NDC payload into `NS_InteractionField` and verify a field-manager driven stamp, not revisit RT export plumbing.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField BP field path smoke
+
+- No new C++ or MCP API change was needed in this step. Existing Niagara module-input and RT binding commands were sufficient.
+- Updated source `/InteractionField/Niagara/Systems/NS_InteractionField` `RenderCircleToGrid` RapidIteration inputs for a minimal debug stamp: `CircleLocation=(0.5,0.5)`, `CircleSize=0.25`, `AdditionDelta=2`, `CircleStrength=4`, `CircleColor=(1,0.25,0,1)`, and noise inputs set to `0`.
+- Niagara compile verification passed for `NS_InteractionField` with `error_count=0`, `warning_count=0`, `GPUComputeScript ready=true`, and no dirty Niagara package after save.
+- Direct `NS_InteractionField` PIE Simulate spawn passed: after RT assignment and 8 seconds of real Simulate tick, `RT_IF_Deform` sampled `100/289` nonzero RGB pixels with `max_rgb_metric=1.0`.
+- `BP_InteractionField` component path passed: a temporary editor-world BP placement contained `FieldBounds` and active `InteractionFieldNiagara`, with the component asset set to `/InteractionField/Niagara/Systems/NS_InteractionField`. After Simulate, `RT_IF_Deform` sampled `103/289` nonzero RGB pixels with `max_rgb_metric=1.0`.
+- Cleanup: the temporary `MCP_BP_InteractionField_RT_Smoke` actor was destroyed and content dirty packages stayed empty. The editor still reports the current map dirty because the temporary placement touched the level transaction state; no temp actor remains, and the map should be reloaded without saving if the dirty flag needs clearing.
+- Current conclusion: RT export, `NS_InteractionField` body, and the `BP_InteractionField -> InteractionFieldNiagara` ownership path are proven. The next implementation step is real `BPC_InteractionSource` payload collection and NDC or equivalent source injection into the Niagara brush inputs.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField source payload User parameter wiring
+
+- Added UnrealMCP command `set_niagara_module_input_user_parameter(...)` in `Plugins/UnrealMCP` and mirrored it in sibling `../unreal-mcp-cubeless`.
+- The command links scalar/vector/color/bool Niagara module inputs to matching `User.*` parameters, creates missing User parameters, supports optional defaults, and keeps the source-edit guard unless `allow_source_edit=true` is explicit.
+- Follow-up hardening: dynamic-input function nodes are now accepted as overwrite targets only when their output is linked 1:1 to the target override pin. Shared output or unsupported graph shapes are still refused.
+- Sibling Python wrapper, server help text, and `Docs/Tools/niagara_tools.md` were updated. The current MCP session may need server restart before the new wrapper appears as a callable tool; raw bridge command was used for this smoke after Live Coding.
+- Code review result: no blocking findings after removing the non-exported `FNiagaraStackGraphUtilities::GetParametersForContext` call and tightening dynamic-input overwrite validation. Runtime C++ remains untouched.
+- Verification passed: `git diff --check` for `Plugins/UnrealMCP` and sibling `../unreal-mcp-cubeless`; sibling `python -m py_compile`; mirrored Niagara C++ source/header equality; Unreal Editor Live Coding compile success.
+- Applied source bindings on `/InteractionField/Niagara/Systems/NS_InteractionField`, module `PaintGrid/RenderCircleToGrid`: `CircleLocation -> User.IF_SourceUV`, `CircleSize -> User.IF_SourceRadius`, `AdditionDelta -> User.IF_SourceDelta`, `CircleStrength -> User.IF_SourceStrength`, and `CircleColor -> User.IF_SourceColor`.
+- Graph verification passed: each target `RenderCircleToGrid.*` input is linked to a `NiagaraNodeParameterMapGet` output for the corresponding `User.IF_Source*` parameter. User parameter defaults are `UV=(0.5,0.5)`, radius `0.25`, delta `2`, strength `4`, color `(1,0.25,0,1)`.
+- Niagara compile verification passed for `NS_InteractionField` with `error_count=0`, `warning_count=0`, `GPUComputeScript ready=true`, and no dirty Niagara package after save.
+- PIE Simulate runtime setter smoke passed: spawned `NS_InteractionField`, assigned `User.RT_IF_Deform` plus `User.IF_SourceUV=(0.25,0.65)`, radius `0.28`, delta `3`, strength `5`, color `(0.2,1,0,1)`, then sampled `RT_IF_Deform` after real Simulate tick. Result: `128/256` sampled pixels nonzero, `max_rgb_metric=1.0`, requested UV sample `[1,1,0,1]`.
+- Cleanup: PIE Simulate was ended after the smoke. Latest log contains non-blocking errors from exploratory calls (`KismetRenderingLibrary` typo and first plugin asset load path attempt) plus play-mode warnings; the final payload smoke and compile checks passed.
+- Current conclusion: source payload can now be driven at runtime through Niagara User parameters without runtime C++. Next step is BP-side source collection from `BPC_InteractionSource` and world-to-field UV conversion feeding these five User parameters.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField BP single-source payload wiring
+
+- No new C++ or MCP API change was needed in this step. Existing Blueprint/Niagara setter nodes were sufficient.
+- Updated `/InteractionField/Core/Blueprints/BP_InteractionField`: after the existing Tick MPC publish chain, it now branches on `bProcessSources && IsValid(FollowTarget)`.
+- When active, `BP_InteractionField` computes `UV = (FollowTargetLocation.xy - FieldCenter.xy) / FieldWorldSize.xy + 0.5` and sends `User.IF_SourceUV`, `User.IF_SourceRadius`, `User.IF_SourceDelta`, `User.IF_SourceStrength`, and `User.IF_SourceColor` to the `InteractionFieldNiagara` component.
+- Made `FollowTarget`, `bProcessSources`, `SourceRadiusUV`, `SourceDelta`, and `SourceStrength` instance-editable for level placement tests.
+- Updated `/InteractionField/Core/Blueprints/BPC_InteractionSource` with future multi-source payload variables: `Delta`, `Strength`, and `SourceColorRGB`.
+- Verification passed: both Blueprints compiled and saved with `compile_error_count=0`, `compile_warning_count=0`.
+- PIE Simulate smoke passed: field at `(0,0,0)`, `FollowTarget=(1000,-500,0)`, `FieldWorldSize=(4000,4000,1000)` produced Niagara readback `User.IF_SourceUV=(0.75,0.375)`, radius `0.125`, delta `3`, strength `6`, color `(1,0.25,0,1)`.
+- RT sample passed in the same smoke: `RT_IF_Deform` at expected UV pixel `[383,192]` read `[1,1,0,1]`, center stayed `[0,0,0,0]`, and an 8x8 grid had `13` nonzero samples with `max_metric=1.0`.
+- Cleanup: PIE Simulate was ended and `pie_world_count=0`, `is_in_play_in_editor=false`.
+- Residual tooling issue: MCP Blueprint node authoring currently ignores `node_position` strings because the C++ parser expects a JSON array. The new graph compiles and runs, but the editor layout may need manual tidy or a separate MCP C++ node-position API fix.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField source-component payload wiring and MCP flag API
+
+- Added UnrealMCP Blueprint node API support for external variable getters: `add_blueprint_variable_get_node` now accepts `target_class`, so a graph can read member variables from an external object or component class such as `BPC_InteractionSource`.
+- Added `node_position` string parsing in the UnrealMCP C++ bridge so current MCP tool schema strings such as `"[120, 240]"` no longer place new Blueprint nodes at `(0,0)`.
+- Extended `set_blueprint_variable_metadata` to support existing variable flags: `instance_editable`, `is_editable`, `is_exposed`, and `expose_on_spawn`. This clears `CPF_DisableEditOnInstance` when enabling instance editability.
+- Mirrored the C++ changes into sibling `../unreal-mcp-cubeless`; sibling also gained the previously missing C++ command route/declaration for `set_blueprint_variable_metadata`. Updated sibling Python wrapper and `Docs/Tools/node_tools.md`.
+- Updated `/InteractionField/Core/Blueprints/BP_InteractionField`: Tick now resolves `FollowTarget -> GetComponentByClass(BPC_InteractionSource)`, requires the source component to be valid, and feeds `Radius`, `Delta`, `Strength`, and `SourceColorRGB` into the Niagara User parameter setter chain. `Radius` is converted to UV radius by dividing by `FieldWorldSize.X`; `SourceColorRGB` is broken into `Make Color` RGB with alpha fixed at `1`.
+- Updated instance-editable flags for `BP_InteractionField` variables `FollowTarget`, `bProcessSources`, and `FieldWorldSize`, and for `BPC_InteractionSource` variables `Radius`, `Delta`, `Strength`, and `SourceColorRGB`.
+- Verification passed: `BP_InteractionField` and `BPC_InteractionSource` compile/save with zero errors and warnings; `git diff --check` passed for main plugin and sibling; sibling Python files passed `python -m py_compile`; `StylizedCubelessEditor Win64 Development` UBT build passed; sibling `MCPGameProjectEditor Win64 Development` UBT build passed.
+- Code review result: no blocking C++ findings for the external getter or variable-flag API. The changes are editor/MCP-only, do not touch runtime C++, and do not introduce new async/socket/UObject lifetime ownership.
+- PIE smoke partial result: with field `(0,0,0)`, target `(1000,-500,0)`, and field size `(4000,4000,1000)`, Niagara readback confirmed `User.IF_SourceUV=(0.75,0.375)`, `User.IF_SourceRadius=0.125`, and RT sampling at the requested UV stayed readable/nonzero with `[1,1,0,1]` samples.
+- PIE smoke incomplete: `Delta`, `Strength`, and `Color` initially read Niagara defaults (`2`, `4`, `(1,0.25,0,1)`) instead of the temporary target component values. The graph links are correct, so the remaining issue is in the smoke target value setup/copy path, not the saved `BP_InteractionField` links.
+- Editor stability issue: one `compile_and_validate_blueprint` call on the temporary `_MCP_Temp` target BP crashed after stale spawned actors were left in the editor world. A later Python EditorScripting smoke cleanup path also crashed the editor before writing a result JSON. Stop condition: do not keep retrying the same PIE Python path; next validation should use a smaller non-PIE value-readback script or a manually placed target actor/component in the editor.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - UnrealMCP PIE crash guards
+
+- Root cause from the latest logs: the editor crashed after an `execute_python` smoke script called `EditorLevelLibrary.destroy_actor` through the deprecated `EditorScriptingUtilities` path while the editor was still in/near PIE. The earlier crash came from `compile_and_validate_blueprint` on a temporary `_MCP_Temp` Blueprint while PIE/editor-world state was dirty.
+- Added UnrealMCP C++ guards in `Plugins/UnrealMCP`: Blueprint compile/compile-save/compile-validate now returns a validation error instead of compiling while PIE/SIE is active.
+- Added `execute_python` protection: known unsafe editor actor cleanup calls (`EditorLevelLibrary.destroy_actor`, `EditorLevelLibrary.destroy_actors`, `EditorActorSubsystem.destroy_actor`, `EditorActorSubsystem.destroy_actors`) are blocked during PIE/SIE by default.
+- Mirrored the same C++ guards into sibling `../unreal-mcp-cubeless`, and exposed `allow_unsafe_editor_scripting_during_pie` on the sibling `execute_unreal_python` wrapper for explicit override only.
+- Verification passed: `git diff --check` for main, nested UnrealMCP, and sibling workspaces; sibling Python `py_compile`; `StylizedCubelessEditor Win64 Development` UBT build; sibling `MCPGameProjectEditor Win64 Development` UBT build.
+- Current rule: do not use large Python PIE cleanup scripts for InteractionField validation. End PIE first, then compile/temp-cleanup, or use a smaller non-PIE value readback/manual editor placement path.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - UnrealMCP PIE crash guard review fixes
+
+- Followed up on code review findings for the PIE crash guards.
+- `IsPlaySessionActive()` now uses `GEditor->IsPlaySessionInProgress()` instead of checking `GEditor->PlayWorld` directly, so queued PIE/SIE start state is covered too.
+- Blueprint compile/compile-save/compile-validate blocked during PIE/SIE now includes `success=false` plus `error`, so the UnrealMCP bridge returns outer `status=error` instead of letting status-only clients mistake the block for success.
+- Mirrored both fixes into sibling `../unreal-mcp-cubeless`.
+- Verification passed: `git diff --check` for nested UnrealMCP and sibling; `StylizedCubelessEditor Win64 Development` UBT build; sibling `MCPGameProjectEditor Win64 Development` UBT build.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField payload validation after crash guard
+
+- Restarted the Unreal Editor after UnrealMCP DLL changes. Primary bridge `127.0.0.1:55557` came up and `execute_python` ping returned `status=success`.
+- PIE crash guard smoke passed: while Simulate was active, `compile_and_validate_blueprint` returned outer `status=error` with inner `success=false`, and Python containing `EditorLevelLibrary.destroy_actor` returned outer `status=error` before executing. PIE then ended with `is_in_play=false` and `pie_world_count=0`.
+- Payload validation used temporary editor-world actors only, then let PIE duplicate them: `MCP_IFPayload_Field_20260616` (`BP_InteractionField`) followed `MCP_IFPayload_Target_20260616` (temp target BP with `BPC_InteractionSource`). Cleanup happened only after PIE ended.
+- Full BP path readback passed for position/radius/delta/strength: target at `(1000,-500,0)` with field size `(4000,4000,1000)` produced Niagara `User.IF_SourceUV=(0.75,0.375)`, `User.IF_SourceRadius=0.125`, `User.IF_SourceDelta=7.0`, and `User.IF_SourceStrength=9.0`.
+- RT output passed in the same PIE run: `RT_IF_Deform` expected UV pixel `[383,191]` read `[1,1,0,1]`, sampled grid had nonzero pixels, and `max_metric=1.0`.
+- `SourceColorRGB` path is wired and can transmit: setting PIE source `SourceColorRGB=(0.1,0.8,0.2)` and reading after a short tick produced Niagara `User.IF_SourceColor=(0.1,0.8,0.2,1)`.
+- Residual note: with the temporary target BP, `SourceColorRGB` did not stay stable across the longer smoke and later reverted to the default `(1,0.25,0)`. `BPC_InteractionSource` itself has no connected Tick/BeginPlay logic, so this should be rechecked on the real character/component attachment path rather than treated as a proven production blocker.
+- Cleanup passed after PIE: both temporary actors were destroyed outside PIE, no temp actors remained, dirty content packages were `0`, and latest log had no `Fatal`, `LogPython: Error`, `LogBlueprint: Error`, or `LogScript: Error` lines. The current map still has a dirty flag from the temporary placement transaction and should not be saved for this smoke.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - Piper ChildActor InteractionField autoparent smoke
+
+- Updated `/InteractionField/Core/Blueprints/BP_InteractionField`: BeginPlay now checks `FollowTarget`; when it is not valid, it sets `FollowTarget` from `GetParentActor`. Existing manually assigned `FollowTarget` values are preserved.
+- Updated `/Game/Cubeless/Reactive/BP_Piper_ReactivePrototype`: saved `InteractionSource` (`BPC_InteractionSource`) and `InteractionFieldChild` (`ChildActorComponent`) on the Blueprint. `InteractionFieldChild.ChildActorClass` is saved as `/InteractionField/Core/Blueprints/BP_InteractionField.BP_InteractionField_C`.
+- `InteractionSource` component defaults on Piper stayed at the source Blueprint defaults (`Radius=100`, `Delta=2`, `Strength=4`, `SourceColorRGB=(1,0.25,0)`). Attempts to save Piper after overriding those component defaults crashed during package save, so per-character tuning should be handled in a later focused pass.
+- PIE Simulate smoke in current `ExampleMap` used a temporary `MCP_Piper_IF_AutoParent_Test` actor. In the PIE world, `InteractionFieldChild.child_actor` was `BP_InteractionField_C_0`; its `FollowTarget` and `GetParentActor` both resolved to the parent Piper actor.
+- Niagara readback from the child field passed: `User.IF_SourceUV=(0.5,0.5)`, `User.IF_SourceRadius=0.025`, `User.IF_SourceDelta=2`, and `User.IF_SourceStrength=4`.
+- RT redraw validation passed: after clearing `RT_IF_Deform` with the child field as world context, center pixel read `(0,0,0,0)`; after two seconds of Simulate tick, the same center pixel read `(1,1,0,1)`.
+- Cleanup passed: PIE ended and the temporary Piper actor was destroyed after PIE, not during PIE. The level still has a dirty flag from temporary placement history and should not be saved for this smoke.
+- Residual unrelated test log issue: current-level Simulate with the temporary Piper emits repeated `BPC_PlayerStats` runtime errors because `HUD Widget` is `None` in this non-gameplay smoke. No InteractionField compile/runtime error was observed in the verified path.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - BP_Dummy InteractionField monster trail smoke
+
+- Updated `/Game/Cubeless/BluePrints/BP_Dummy`: saved `InteractionSource` (`BPC_InteractionSource`) and `InteractionFieldChild` (`ChildActorComponent`) on the monster Blueprint. `InteractionFieldChild.ChildActorClass` is `/InteractionField/Core/Blueprints/BP_InteractionField.BP_InteractionField_C`.
+- Set `BP_Dummy.InteractionFieldChild.absolute_location=true`. This keeps the field child pinned in world space for the monster prototype while `BP_InteractionField.BeginPlay` still auto-sets `FollowTarget` to the parent Dummy. The result is a fixed local RT field where the moving Dummy source traverses UV space and leaves a render-target path.
+- Verification passed: `BP_Dummy` compiled after the edit, and readback confirmed `InteractionFieldChild.absolute_location=True`, `InteractionFieldChild.child_actor_class=BP_InteractionField_C`, and `InteractionSource=BPC_InteractionSource_C`.
+- PIE Simulate smoke used a temporary `MCP_Dummy_IF_Trail_Test` actor in the current `ExampleMap`. In the PIE world, the field child stayed at `(0,0,0)` while `FollowTarget` resolved to the PIE Dummy actor.
+- RT trail smoke passed for the recent movement corridor: after clearing `RT_IF_Deform` and moving the Dummy along X, readback on the expected center row reported nonzero samples around the moved path, including `x=500` with `rgba=(0.577148,0.221558,0,0.577148)`, `x=600` with `rgba=(1,1,0,1)`, `x=700` with `rgba=(1,0.983398,0,1)`, and `x=800` with `rgba=(0.095825,0.055542,0,0.095825)`. Corridor count was `71/175` nonzero with `max_metric=1.0`.
+- Cleanup passed: PIE ended and the temporary Dummy actor was destroyed after PIE. The current map still has a dirty flag from temporary placement history and should not be saved for this smoke.
+- Residual design note: this monster trail is a prototype fixed-field path. It is intentionally different from Piper's centered child-field setup. A production multi-actor path should move toward one active `BP_InteractionField` collecting nearby `BPC_InteractionSource` actors or a proper Niagara field-scroll/reprojection step.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField player-centered scroll wiring
+
+- Reviewed the player-centered trail plan and kept the production direction to one player-owned `BP_InteractionField` plus `BPC_InteractionSource` on player/NPC/monster actors.
+- Updated `/Game/Cubeless/BluePrints/BP_Dummy` back to source-only for this path: `InteractionFieldChild.ChildActorClass` is cleared and `bAbsoluteLocation=false`; `BPC_InteractionSource` stays on the monster Blueprint.
+- Added UnrealMCP Niagara command `link_niagara_scratch_pad_pin_to_user_parameter(...)` in `Plugins/UnrealMCP` and mirrored it into sibling `../unreal-mcp-cubeless`, with Python wrapper/docs updates.
+- Code review fixes for the new command: reject `ParameterMapSet.Source` as a target pin, require the `Source` pin to have exactly one link before calling Niagara stack utilities, and remove `GetParametersForContext` because Live Coding patch linking cannot resolve it.
+- Verification passed for tooling: `git diff --check` for nested UnrealMCP and sibling; sibling `python -m py_compile`; Unreal Editor Live Coding compile eventually succeeded after removing the non-exported symbol call.
+- Applied source edit to `/InteractionField/Niagara/Systems/NS_InteractionField`: `AdvectGrid.Local.Module.AdvectionAmount` now links to `User.IF_FieldDeltaUV` with default `[0,0]`, replacing the prior internal `NiagaraNodeOp_10.Result` link.
+- Niagara verification passed: `NS_InteractionField` reports `error_count=0`, `warning_count=0`, `dirty_count=0`, and `IF_FieldDeltaUV` appears as a settable Vector2D User parameter.
+- Updated `/InteractionField/Core/Blueprints/BP_InteractionField`: added `PreviousFieldCenter`; BeginPlay initializes it from the current field location; Tick computes field delta UV from current field location minus previous field center divided by `FieldWorldSize.xy`, sends `User.IF_FieldDeltaUV` through `SetVariableVec2`, then updates `PreviousFieldCenter`.
+- Blueprint verification passed: `BP_InteractionField` compiled and saved with `compile_error_count=0`, `compile_warning_count=0`.
+- Residual cleanup superseded by the next entry: the interrupted MCP graph-authoring pass left one unexecuted `Set PreviousFieldCenter` node, and it was later removed through a guarded Blueprint-node delete MCP command.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField Blueprint graph cleanup API
+
+- Added guarded UnrealMCP `delete_blueprint_node` support in `Plugins/UnrealMCP` and mirrored it into sibling `../unreal-mcp-cubeless`, with Python wrapper and `Docs/Tools/node_tools.md` documentation updates.
+- Safety behavior: deletion requires a node GUID and can be constrained by expected node name/class/title. Linked nodes are refused by default; this cleanup explicitly allowed only non-exec links and kept exec-linked deletion disabled.
+- Live Coding verification passed after the API change: latest editor log reports `Live coding succeeded`, and UnrealBuildTool reports `Result: Succeeded`.
+- Used `delete_blueprint_node` on `/InteractionField/Core/Blueprints/BP_InteractionField.BP_InteractionField` `EventGraph` node `36E662694496B37EBC71D68B183DDC79` with `expected_node_class=K2Node_VariableSet`, `expected_title_contains=PreviousFieldCenter`, `allow_non_exec_linked_delete=true`, and `allow_exec_linked_delete=false`.
+- Deleted node was the stray `K2Node_VariableSet_1` / `Set PreviousFieldCenter`; it had `exec_link_count=0` and `non_exec_link_count=1` from `K2Node_CallFunction_38.ReturnValue`.
+- Post-cleanup Blueprint verification passed: `BP_InteractionField` compiled and saved with `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`, and `dirty_after_compile=false`.
+- Node readback confirmed deleted GUID is absent. Remaining `PreviousFieldCenter` graph nodes are the intended BeginPlay initialization and Tick update paths only.
+- Runtime project C++ remains untouched. The C++ changes are UnrealMCP tooling/API only.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - delete_blueprint_node review fixes
+
+- Followed up on code review findings for the new UnrealMCP `delete_blueprint_node` command.
+- Added a PIE/SIE guard to `delete_blueprint_node`, matching the existing Blueprint compile/component mutation guards. The command now refuses graph mutation while `GEditor->IsPlaySessionInProgress()` is true.
+- Changed structural Blueprint node handling to always reject `UK2Node_Event`, `UK2Node_FunctionEntry`, and `UK2Node_FunctionResult`. The command is now intentionally limited to ordinary graph cleanup nodes; structural graph edits need a separate purpose-built API.
+- Mirrored the C++ fix into sibling `../unreal-mcp-cubeless` and removed the misleading `allow_event_or_entry_delete` option from the sibling Python wrapper/docs.
+- Verification passed: Live Coding compile succeeded after renaming the helper to avoid Unity-build anonymous-namespace collision; a non-destructive BeginPlay deletion attempt was rejected as a structural node; a Simulate-mode deletion attempt was rejected by the PIE/SIE guard; `BP_InteractionField` still compiles/saves with zero errors or warnings.
+- Runtime project C++ remains untouched. The C++ changes are UnrealMCP tooling/API only.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField directional stamp MVP decision
+
+- User approved the agent-selected direction and explicitly added directional stamp to the plan.
+- Updated `docs/interaction-field-system.md`: Phase 3.A is now `멀티소스 방향성 스탬프 MVP` instead of scalar-only bend. The old "direction is not used yet" plan is superseded.
+- MVP contract: one player-owned `BP_InteractionField`, source-only `BPC_InteractionSource` on player/NPC/monster actors, fixed 4 source slots, and procedural Niagara circular radial stamps.
+- Direction data comes from source movement, not a generated/static texture. MVP RT packing uses existing `RT_IF_Deform` RGBA16F as a temporary grass flow field: `RG=DirectionXY*0.5+0.5`, `B=Strength`, `A=falloff/persistence`.
+- Optimization remains later: overlap-volume filtering, large source counts, priority sorting beyond the 4-slot test, and dedicated `RT_IF_Grass` are follow-up work after the multi-source directional trail is proven.
+- No image-generation API, SceneCapture, Water plugin, or runtime project C++ is required for this MVP direction.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField directional stamp first implementation
+
+- Updated `/InteractionField/Niagara/Systems/NS_InteractionField`: PaintGrid now has four `RenderCircleToGrid` calls for the MVP stamp budget. Slot0 keeps `User.IF_SourceUV/Radius/Delta/Strength/Color`; Slots 1-3 expose `User.IF_Source{1,2,3}_UV`, `Radius`, `Delta`, `Strength`, and `DirectionPacked`.
+- Slot defaults are inactive: delta/strength 0, radius 0.125, neutral packed direction `(0.5,0.5,0,0)`. This keeps unused slots from writing until the Blueprint collector feeds them.
+- Updated `/InteractionField/Core/Blueprints/BP_InteractionField`: Slot0 `IF_SourceColor` now packs `FollowTarget.GetVelocity().Vector_Normal2D` into RG and source strength into B, so the existing single-source path can test directional grass data.
+- Verification passed: `NS_InteractionField` forced compile returned `error_count=0`, `warning_count=0`, `dirty_count=0`; `BP_InteractionField` refresh/compile/save returned `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`.
+- RT pixel smoke caveat: editor-world `advance_simulation` after slot expansion read all zero pixels. Treat this as inconclusive because the proven RT path requires PIE/Simulate real ticks. The next validation should move Piper plus Dummy/NPC sources in PIE and sample directional RG/B/A along their trails.
+- Current limit: Niagara is ready for four slots, but Blueprint still drives Slot0 only. The next implementation pass is multi-source collection, inside-field filtering, and Slot1-3 assignment.
+- Runtime project C++ remains untouched. No SceneCapture, Water plugin, external image generation, or OpenAI image API was used.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField 4-slot runtime smoke blocker
+
+- Follow-up smoke found the 4-slot implementation is not runtime-ready yet. `NS_InteractionField` and `BP_InteractionField` still compile cleanly, but render-target output stays black when Slot0-3 values are supplied at runtime.
+- Re-applied `set_niagara_module_input_user_parameter` for Slot0 and Slots 1-3 across `CircleLocation`, `CircleSize`, `AdditionDelta`, `CircleStrength`, and `CircleColor`, then saved and force-compiled `NS_InteractionField`.
+- Validation still passes structurally: `NS_InteractionField` compile has `error_count=0`, `warning_count=0`, `dirty_count=0`; `BP_InteractionField` compile/save has no Blueprint errors or warnings.
+- RT DI binding is still correct: the Emitter, InitializeGrid, and RenderGrid RenderTarget2D inputs point at `User.RT_IF_Deform`, with `/InteractionField/Core/Data/RT_IF_Deform` as the default 512x512 `RTF_RGBA16f` UAV-capable target.
+- Runtime validation failed in three variants: direct PIE Niagara spawn, BP-owned NiagaraComponent path, and combined `User.`/non-`User.` setter names all returned `0/25` nonzero samples around each Slot0-3 UV. The RT sample stayed `[0,0,0,0]`.
+- Conclusion: do not build the Blueprint multi-source collector yet. The active blocker is the Niagara module-input/User-parameter runtime link after duplicating `RenderCircleToGrid`.
+- Next step should be a minimal temp Niagara copy with one User-bound stamp and one constant stamp in the same stage, then compare PIE output to fix the module-input binding API or graph wiring.
+- Runtime project C++ remains untouched. No SceneCapture, Water plugin, external image generation, or OpenAI image API was used.
+
+## 2026-06-16 - InteractionField FollowTarget null guard
+
+- Fixed a separate `BP_InteractionField` runtime warning path found during the BP-owned 4-slot smoke.
+- The Tick branch previously allowed a pure `GetComponentByClass(FollowTarget)` node to evaluate even when `FollowTarget` was `None`.
+- Rewired the second `AND Boolean` so both inputs come from the already-safe `bProcessSources && IsValid(FollowTarget)` result. This removes `GetComponentByClass(FollowTarget)` from the branch condition's pure evaluation path.
+- `BP_InteractionField` refresh/compile/save passed with `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`, and `dirty_after_compile=false`.
+- PIE/SIE null-target smoke passed: a temporary `MCP_IF_NullGuard_Test` actor ran with no `FollowTarget`, and the latest log `FollowTarget` occurrence count stayed unchanged (`192 -> 192`).
+- Cleanup passed: PIE/SIE ended and the temporary actor was destroyed after play ended.
+- Residual blocker unchanged: 4-slot RT output still stays black until the Niagara module-input/User-parameter runtime link is fixed.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField 4-slot Niagara link fix and stack-semantic blocker
+
+- Strengthened UnrealMCP Niagara C++ in both the project `Plugins/UnrealMCP` copy and sibling `../unreal-mcp-cubeless` copy. `set_niagara_module_input_user_parameter` now links with canonical `User.*` names while keeping existing user-parameter store lookup behavior, and result payloads include `linked_parameter_name`.
+- Added `set_niagara_module_input_linked_parameter(...)` plus sibling Python wrapper/docs so non-User namespaced parameters can be linked to module inputs. This was needed for `Module.Grid2D Collection -> Emitter.Grid2D Collection`.
+- Live Coding compile succeeded after routing the new command through `UnrealMCPBridge`. Python wrapper `py_compile` passed, and `git diff --check` passed for the touched nested and sibling UnrealMCP text files.
+- Re-applied Slot0-3 User bindings and linked Slot1-3 Grid2D inputs. Graph verification shows no `Module.IF_Source*` links, User source links present, and Slot1-3 Grid2D Collection pins connected to `Emitter.Grid2D Collection`.
+- Niagara compile status verification passed for `/InteractionField/Niagara/Systems/NS_InteractionField`: `error_count=0`, `warning_count=0`, `dirty_count=0`.
+- PIE direct-spawn runtime smoke changed from fully black to last-slot-only output: Slot3 at UV `(0.75,0.75)` read `center_rgba=[1,1,0,1]` with `81/81` nearby samples nonzero; Slot0-2 remained zero.
+- Current conclusion: the binding/API blocker is fixed, but the duplicated `RenderCircleToGrid` stack cannot accumulate multiple sources. Its scratch pad writes `StackContext.RGBA` once, so calls in the same SimulationStage overwrite each other and the final call wins.
+- Next implementation step is a single multi-source Niagara scratch pad/module that combines all active slots before writing `StackContext.RGBA`; Blueprint multi-source collection should wait until that module exists.
+- Runtime project C++ remains untouched. The C++ changes are UnrealMCP tooling/API only.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField StackContext accumulator fix
+
+- Reviewed the UnrealMCP Niagara accumulator command and fixed two high-risk paths before continuing: a possible null pin dereference/partial graph mutation path, and a non-exported Niagara editor method dependency that failed Live Coding link.
+- Updated `wrap_niagara_scratch_pad_output_with_stack_context(...)` in both the project `Plugins/UnrealMCP` copy and sibling `../unreal-mcp-cubeless` copy. The command now reads the incoming `StackContext.RGBA` through `ParameterMapGet` as `PreviousStackValue`, preserves the old local stamp as `LocalStampValue`, and writes `max(PreviousStackValue, LocalStampValue)`.
+- Added a zero/default MapGet path by creating or updating Niagara graph metadata with `DefaultMode=Value` and pairing the MapGet output pin with a default pin. This prevents the first slot from compiling as `FailIfPreviouslyNotSet`.
+- Applied the wrapper to `/InteractionField/Niagara/Systems/NS_InteractionField` and saved the asset.
+- Verification passed: Live Coding succeeded after the reflection-based fix; forced Niagara compile returned `error_count=0`, `warning_count=0`, `dirty_count=0`; direct SIE render-target smoke showed Slot0, Slot1, Slot2, and Slot3 all wrote nonzero pixels into `RT_IF_Deform`.
+- Full UBT was not rerun after the final patch because the editor had the plugin DLL loaded; earlier full build reached DLL link lock rather than a C++ compile error. Use Live Coding plus forced Niagara compile as the current validation record.
+- Runtime project C++ remains untouched. The C++ changes are UnrealMCP tooling/API only.
+- Residual risk: the command uses reflection into Niagara editor internals (`CustomHlsl`, `PinOutputToPinDefaultPersistentId`), so it should be revalidated after engine upgrades.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField BP Dummy Slot1 runtime MVP
+
+- Continued after code review by adding the first real Blueprint multi-source path to `/InteractionField/Core/Blueprints/BP_InteractionField`.
+- Kept the existing player/`FollowTarget` Slot0 path unchanged. Added a Slot1 block after the Slot0 color setter: reset Slot1 delta/strength to zero, find the current level's first `/Game/Cubeless/BluePrints/BP_Dummy.BP_Dummy_C`, read its `BPC_InteractionSource`, and write Slot1 UV/radius/delta/strength/direction into Niagara User parameters.
+- Slot1 computes field-centered UV from Dummy location and `FieldWorldSize`, and packs Dummy velocity direction into RG with source strength in B and alpha 1.
+- Invalid Dummy and invalid source-component paths update `PreviousFieldCenter`, so the field scroll update still runs even when the test source is absent.
+- Verification passed: `BP_InteractionField` compile/save returned `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`; PIE spawned Piper and child `BP_InteractionField`; moving the first Dummy near Piper produced nonzero `RT_IF_Deform` samples at Slot1 path UVs `(0.575,0.5)`, `(0.675,0.5375)`, and `(0.775,0.575)`.
+- Current limit: this proves player + first Dummy BP runtime stamping. Slot2-3 and generic tag/overlap source collection remain the next implementation step.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField clamp RT and 3-Dummy Slot MVP
+
+- Set `/InteractionField/Core/Data/RT_IF_Deform` texture address modes to clamp: `AddressX=TA_CLAMP`, `AddressY=TA_CLAMP`, and mip address U/V clamp where available. This is required so render-target edge sampling does not tile into the opposite side of the field.
+- Extended `/InteractionField/Core/Blueprints/BP_InteractionField` from player + Slot1 Dummy to a 4-slot MVP: Slot0 remains player/`FollowTarget`; Slot1 remains the first Dummy test path; Slot2 and Slot3 now read Dummy array index 1 and 2 from `GetAllActorsOfClass(BP_Dummy)`.
+- Slot2 and Slot3 reset delta/strength to zero every Tick before optional writes, validate the target actor's `BPC_InteractionSource`, compute field-centered UV, and pack velocity direction into `DirectionPacked`.
+- Verification passed: `BP_InteractionField` compile/save returned `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`; PIE spawned Piper and three Dummy actors; moving the Dummies near Piper produced nonzero `RT_IF_Deform` samples at Slot1, Slot2, and Slot3 path UVs. RT readback confirmed `AddressX/Y=TA_CLAMP`.
+- Current limit: this is still a current-level Dummy test path. The next production pass should replace fixed `BP_Dummy` array indexing with a `FieldBounds` overlap/source-tag collector for arbitrary NPC/monster actors with `BPC_InteractionSource`.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField direction-preserving RT accumulator
+
+- Reviewed the RT overlap preview. The accumulator was not additive; it was channel-wise `max(PreviousStackValue, LocalStampValue)`.
+- Replaced the `RenderCircleToGrid` StackContext wrapper expression in `/InteractionField/Niagara/Systems/NS_InteractionField` with a direction-preserving blend: unpack previous/local `RG` to signed vectors, weight by `A * B`, normalize and repack to `RG`, keep `B` as max strength, and soft-union `A`.
+- Reason: `RG` is packed direction data, so channel-wise max can bias overlapping stamps toward white and lose directional meaning. The new path keeps direction data more stable while preserving mask/strength output.
+- Verification passed: forced Niagara compile returned `error_count=0`, `warning_count=0`, `dirty_count=0`.
+- PIE smoke passed: after moving three `BP_Dummy` actors around Piper, old and new Slot1-3 UV patches in `RT_IF_Deform` were all nonzero, `saturated_rgb=0`, and the child `BP_InteractionField` stayed centered on the player (`field_equals_player_xy=[0,0]`). PIE cleanup ended with `is_in_play=false`, `pie_world_count=0`.
+- Caveat: `B/A` are still strength/mask channels and often read near `1`, so a normal RGB preview can still look bright. A dedicated direction debug material/view is still needed before judging final grass response visually.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField neutral RT and tight player stamp
+
+- Replanned the render target contract after the user reported that only the player area should be painted but color was spreading too widely.
+- Confirmed problematic defaults: `/InteractionField/Core/Data/RT_IF_Deform` clear color was `(0,0,0,1)`, `BP_InteractionField.SourceRadiusUV` was `0.25`, and `NS_InteractionField` still had `BlurGrid` enabled with 4 iterations.
+- Set `RT_IF_Deform.ClearColor=(0.5,0.5,0,0)`. This is the correct neutral value for packed grass direction data: neutral RG, zero strength, zero mask.
+- Reduced `/InteractionField/Core/Blueprints/BP_InteractionField.SourceRadiusUV` to `0.05`, about `200uu` at `FieldWorldSize=4000`.
+- Disabled `/InteractionField/Niagara/Systems/NS_InteractionField` `BlurGrid` SimulationStage for the MVP, so stamp radius rather than blur controls the painted footprint.
+- Verification passed: `BP_InteractionField` compile/save had zero errors/warnings; forced Niagara compile had `error_count=0`, `warning_count=0`, `dirty_count=0`; `BlurGrid.enabled=false` readback passed.
+- PIE validation passed in two direct cases. Zero-source fresh Niagara instance kept all sampled points at neutral `(0.5,0.5,0,0)`. Single source at UV `(0.5,0.5)` with radius `0.05` painted offsets `0.0`, `0.025`, and `0.045`, while offsets `0.055`, `0.08`, and `0.12` stayed neutral.
+- Note: an already-running field can retain previous center data inside Grid2D as trail persistence. RT clear alone does not clear that internal grid state; clean no-source validation should reset/respawn Niagara after source values are inactive.
+- Remaining visual issue: the footprint is now tight but edge softness is still hard because strength/mask saturates. Next pass should tune stamp falloff in `A/B`, not re-enable broad blur.
+- Notion capture fallback: Notion still requires reauthentication, so this local work-log entry is the durable project memory for now.
+
+## 2026-06-16 - InteractionField black RT and temporal fade
+
+- User clarified the black background route is preferable and pointed out the larger current issue is the missing fade.
+- Updated `/InteractionField/Core/Data/RT_IF_Deform` to `ClearColor=(0,0,0,0)` while keeping clamp addressing. Empty cells are black; materials should treat `A=0` or `B=0` as no valid direction and ignore `RG` there.
+- Updated `/InteractionField/Niagara/Systems/NS_InteractionField:RenderCircleToGrid` StackContext accumulator so inactive/older values decay by `0.9975` per module call before new stamps are applied. With the current four-slot MVP this is roughly `0.99` per frame.
+- Kept `BlurGrid` disabled. Softness now comes from the stamp mask and temporal decay, not broad grid blur.
+- Verification passed: forced Niagara compile returned `error_count=0`, `warning_count=0`, `dirty_count=0`.
+- SIE fade smoke passed: active center/right samples reached about `B/A=0.992`; after source delta/strength were set to `0`, the same samples decayed to about `0.556` after 3 seconds and about `0.248` after 7 seconds. The outside sample stayed `RGBA=(0,0,0,0)`.
+- At that point, fade rate was still hardcoded in the Niagara expression. This was superseded by the following BP `TrailFade` / `User.IF_TrailFade` exposure pass.
+- Runtime project C++ remains untouched in this pass. No SceneCapture, Water plugin, external image generation, or OpenAI image API was used.
+
+## 2026-06-16 - InteractionField BP fade parameter and axis check
+
+- Exposed fade control through `/InteractionField/Core/Blueprints/BP_InteractionField`: added instance-editable Float `TrailFade` with default `0.9975`, clamp `0..1`, UI range `0.9..1.0`.
+- Updated `BP_InteractionField` EventGraph so the existing Niagara update chain writes `TrailFade` to `InteractionFieldNiagara.SetVariableFloat("User.IF_TrailFade", TrailFade)` before the multi-source slot updates continue.
+- Updated `/InteractionField/Niagara/Systems/NS_InteractionField`: `RenderCircleToGrid` now reads `TrailFade` from the linked module input / `User.IF_TrailFade` instead of a hardcoded accumulator constant. `User.IF_TrailFade` is visible as a settable Niagara User parameter with default `0.9975`.
+- X/Y review: direct RT readback showed `User.IF_SourceUV=(0.62,0.50)` paints only the U-positive sample and `User.IF_SourceUV=(0.50,0.62)` paints only the V-positive sample. The source UV position path is not X/Y-swapped.
+- Caveat: direction colors can still look counterintuitive in a normal RGB RT preview because `RG` is packed direction data and the stamp currently blends source movement direction with radial stamp direction. Judge final grass response through a direction debug material, not raw RGB preview alone.
+- Verification passed: `BP_InteractionField` compile/save returned zero errors and warnings; forced Niagara compile returned `error_count=0`, `warning_count=0`, `dirty_count=0`; CDO default readback showed `TrailFade=0.9975`.
+- Runtime project C++ remains untouched in this pass.
+
+## 2026-06-16 - InteractionField offset review after screenshot
+
+- User reported that the visible RT stamp position did not match the real actor position and that stationary NPC marks seemed to follow the player's fade direction.
+- Review finding 1: the current PIE/SIE world still has `InteractionFieldChild` on all three `BP_Dummy` actors, alongside `BPC_InteractionSource`. This violates the intended contract of one player-owned `BP_InteractionField` plus source-only NPC/monster actors. Multiple fields writing the same `RT_IF_Deform` from different centers can explain wrong apparent source positions.
+- Review finding 2: `BP_InteractionField` builds `IF_FieldDeltaUV` from `(CurrentFieldLocation - PreviousFieldCenter) / FieldWorldSize.xy` without swapping X/Y, but a direct Niagara smoke with nonzero `User.IF_FieldDeltaUV` caused the existing center stamp to disappear rather than scroll predictably. The advection path should be treated as a current blocker before judging source placement.
+- Review finding 3: `RenderCircleToGrid` currently blends radial stamp direction at 75% with source movement direction at 25%. A stationary NPC can therefore show directional color from the circular stamp and old trail data even when the actor itself is not moving.
+- Proposed next fix: remove/disable `InteractionFieldChild` from `BP_Dummy` and any NPC/monster test actor, keep only `BPC_InteractionSource` there, then disable or replace `AdvectGrid` until `IF_FieldDeltaUV` one-frame scroll is proven with a deterministic test.
+
+## 2026-06-16 - InteractionField FieldDeltaUV stabilization pass
+
+- Applied the immediate stabilization fix for the offset screenshot issue without runtime project C++.
+- Confirmed `/Game/Cubeless/BluePrints/BP_Dummy` is source-only in runtime behavior: the Blueprint still contains the legacy `InteractionFieldChild` component shell, but `ChildActorClass` is empty. SIE readback showed all three placed Dummy actors have `BPC_InteractionSource` plus an empty `InteractionFieldChild` with no spawned child actor.
+- Updated `/InteractionField/Core/Blueprints/BP_InteractionField`: `Set Niagara Variable("User.IF_FieldDeltaUV")` now receives a newly added `Make Vector 2D` node with `X=0`, `Y=0`, replacing the prior graph link from the calculated field delta.
+- Reason: the direct Niagara smoke showed nonzero `IF_FieldDeltaUV` corrupts/clears the existing grid instead of scrolling it predictably. Locking the value at zero prevents player movement from dragging stationary NPC stamps in the wrong direction while source UV positioning is evaluated.
+- Verification passed: `BP_InteractionField` refresh/compile/save returned `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`; `BP_Dummy` refresh/compile/save also returned zero errors and warnings.
+- SIE verification passed: `BP_Dummy`, `BP_Dummy2`, and `BP_Dummy3` spawned only source components for the interaction path; their child actor field class and runtime child actor were empty. SIE was ended after the check and `is_in_play=false`.
+- Current limit: field scroll/advection is temporarily disabled. Player-centered seamless RT scrolling should only be re-enabled after `AdvectGrid + IF_FieldDeltaUV` passes a deterministic one-frame offset test.
+
+## 2026-06-16 - InteractionField NPC UV bounds gate
+
+- Rechecked the current ExampleMap PIE placement after the user reported wrong NPC stamp positions. The player-owned `BP_InteractionField` spawned at approximately `(169.6, -11174.4)` with `FieldWorldSize=(4000,4000)`.
+- The three placed `BP_Dummy` actors were outside the active player-centered field: Slot1 UV `(-0.1894, 1.2338)`, Slot2 UV `(-0.2233, 1.1591)`, and Slot3 UV `(-0.3655, 1.2635)`.
+- Updated `/InteractionField/Core/Blueprints/BP_InteractionField` so Slot1, Slot2, and Slot3 only write their Niagara source values when both computed UV axes are inside `[0,1]`.
+- The BP does not clamp out-of-bounds UVs. Clamping would make an off-field NPC draw on the nearest RT edge and look like a wrong in-field position.
+- Verification passed: `BP_InteractionField` refresh/compile/save returned `compile_error_count=0`, `compile_warning_count=0`, and `validation_pass=true`.
+- PIE readback after the patch showed all current out-of-field Dummy slots had `User.IF_Source1_Strength=0`, `User.IF_Source2_Strength=0`, and `User.IF_Source3_Strength=0`.
+- Current limit: this fixes incorrect out-of-field NPC stamping only. Player fade loss and player-relative NPC fade/trail behavior still need the next Niagara fade/advection review.
+
+## 2026-06-16 - InteractionField Dummy UV axis review
+
+- Reviewed the user's suspicion that Dummy source UV may need inversion.
+- PIE readback showed `BP_Piper_ReactivePrototype` and its child `BP_InteractionField` both had yaw approximately `175.073` degrees. The field is therefore visually almost reversed relative to a player-facing/camera-facing interpretation.
+- `BP_InteractionField` source UV math itself still outputs the current world-axis formula: `UV = (SourceWorldXY - FieldWorldXY) / FieldWorldSizeXY + 0.5`.
+- Temporary PIE-only Dummy moves confirmed the BP output matches actual world-axis position. Example: moving `BP_Dummy` to `Field + (500, 0)` produced `User.IF_Source1_UV=(0.625,0.5)`, matching the current formula; moving Dummies that advanced during PIE still matched their actual post-tick world positions.
+- Conclusion: the observed reversal is more likely a coordinate-frame mismatch, not random interpolation drift. Current math ignores player/field rotation, while the child field actor currently inherits the player's near-180-degree yaw.
+- Do not fix this by only flipping Dummy source UV signs unless the material sampling path is changed the same way. Source stamping and world-position material sampling must use the same transform, or the RT preview may look right while grass deformation appears at mirrored world locations.
+- Candidate next directions: keep the field axis-aligned and stop the child field from inheriting player rotation, or intentionally switch the whole InteractionField contract to field-local/player-local UV by updating both BP source writes and material sampling.
+
+## 2026-06-16 - InteractionField player child rotation inheritance disabled
+
+- Applied the chosen coordinate-frame fix on `/Game/Cubeless/Reactive/BP_Piper_ReactivePrototype`.
+- Updated the `InteractionFieldChild` ChildActorComponent template: `absolute_location=false`, `absolute_rotation=true`, `absolute_scale=false`, and relative transform remains location `(0,0,0)`, rotation `(0,0,0)`, scale `(1,1,1)`.
+- Reason: the interaction field should follow the player position only while keeping a world-axis RT frame. Source UV writes and material sampling both use world XY, so inheriting player yaw creates an apparent mirrored/rotated NPC source position.
+- Validation passed: `BP_Piper_ReactivePrototype` refresh/compile/save returned `compile_error_count=0`, `compile_warning_count=0`, and `validation_pass=true`.
+- PIE validation passed: the spawned Piper still had yaw about `175.073`, while the child `BP_InteractionField` stayed at the exact player location with rotation `(0,0,0)`.
+- Remaining work: recheck NPC stamp/fade behavior visually after this rotation fix, then continue with the separate Niagara fade/advection issue.
+
+## 2026-06-16 - InteractionField live PIE source UV readback
+
+- During live PIE, read back player, NPC, field, and Niagara source UV values without stopping play or modifying assets.
+- Player `BP_Piper_ReactivePrototype0` and child `BP_InteractionField0` were both at `(-1738.70, -8150.53, -3386.19)`. Player yaw was about `89.92`, while the field rotation stayed world-fixed at `(0,0,0)`.
+- Slot0 player calculated UV and Niagara `User.IF_SourceUV` both read `(0.5,0.5)`.
+- `BP_Dummy` world location `(-1881.79, -8516.60, -3532.24)` produced field delta `(-143.09,-366.07)`, calculated UV `(0.4642,0.4085)`, and Niagara Slot1 UV `(0.4642,0.4085)`.
+- `BP_Dummy2` world location `(-1519.81, -8453.70, -3442.33)` produced field delta `(218.89,-303.17)`, calculated UV `(0.5547,0.4242)`, and Niagara Slot2 UV `(0.5547,0.4242)`.
+- `BP_Dummy3` world location `(-1540.01, -8589.34, -3486.51)` produced field delta `(198.69,-438.82)`, calculated UV `(0.5497,0.3903)`, and Niagara Slot3 UV `(0.5497,0.3903)`.
+- Conclusion: at this live PIE state, BP source UV calculation and Niagara user parameter writes match. If visual placement still appears wrong, inspect RT rendering, preview orientation, or material sampling next rather than the BP source-position math.
+
+## 2026-06-16 - InteractionField live RT render-direction readback
+
+- Inspected RT render direction during the same live PIE session without stopping play or editing saved assets.
+- `RT_IF_Deform` properties: `512x512`, `RTF_RGBA16F`, clear color `(0,0,0,0)`, `AddressX=TA_CLAMP`, `AddressY=TA_CLAMP`.
+- Live RT UV sampling showed Slot1-3 were nonzero at their expected Niagara UVs and zero at V-flipped candidates.
+- Pixel-coordinate readback confirmed the same result:
+  - Slot1 `UV=(0.4642,0.4085)` mapped to direct pixel `(237,209)` with nonzero center/patched output; V-flipped pixel `(237,302)` was zero.
+  - Slot2 `UV=(0.5547,0.4242)` mapped to direct pixel `(283,217)` with nonzero output; V-flipped pixel `(283,294)` was zero.
+  - Slot3 `UV=(0.5497,0.3903)` mapped to direct pixel `(281,199)` with nonzero output; V-flipped pixel `(281,312)` was zero.
+- Conclusion: the live RT write direction matches the Niagara UV direction. There is no evidence of V-flipped RT rendering in the current player/NPC state.
+- A transient one-shot Niagara/temporary RT test did not produce output through manual `advance_simulation`; it was treated as inconclusive and the spawned transient Niagara component was destroyed. The valid result is the live RT readback above.
+
+## 2026-06-16 - InteractionField player trail fade restoration
+
+- Updated `/InteractionField/Core/Blueprints/BP_InteractionField`: added runtime Vector variable `PreviousFollowTargetLocation`.
+- Player Slot0 source UV now uses `PreviousFollowTargetLocation - FieldLocation` instead of current `FollowTargetLocation - FieldLocation`. This restores a one-frame player movement offset while keeping `User.IF_FieldDeltaUV=(0,0)` so stationary NPC source stamps are not dragged by player movement.
+- The Slot0 update chain now writes the current `FollowTarget` location into `PreviousFollowTargetLocation` after sending `User.IF_SourceColor` and before continuing to `User.IF_TrailFade` / multi-source updates.
+- BeginPlay auto-parent `FollowTarget` setup also initializes `PreviousFollowTargetLocation` after `Set FollowTarget`.
+- Validation passed: `BP_InteractionField` refresh/compile/save returned `compile_error_count=0`, `compile_warning_count=0`, and `validation_pass=true`. Graph readback confirmed Slot0 `vector - vector` A input is `Get PreviousFollowTargetLocation`, and `User.IF_FieldDeltaUV` still uses the zero `Make Vector 2D` node.
+- Live PIE readback was not available in the current editor state: `get_game_world` fell back to `ExampleMap` editor world and found no spawned `BP_InteractionField` actor. Restart PIE to visually verify the player trail fade in the active test level.
+
+## 2026-06-16 - InteractionField player/NPC source coordinate contract correction
+
+- Supersedes the previous Slot0-only `PreviousFollowTargetLocation` UV experiment. The user correctly called out that player and NPC source coordinates should use the same contract.
+- Reverted `/InteractionField/Core/Blueprints/BP_InteractionField` player Slot0 UV input to the same formula used by NPC Slots 1-3: `SourceWorldXY - FieldWorldXY`, divided by `FieldWorldSizeXY`, then offset by `0.5`.
+- Graph readback confirmed the Slot0 `vector - vector` A input is again the current `FollowTarget.GetActorLocation()` return value, while B remains the field actor location.
+- `User.IF_FieldDeltaUV` remains locked to `(0,0)` for the current MVP. If player trail visibility is still insufficient, solve it in the shared Niagara stamp/fade/accumulation behavior rather than using a different player-only coordinate path.
+- Validation passed: `BP_InteractionField` refresh/compile/save returned `compile_error_count=0`, `compile_warning_count=0`, and `validation_pass=true`.
+- Cleanup note: the temporary `PreviousFollowTargetLocation` variable/nodes are no longer part of the Slot0 UV path. Full node deletion was deferred because the secondary MCPUnreal cleanup endpoint on `127.0.0.1:8090` was unreachable.
+
+## 2026-06-16 - InteractionField FieldDeltaUV re-enabled for player-centered trail
+
+- Re-enabled field scrolling in `/InteractionField/Core/Blueprints/BP_InteractionField`: `Set Niagara Variable("User.IF_FieldDeltaUV")` now receives the existing calculated `Make Vector 2D` node instead of the temporary zero vector node.
+- The active formula is `FieldDeltaUV = (CurrentFieldCenter - PreviousFieldCenter) / FieldWorldSize.xy`. Player/NPC source UV coordinate contracts remain unchanged.
+- Reason: with the field attached to the player, the player source UV is correctly always near `(0.5, 0.5)`. Player movement trail must come from scrolling the accumulated grid, not from a player-only source UV offset.
+- Validation passed: `BP_InteractionField` refresh/compile/save returned `compile_error_count=0`, `compile_warning_count=0`, and `validation_pass=true`.
+- Niagara compile status passed: `/InteractionField/Niagara/Systems/NS_InteractionField` reported `error_count=0`, `warning_count=0`, and `dirty_count=0`.
+- Runtime PIE smoke passed: started BeginPlay, spawned `BP_Piper_ReactivePrototype0` and child `BP_InteractionField0`, then moved the player for 24 editor ticks. During movement, Niagara readback showed `User.IF_FieldDeltaUV` nonzero, for example approximately `(0.00853, 0.00007)`, while `User.IF_SourceUV` stayed `(0.5, 0.5)`. PIE was stopped after the test.
+- Follow-up check: visually confirm RT trail direction in the editor. If the accumulated grid scrolls in the wrong direction, swap the sign of the BP delta vector rather than changing source UV formulas.
+
+## 2026-06-16 - InteractionField player-only fade slot binding
+
+- Updated `/InteractionField/Niagara/Systems/NS_InteractionField`: player Slot0 `RenderCircleToGrid.SubtractionDelta` remains linked to `User.IF_TrailFade`.
+- Updated NPC Slot1-3 `RenderCircleToGrid001/002/003.SubtractionDelta` to link to `User.IF_NPC_TrailFade` with default `1.0`.
+- Reason: NPC slots should stamp source values without applying the player fade multiplier; previously all three NPC slots were still linked to `User.IF_TrailFade`.
+- Graph readback confirmed `User.IF_TrailFade -> RenderCircleToGrid.SubtractionDelta` only for Slot0, and `User.IF_NPC_TrailFade -> RenderCircleToGrid001/002/003.SubtractionDelta` for Slot1-3.
+- Forced Niagara compile passed with `error_count=0`, `warning_count=0`, and `dirty_count=0`.
+- Current limit: one shared RGBA RT cannot strictly preserve old NPC pixels while fading only old player pixels. Full per-source lifetime separation needs a later split grid/channel or source-ID mask design.
+
+## 2026-06-16 - InteractionField NPC fade root-cause correction
+
+- Confirmed the user's live observation: `RenderCircleToGrid` does not fade only the selected source. Its Custom HLSL multiplies the whole `PreviousStackValue` by `TrailFade`, so any call with fade below `1.0` affects all previously accumulated player/NPC pixels in the shared Grid2D.
+- Corrected `/InteractionField/Niagara/Systems/NS_InteractionField` stack order so the active player fade call runs before NPC Slot1-3. The old trailing Slot0 call is now no-op-compatible through `User.IF_DisabledSourceDelta=0`, `User.IF_DisabledSourceStrength=0`, and `User.IF_NPC_TrailFade=1`.
+- Result: current-frame NPC stamps should no longer be faded by a later player call. Already-persisted old NPC pixels can still be affected by shared-grid fade/scroll, because the current single `RT_IF_Deform` packing has no source ownership data.
+- Forced Niagara compile passed after the correction with `error_count=0`, `warning_count=0`, and `dirty_count=0`.
+- Next production-grade fix, if strict player-only persistence is required: split player trail and NPC/current sources into separate Grid2D/RT paths, or redesign channel packing with an explicit source-ID mask and update the consuming material contract.
+
+## 2026-06-16 - InteractionField player stamp relink after fade-order fix
+
+- Follow-up live test reported that the player stamp disappeared while NPC output stayed visible.
+- Root cause: the newly inserted early player call `RenderCircleToGrid004` existed in the stack, but its active graph links had to be restored to the player User parameters.
+- Reconnected `RenderCircleToGrid004.Grid2D Collection -> Emitter.Grid2D Collection`, `CircleLocation -> User.IF_SourceUV`, `CircleSize -> User.IF_SourceRadius`, `AdditionDelta -> User.IF_SourceDelta`, `CircleStrength -> User.IF_SourceStrength`, `CircleColor -> User.IF_SourceColor`, and `SubtractionDelta -> User.IF_TrailFade`.
+- Graph readback confirmed the `RenderCircleToGrid004` links, while NPC Slot1-3 still use `User.IF_NPC_TrailFade` and the old trailing `RenderCircleToGrid` call remains no-op-compatible through disabled delta/strength.
+- Niagara compile status verification passed for `/InteractionField/Niagara/Systems/NS_InteractionField`: `error_count=0`, `warning_count=0`, `dirty_count=0`.
+
+## 2026-06-16 - InteractionField NPC persistent trail disabled
+
+- Follow-up screenshot showed that NPC sources still leave visible trails. Root cause: Slot1-3 were still `RenderCircleToGrid` calls, so even with `IF_NPC_TrailFade=1` they wrote into the same persistent Grid2D as the player.
+- Updated `/InteractionField/Niagara/Systems/NS_InteractionField`: `RenderCircleToGrid001/002/003.AdditionDelta` now link to `User.IF_DisabledSourceDelta`, and `RenderCircleToGrid001/002/003.CircleStrength` now link to `User.IF_DisabledSourceStrength`.
+- Result: NPC Slot1-3 no longer add values to the persistent Grid2D, so they cannot create accumulated trails in `RT_IF_Deform`. Player Slot `RenderCircleToGrid004` remains active and still writes to the persistent trail path.
+- Current limitation: this is the first stabilization pass. NPC current-frame deformation will not be visible through the persistent RT until a separate `RenderGrid` export overlay path is added. The correct next implementation is to composite NPC current-frame stamps at RT export time without writing them back into the persistent Grid2D.
+- Verification passed: graph readback confirmed Slot1-3 delta/strength now come from disabled zero User parameters while player delta/strength still come from `User.IF_SourceDelta` and `User.IF_SourceStrength`. Niagara compile status returned `error_count=0`, `warning_count=0`, and `dirty_count=0`.
+
+## 2026-06-16 - InteractionField RenderGrid NPC overlay API prepared
+
+- Added UnrealMCP C++ support for `insert_niagara_scratch_pad_custom_hlsl_for_pin.user_parameter_inputs` in the project `Plugins/UnrealMCP` submodule and mirrored it to the sibling `../unreal-mcp-cubeless` workspace.
+- The new API can create/reuse Scratch Pad `NiagaraNodeParameterMapGet` nodes for existing `User.*` parameters, connect them to a Custom HLSL dynamic input, and report how many User parameter inputs and MapGet nodes were used.
+- Added the matching Python MCP wrapper in `../unreal-mcp-cubeless/Python/tools/niagara_tools.py` and documented it in `../unreal-mcp-cubeless/Python/unreal_mcp_server.py`.
+- Fast validation passed: `git diff --check` for touched files and Python `py_compile` both passed.
+- UnrealBuildTool validation reached `Module.UnrealMCP` compilation without C++ errors, but the full editor build failed at link because the running Unreal Editor held project/plugin DLLs open.
+- Live Coding was requested through the running editor, but a temp Niagara probe proved the loaded UnrealMCP DLL still ignored `user_parameter_inputs`; the probe was deleted afterward.
+- Current blocker: the editor must load the rebuilt/new UnrealMCP DLL before the real `/InteractionField/Niagara/Systems/NS_InteractionField` `RenderGrid` overlay can be applied. Until then, applying the command would create a Custom HLSL node without the required NPC User parameter inputs.
+
+## 2026-06-16 - InteractionField RenderGrid NPC overlay applied
+
+- Rebuilt and reloaded the UnrealMCP DLL, then applied the `RenderGrid` NPC current-frame overlay to `/InteractionField/Niagara/Systems/NS_InteractionField`.
+- Final structure: `RenderGrid` uses one `IF_RenderGridNPCOverlay` Custom HLSL node to composite Slot1-3 current-frame stamps into the RT export value, while `RenderCircleToGrid001/002/003` still have disabled delta/strength links and therefore do not write NPC trails into the persistent Grid2D.
+- Player persistence remains active only through `RenderCircleToGrid004` using `User.IF_SourceDelta` and `User.IF_SourceStrength`.
+- Fixed the MCP API after two failed approaches: direct `SetLinkedParameterValueForFunctionInput` on a Custom HLSL pin crashed the editor because it expects a `NiagaraNodeParameterMapSet`; `ParameterMapGet` in the RenderGrid SimulationStage compiled User params as missing context fields. The final API uses hidden `NiagaraNodeInput(Parameter)` nodes for `user_parameter_inputs`.
+- Added a safe cleanup option, `delete_unlinked_custom_input_source_nodes`, scoped to source nodes that were connected to the replaced Custom HLSL node. It removed 25 stale helper nodes from failed overlay attempts.
+- Validation passed: `StylizedCubelessEditor Win64 Development` build succeeded after the API fix; editor restart loaded the bridge on `127.0.0.1:55557`; forced Niagara compile returned `error_count=0`, `warning_count=0`, `dirty_count=0`; graph readback showed one overlay Custom HLSL node, 12 Slot1-3 User input nodes, no stale RenderGrid `IF_Source*` helper nodes, and Slot1-3 trail-write inputs still linked to disabled User parameters.
+- Remaining check: run a visual PIE pass to confirm NPCs are visible as current-frame deformation but no longer leave trails.
+
+## 2026-06-16 - InteractionField NPC overlay visibility fix
+
+- Fixed a follow-up issue where NPCs were still not visible after moving them out of the persistent Grid2D trail path.
+- Root cause: the UnrealMCP `insert_niagara_scratch_pad_custom_hlsl_for_pin.user_parameter_inputs` path matched `User.IF_Source1_UV` correctly, but created hidden `NiagaraNodeInput(Parameter)` nodes with short names like `IF_Source1_UV`. This compiled cleanly but did not preserve the runtime `User.*` parameter binding.
+- Updated the UnrealMCP C++ command in both the project plugin and sibling MCP workspace so linked Custom HLSL parameter inputs keep the normalized `User.*` name when creating the graph input node.
+- Reinserted the `RenderGrid` overlay. Graph readback now shows all 12 Slot1-3 overlay inputs as `User.IF_Source1/2/3_*`, each linked into `IF_RenderGridNPCOverlay`.
+- Overlay activation remains gated by `SourceStrength` only. A brief `max(SourceStrength, DirectionPacked.b)` test was rejected because the BP out-of-bounds path zeros Strength but can leave the previous `DirectionPacked.b` value in place, which would keep stale NPC stamps visible.
+- Removed the legacy `InteractionFieldChild` component from `/Game/Cubeless/BluePrints/BP_Dummy`; Dummy actors now keep only `BPC_InteractionSource`, while the player BP remains the field owner.
+- Validation passed: `StylizedCubelessEditor Win64 Development` build succeeded; editor restart loaded bridge `127.0.0.1:55557`; forced Niagara compile returned `error_count=0`, `warning_count=0`, `dirty_count=0`; graph readback confirmed all overlay input nodes are namespaced `User.*`; PIE RT smoke showed Slot1-3 draw when Strength is `4.0`, and Slot1's old non-overlapping UV returns to black after Dummy moves out of bounds and Strength becomes `0.0`; `git diff --check` passed for all three workspaces with line-ending warnings only; Python MCP `py_compile` passed.
+
+## 2026-06-16 - InteractionField NPC overlay radial direction map
+
+- Fixed NPC/monster current-frame overlay stamps rendering as a solid color while the player stamp showed the expected directional gradient.
+- Root cause: `RenderGrid`'s `IF_RenderGridNPCOverlay` used each source's packed `SColor.rg` directly across the whole circular stamp. That preserves one constant movement/vector color, but it does not create the per-pixel radial direction map used by the player stamp.
+- Updated `/InteractionField/Niagara/Systems/NS_InteractionField:RenderGrid` so Slot1-3 overlay RG is computed per pixel from `normalize(Unit - SourceUV) * 0.5 + 0.5`, with the existing soft circular falloff and `SourceStrength` activation gate retained.
+- `SColor` remains connected for compatibility, but the current MVP overlay no longer uses constant `SColor.rg` for visible NPC stamp RG. This makes stationary NPC sources render with the same round directional color split as the player.
+- Verification passed: forced Niagara compile returned `error_count=0`, `warning_count=0`, `dirty_count=0`; graph readback confirmed one `IF_RenderGridNPCOverlay` node and 12 namespaced `User.IF_Source1/2/3_*` inputs; PIE RT readback for Slot1 showed different RG values at center/left/right/up/down with `unique_rg_count=5`.
+
+## 2026-06-16 - UnrealMCP Niagara Custom HLSL topology skip verification
+
+- Fixed the code-review issue in `insert_niagara_scratch_pad_custom_hlsl_for_pin`: an existing Custom HLSL node now returns `already_inserted` only after requested `user_parameter_inputs` topology is verified, instead of comparing only the HLSL expression string.
+- Explicit `inputs` requests now force a rebuild of the existing Custom HLSL node, so stale or mismatched pin layouts are not silently reused.
+- Exposed `delete_unlinked_custom_input_source_nodes` through the sibling Python MCP wrapper and server help text so the C++ cleanup option is callable from MCP.
+- Live bridge verification passed on `/InteractionField/Niagara/Systems/NS_InteractionField:RenderGrid`: reinserting the same `IF_RenderGridNPCOverlay` HLSL with the 12 Slot1-3 `User.IF_Source*` inputs returned `already_inserted=true`, `topology_verified=true`, `saved=false`, and `compile_requested=false`.
+- Niagara compile status stayed clean after the dry-run verification: `error_count=0`, `warning_count=0`, `dirty_count=0`.
+- Note: the latest editor log contains failed exploratory Python attempts while finding the Custom HLSL object (`ObjectLibrary`, wrong execution mode, unavailable `get_objects_with_outer`). The final ObjectIterator extraction and Niagara topology verification succeeded afterward.

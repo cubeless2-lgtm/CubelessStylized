@@ -93,10 +93,10 @@
   | B | 예약 | - |
   | A | 예약 (Age / Impact / 모바일 스칼라 grass) | - |
 - **`RT_IF_Water`** (전용, **RG16F**): R=height(부호), G=velocity. 파동 핑퐁용.
-- **`RT_IF_Grass`** (옵션, 데스크탑, **RGBA16F**): RG=BendDir, B=강도. (모바일은 스칼라 bend를 `RT_IF_Deform.A`에 패킹.)
+- **`RT_IF_Grass`** (옵션, 데스크탑/고품질, **RGBA16F**): RG=BendDir, B=강도, A=마스크/잔존량. MVP는 눈/모래가 아직 비활성인 동안 `RT_IF_Deform` RGBA를 임시 directional grass trail로 재사용한다.
 - 해상도: 데스크탑 512~1024², 모바일 256². **트랜션트로 BeginPlay 생성**(플랫폼별 스케일). 저장 RT 에셋은 디버그용만.
 
-> ⚠ **채널 예산 (R1)**: 눈(Depth+Rim=2ch) + 풀 방향bend(dir 2ch+강도 1ch)은 단일 RT 4채널에 빠듯하다. → 풀 방향은 전용 `RT_IF_Grass`로 분리, 모바일은 스칼라로 축소. Phase 3.B에서 최종 확정.
+> ⚠ **채널 예산 (R1)**: 눈(Depth+Rim=2ch) + 풀 방향bend(dir 2ch+강도 1ch)은 단일 RT 4채널에 빠듯하다. → MVP에서는 `RT_IF_Deform`을 grass directional stamp 검증용으로 임시 사용하고, production/눈·모래 병행 단계에서는 풀 방향을 전용 `RT_IF_Grass`로 분리한다. 모바일은 스칼라로 축소.
 
 ### 4.3 `MPC_InteractionField` (Material Parameter Collection)
 | 파라미터 | 타입 | 의미 |
@@ -151,15 +151,19 @@ MCP 실측으로 Niagara 경로를 확정한다. SceneCapture 대안으로 우�
 `NDC_Interactors` · `BPC_InteractionSource`(자체 그라운드 판정) · `NS_InteractionField`(자기완결 Grid2D 시드 복제) · NDC Read 모듈 삽입 · Grid2D→RT export. **비플레이어 흔적도 RT에 찍히는지** 검증.
 - Niagara-only 원칙: 자기완결 Grid2D·NDC Read가 막히면 SceneCapture로 우회하지 않는다. `NS_Reactive_RTTexturePainter`류 Niagara RT 기록 패턴을 참고하거나, Niagara 시드/NDC 제작 문제를 블로커로 보고한다.
 - 현재 생성 완료: `NS_InteractionField`는 `PaintGrid` emitter, Grid2D scratch pad 5개(`RenderCircleToGrid`, `InitializeGridToRenderTargetSize`, `RenderGrid`, `BlurGridValues`, `AdvectGrid`), `SetRenderTargetValue` 기반 RT export 패턴을 포함한다.
-- 현재 연결 완료: `BP_InteractionField`에 `InteractionFieldNiagara` NiagaraComponent를 추가하고 기본 Asset을 `NS_InteractionField`로 지정했다. RT user parameter 계약은 `User.RT_IF_Deform` + `/InteractionField/Core/Data/RT_IF_Deform`로 실제 적용 완료했다. 그래프 검사에서 `RenderGrid.Render Target 2D` 입력 노드가 `NiagaraNodeParameterMapSet`의 동일 입력 핀에 1:1 연결된 것을 확인했다. NDC user parameter 계약은 아직 확정 전이다.
+- 현재 연결 완료: `BP_InteractionField`에 `InteractionFieldNiagara` NiagaraComponent를 추가하고 기본 Asset을 `NS_InteractionField`로 지정했다. RT user parameter 계약은 `User.RT_IF_Deform` + `/InteractionField/Core/Data/RT_IF_Deform`로 실제 적용 완료했다. 그래프 검사에서 `RenderGrid.Render Target 2D` 입력 노드가 `NiagaraNodeParameterMapSet`의 동일 입력 핀에 1:1 연결된 것을 확인했다. Source payload user parameter 계약은 `User.IF_SourceUV`, `User.IF_SourceRadius`, `User.IF_SourceDelta`, `User.IF_SourceStrength`, `User.IF_SourceColor`로 확정했고, `RenderCircleToGrid`의 UV/radius/delta/strength/color 입력에 각각 1:1 링크했다.
 - 현재 계약 보강 완료: `BPC_InteractionSource`는 `SourceProfile`, `ProbeMode`, `StrengthScale`, `MultiPointOffsets`, `ProbeLocalOffset`, `Shape`, `bDebugDraw`를 생성 클래스 CDO 기준으로 노출한다. `BP_InteractionField`는 `FieldMode`, `bDebugField`, `bProcessSources`, `FollowTarget`, `DefaultRenderTarget`, `DefaultMPC`, `InteractionDataChannel`을 노출하며, 기본 RT/MPC는 각각 `/InteractionField/Core/Data/RT_IF_Deform`, `/InteractionField/Core/Data/MPC_InteractionField`를 가리킨다.
 - RT export probe 진행: `/InteractionField/Niagara/Systems/NS_IF_RTExportProbe`를 생성해 `RenderCircleToGrid`에 중앙 debug stamp(`CircleLocation=0.5,0.5`, `AdditionDelta=1`)를 넣었다. `RT_IF_Deform`은 설계와 맞게 `RTF_RGBA16F` + `supports_uav=true`로 수정했다. probe의 `Emitter.Render Target 2D`, `InitializeGridToRenderTargetSize.Render Target 2D`, `RenderGrid.Render Target 2D`는 모두 `User.RT_IF_Deform` + `/InteractionField/Core/Data/RT_IF_Deform`에 바인딩되어 compile error/warning 0이다.
-- 남은 RT write 블로커: 수동 `advance_simulation_by_time`, solo/seek, 짧은 Editor Simulate tick 모두에서 `RT_IF_Deform` raw pixel sample은 아직 전부 0이다. RT 자산 조건과 DI 바인딩은 맞췄으므로 다음 검증은 `RenderCircleToGrid`/Grid2D SimulationStage가 실제로 값을 쓰는지 scratch pad 내부 쓰기 경로를 더 단순화하거나, Preview Lab 전용 맵에서 원본 template 동작을 재현해 비교한다.
+- 당시 RT write 블로커: 수동 `advance_simulation_by_time`, solo/seek, 짧은 Editor Simulate tick 모두에서 `RT_IF_Deform` raw pixel sample은 아직 전부 0이었다. RT 자산 조건과 DI 바인딩은 맞췄으므로 다음 검증은 `RenderCircleToGrid`/Grid2D SimulationStage가 실제로 값을 쓰는지 scratch pad 내부 쓰기 경로를 더 단순화하거나, Preview Lab 전용 맵에서 원본 template 동작을 재현해 비교하는 쪽이었다.
 - 2026-06-16 추가 검증: `/InteractionField/Niagara/Systems/NS_IF_RTExportProbe_Fill`을 추가해 `CircleSize=2`, `AdditionDelta=10`, `CircleStrength=10`, `CircleColor=(1,0.25,0,1)`로 극단값 fill 테스트를 만들었다. PIE Simulate world에서 시스템 spawn, `User.RT_IF_Deform`/`RT_IF_Deform` RT 변수 세팅, `advance_simulation(180, 1/60)`, 추가 5초 실제 Simulate tick까지 통과했지만 512x512 RT의 16px grid sample 1024개가 모두 RGB 0이었다. 따라서 현 블로커는 brush 크기/강도/tick 부족보다 Grid2D SimulationStage의 write/export 연결 조건 쪽으로 좁혀졌다.
 - 2026-06-16 C++/MCP API 무수정 추가 검증: `RT_IF_Deform` 직접 clear/write/read는 정상이며, `NS_IF_RTExportProbe_Fill`의 네 SimulationStage(`PaintToGrid`, `BlurGrid`, `AdvectGrid`, `RenderGridToRenderTarget`)와 dispatch 플래그는 원본 `RenderTargetTexturePainter` 템플릿과 일치한다. `RenderGrid` scratch pad는 `SetRenderTargetValue`, `ExecToIndex`, `SamplePreviousGridVector4Value(Attribute=RGBA)`, `ExecToUnit` 경로를 가진다. RT 입력 노드 3개는 그래프 링크와 `TypeDefHandle.RegisteredTypeIndex=57` RT2D 입력으로 확인됐지만, 활성화 전 RT parameter 세팅/`reset_system`/`reinitialize_system`/`advance_simulation(240, 1/60)` 순서에서도 `RT_IF_Deform`은 전부 RGB 0이었다. C++/MCP API 보강 없이 남은 실질 선택지는 dirty map을 정리한 뒤 Preview Lab 전용 맵에서 원본 템플릿을 비교하거나, Niagara Editor UI에서 scratch pad 내부 constant write/Stage 설정을 수동으로 분해 검증하는 것이다.
 - 2026-06-16 MCP C++ API 보강 착수: UnrealMCP에 read-only `inspect_niagara_simulation_stages` 명령을 추가했다. 이 명령은 SimulationStage 이름/클래스/스크립트, Generic stage의 Data Interface binding, iteration/dispatch/thread 설정, optional `FillCompilationData()` 결과와 script compile status를 구조화해 읽는다. InteractionField 런타임 C++는 여전히 추가하지 않는다. 초기 UBT 빌드는 `StaticEnum` 링크 실패로 깨졌고, enum별 switch 변환으로 수정한 뒤 `StylizedCubelessEditor Win64 Development` 빌드가 통과했다. 후속 에디터 런타임 스모크에서 브리지 `127.0.0.1:55557`와 sibling Python MCP 연결 모두 `NS_IF_RTExportProbe_Fill`의 SimulationStage 4개(`PaintToGrid`, `BlurGrid`, `AdvectGrid`, `RenderGridToRenderTarget`)를 정상 반환했으며 각 stage script compile status는 `NCS_UpToDate`, error/warning false였다.
 - 2026-06-16 원본/프로브 비교 추가: `inspect_niagara_module_inputs(include_resolved_stack_inputs=true)`로 원본 `RenderTargetTexturePainter`와 `NS_IF_RTExportProbe_Fill`을 비교했다. Stage/dispatch/Grid2D/RT2D 구조 차이는 없고, diff는 의도한 `RenderCircleToGrid` 극단값(`CircleLocation=(0.5,0.5)`, `CircleSize=2`, `AdditionDelta=10`, `CircleStrength=10`, `CircleColor=(1,0.25,0,1)`, noise 0)뿐이다. 강제 compile/wait 후 GPUComputeScript ready, error/warning 0 상태에서 동일 스폰/RT setter/advance smoke를 재실행했지만 `RT_IF_Deform` 1024개 grid sample은 다시 전부 RGB 0이었다. 따라서 compile 지연/스택 값 오입력은 원인에서 제외한다.
 - 2026-06-16 대체 맵 smoke: 문서에 남아 있던 `/Game/SampleTestMap/Niagara_TestMap`은 현재 프로젝트에 없었다. 대체로 `/Game/Cubeless/TestMap`을 열어 동일 fill probe smoke를 실행했고, `User.RT_IF_Deform`/`RT_IF_Deform` setter와 advance는 모두 성공했지만 `RT_IF_Deform`은 다시 1024개 sample 전부 RGB 0이었다. 테스트 후 `/Game/DreamscapeSeries/DreamscapeMountains/Maps/ExampleMap`으로 복귀했고 dirty content/map은 0이다. 따라서 현상은 현재 대형 ExampleMap에만 묶인 문제도 아니다.
+- 2026-06-16 DirectSet 적용: temp constant-write probe에서 `RenderGridToRenderTarget`을 `DataInterface` iteration에서 `DirectSet / TwoD / NumThreads / [512,512,1]`로 바꾸자 PIE Simulate 실제 tick에서 `RT_IF_Deform` 쓰기가 성공했다. 같은 설정을 소스 `/InteractionField/Niagara/Systems/NS_IF_RTExportProbe_Fill`과 `/InteractionField/Niagara/Systems/NS_InteractionField`에 적용하고, `Emitter.Render Target 2D`, `InitializeGridToRenderTargetSize.Render Target 2D`, `RenderGrid.Render Target 2D`를 모두 `User.RT_IF_Deform` + `/InteractionField/Core/Data/RT_IF_Deform`로 통일했다. 두 시스템 모두 Niagara compile error/warning 0이며, source fill probe PIE smoke는 17x17 sample `289/289` nonzero, center `[1.0,0.443115234375,1.0,1.0]`로 통과했다. RT export 블로커는 해소됐고, 다음 블로커는 production source/NDC 주입과 실제 brush payload wiring이다.
+- 2026-06-16 본체/BP 경로 smoke: `/InteractionField/Niagara/Systems/NS_InteractionField`의 `RenderCircleToGrid`에 최소 디버그 스탬프 입력을 적용했다(`CircleLocation=(0.5,0.5)`, `CircleSize=0.25`, `AdditionDelta=2`, `CircleStrength=4`, `CircleColor=(1,0.25,0,1)`, noise 0). 본체 직접 PIE Simulate spawn은 `RT_IF_Deform` 17x17 sample 중 `100/289` nonzero, `max_rgb_metric=1.0`로 통과했다. `/InteractionField/Core/Blueprints/BP_InteractionField` 임시 배치 smoke에서도 `InteractionFieldNiagara` 컴포넌트가 `NS_InteractionField`를 소유하고 `RT_IF_Deform`에 `103/289` nonzero, `max_rgb_metric=1.0`를 기록했다. 임시 BP 액터는 제거됐지만 에디터 맵 dirty flag는 남았으므로 저장 없이 리로드하면 정리된다. 아직 실제 Source/NDC payload는 연결 전이다.
+- 2026-06-16 source payload wiring: UnrealMCP에 `set_niagara_module_input_user_parameter`를 추가하고 `/InteractionField/Niagara/Systems/NS_InteractionField`의 `RenderCircleToGrid` 입력을 `User.IF_Source*` 파라미터에 연결했다. `CircleLocation`과 `CircleColor`는 기존 dynamic input 최종 노드를 덮어썼고, 출력 공유 노드는 여전히 거부하도록 guard를 유지했다. Niagara compile은 error/warning 0이며, PIE Simulate에서 `User.IF_SourceUV=(0.25,0.65)`, radius `0.28`, delta `3`, strength `5`, color `(0.2,1,0,1)`를 런타임 setter로 넣은 smoke가 `RT_IF_Deform` 256개 grid sample 중 `128` nonzero, `max_rgb_metric=1.0`, 요청 UV 주변 `[1,1,0,1]`로 통과했다.
+- 2026-06-16 BP single-source payload: C++/MCP API 추가 없이 `/InteractionField/Core/Blueprints/BP_InteractionField`가 Tick 끝에서 `bProcessSources && IsValid(FollowTarget)`일 때 `FollowTarget` 월드 위치를 `uv=(WorldPos.xy-FieldCenter.xy)/FieldWorldSize.xy+0.5`로 변환해 `User.IF_SourceUV/Radius/Delta/Strength/Color`를 `InteractionFieldNiagara`에 전달하도록 연결했다. `FollowTarget`, `bProcessSources`, `SourceRadiusUV`, `SourceDelta`, `SourceStrength`는 인스턴스 편집 가능으로 저장했다. `/InteractionField/Core/Blueprints/BPC_InteractionSource`에는 후속 multi-source 수집용 `Delta`, `Strength`, `SourceColorRGB`를 노출했다. PIE Simulate smoke는 `FollowTarget=(1000,-500,0)`, field center `(0,0,0)`, `FieldWorldSize=(4000,4000,1000)`에서 `User.IF_SourceUV=(0.75,0.375)`, radius `0.125`, delta `3`, strength `6`, color `(1,0.25,0,1)` readback과 `RT_IF_Deform` 기대 UV pixel `[1,1,0,1]`로 통과했다. 남은 툴링 이슈: 현재 BP node authoring MCP는 `node_position` 스키마/파서 불일치로 새 노드가 0,0에 겹친다. 기능 블로커는 아니며, 별도 C++ API 보강 후보로 분리한다.
 - NDC 자산 생성 보류: UE 5.7 Python `NiagaraDataChannelAssetFactoryNew`는 `NiagaraDataChannelAsset` shell만 만들고 내부 `data_channel=None` 상태로 남는다. `NiagaraDataChannel` 기본 클래스는 abstract라 직접 생성할 수 없으므로, production `NDC_Interactors` 자산은 editor UI 또는 별도 검증된 툴 경로가 필요하다.
 
 ### Phase 3 — 풀 눕힘 ★1차 MVP★  (세부 §6.B)
@@ -196,21 +200,19 @@ MCP 실측으로 Niagara 경로를 확정한다. SceneCapture 대안으로 우�
 ### 6.B 풀 눕힘 (Grass-first MVP, 감쇠 복원)
 **1차 목표**: 눈/POM보다 먼저 NDC 입력, Grid2D 지속 RT, MPC 좌표계, 소비 머티리얼 샘플 경로를 가장 가벼운 풀 눕힘으로 검증한다.
 
-**Phase 3.A — 스칼라 눕힘 MVP**
-- 입력: `BPC_InteractionSource`가 접지점/반경/강도만 NDC에 기록. 방향은 아직 쓰지 않는다.
-- 부착 대상: 플레이어 캐릭터, 더미 NPC, 큰 몬스터 최소 3종. 모두 같은 `BPC_InteractionSource` 계약을 쓴다.
-- 기본 probe: `CapsuleGround`. 큰 몬스터는 `MultiPointOffsets` 계약을 잡고 최소 3 point까지만 검증한다.
-- SourceProfile 최소값: `Player_Humanoid`, `NPC_Humanoid`, `Monster_Large`.
-- 시뮬: `bend = max(bend*exp(-RestoreRate*dt), stamp)`.
-- RT: 모바일 우선 폴백과 같은 단일 스칼라 bend를 `RT_IF_Deform.A`에 기록한다. `RT_IF_Grass`는 아직 만들지 않는다.
-- 머티리얼: 풀 버텍스 높이마스크 `pow(h,k)` × bend강도 × 기본 눕힘 방향(플레이어 이동 방향 또는 필드 wind dir 파라미터)으로 수평 WPO.
-- 검증: 플레이어, 더미 NPC, 큰 몬스터가 같은 볼륨 안에서 풀을 눕히고, 시간이 지나며 복원된다. 영역 밖 액터는 NDC write/trace를 하지 않는다.
+**Phase 3.A — 멀티소스 방향성 스탬프 MVP**
+- 입력: `BP_InteractionField` 하나가 활성 Source를 최대 4개까지 수집한다. 플레이어 Source를 우선하고, 더미 NPC/몬스터 Source는 현재 필드 범위 안에 있을 때만 슬롯에 넣는다.
+- Source payload: 각 슬롯은 `SourceUV`, `Radius`, `Strength`, `DirectionXY`, `bActive`를 가진다. `DirectionXY`는 Source의 현재/이전 위치 차이 또는 Velocity XY를 정규화해 만들고, 너무 느리면 Strength를 0으로 처리한다.
+- Stamp: 외부 이미지 생성/API 없이 Niagara에서 원형 radial falloff를 절차 계산한다. 원형 A값은 영향 범위/잔존 마스크이고, 방향은 Source 이동값에서 온다.
+- MVP RT packing: `RT_IF_Deform` RGBA16F를 임시 grass flow field로 사용한다. `RG = DirectionXY * 0.5 + 0.5`, `B = Strength`, `A = radial falloff/persistence`.
+- 시뮬: 기존 `IF_FieldDeltaUV` advection으로 플레이어 중심 필드 이동분을 보정하고, decay/restore 뒤 새 원형 방향성 stamp를 누적한다.
+- 머티리얼: `flow = normalize(RG * 2 - 1)`, `amount = B * A`로 풀 WPO bend 방향과 강도를 만든다. 방향 RT가 없으면 wind/fallback 방향으로 분기한다.
+- 검증: 플레이어, 더미 NPC, 몬스터 Source가 같은 플레이어 중심 필드 안에서 각자 이동 경로를 남기고, RT readback에서 방향 채널 RG와 강도/마스크 BA가 동시에 변하는지 확인한다.
 
-**Phase 3.B — 방향 벤드 확장**
-- 방향: `BendDir`은 인터랙터 Velocity XY를 정규화해 EMA로 완화한다.
-- RT: 데스크탑/고품질 경로에서 전용 `RT_IF_Grass`를 추가한다. RG=BendDir, B=강도, A=예약.
-- 모바일: 계속 `RT_IF_Deform.A` 스칼라 bend만 사용한다.
-- 머티리얼: 방향 RT가 있으면 방향 벤드, 없으면 wind/fallback 방향 벤드로 자동 분기한다.
+**Phase 3.B — 전용 Grass RT/품질 확장**
+- RT: 데스크탑/고품질 경로에서 전용 `RT_IF_Grass`를 추가한다. RG=BendDir, B=강도, A=마스크/잔존량. `RT_IF_Deform`은 눈/모래 depth/rim 등 deformation 채널로 되돌린다.
+- 모바일: 필요하면 계속 `RT_IF_Deform.A` 또는 `RT_IF_Grass.B/A` 스칼라 bend만 사용한다.
+- 품질: 방향 EMA, 정지 시 방향 유지/감쇠, capsule/ellipse stamp, SourceProfile별 radius/strength scale을 추가한다.
 - `FootSockets`는 이 단계에서도 필수 구현이 아니라 후속 정밀화 항목으로 둔다.
 
 **Source 적용 계약**
@@ -318,6 +320,7 @@ MCP 실측으로 Niagara 경로를 확정한다. SceneCapture 대안으로 우�
 - 물/눈/모래/풀 같은 표면별 차이는 hit actor/component 태그 또는 material parameter로 후속 분기한다.
 
 ### 8.6 성능 예산
+- 멀티소스 방향성 스탬프 MVP는 `MaxSourcesPerFrame=4` 고정 슬롯으로 시작한다. 512² RT에서 플레이어 1 + 더미/NPC/몬스터 3개 동시 trail 검증을 목표로 하며, 대량 몬스터 최적화는 이 단계 범위가 아니다.
 - `BP_InteractionField`가 frame budget을 갖고 Source를 priority 순으로 처리한다.
 - 예산 초과 Source는 다음 프레임으로 넘긴다.
 - 예산 항목: `MaxSourcesPerFrame`, `MaxTracesPerFrame`, `MaxProbePointsPerSource`, `UpdateIntervalByProfile`, `CullDistance`, `bDisableOnDedicatedServer`.
@@ -426,6 +429,10 @@ MCP 실측으로 Niagara 경로를 확정한다. SceneCapture 대안으로 우�
 | 2026-06-16 | MCP C++ API 보강 | UnrealMCP에 read-only `inspect_niagara_simulation_stages` 명령을 추가해 SimulationStage/Generic stage/compiled data를 구조화해서 읽는 경로를 만들었다. Python MCP wrapper와 sibling 문서도 갱신했다. `StaticEnum` 링크 실패를 enum별 switch 변환으로 수정했고 `StylizedCubelessEditor Win64 Development` UBT 빌드 통과. 에디터 재실행 후 브리지 직접 호출과 sibling Python MCP 연결 호출 모두 `NS_IF_RTExportProbe_Fill`의 4개 stage와 `FillCompilationData()` 결과를 정상 반환했다. |
 | 2026-06-16 | Phase 2 module diff/re-smoke | 런타임 C++ 없이 원본 템플릿과 fill probe의 module input diff를 확인했다. 차이는 의도한 `RenderCircleToGrid` 극단값뿐이고, 강제 compile/wait 후 재스모크에서도 `RT_IF_Deform`은 RGB 0이었다. dirty content/map은 정리 완료. |
 | 2026-06-16 | Phase 2 alternate map smoke | `/Game/SampleTestMap/Niagara_TestMap`은 프로젝트에 없어서 `/Game/Cubeless/TestMap`에서 같은 fill probe smoke를 실행했다. 결과는 동일하게 RT RGB 0이며, 원래 ExampleMap으로 복귀 후 dirty content/map 0. |
+| 2026-06-16 | Phase 2 DirectSet RT export | `RenderGridToRenderTarget`을 `DirectSet / TwoD / NumThreads / [512,512,1]`로 바꾸고 RT2D 입력을 `User.RT_IF_Deform`로 통일했다. 소스 `NS_IF_RTExportProbe_Fill` PIE smoke에서 `RT_IF_Deform` 17x17 sample `289/289` nonzero, center `[1.0,0.443115234375,1.0,1.0]` 확인. `NS_InteractionField`도 동일 stage/RT binding 적용 및 compile error/warning 0. |
+| 2026-06-16 | Phase 2 BP field smoke | `NS_InteractionField` 본체에 최소 디버그 스탬프 입력을 넣고 PIE smoke. 본체 직접 spawn은 `100/289` nonzero, `BP_InteractionField`의 `InteractionFieldNiagara` 경로는 `103/289` nonzero, 둘 다 `max_rgb_metric=1.0`. 새 C++/MCP API 수정 없음. 실제 Source/NDC payload wiring은 다음 단계. |
+| 2026-06-16 | Phase 2 source payload User params | UnrealMCP `set_niagara_module_input_user_parameter`를 추가해 `RenderCircleToGrid.CircleLocation/CircleSize/AdditionDelta/CircleStrength/CircleColor`를 `User.IF_SourceUV/Radius/Delta/Strength/Color`에 링크했다. Live Coding compile 성공, Niagara compile error/warning 0. PIE Simulate runtime setter smoke는 `RT_IF_Deform` 256 sample 중 `128` nonzero, `max_rgb_metric=1.0`, 요청 UV 주변 `[1,1,0,1]`로 통과. |
+| 2026-06-16 | Phase 2 BP single-source payload | C++/MCP API 추가 없이 `BP_InteractionField` Tick 체인에 `FollowTarget` 단일 source 경로를 연결했다. `bProcessSources && IsValid(FollowTarget)` 조건에서 `FollowTarget` 월드 위치를 field UV로 변환해 `User.IF_Source*`를 Niagara component에 전달한다. PIE Simulate readback은 `UV=(0.75,0.375)`, radius `0.125`, delta `3`, strength `6`, color `(1,0.25,0,1)`로 통과했고 `RT_IF_Deform` 기대 UV pixel은 `[1,1,0,1]`였다. |
 
 ---
 
@@ -450,3 +457,226 @@ MCP 실측으로 Niagara 경로를 확정한다. SceneCapture 대안으로 우�
 - 컴포넌트 setter 3종(`set_variable_texture_render_target`, `set_variable_object`, `set_niagara_variable_object`), viewport 가시 배치, `was_recently_rendered=true`, 600 frame advance, 8초 실제 editor tick, transient RGBA16F/RGBA8 RT 비교까지 모두 RT RGB 0으로 동일했다.
 - 따라서 현재 블로커는 RT binding/User parameter/컴포넌트 visibility/readback/RT asset format이 아니라 Grid2D named/unnamed attribute 경고 또는 scratch-pad write/export semantics 쪽으로 좁혀졌다.
 - 다음 asset-only 단계는 `RenderCircleToGrid` 경로를 더 분해해서 최소 constant `SetRenderTargetValue` stage를 만들거나, Grid2D attribute path를 named 방식으로 정리해 `PaintGrid.Grid2D Collection: Unnamed attributes should not be used with named` 경고를 제거하는 것이다.
+---
+
+## 17. 2026-06-16 Addendum - Source Component Payload Status
+
+- `BP_InteractionField` now reads `BPC_InteractionSource` from `FollowTarget` through `GetComponentByClass`.
+- The field branch now requires `bProcessSources`, valid `FollowTarget`, and valid `BPC_InteractionSource`.
+- `BPC_InteractionSource.Radius` drives `User.IF_SourceRadius` after `Radius / FieldWorldSize.X`.
+- `BPC_InteractionSource.Delta`, `Strength`, and `SourceColorRGB` are wired to `User.IF_SourceDelta`, `User.IF_SourceStrength`, and `User.IF_SourceColor`.
+- `BP_InteractionField` and `BPC_InteractionSource` compile and save with zero Blueprint errors/warnings.
+- UnrealMCP editor-only API was extended for external Blueprint variable getters and existing variable instance-editable flags. Runtime project C++ remains untouched.
+- UBT verification passed for both `StylizedCubelessEditor` and sibling `MCPGameProjectEditor`.
+- PIE smoke currently confirms UV, radius, and render-target readability/nonzero output. `Delta`/`Strength`/`Color` still need a cleaner target-value setup smoke because the automated Python PIE test copied defaults instead of the temporary target component overrides, then repeated EditorScripting smoke attempts crashed the editor.
+
+---
+
+## 18. 2026-06-16 Addendum - Player-Centered Field Scroll
+
+- Production direction is now source-only NPC/monster actors plus one active player-owned `BP_InteractionField`.
+- `BP_Dummy` was changed back to source-only for this path: its `InteractionFieldChild.ChildActorClass` is cleared and `bAbsoluteLocation=false`.
+- `NS_InteractionField.AdvectGrid.Local.Module.AdvectionAmount` is linked to `User.IF_FieldDeltaUV` through a `ParameterMapGet` node.
+- `BP_InteractionField` now owns `PreviousFieldCenter`, initializes it on BeginPlay, computes `(CurrentFieldCenter - PreviousFieldCenter) / FieldWorldSize.xy` on Tick, sends it to `InteractionFieldNiagara.SetVariableVec2("User.IF_FieldDeltaUV")`, then updates `PreviousFieldCenter`.
+- This makes the render target scroll/reproject when the player-centered field moves, so stamps can persist as a trail instead of staying locked to the center.
+- Validation passed: `BP_InteractionField` compiles/saves with zero Blueprint errors or warnings; `NS_InteractionField` compiles with `error_count=0`, `warning_count=0`, and `User.IF_FieldDeltaUV` exists as a settable Vector2D User parameter.
+- Graph cleanup completed: the interrupted MCP authoring pass left one unexecuted `Set PreviousFieldCenter` node, and it was removed through the guarded `delete_blueprint_node` UnrealMCP command. The graph now keeps only the BeginPlay initialization and Tick update `PreviousFieldCenter` nodes.
+
+---
+
+## 19. 2026-06-16 Addendum - Multi-Source Directional Stamp MVP Decision
+
+- The next grass MVP is not a scalar-only mask. It starts as a multi-source directional flow stamp so grass bend direction can be validated from the first multi-actor pass.
+- One player-owned `BP_InteractionField` remains the only active field writer. Player/NPC/monster actors carry `BPC_InteractionSource` only.
+- MVP source count is fixed to 4 slots: player first, then up to 3 nearby/current test NPC or monster sources. Large-scale overlap/priority optimization remains a later phase.
+- Niagara stamp source is procedural, not image-generated: each source writes a circular radial falloff computed in Niagara. No OpenAI image generation, external texture, SceneCapture, Water plugin, or runtime project C++ is required.
+- Direction comes from source movement, not a static image. For each active slot, `DirectionXY = normalize(CurrentSourceXY - PreviousSourceXY)` or velocity XY; very low speed disables or fades the slot.
+- MVP RT packing uses the existing `RT_IF_Deform` RGBA16F while snow/sand deformation is out of scope: `RG = DirectionXY * 0.5 + 0.5`, `B = Strength`, `A = falloff/persistence`.
+- Production/high-quality follow-up can split grass into `RT_IF_Grass` so `RT_IF_Deform` is free for snow/sand depth/rim channels.
+- Success condition: in the current level, Piper plus Dummy/NPC/monster sources leave simultaneous trails in the player-centered render target, and RT readback shows directional RG plus strength/mask BA changing along the movement paths.
+
+---
+
+## 20. 2026-06-16 Addendum - Directional Stamp First Implementation
+
+- `NS_InteractionField` now exposes a 4-slot stamp contract. Slot0 keeps the legacy `User.IF_SourceUV/Radius/Delta/Strength/Color` names. Slots 1-3 use `User.IF_Source{1,2,3}_UV`, `Radius`, `Delta`, `Strength`, and `DirectionPacked`.
+- The PaintGrid stack now contains four `RenderCircleToGrid` calls for the MVP slot budget. Slots 1-3 default to inactive strength/delta 0 and neutral packed direction `(0.5, 0.5, 0, 0)`.
+- Slot payload packing for the MVP is directional: `RG = DirectionXY * 0.5 + 0.5`, `B = Strength`, and `A` remains the stamp mask/falloff channel. This is still using `RT_IF_Deform` temporarily until a dedicated grass RT is introduced.
+- `BP_InteractionField` now packs Slot0 direction from `FollowTarget.GetVelocity().Vector_Normal2D`: X/Y are converted into RG, and the existing source `Strength` is written into B. This verifies the direction data path before the multi-source collector is added.
+- Current implementation limit: `BP_InteractionField` still drives Slot0 only. Slots 1-3 are available in Niagara and settable by runtime parameters, but the Blueprint source collection/priority assignment pass is still pending.
+- Validation passed: `NS_InteractionField` forced compile completed with `error_count=0`, `warning_count=0`, and `dirty_count=0`. `BP_InteractionField` refresh/compile/save completed with `compile_error_count=0`, `compile_warning_count=0`, and `validation_pass=true`.
+- RT pixel smoke note: editor-world `advance_simulation` and PIE direct-spawn smoke both sampled zero pixels after the slot expansion. This means the next step must verify the Niagara module-input/User-parameter runtime link before adding the Blueprint multi-source collector.
+- Runtime project C++ remains untouched. No SceneCapture, Water plugin, external image source, or OpenAI image API is involved.
+
+---
+
+## 21. 2026-06-16 Addendum - 4-Slot Runtime Smoke Blocker
+
+- After the first 4-slot implementation, `inspect_niagara_module_inputs` showed the duplicated `RenderCircleToGrid001/002/003` calls exposing unresolved module inputs instead of clearly resolved User-parameter values.
+- Re-applied `set_niagara_module_input_user_parameter` to Slot0 and Slots 1-3 for `CircleLocation`, `CircleSize`, `AdditionDelta`, `CircleStrength`, and `CircleColor`, then saved and forced Niagara compile.
+- Compile validation still passes: `NS_InteractionField` reports `error_count=0`, `warning_count=0`, `dirty_count=0`; `BP_InteractionField` compiles/saves with no Blueprint errors or warnings.
+- RT DI validation still passes: `Emitter.Render Target 2D`, `InitializeGridToRenderTargetSize.Render Target 2D`, and `RenderGrid.Render Target 2D` are bound to `User.RT_IF_Deform`, and the default object is `/InteractionField/Core/Data/RT_IF_Deform` (`RTF_RGBA16f`, 512x512, UAV capable).
+- Runtime smoke still fails: direct PIE Niagara spawn, BP-owned NiagaraComponent path, `User.` and non-`User.` setter names all produced `0/25` nonzero samples around Slot0-3 UVs. The RT remained `[0,0,0,0]`.
+- Current blocker is not Blueprint source collection. It is the Niagara stack input path from runtime User parameters into `RenderCircleToGrid` after the 4-slot expansion. Fix this before implementing Slot1-3 actor collection.
+- Next recommended step: build a minimal temp copy of `NS_InteractionField` with one `RenderCircleToGrid` bound to a User param and one constant-control stamp in the same stage, compare both in PIE, then fix the module-input link API or graph wiring based on that diff.
+
+---
+
+## 22. 2026-06-16 Addendum - BP Null Guard Patch
+
+- The 4-slot BP-owned smoke exposed a separate `BP_InteractionField` runtime warning path when `FollowTarget` was `None`.
+- Cause: the Tick branch used a pure boolean chain that evaluated `GetComponentByClass(FollowTarget)` even when the `IsValid(FollowTarget)` half of the expression was false.
+- Applied a minimal graph safety patch: the second `AND Boolean` now receives the already-safe `bProcessSources && IsValid(FollowTarget)` result on both inputs, removing `GetComponentByClass(FollowTarget)` from the branch condition's pure evaluation path.
+- `BP_InteractionField` refresh/compile/save passes with `compile_error_count=0`, `compile_warning_count=0`, and `validation_pass=true`.
+- PIE/SIE null-target smoke passed: a temporary `MCP_IF_NullGuard_Test` actor with no `FollowTarget` ran in Simulate, and the latest log `FollowTarget` count did not increase (`192 -> 192`).
+- This patch only prevents the no-target error. The active RT blocker remains the Niagara module-input/User-parameter runtime link documented in section 21.
+
+---
+
+## 23. 2026-06-16 Addendum - 4-Slot Runtime Link Fix and Stack Semantics
+
+- UnrealMCP Niagara tooling was strengthened to link module inputs to canonical `User.*` parameters. The old helper could create `Module.IF_Source*` links even when the command returned a User binding. Graph verification now shows `Module.IF_Source` occurrences at `0` and `User.IF_Source` occurrences present for Slot0-3.
+- Added `set_niagara_module_input_linked_parameter(...)` to link non-User namespaced inputs such as `Module.Grid2D Collection -> Emitter.Grid2D Collection`. This was required because Slot1-3 duplicated `RenderCircleToGrid` calls did not have explicit Grid2D input links.
+- Applied Grid2D links to `RenderCircleToGrid001`, `RenderCircleToGrid002`, and `RenderCircleToGrid003`. Graph verification shows each duplicated slot now reads `Emitter.Grid2D Collection`; Niagara compile status is `error_count=0`, `warning_count=0`, `dirty_count=0`.
+- Runtime smoke after these fixes no longer stays fully black: direct PIE spawn with Slot0-3 values produced RT output at Slot3 (`center_rgba=[1,1,0,1]`, `81/81` nearby samples nonzero). Slot0-2 still read zero.
+- Conclusion: the remaining blocker is not API binding. `RenderCircleToGrid` writes `StackContext.RGBA` once per module call, and multiple calls in the same SimulationStage overwrite rather than accumulate. The final duplicated call wins.
+- Next implementation should replace the multi-call stack with a single multi-source scratch pad/module, or modify a scratch pad to combine all active source slots before writing `StackContext.RGBA`. Do not proceed with Blueprint source collection until that Niagara accumulation module exists.
+
+---
+
+## 24. 2026-06-16 Addendum - StackContext Accumulator Fix
+
+- Code review found the four duplicated `RenderCircleToGrid` calls were not additive: each call wrote `StackContext.RGBA`, so the final slot overwrote earlier slot stamps.
+- Added UnrealMCP command `wrap_niagara_scratch_pad_output_with_stack_context(...)` and applied it to `/InteractionField/Niagara/Systems/NS_InteractionField:RenderCircleToGrid`.
+- The wrapper preserves the original local stamp as `LocalStampValue`, reads the incoming Grid2D value through a `ParameterMapGet` as `PreviousStackValue`, and writes `max(PreviousStackValue, LocalStampValue)` to `StackContext.RGBA`.
+- The MapGet read uses a graph script-variable default with `DefaultMode=Value` and a paired default pin so the first slot starts from zero instead of failing with `FailIfPreviouslyNotSet`.
+- C++ API implementation intentionally avoids runtime project C++; only UnrealMCP tooling was changed. It avoids non-exported Niagara methods by using exported metadata access plus reflection for the MapGet output/default pin pair and Custom HLSL storage.
+- Validation passed: Live Coding succeeded; `NS_InteractionField` forced Niagara compile returned `error_count=0`, `warning_count=0`, `dirty_count=0`; direct SIE RT smoke showed Slot0-3 all nonzero in `RT_IF_Deform`.
+- Residual risk: the tool depends on Niagara editor internals (`CustomHlsl`, `PinOutputToPinDefaultPersistentId`) by reflection, so revalidate after engine upgrades. The editor-world non-PIE smoke remains inconclusive for GPU sim; use SIE/PIE direct smoke for RT readback.
+
+---
+
+## 25. 2026-06-16 Addendum - BP Dummy Slot1 Runtime MVP
+
+- `BP_InteractionField` now keeps the existing player/`FollowTarget` Slot0 path and adds a minimal Slot1 runtime path for the current test monster class `/Game/Cubeless/BluePrints/BP_Dummy.BP_Dummy_C`.
+- On Tick, after Slot0 writes, Slot1 first resets `User.IF_Source1_Delta` and `User.IF_Source1_Strength` to `0`. If `GetActorOfClass(BP_Dummy)` and its `BPC_InteractionSource` are valid, Slot1 overwrites UV, radius, delta, strength, and `DirectionPacked`.
+- Slot1 UV is computed in the field-centered space: `(DummyLocation - FieldLocation) / FieldWorldSize.xy + 0.5`.
+- Slot1 direction uses `BP_Dummy.GetVelocity().Vector_Normal2D`, packed to RG as `DirectionXY * 0.5 + 0.5`; source strength is packed into B and A stays `1`.
+- Invalid Dummy and invalid source-component branches both still update `PreviousFieldCenter`, so field scrolling does not stall when the test source is missing.
+- Validation passed: `BP_InteractionField` refresh/compile/save returned `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`; PIE spawned Piper, `BP_InteractionField`, and Dummy actors; moving the first Dummy near Piper produced nonzero `RT_IF_Deform` samples along Slot1 path UVs `(0.575,0.5)`, `(0.675,0.5375)`, and `(0.775,0.575)`.
+- Current limit: this is the smallest BP runtime MVP for player + first Dummy. Slot2-3 and generic tag/overlap collection are still pending.
+
+---
+
+## 26. 2026-06-16 Addendum - Clamp RT and 3-Dummy Slot MVP
+
+- `RT_IF_Deform` address mode is now clamped: `AddressX=TA_CLAMP`, `AddressY=TA_CLAMP`, and mip address U/V were also set to clamp where exposed. This prevents edge sampling from tiling the opposite side of the render target.
+- `BP_InteractionField` now resets Slot2 and Slot3 activity every Tick by setting `User.IF_Source2_Delta`, `User.IF_Source2_Strength`, `User.IF_Source3_Delta`, and `User.IF_Source3_Strength` to zero before optional source writes.
+- Added a current-level MVP expansion for the placed Dummy actors. After Slot1 succeeds, `BP_InteractionField` calls `GetAllActorsOfClass(BP_Dummy)`, uses array index 1 for Slot2 and index 2 for Slot3, validates `BPC_InteractionSource`, then writes UV/radius/delta/strength/direction-packed values to `User.IF_Source2_*` and `User.IF_Source3_*`.
+- Slot2/3 use the same field-centered UV and velocity-direction packing as Slot1: `(ActorLocation - FieldLocation) / FieldWorldSize.xy + 0.5`, `RG=DirectionXY*0.5+0.5`, `B=Strength`, `A=1`.
+- Validation passed: `BP_InteractionField` refresh/compile/save returned `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`; PIE spawned Piper plus three Dummy actors; moving the three Dummies near Piper produced nonzero `RT_IF_Deform` samples at Slot1, Slot2, and Slot3 path UVs. The validation readback also confirmed `RT_IF_Deform AddressX/Y = TA_CLAMP`.
+- Current limit: Slot1-3 are still a level-test MVP for the current Dummy actors. The next production step is replacing the fixed Dummy class/array-index path with a `FieldBounds` overlap or source-tag collector that can pick any actor with `BPC_InteractionSource`.
+
+---
+
+## 27. 2026-06-16 Addendum - Direction-Preserving RT Accumulator
+
+- The overlap behavior was reviewed after RT preview showed stamps visually merging into a pale/white blob. The existing Niagara wrapper was not additive; it used channel-wise `max(PreviousStackValue, LocalStampValue)`.
+- Channel-wise max is acceptable for a scalar mask, but it is wrong for the packed direction channels because `RG` stores `DirectionXY * 0.5 + 0.5`. Taking max per channel can bias the direction toward white instead of blending signed vectors.
+- Updated `/InteractionField/Niagara/Systems/NS_InteractionField:RenderCircleToGrid` through `wrap_niagara_scratch_pad_output_with_stack_context(...)`. The accumulator now unpacks previous/local `RG` to signed vectors, weights them by `A * B`, normalizes the combined direction, repacks to `RG`, keeps `B=max(previous.b, local.b)`, and uses soft-union alpha `a0 + a1 - a0*a1`.
+- This keeps the grass-facing direction map in `RG` more readable when multiple player/monster/NPC sources overlap. `B/A` are still strength/mask channels, so an RGB render-target preview can still look bright or white even when the direction data is valid. Materials should read `RG` as direction data rather than judge the field only by the RGB beauty preview.
+- Validation passed: forced Niagara compile returned `error_count=0`, `warning_count=0`, and `dirty_count=0`.
+- PIE runtime smoke passed after moving three `BP_Dummy` actors from start positions to end positions around the Piper field actor. `BP_InteractionField` stayed centered on the player (`field_equals_player_xy=[0,0]`), `RT_IF_Deform` remained 512x512, and 11x11 patches around old and new Slot1-3 UVs were nonzero with `saturated_rgb=0`.
+- Representative readback after the direction accumulator change: old Slot1 center `RGBA=[0.193,0.1056,1.0,0.9995]`, new Slot1 center `RGBA=[0.8535,0.8535,1.0,1.0]`, player center `RGBA=[0.8921,0.7969,1.0,1.0]`. This confirms visible RT output remains while `RG` no longer collapses through channel-wise max.
+- PIE cleanup passed: `is_in_play=false`, `pie_world_count=0`.
+- Current limit: the production material still needs a deliberate debug/visualization mode for direction channels, because regular RGB preview is misleading while `B/A` are full-strength mask data.
+
+---
+
+## 28. 2026-06-16 Addendum - Black RT, Tight Stamp, and Temporal Fade
+
+- Reviewed the wide color spread issue. The immediate causes were `BP_InteractionField.SourceRadiusUV=0.25` and the active `BlurGrid` stage with 4 iterations. With `FieldWorldSize=4000`, radius `0.25` means about `1000uu`, which is too large for a player-local grass stamp.
+- Directional grass RT background is now defined as `RGBA=(0,0,0,0)`. `A=0` / `B=0` means no valid grass response, so materials must ignore `RG` when mask/strength is zero. This gives a black debug background and avoids treating empty cells as visible packed direction data.
+- Updated `/InteractionField/Core/Data/RT_IF_Deform`: `ClearColor=(0,0,0,0)`, with `AddressX/Y=TA_CLAMP` retained.
+- Updated `/InteractionField/Core/Blueprints/BP_InteractionField`: default `SourceRadiusUV=0.05`, about `200uu` at the current `FieldWorldSize=4000`.
+- Updated `/InteractionField/Niagara/Systems/NS_InteractionField`: `BlurGrid` SimulationStage is disabled for the MVP. Softness should come from the stamp falloff first; grid blur is deferred until the source footprint is proven.
+- Validation passed: `BP_InteractionField` refresh/compile/save returned `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`; forced Niagara compile returned `error_count=0`, `warning_count=0`, `dirty_count=0`; `BlurGrid.enabled=false` readback passed.
+- Clean direct zero-source PIE smoke passed before the black-background switch with neutral sampling; after the switch, black empty cells are expected and should read `RGBA=(0,0,0,0)`.
+- Direct player-source radius smoke passed: a single source at UV `(0.5,0.5)` with radius `0.05` produced painted samples at offsets `0.0`, `0.025`, and `0.045`, while offsets `0.055`, `0.08`, and `0.12` stayed outside the footprint. This confirms the stamp no longer spreads beyond the player-local radius.
+- Temporal fade is part of the `RenderCircleToGrid` StackContext accumulator. The player fade call uses `User.IF_TrailFade` with default `0.9975`. NPC Slot1-3 calls use `User.IF_NPC_TrailFade=1.0`, so current-frame NPC writes do not apply an additional fade pass. Because the Grid2D is shared, this is not strict per-source lifetime separation for pixels already accumulated in earlier frames.
+- Fade validation passed: active source samples reached about `B/A=0.992`; after source delta/strength were set to `0`, the same samples decayed to about `0.556` after 3 seconds and about `0.248` after 7 seconds. The outside sample stayed black `RGBA=(0,0,0,0)`.
+- Runtime note: an already-running field can retain old center values inside Grid2D as trail state. RT clear alone does not necessarily clear existing Grid2D persistence. For clean startup/no-source validation, reset or respawn the Niagara system after source variables are inactive.
+- `BP_InteractionField` now exposes `TrailFade` as an instance-editable Float (`ClampMin=0`, `ClampMax=1`, default `0.9975`) and writes it to Niagara `User.IF_TrailFade` during the existing update chain.
+- X/Y check: direct RT readback with `User.IF_SourceUV=(0.62,0.50)` painted `U=0.62,V=0.50` and left `U=0.50,V=0.62` black; the reverse `User.IF_SourceUV=(0.50,0.62)` painted the V target. The source UV position path is not X/Y-swapped. If movement color still appears swapped in preview, inspect direction visualization separately because `RG` is packed direction data blended with radial stamp direction.
+
+---
+
+## 29. 2026-06-16 Addendum - FieldDeltaUV Stabilization
+
+- Current runtime contract remains one player-owned `BP_InteractionField` plus source-only NPC/monster actors. `/Game/Cubeless/BluePrints/BP_Dummy` keeps `BPC_InteractionSource`; its legacy `InteractionFieldChild` component shell currently has an empty `ChildActorClass`, so it does not spawn a second field.
+- `BP_InteractionField` now writes `User.IF_FieldDeltaUV=(0,0)` through a dedicated `Make Vector 2D` node. This intentionally bypasses the calculated player movement delta for the MVP.
+- Reason: direct Niagara smoke showed nonzero `IF_FieldDeltaUV` makes existing render-target/grid data disappear or move unpredictably. Until that deterministic scroll test passes, advection can make stationary NPC stamps look like they follow the player movement/fade direction.
+- Validation passed: `BP_InteractionField` and `BP_Dummy` compile/save with zero Blueprint errors or warnings; SIE readback showed three Dummy actors with `BPC_InteractionSource` and no spawned interaction-field child actor.
+- Current limit: this disables seamless player-centered RT scroll/advection. Re-enable only after `AdvectGrid` is proven with a one-frame offset test that preserves an existing stamp at the expected UV.
+
+---
+
+## 30. 2026-06-16 Addendum - NPC UV Bounds Gate
+
+- Rechecked the current ExampleMap setup in PIE. The player-owned `BP_InteractionField` is centered on Piper at approximately `(169.6, -11174.4)` with `FieldWorldSize=(4000,4000)`.
+- The current placed Dummy test actors are outside that field: Slot1 UV `(-0.1894, 1.2338)`, Slot2 UV `(-0.2233, 1.1591)`, and Slot3 UV `(-0.3655, 1.2635)`.
+- `BP_InteractionField` now gates Slot1-3 writes with an explicit `0 <= UV.x <= 1` and `0 <= UV.y <= 1` check before writing Niagara source values.
+- Out-of-bounds sources are not clamped. They remain inactive for the current frame so they cannot draw at the wrong render-target edge.
+- Validation passed: `BP_InteractionField` refresh/compile/save returned zero errors and warnings; PIE readback showed all three current out-of-field Dummy slots had `User.IF_Source*_Strength=0`.
+- Remaining work: this fixes the first NPC position issue only. Player fade loss and stationary NPC fade/trail following the player still need a separate Niagara accumulator/advection pass.
+
+---
+
+## 31. 2026-06-16 Addendum - Player-Only Fade Slot Binding
+
+- Decision: for the MVP, fade control is owned by the player source path only.
+- Updated `/InteractionField/Niagara/Systems/NS_InteractionField`: the active player fade call now runs before NPC Slot1-3 so later NPC current-frame stamps are not post-faded by a trailing player call.
+- Updated NPC Slot1-3 `RenderCircleToGrid001/002/003.SubtractionDelta` links to `User.IF_NPC_TrailFade` with default `1.0`.
+- The old trailing Slot0 `RenderCircleToGrid` call is left in the stack only as a no-op-compatible compatibility call: `AdditionDelta -> User.IF_DisabledSourceDelta`, `CircleStrength -> User.IF_DisabledSourceStrength`, and `SubtractionDelta -> User.IF_NPC_TrailFade`.
+- Reason: NPC slots should stamp their source values without repeatedly applying the player fade multiplier. This prevents NPC calls from clearing or over-decaying earlier stack values.
+- Current limit: the render target is still one shared RGBA grid. `RenderCircleToGrid` internally computes `PreviousStackValue * TrailFade`, so a fade call cannot distinguish old player pixels from old NPC pixels once both have been accumulated into the same Grid2D. This fix prevents current-frame NPC stamps from being faded after they are written; it does not provide strict per-source lifetime separation for already-persisted pixels.
+- Full player-only persistence requires a later split grid/RT, or a deliberate source-ID/channel-packing redesign where the material consumes the new packing contract.
+- Validation passed: graph links show the early player call `RenderCircleToGrid004` uses `Emitter.Grid2D Collection`, `User.IF_SourceUV`, `User.IF_SourceRadius`, `User.IF_SourceDelta`, `User.IF_SourceStrength`, `User.IF_SourceColor`, and `User.IF_TrailFade`; NPC Slot1-3 use `SubtractionDelta -> User.IF_NPC_TrailFade`; and the old trailing Slot0 keeps the no-op links. Niagara compile status returned `error_count=0`, `warning_count=0`, and `dirty_count=0`.
+
+## 32. 2026-06-16 Addendum - NPC Persistent Trail Disable Pass
+
+- Follow-up visual check showed that NPC sources still left trails because Slot1-3 were still writing into the same persistent Grid2D through `RenderCircleToGrid`.
+- Updated the MVP stabilization state: `RenderCircleToGrid001/002/003.AdditionDelta -> User.IF_DisabledSourceDelta` and `RenderCircleToGrid001/002/003.CircleStrength -> User.IF_DisabledSourceStrength`.
+- Player trail remains active through the early player call `RenderCircleToGrid004`; NPC Slot1-3 no longer add values to the persistent Grid2D, so they cannot leave accumulated trails in `RT_IF_Deform`.
+- Previous tradeoff: at this point NPC current-frame deformation was disabled in the RT until a separate non-persistent overlay path was added.
+- Next implementation target was to add a `RenderGrid` export overlay that composites Slot1-3 current-frame circular stamps directly into `RT_IF_Deform` after sampling the player persistent Grid2D, without writing those NPC stamps back into the Grid2D state.
+- Verification passed: graph links confirm Slot1-3 delta/strength now use disabled zero User parameters, while `RenderCircleToGrid004` still uses the active player source delta/strength. Niagara compile status returned `error_count=0`, `warning_count=0`, and `dirty_count=0`.
+
+## 33. 2026-06-16 Addendum - RenderGrid NPC Current-Frame Overlay
+
+- Implemented the non-persistent NPC overlay path in `/InteractionField/Niagara/Systems/NS_InteractionField:RenderGrid`.
+- `RenderGrid` now wraps the `SetRenderTargetValue.Value` input with `IF_RenderGridNPCOverlay`. The wrapper preserves the sampled persistent player Grid2D value as `BaseValue`, then composites Slot1-3 circular current-frame stamps from `IF_Source1/2/3_*` User parameters directly into the RT export value.
+- NPC Slot1-3 remain disabled for persistent Grid2D writes: `RenderCircleToGrid001/002/003.AdditionDelta -> User.IF_DisabledSourceDelta` and `CircleStrength -> User.IF_DisabledSourceStrength`.
+- Player trail remains the only persistent trail writer through `RenderCircleToGrid004.AdditionDelta -> User.IF_SourceDelta` and `CircleStrength -> User.IF_SourceStrength`.
+- UnrealMCP API correction: `insert_niagara_scratch_pad_custom_hlsl_for_pin.user_parameter_inputs` now feeds Custom HLSL inputs through hidden `NiagaraNodeInput(Parameter)` nodes instead of calling `SetLinkedParameterValueForFunctionInput` on a Custom HLSL pin. The earlier approach crashed because that engine helper expects a `NiagaraNodeParameterMapSet` override pin. A later `ParameterMapGet` attempt compiled User parameters as SimulationStage context fields and failed with `FParamMap0` member errors.
+- Graph cleanup: `delete_unlinked_custom_input_source_nodes` was added and narrowed to only remove old input-source nodes that were actually connected to the replaced Custom HLSL node. The cleanup removed 25 stale helper nodes from the failed overlay attempts and left one `IF_RenderGridNPCOverlay` node with 12 User-parameter input nodes.
+- Validation passed after editor restart and rebuilt UnrealMCP DLL: `StylizedCubelessEditor Win64 Development` build succeeded; MCP bridge `127.0.0.1:55557` came up; `NS_InteractionField` forced Niagara compile returned `error_count=0`, `warning_count=0`, `dirty_count=0`; graph readback showed one overlay Custom HLSL node, 12 Slot1-3 User input nodes, and no stale `IF_Source*` helper nodes in `RenderGrid`.
+- Remaining runtime check: visually confirm in PIE that NPCs show current-frame deformation with no lingering NPC trail, while the player still leaves the fading trail.
+
+## 34. 2026-06-16 Addendum - NPC Overlay Visibility Fix
+
+- Follow-up issue: after NPC persistent writes were disabled, NPCs still did not appear in the RT overlay.
+- Root cause was in the MCP authoring API, not Niagara compilation. `user_parameter_inputs` accepted `User.IF_Source1_UV`, but the created hidden `NiagaraNodeInput(Parameter)` used the matched exposed parameter's short name `IF_Source1_UV`. The graph compiled, yet the dynamic input did not retain the `User.*` runtime binding.
+- UnrealMCP C++ fix: keep the normalized requested `User.*` name when constructing the linked `FNiagaraVariable` for hidden Custom HLSL input nodes. The same patch was mirrored in `../unreal-mcp-cubeless`.
+- Reapplied `IF_RenderGridNPCOverlay` to `RenderGrid`. Readback now confirms 12 linked source inputs named `User.IF_Source1_UV`, `User.IF_Source1_Radius`, `User.IF_Source1_Strength`, `User.IF_Source1_DirectionPacked`, and the equivalent Slot2/Slot3 parameters.
+- Overlay activation is gated by `SourceStrength` only. A `DirectionPacked.b` activation fallback was tested and rejected because the BP out-of-bounds path zeros Strength but can leave the previous directional color B value in place, which would redraw stale NPC stamps.
+- `/Game/Cubeless/BluePrints/BP_Dummy` was aligned with the current architecture by removing the old `InteractionFieldChild` component. Dummy instances now provide `BPC_InteractionSource` only; the player-owned BP remains responsible for the single field/RT export.
+- Verification passed: Unreal editor target build succeeded, forced Niagara compile had zero errors/warnings, Dummy component readback shows no `InteractionFieldChild`, graph readback confirms all overlay source input nodes are namespaced `User.*`, and PIE RT readback showed active Slot1-3 stamps plus Slot1 returning to black after the Dummy moves out of bounds.
+
+## 35. 2026-06-16 Addendum - NPC Overlay Radial Direction Map
+
+- Follow-up visual issue: NPC/monster overlay stamps were visible, but they appeared as one flat color instead of the player-like circular direction gradient.
+- Cause: the `RenderGrid` overlay composited `SColor.rg` directly into the whole NPC circle. `SColor.rg` is constant per source, so stationary or slow NPC sources read as a flat purple/blue stamp.
+- Updated `IF_RenderGridNPCOverlay` so Slot1-3 compute the visible RG per pixel from the local stamp vector: `saturate(float2(0.5, 0.5) + 0.5 * normalize(Unit - SourceUV))`.
+- The activation contract remains `SourceStrength > 0`. `DirectionPacked.b` is still not used for activation because out-of-bounds source cleanup currently zeros Strength and may leave the previous packed color in place.
+- Verification passed: Niagara compile stayed clean, overlay inputs remain namespaced `User.*`, and PIE RT sampling around Slot1 returned distinct RG values at center/left/right/up/down instead of one constant color.
