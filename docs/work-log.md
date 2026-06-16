@@ -6174,3 +6174,355 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `default_restored_after_v1qa_preset_expansion`: `65` native components / `816` instances.
 - Updated closeout/preflight/docs so the authoring preset matrix is part of the V1 QA path.
 - Verification: Python compile passed, `git diff --check` passed, and `run_pcg_dungeon_delivery_closeout.py` passed with `failed_steps=[]`.
+## 2026-06-17 UDS Analysis Branch and Volumetric Cloud Repair
+
+- Created the work branch `codex/uds-analysis` for UDS analysis.
+- Inspected UDS/UDW assets, Blueprint graphs, material graphs, and MPC runtime values in `/Game/UltraDynamicSky/Maps/DemoMap`.
+- Diagnosed the current UDS volumetric cloud disappearance:
+  - `Ultra_Dynamic_Sky_0` was already in `VOLUMETRIC_CLOUDS` mode and its `VolumetricCloud` component was visible.
+  - The blocking runtime value was `UDS_VolumetricClouds_MPC.Cloud Density=0`.
+  - UDS' own `Current Volumetric Clouds Density` function returned `1.310999983549118`, so the density formula was healthy.
+  - The apply path `Update Cloud Coverage Material Parameters` is gated by `Composite Weather Change Speed > 0`; with the speed at zero, the runtime MPC stayed at the asset default.
+- Restored the current editor-session volumetric cloud by writing runtime MPC values only:
+  - `Cloud Density=1.311`
+  - `Layer 2 Density=0`
+  - `set_asset_defaults=false`, `save=false`
+  - Sky sphere MID `Cloud Density` was set to the matching `Cloud Coverage 0-3 * 1.4 = 1.596`.
+  - The MPC asset default was not saved; the loaded DemoMap package still appears modified in Git and should be reviewed separately.
+- Verification:
+  - Runtime `Cloud Density` read back as `1.3109999895095825`.
+  - Runtime altitude values remained `Bottom Altitude=59940`, `Top Altitude=129940`, `Cloud Layer Height=100000`.
+  - Screenshot written to `Saved/CodexScreenshots/UDS_Analysis/uds_volumetric_cloud_restored_20260617.png`.
+- Documentation added under `docs/uds-analysis/`:
+  - `current-volumetric-cloud-repair.md`
+  - `blueprint-flow.md`
+  - `volumetric-cloud-stack.md`
+  - `asset-map.md`
+  - `runtime-flow.md`
+  - `material-mpc-flow.md`
+  - `cubeless-transfer-notes.md`
+  - `mcp-followups.md`
+- Continued deeper read-only UDS graph analysis after the repair:
+  - `Ultra_Dynamic_Sky.Startup Sky` has `103` nodes and orchestrates configuration reset, UDW lookup, static properties, time/cloud formation, occlusion, weather connection, cloud painting, cache setup, first active update, tick binding, and cloud movement startup.
+  - `Update Active Variables` calls `Update Cloud Coverage Material Parameters` before dispatcher fan-out.
+  - `Update Cloud Coverage Material Parameters` has the exact failing gate `Composite Weather Change Speed > 0`; below that gate it writes `Sky Sphere MID.Cloud Density`, `UDS_VolumetricClouds_MPC.Cloud Density`, and optional `Layer 2 Density`.
+  - `Current Volumetric Clouds Density` derives about `1.311` from `Cloud Coverage 0-3=1.14` by low-coverage remap, multiply by `1.15`, then clamp to `-0.2..3.0`.
+  - `Volumetric_Clouds` has `114` graph nodes, `2` function calls, `2` `TwoLayers` static switches, `21` MPC parameter nodes, and no Custom HLSL nodes.
+- Git status note: `/Content/UltraDynamicSky/Maps/DemoMap.umap` is modified after the repair and must be reviewed separately from unrelated untracked `Content/ANGRY_MESH/`.
+
+## 2026-06-17 - UDS cloud analysis continuation
+
+- Continued the UDS analysis on branch `codex/uds-analysis` after restoring the
+  missing volumetric clouds in the current editor session.
+- Added `docs/uds-analysis/static-and-2d-clouds.md` covering sky-dome cloud
+  layers, `Map_Cloud_Textures`, `Cloud_Wisps`, static packed clouds, current
+  sky MID values, and Cubeless porting notes.
+- Added `docs/uds-analysis/weather-preset-flow.md` covering UDW weather preset
+  assets, current DemoMap UDS/UDW state, the inspected 13 weather preset value
+  table, and the UDW-to-UDS cloud connection.
+- Added `docs/uds-analysis/cubeless-implementation-roadmap.md` with a phased
+  Cubeless-owned sky implementation plan and dependency audit checklist.
+- Updated `docs/uds-analysis/README.md`, `material-mpc-flow.md`, and
+  `cubeless-transfer-notes.md` so the reading order and Cubeless transfer
+  guidance include static/2D clouds and weather presets.
+- Notion capture was not used because the configured Notion connector previously
+  required reauthentication in this workspace; this local work log is the
+  durable project memory fallback.
+
+## 2026-06-17 - UDS learning indexes and runtime snapshot
+
+- Continued the UDS analysis without editing Unreal assets.
+- Added `docs/uds-analysis/blueprint-index.md` as a navigation index for
+  `Ultra_Dynamic_Sky` and `Ultra_Dynamic_Weather` event graphs, delegates,
+  update families, and the most important function groups.
+- Added `docs/uds-analysis/material-dependency-index.md` with direct Asset
+  Registry dependencies for:
+  - `Ultra_Dynamic_Sky_Mat`
+  - `Volumetric_Clouds`
+  - `Cloud_Shadows_and_Caustics`
+  - `Global_Volumetric_Fog`
+  - `Cloud_Fog_PostProcess`
+  - key static, 2D, wisp, and volumetric cloud functions.
+- Added `docs/uds-analysis/runtime-snapshot-checklist.md` with the recommended
+  capture order and current DemoMap values for UDS actor state, UDW actor
+  state, UDS volumetric MPC defaults/runtime values, and weather MPC
+  defaults/runtime values.
+- Confirmed again that the current repaired UDS cloud state is runtime-only:
+  `UDS_VolumetricClouds_MPC.Cloud Density` has asset default `0` and editor
+  runtime value about `1.311`.
+- Confirmed dirty package state through Unreal Python:
+  `/Game/UltraDynamicSky/Maps/DemoMap` is dirty. This matches the Git-visible
+  binary map modification and should be reviewed separately before staging.
+
+## 2026-06-17 - UDS signal matrix, curriculum, and Cubeless backlog
+
+- Continued the UDS analysis on branch `codex/uds-analysis` without further
+  Unreal asset edits.
+- Added `docs/uds-analysis/state-signal-matrix.md` to map UDS/UDW actor values,
+  Blueprint-derived values, runtime MPC values, runtime MID values, material
+  meaning, known traps, and Cubeless equivalents.
+- Added `docs/uds-analysis/learning-curriculum.md` with a module-by-module
+  study plan, exercises, and pass criteria for learning UDS deeply enough to
+  build an owned Cubeless sky system.
+- Added `docs/uds-analysis/cubeless-sky-backlog.md` with P0-P3 implementation
+  tasks, acceptance criteria, dependency rules, and a regression guard for the
+  fixed cloud-density sync failure.
+- Updated `docs/uds-analysis/README.md` so the new learning docs are part of
+  the primary reading order.
+- Notion capture was still skipped because this workspace's Notion connector
+  previously required reauthentication; this work-log entry is the local
+  durable memory fallback.
+
+## 2026-06-17 - UDS sky snapshot helper
+
+- Added `Tools/Unreal/capture_uds_sky_snapshot.py` as a read-only UnrealMCP
+  snapshot runner for UDS/UDW sky analysis.
+- The helper captures the current editor world, dirty packages, UDS/UDW actor
+  properties, selected Blueprint method outputs, runtime UDS/UDW MPC values,
+  native MCP MPC asset-default/runtime reads, VolumetricCloud component state,
+  sky sphere MID values, and a density sync regression check.
+- Updated `docs/uds-analysis/runtime-snapshot-checklist.md` with the command
+  for running the helper and updated the Cubeless backlog to treat it as the P0
+  snapshot route.
+- The helper is intentionally read-only and writes generated reports under
+  `Saved/UDS_Analysis`.
+- Verification:
+  - `py_compile` passed for `Tools/Unreal/capture_uds_sky_snapshot.py`.
+  - A live UnrealMCP run with `--timestamped-output --capture-screenshot`
+    passed and wrote
+    `Saved/UDS_Analysis/uds_sky_snapshot_20260617_014313.json`.
+  - The generated report found `Ultra_Dynamic_Sky_0` and
+    `Ultra_Dynamic_Weather_C_1`, confirmed the dirty map package is still only
+    `/Game/UltraDynamicSky/Maps/DemoMap`, captured the active viewport, and
+    passed the density sync check with derived density `1.310999983549118`,
+    asset default cloud density `0`, and runtime cloud density
+    `1.3109999895095825`.
+
+## 2026-06-17 - Cubeless sky UDS dependency audit helper
+
+- Added `Tools/Unreal/audit_cubeless_sky_dependencies.py` as a read-only
+  UnrealMCP AssetRegistry audit for Cubeless sky assets.
+- The helper scans `/Game/Cubeless/Sky` by default, recursively resolves asset
+  dependencies, flags `/Game/UltraDynamicSky` references, classifies UDS hits
+  as mesh/material/material-function/MPC/texture/blueprint/other, and writes
+  generated reports under `Saved/UDS_Analysis`.
+- Updated the UDS analysis README, runtime snapshot checklist, and Cubeless sky
+  backlog so dependency audit is now a concrete repeatable command rather than
+  a placeholder task.
+- Added `docs/uds-analysis/cubeless-dependency-audit.md` with the latest audit
+  result and cleanup list.
+- Verification:
+  - `py_compile` passed for `Tools/Unreal/audit_cubeless_sky_dependencies.py`.
+  - Live UnrealMCP audit completed successfully and wrote
+    `Saved/UDS_Analysis/cubeless_sky_dependency_audit_20260617_014717.json`.
+  - The audit scanned `34` assets under `/Game/Cubeless/Sky`, found
+    `5` direct offenders and `5` recursive offenders, and correctly reported
+    promotion `pass=false` because Cubeless sky still references one UDS mesh
+    and two UDS static cloud textures.
+
+## 2026-06-17 - Cubeless sky UDS dependency cleanup
+
+- Removed the known `/Game/UltraDynamicSky` references from `/Game/Cubeless/Sky`.
+- Created a Cubeless-owned sky sphere mesh:
+  `/Game/Cubeless/Sky/Meshes/SM_Cubeless_SkySphere`.
+- Updated `/Game/Cubeless/Sky/BP_SkySystem.SkyDomeMesh` to use the new Cubeless
+  sky sphere mesh instead of `/Game/UltraDynamicSky/Meshes/Ultra_Dynamic_Sky_Sphere`.
+- Updated `/Game/Cubeless/Sky/Materials/M_Sky_Dome` texture sample references:
+  - `FarCloud` -> `/Game/Cubeless/Env/Sky/Textures/T_CloudPlaneAtlas_LightPacked_UDSLike`
+  - `cloub02` -> `/Game/Cubeless/Env/Sky/Textures/T_CloudPlaneAtlas_LightPacked_UDSLike`
+- Updated `FarCloudTexture` on:
+  - `/Game/Cubeless/Sky/Data/DA_Weather_Clear`
+  - `/Game/Cubeless/Sky/Data/DA_Weather_Cloudy`
+  - `/Game/Cubeless/Sky/Data/DA_Weather_Overcast`
+- Verification:
+  - `replace_material_texture_references` compiled and saved `M_Sky_Dome` with
+    `compile_error_count=0`.
+  - Final dependency audit wrote
+    `Saved/UDS_Analysis/cubeless_sky_dependency_audit_20260617_015419.json`.
+  - Final audit scanned `35` assets under `/Game/Cubeless/Sky` and passed with
+    `direct_offender_count=0`, `recursive_offender_count=0`, and `pass=true`.
+  - Unreal dirty package check after saves still showed only the existing dirty
+    map package `/Game/UltraDynamicSky/Maps/DemoMap`; no dirty Cubeless content
+    packages remained.
+
+## 2026-06-17 - Cubeless sky promotion preflight
+
+- Added `Tools/Unreal/check_cubeless_sky_promotion_preflight.py` as a read-only
+  promotion gate for Cubeless sky cleanup.
+- The preflight combines the recursive UDS dependency audit with targeted
+  checks for:
+  - `/Game/Cubeless/Sky/BP_SkySystem.SkyDomeMesh`
+  - `DA_Weather_Clear`, `DA_Weather_Cloudy`, and `DA_Weather_Overcast`
+    `FarCloudTexture`
+  - `/Game/Cubeless/Sky/Materials/M_Sky_Dome` direct dependencies
+  - expected Cubeless replacement asset existence
+  - dirty Cubeless content package state
+- Updated `docs/uds-analysis/README.md`,
+  `docs/uds-analysis/cubeless-dependency-audit.md`, and
+  `docs/uds-analysis/cubeless-sky-backlog.md` with the preflight command and
+  latest result.
+- Verification:
+  - `py_compile` passed for `Tools/Unreal/check_cubeless_sky_promotion_preflight.py`
+    alongside the existing UDS snapshot and dependency audit helpers.
+  - Live UnrealMCP preflight wrote
+    `Saved/UDS_Analysis/cubeless_sky_promotion_preflight_20260617_020132.json`.
+  - The associated dependency audit wrote
+    `Saved/UDS_Analysis/cubeless_sky_dependency_audit_for_preflight_20260617_020132.json`.
+  - Preflight passed with `dependency_audit_pass=true`,
+    `bp_sky_dome_mesh_expected=true`, `weather_data_textures_expected=true`,
+    `sky_dome_material_uds_free=true`, `sky_dome_material_uses_expected_texture=true`,
+    and `dirty_content_clean=true`.
+  - The only dirty package warning remained the already documented UDS DemoMap
+    map package `/Game/UltraDynamicSky/Maps/DemoMap`; no dirty Cubeless content
+    package was reported.
+
+## 2026-06-17 - UDS analysis closeout runner
+
+- Added `Tools/Unreal/run_uds_analysis_closeout.py` as a read-only orchestration
+  runner for the current UDS analysis branch.
+- The closeout runner compiles the helper scripts, captures a UDS/UDW runtime
+  snapshot, optionally captures a viewport screenshot, runs Cubeless sky
+  promotion preflight, records Git status for both `CubelessStylized` and
+  `../unreal-mcp-cubeless`, and writes one generated closeout report.
+- Updated `docs/uds-analysis/README.md`,
+  `docs/uds-analysis/runtime-snapshot-checklist.md`,
+  `docs/uds-analysis/cubeless-dependency-audit.md`, and
+  `docs/uds-analysis/cubeless-sky-backlog.md` with the closeout command and
+  latest result.
+- Verification:
+  - `py_compile` passed for `Tools/Unreal/run_uds_analysis_closeout.py` and the
+    existing UDS helper scripts.
+  - Live UnrealMCP closeout wrote
+    `Saved/UDS_Analysis/uds_analysis_closeout_20260617_020516.json`.
+  - The closeout generated:
+    - `Saved/UDS_Analysis/uds_sky_snapshot_20260617_020516.json`
+    - `Saved/UDS_Analysis/uds_sky_snapshot_20260617_020516.png`
+    - `Saved/UDS_Analysis/cubeless_sky_promotion_preflight_20260617_020517.json`
+  - Closeout passed with `helper_scripts_compile=true`,
+    `uds_snapshot_pass=true`, `promotion_preflight_pass=true`,
+    `project_diff_check_pass=true`, and `sibling_mcp_status_read=true`.
+  - Warnings remained informational: the already documented dirty UDS DemoMap
+    and unrelated untracked `Content/ANGRY_MESH/`.
+
+## 2026-06-17 - UDS analysis delivery manifest
+
+- Added `Tools/Unreal/build_uds_analysis_delivery_manifest.py` as a read-only
+  Git status classifier for the UDS analysis branch.
+- Added `docs/uds-analysis/delivery-manifest.md` and updated the UDS analysis
+  README/backlog with the delivery-manifest route.
+- The manifest separates current paths into stage candidates, manual decisions,
+  explicit exclusions, and unknown-review paths so unrelated Unreal assets are
+  not staged accidentally.
+- Latest report:
+  `Saved/UDS_Analysis/uds_analysis_delivery_manifest_20260617_021705.json`.
+- Verification:
+  - `py_compile` passed for
+    `Tools/Unreal/build_uds_analysis_delivery_manifest.py`.
+  - The manifest now uses `git status --porcelain=v1 -uall` for file-level
+    untracked classification.
+  - The manifest passed with `stage_candidate_count=33`,
+    `manual_decision_count=1`, `excluded_count=483`, and
+    `unknown_review_count=0`.
+  - `Content/UltraDynamicSky/Maps/DemoMap.umap` is classified as a manual
+    staging decision because it is a binary UDS reference map touched by the
+    runtime cloud repair.
+  - `Content/ANGRY_MESH/` is classified as excluded unrelated content and was
+    not touched.
+
+## 2026-06-17 - Unreal editor log scan in closeout
+
+- Added `Tools/Unreal/scan_unreal_editor_log.py` as a read-only latest Unreal
+  editor log scanner.
+- Updated `Tools/Unreal/run_uds_analysis_closeout.py` so closeout now includes
+  the editor log scan alongside helper compilation, UDS snapshot, Cubeless
+  promotion preflight, and Git status checks.
+- Updated `Tools/Unreal/build_uds_analysis_delivery_manifest.py` so the new log
+  scan helper is classified as a stage candidate.
+- Updated the UDS analysis README, runtime snapshot checklist, dependency audit
+  doc, backlog, and delivery manifest docs with the log scan result.
+- Verification:
+  - `py_compile` passed for the new scanner and updated closeout/manifest
+    helpers.
+  - Standalone log scan wrote
+    `Saved/UDS_Analysis/unreal_editor_log_scan_20260617_021328.json`, then
+    closeout generated
+    `Saved/UDS_Analysis/unreal_editor_log_scan_20260617_021335.json`.
+  - Latest log scan passed with `fatal=0`, `ensure=0`, `error=33`, and
+    `warning=204`.
+  - Closeout with log scan wrote
+    `Saved/UDS_Analysis/uds_analysis_closeout_20260617_021333.json` and passed
+    with `editor_log_scan_pass=true`.
+
+## 2026-06-17 - UDS analysis human handoff
+
+- Added `docs/uds-analysis/handoff.md` as the human-facing branch handoff for
+  the current UDS analysis work.
+- The handoff summarizes the repaired UDS volumetric cloud runtime issue, the
+  Cubeless sky dependency cleanup, latest validation reports, stage candidates,
+  manual staging decisions, explicit exclusions, recheck commands, and residual
+  risks.
+- Updated the UDS analysis README and Cubeless sky backlog so the handoff is
+  part of the normal review path before staging or commit work.
+- Refreshed the delivery manifest after adding the handoff:
+  `Saved/UDS_Analysis/uds_analysis_delivery_manifest_20260617_022102.json`.
+- The refreshed manifest passed with `stage_candidate_count=34`,
+  `manual_decision_count=1`, `excluded_count=483`, and
+  `unknown_review_count=0`.
+
+## 2026-06-17 - UDS delivery manifest console summary
+
+- Updated `Tools/Unreal/build_uds_analysis_delivery_manifest.py` so the
+  default console output is a compact summary while the written report remains
+  the full manifest JSON.
+- Added `--full-json` for cases where the complete manifest payload is needed
+  on stdout.
+- Added the delivery manifest helper to
+  `Tools/Unreal/run_uds_analysis_closeout.py` helper compilation coverage.
+- Updated `Tools/Unreal/run_uds_analysis_closeout.py` so closeout also prints a
+  compact summary by default while preserving the full JSON report file.
+- Corrected the handoff closeout command to use the actual
+  `--capture-screenshot` option.
+- Updated the UDS handoff and delivery manifest docs with the new stdout
+  behavior.
+- Verification manifest:
+  `Saved/UDS_Analysis/uds_analysis_delivery_manifest_20260617_022345.json`.
+- The compact stdout summary passed with `stage_candidate_count=34`,
+  `manual_decision_count=1`, `excluded_count=483`, and
+  `unknown_review_count=0`.
+- Reran closeout after the stdout and helper-coverage update:
+  `Saved/UDS_Analysis/uds_analysis_closeout_20260617_022517.json`.
+- The refreshed closeout passed with helper compilation, UDS snapshot,
+  promotion preflight, editor log scan, project diff check, and sibling MCP
+  status all true.
+- Reran delivery manifest after the refreshed closeout:
+  `Saved/UDS_Analysis/uds_analysis_delivery_manifest_20260617_022524.json`.
+
+## 2026-06-17 - UDS staging scope guard
+
+- Added `Tools/Unreal/check_uds_analysis_staging_scope.py` as a read-only
+  staged Git scope checker for the UDS analysis branch.
+- The checker reads `git diff --cached`, classifies staged paths against the
+  same UDS delivery scope as the manifest, and fails if manual-decision,
+  excluded, or unknown paths are staged accidentally.
+- Added strict post-staging options:
+  `--require-staged`, `--require-all-candidates`, and
+  `--allow-manual-decisions` for explicitly reviewed manual paths.
+- Added the staging scope helper to delivery manifest classification and
+  closeout helper compilation coverage.
+- Updated the UDS README, handoff, delivery manifest, and backlog with the
+  staging scope command.
+- Verification:
+  - `py_compile` passed for the new helper and the touched manifest/closeout
+    helpers.
+  - Default staging scope preview passed with `0` staged paths, no accidental
+    manual/excluded/unknown staged paths, and `35` current stage candidates
+    missing as expected before staging.
+  - `--require-staged` failed intentionally with exit code `1` while no paths
+    were staged, proving the strict check can block an invalid post-staging
+    state.
+  - Refreshed closeout with the staging helper included:
+    `Saved/UDS_Analysis/uds_analysis_closeout_20260617_023149.json`.
+  - Refreshed staging scope preview:
+    `Saved/UDS_Analysis/uds_analysis_staging_scope_20260617_023149.json`.
+  - Refreshed delivery manifest:
+    `Saved/UDS_Analysis/uds_analysis_delivery_manifest_20260617_023159.json`.
