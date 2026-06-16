@@ -4916,3 +4916,1212 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Live bridge verification passed on `/InteractionField/Niagara/Systems/NS_InteractionField:RenderGrid`: reinserting the same `IF_RenderGridNPCOverlay` HLSL with the 12 Slot1-3 `User.IF_Source*` inputs returned `already_inserted=true`, `topology_verified=true`, `saved=false`, and `compile_requested=false`.
 - Niagara compile status stayed clean after the dry-run verification: `error_count=0`, `warning_count=0`, `dirty_count=0`.
 - Note: the latest editor log contains failed exploratory Python attempts while finding the Custom HLSL object (`ObjectLibrary`, wrong execution mode, unavailable `get_objects_with_outer`). The final ObjectIterator extraction and Niagara topology verification succeeded afterward.
+
+### 2026-06-14 Material-Only Volumetric Cloud Temp Validation
+- Created a separate disposable material-only test set under `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly`.
+- Temp master:
+  - `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Materials/M_CubelessVolCloud_MaterialOnly`
+  - Replaced all 55 `MaterialExpressionCollectionParameter` nodes with matching scalar/vector parameters using current Cubeless MPC defaults.
+  - Validation after layout pass: `node_count=377`, `CollectionParameter=0`, `material_function_call_count=0`, and `compile_error_count=0`.
+- Temp instance:
+  - `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Materials/MI_CubelessVolCloud_MaterialOnly`
+  - Duplicated from `/Game/Cubeless/Sky/Materials/MI_UDS_VolumetricClouds_Stylized`, then re-parented to the temp master.
+  - Confirmed static switch overrides: `Apply Drawn Target=false`, `TwoLayers=false`, `Simplified Extinction=false`.
+- Created UDS-free material-only test map:
+  - `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Maps/LV_CubelessVolCloud_MaterialOnly_Test_153056`
+  - Actor count check: `VolumetricCloud=1`, `UDS_like=0`, `Driver_like=0`, `StylizedSkyActor_like=0`.
+- Set Cubeless MPC runtime values to zero before capture to prove the temp material no longer depends on the MPC runtime driver, then restored the runtime MPC values to their asset defaults afterward.
+- Captured RGB proof image:
+  - `Saved/MCP/CloudCompare/material_only_zero_mpc_capture_rgb.png`
+- Follow-up visual review found that this proof image is not reliable enough as a final validation image: the cloud looked highly speckled, and after resetting volumetric cloud render-target/temporal CVars the same view rendered no visible clouds.
+- Applying the original `/Game/Cubeless/Sky/Materials/MI_UDS_VolumetricClouds_Stylized` to the same temp VolumetricCloud actor also rendered no visible clouds in the reset state, which indicates the previous visible cloud capture was likely affected by volumetric render-target or temporal history rather than a stable material-only render.
+- Restored the temp VolumetricCloud actor back to `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Materials/MI_CubelessVolCloud_MaterialOnly` and saved the temp map again.
+- Notion capture could not be updated because the Notion connection required reauthentication, so this local work-log entry was used as the durable capture fallback.
+
+### 2026-06-14 Material-Only Volumetric Cloud V2 Temp Validation
+- Rebuilt the material-only temp path from the real UDS source material `/Game/UltraDynamicSky/Materials/Volumetric_Clouds` instead of the earlier rebuilt master.
+- Created V2 temp assets under `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Materials`:
+  - `M_CubelessVolCloud_MaterialOnly_V2`
+  - `MI_CubelessVolCloud_MaterialOnly_V2`
+- Expanded all non-engine material function calls in the V2 master: final material function call count is `0`, node count is `377`, and compile error count is `0`.
+- Added UnrealMCP support for replacing `MaterialExpressionCollectionParameter` nodes with ordinary scalar/vector material parameter nodes, then replaced all 55 UDS MPC nodes in the V2 master. Rewire summary: 59 expression inputs and 1 root material property were reconnected; compile error count remained `0`.
+- Verified graph dependency state after replacement:
+  - `CollectionParameter=0`
+  - `material_function_call_count=0`
+  - UDS texture references remain, as intended for source texture parity.
+- Created UDS-free validation map `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Maps/LV_CubelessVolCloud_MaterialOnly_V2_NoUDS`.
+- Final validation map actor check: exactly one `VolumetricCloud` actor and zero `Ultra_Dynamic_Sky` actors.
+- Important finding: a direct UDS DemoMap visual comparison was not a reliable proof of volumetric-only parity because the visible large white clouds were mixed with UDS sky/static cloud rendering. After isolating the material in a UDS-free map, the UDS runtime MPC value for `Cloud Density` was `0`, so a literal bake produced little to no visible volumetric cloud.
+- Used a temporary UDS value probe only to read the full runtime UDS volumetric MPC set, then deleted the probe and saved the UDS-free validation map. The V2 MI now stores those values as ordinary MI overrides, then applies a material-only density/erosion tuning pass for visible clouds without any UDS actor or MPC runtime dependency.
+- Current balanced material-only validation capture:
+  - `Saved/MCP/CloudCompare/no_uds_v2_material_only_validation_tuned_balanced052_rgb.png`
+- More aggressive density test, useful as an upper-bound/reference but too overcast and noisy for the balanced candidate:
+  - `Saved/MCP/CloudCompare/no_uds_v2_material_only_validation_tuned_density085_rgb.png`
+- Build verification: `StylizedCubelessEditor Win64 Development` succeeded after adding the UnrealMCP material replacement command.
+
+### 2026-06-14 Material-Only Volumetric Cloud V2 Quality Pass
+- Continued the disposable material-only V2 validation in `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Maps/LV_CubelessVolCloud_MaterialOnly_V2_NoUDS`.
+- Reconfirmed the validation constraint: the map contains exactly one `VolumetricCloud` actor and zero `Ultra_Dynamic_Sky` actors.
+- A/B testing with the original UDS volumetric cloud MI on the same standalone `VolumetricCloud` actor rendered nearly empty sky because the isolated UDS runtime MPC probe reported `Cloud Density=0`. Therefore that A/B is not a useful visible-quality reference for the material-only goal.
+- Re-applied and saved the visible material-only V2 preset on `MI_CubelessVolCloud_MaterialOnly_V2`:
+  - `Cloud Density=0.85`
+  - `3D Erosion=0.22`
+  - `High Frequency Noise=0.32`
+  - `Extinction Scale=4.0`
+  - `Layer Scale=0.7`
+  - `Clouds Scale=900000.0`
+  - `Albedo=(0.45, 0.45, 0.45, 1.0)`
+- Quality finding: reducing `Cloud Density` below about `0.85`, lowering `High Frequency Noise`, or changing `Clouds Scale` caused the current validation view to lose visible cloud density entirely. The stable tuning range is narrow because these parameters are part of the density-field threshold, not only final appearance controls.
+- Reduced screenshot shimmer by validating with higher-quality render CVars, especially `r.VolumetricRenderTarget 0`, `r.VolumetricCloud.SampleMinCount 96`, and `r.VolumetricCloud.ViewRaySampleMaxCount 768`.
+- Final material-only proof capture:
+  - `Saved/MCP/CloudCompare/final_material_only_no_uds_cloud_rgb.png`
+- Residual risk: the material-only result is independent from UDS and visible in a UDS-free level, but perfect UDS full-sky parity cannot be judged against UDS's complete sky actor because that visual includes non-volumetric sky/static cloud contributions and runtime Blueprint-driven MPC behavior.
+
+### 2026-06-14 Material-Only Volumetric Cloud V2 Extinction Quality Fix
+- Continued the same disposable V2 temp validation path, not production Cubeless sky assets:
+  - Map: `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Maps/LV_CubelessVolCloud_MaterialOnly_V2_NoUDS`
+  - Master: `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Materials/M_CubelessVolCloud_MaterialOnly_V2`
+  - Instance: `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Materials/MI_CubelessVolCloud_MaterialOnly_V2`
+- Root cause found during quality review: the temporary UDS 3D texture density override was connected to `ConservativeDensity`, but was not driving the material's real volume extinction path. A constant-density diagnostic stayed invisible until the same Custom node was also connected to `MP_Opacity`, which acts as the visible extinction input for this volume material path.
+- Kept the non-engine function expansion rule intact: the V2 master still has `material_function_call_count=0` and compiles with `compile_error_count=0`.
+- Updated the material-only test island to sample UDS `3D_Cells_32` as a low-frequency density field, with reduced high-frequency contribution to lower the earlier speckled/jittery look.
+- Raised the test `VolumetricCloud` component quality for the validation map:
+  - `view_sample_count_scale=2.0`
+  - `shadow_view_sample_count_scale=2.0`
+  - `stop_tracing_transmittance_threshold=0.0015`
+- Final validation state:
+  - exactly one `VolumetricCloud` actor
+  - `UltraDynamicSky` actor/class references: `0`
+  - dirty content packages after save: `0`
+- Current saved review capture:
+  - `Saved/MCP/CloudCompare/quality_fix_X_sample2_smoother_rgb.png`
+- Residual quality note: this is visibly better than the earlier empty/flat result and fixes the missing extinction path, but it is still not perfect UDS full-sky parity. The current remaining gap is artistic density-field quality: the UDS 3D noise alone still produces broad soft patches and some residual volumetric sampling softness.
+
+### 2026-06-14 Material-Only Volumetric Cloud V2 Density Field Iteration
+- Continued only the disposable V2 temp validation assets under `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly`.
+- Tested several density-field candidates after the previous review:
+  - `Y`: added separate large mass, body, and edge-only erosion octaves. Improved cloud readability, but kept too many small lower-horizon flecks.
+  - `Z`: attempted lower-horizon suppression by raising the density layer in shader space, but became too overcast and ceiling-like.
+  - `AA`: biased toward clear-sky islands with higher density thresholds, but over-amplified the layer and produced noisy ceiling coverage.
+  - `AB`: made a sparse high-cloud field, then reduced `VolumetricCloud` trace distance from `500km` to `180km` to suppress long-distance horizon repetition.
+  - `AC`: kept the AB material field, raised the component cloud layer to `3.1km`, reduced layer height to `2.2km`, and kept `tracing_max_distance=180km`.
+- Current saved AC validation state:
+  - Material compile error count: `0`
+  - Material function call count: `0`
+  - `VolumetricCloud` actors: `1`
+  - `UltraDynamicSky` actor/class references: `0`
+  - Dirty content packages after save: `0`
+- Current saved component settings:
+  - `layer_bottom_altitude=3.1`
+  - `layer_height=2.2`
+  - `tracing_start_max_distance=12.0`
+  - `tracing_max_distance=180.0`
+  - `view_sample_count_scale=2.0`
+  - `shadow_view_sample_count_scale=2.0`
+  - `stop_tracing_transmittance_threshold=0.0015`
+- Current saved review capture:
+  - `Saved/MCP/CloudCompare/quality_fix_AC_trace180_layer31_rgb.png`
+- Residual quality note: AC is cleaner than the prior X proof and reduces horizon flecking, but it still looks like a stylized material-only approximation rather than full UDS parity. The next real quality step should add a purpose-built Cubeless density/coverage source or packed texture, not keep pushing only the UDS `3D_Cells_32` texture.
+
+### 2026-06-14 Material-Only Volumetric Cloud V2 AF Quality Pass
+- Continued only the disposable V2 temp validation assets under `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly`.
+- Found a validation blocker: the editor viewport volumetric-cloud render flag had been disabled. Even a constant-density diagnostic rendered as empty sky until `r.VolumetricCloud 1`, `ShowFlag.VolumetricClouds 1`, and `r.VolumetricRenderTarget 1` were re-enabled through Unreal Python.
+- Tested a generated packed coverage texture source:
+  - Local source: `Saved/MCP/CloudCompare/T_CubelessVolCloud_CoveragePacked_1024.png`
+  - Imported temp asset: `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Textures/T_CubelessVolCloud_CoveragePacked_1024`
+  - Result: rejected for now. The authored 2D mask removed speckling but produced broad blocky volume shapes that looked worse than the prior procedural 3D candidate.
+- Added and saved the current best AF material-only density candidate in `M_CubelessVolCloud_MaterialOnly_V2`:
+  - Uses UDS `3D_Cells_32` only as the reference texture source.
+  - Uses larger low-frequency 3D samples and stronger lower-band suppression to reduce the small repeated flecks visible in AC.
+  - Material compile error count: `0`.
+- Created a fresh material instance because the existing `MI_CubelessVolCloud_MaterialOnly_V2` did not reliably show the newly saved master density path after the iteration:
+  - `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Materials/MI_CubelessVolCloud_MaterialOnly_AF`
+- Current saved validation map state:
+  - Map: `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Maps/LV_CubelessVolCloud_MaterialOnly_V2_NoUDS`
+  - `VolumetricCloud` actors: `1`
+  - UDS-like actors: `0`
+  - Applied material: `MI_CubelessVolCloud_MaterialOnly_AF`
+  - `view_sample_count_scale=4.0`
+  - `shadow_view_sample_count_scale=4.0`
+  - `stop_tracing_transmittance_threshold=0.0008`
+- Current AF proof capture:
+  - `Saved/MCP/CloudCompare/final_AF_newMI_sample4_NoUDS_singleVolCloud.png`
+- Residual quality note: AF is cleaner than AC and avoids the failed coverage-mask blockiness, but still remains a stylized material-only approximation. The remaining quality gap is the density field itself; parity-quality clouds likely need a purpose-built Cubeless 3D/volume coverage source or a better-packed authored texture, not just scalar tuning.
+
+### 2026-06-14 Material-Only Volumetric Cloud V2 Ieta Review Pass
+- Reviewed AF again under higher-quality validation CVars:
+  - `r.VolumetricRenderTarget 0`
+  - `r.VolumetricCloud.SampleMinCount 128`
+  - `r.VolumetricCloud.ViewRaySampleMaxCount 1024`
+  - `r.VolumetricCloud.Shadow.ViewRaySampleMaxCount 256`
+- Tested three additional temp density candidates:
+  - `AG`: softer and lighter, but turned into a broad ceiling-like cloud sheet.
+  - `AH`: cleaner than AF, but too sparse and lost readable cloud bodies.
+  - `AI`: restored density from AH, but brought back the ceiling/heavy-blob look.
+- Ieta decision: keep `AF` as the current best candidate. Removed `AG/AH/AI` test nodes and saved `M_CubelessVolCloud_MaterialOnly_V2` with AF still connected.
+- Final validation state:
+  - `VolumetricCloud` actors: `1`
+  - UDS-like actors: `0`
+  - Applied material instance: `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Materials/MI_CubelessVolCloud_MaterialOnly_AF`
+  - Material compile error count: `0`
+  - Dirty packages after final capture: `0`
+- Final review capture:
+  - `Saved/MCP/CloudCompare/final_review_Ieta_keep_AF_high_quality_NoUDS_singleVolCloud.png`
+- Residual quality note: further node-only tuning is now low-return. The next meaningful improvement should be a dedicated Cubeless 3D/volume density or authored coverage source, then the master material can sample that source while still staying UDS-free.
+
+### 2026-06-14 Material-Only Volumetric Cloud V2 Cubeless Texture Reference Pass
+- Continued only disposable temp validation assets under `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly`.
+- Attempted a local generated 2D slice atlas source for Cubeless-owned density data:
+  - Corrected source PNG: `Saved/MCP/CloudCompare/T_CubelessVolCloud_DensityAtlas_4x4x128_RGBA.png`
+  - Rejected the Unreal Python `AssetImportTask`/Interchange import path after it crashed the editor with a TaskGraph recursion assertion during PNG import.
+  - Decision: do not retry texture import through `execute_python` + `AssetImportTask` for this path.
+- Tested a pure procedural Custom-node density candidate:
+  - Compile error count: `0`
+  - Result: rejected. It was UDS-texture-free but either too faint from the real validation angle or turned into broad ceiling-like slabs from the active viewport.
+- Chosen Ieta direction: preserve the AF cloud look, but remove UDS texture dependencies by fresh-copying UDS texture source data into the temp Cubeless folder and pointing material texture nodes at the copies.
+- Fresh-copied and remapped temp texture sources:
+  - `/Game/UltraDynamicSky/Textures/3D_Clouds` -> `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Textures/UDSFree_3D_Clouds`
+  - `/Game/UltraDynamicSky/Textures/Volumetric_Clouds` -> `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Textures/UDSFree_Volumetric_Clouds`
+  - `/Game/UltraDynamicSky/Textures/Weather` -> `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Textures/UDSFree_Weather`
+  - `/Game/UltraDynamicSky/Textures/Sky` -> `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Textures/UDSFree_Sky`
+- Important copy note:
+  - Initial `3D_Clouds` fresh copy left VolumeTexture assets depending on their original UDS sheet textures.
+  - Running the MCP postprocess/remap pass fixed those internal sheet references; final `original_dependency_asset_count=0`.
+  - `Volumetric_Clouds` reported one failed non-texture data asset (`UDS_CloudProfile_Data_C`), but the material-used `Cloud_Profile` textures copied successfully.
+- Updated `M_CubelessVolCloud_MaterialOnly_V2` texture nodes so remaining `/Game/UltraDynamicSky/Textures` references are `0`.
+- Final validation:
+  - Material compile error count: `0`
+  - Saved master material: true
+  - Saved temp validation map: true
+  - `VolumetricCloud` actors: `1`
+  - Actual UDS/UltraDynamic actors: `0`
+  - AssetRegistry dependencies from the master material to `/Game/UltraDynamicSky`: `0`
+  - Final capture: `Saved/MCP/CloudCompare/final_AF_CubelessTextureRefs_NoUDS_singleVolCloud.png`
+  - Baseline comparison against `baseline_AF_forcedView_NoUDS_singleVolCloud.png`: sampled mean RGB difference `0.61`, sampled max channel difference `18`.
+- Residual note: this temp pass is the best current proof because it keeps AF visual parity while removing UDS texture references from the temp master. For production, move only the approved copied texture assets/material graph into the Cubeless folder and keep `_MCP_Temp` disposable.
+
+### 2026-06-14 Material-Only Volumetric Cloud Production UDS-Free Pass
+- Promoted the successful AF material-only volumetric cloud proof into Cubeless-owned production assets without depending on UDS runtime assets.
+- First production duplicate candidate kept a stale AssetRegistry dependency on two UDS material functions even though the graph had `material_function_call_count=0`; this was traced to duplicated cached expression data.
+- Added an UnrealMCP material utility command:
+  - `refresh_material_cached_expression_data`
+  - Purpose: refresh/compile/save a material and report AssetRegistry dependencies plus `/Game/UltraDynamicSky` or `/Game/_MCP_Temp` dependency counts.
+  - Built the editor successfully after adding the command.
+- Used the existing MCP `fresh_material_graph_copy` path to create a clean material graph copy, then remapped all texture expression nodes to Cubeless-owned production texture assets.
+- Final production assets:
+  - Master: `/Game/Cubeless/Sky/Materials/Master/M_Cubeless_VolumetricClouds_MaterialOnly_UDSFree`
+  - Instance: `/Game/Cubeless/Sky/Materials/MI_Cubeless_VolumetricClouds_MaterialOnly_UDSFree`
+  - Texture roots: `/Game/Cubeless/Sky/Textures/VolumetricClouds/...`
+- Final validation:
+  - Material compile error count: `0`
+  - Material function call count: `0`
+  - AssetRegistry `/Game/UltraDynamicSky` dependencies: `0`
+  - AssetRegistry `/Game/_MCP_Temp` dependencies: `0`
+  - NoUDS validation map: `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Maps/LV_CubelessVolCloud_MaterialOnly_V2_NoUDS`
+  - Visible VolumetricCloud actors: `1`
+  - Actual UDS/UltraDynamic actors found by class/label scan: `0`
+  - Applied material instance: `/Game/Cubeless/Sky/Materials/MI_Cubeless_VolumetricClouds_MaterialOnly_UDSFree`
+  - Final capture: `Saved/MCP/CloudCompare/final_MaterialOnly_UDSFree_NoUDS_singleVolCloud.png`
+- Residual quality note: the final material is stable and UDS-free. The captured result is readable and non-empty, but still has stylized/blocky density forms; further visual parity work should focus on a dedicated Cubeless density/coverage source rather than more graph-only tuning.
+
+### 2026-06-14 Volumetric Cloud Restart Root Output Fix
+- After a PC shutdown, reopened the editor and restored the NoUDS validation map:
+  - `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Maps/LV_CubelessVolCloud_MaterialOnly_V2_NoUDS`
+- Confirmed the map contains exactly one `VolumetricCloud` actor and no UDS sky actor dependency for the validation setup.
+- Rechecked the clean production master and found the real quality failure:
+  - The graph nodes and Cubeless texture references existed.
+  - The root material property connections were missing on `M_Cubeless_VolumetricClouds_MaterialOnly_UDSFree`.
+- Restored the root connections to match the visually good AF candidate:
+  - `MP_EmissiveColor` <- `MaterialExpressionMultiply_9`
+  - `MP_Opacity` <- `MaterialExpressionCustom_6`
+  - `MP_BaseColor` <- `MaterialExpressionReflectionCapturePassSwitch_0`
+  - `MP_SubsurfaceColor` / volume scattering-extinction <- `MaterialExpressionCustom_6`
+  - `MP_AmbientOcclusion` <- `MaterialExpressionScalarParameter_1`
+- Recompiled and saved the master:
+  - Compile error count: `0`
+  - AssetRegistry `/Game/UltraDynamicSky` dependencies: `0`
+  - AssetRegistry `/Game/_MCP_Temp` dependencies: `0`
+  - Remaining dependencies are only Cubeless-owned AF texture copies under `/Game/Cubeless/Sky/Textures/VolumetricClouds_AF`.
+- Same-view visual comparison:
+  - Good AF reference: `Saved/MCP/CloudCompare/restart_compare_A_goodAF_sameView.png`
+  - Clean root-fixed result: `Saved/MCP/CloudCompare/restart_compare_B_cleanRootFixed_sameView.png`
+  - Difference image: `Saved/MCP/CloudCompare/restart_compare_diff_goodAF_vs_cleanRootFixed.png`
+  - Pixel MAE: `0.28 / 255`
+  - Pixel RMS: `0.57 / 255`
+- Updated conclusion: the clean production material is now visually matched to the good AF reference in the same view while keeping UDS and `_MCP_Temp` dependencies out of the master material.
+
+### 2026-06-14 Volumetric Cloud Final Continuation Check
+- Continued after the root output fix and revalidated the currently open NoUDS test map.
+- Current validation map:
+  - `/Game/_MCP_Temp/CubelessVolCloud_MaterialOnly/Maps/LV_CubelessVolCloud_MaterialOnly_V2_NoUDS`
+- Current validation actor state:
+  - `VolumetricCloud` actor count: `1`
+  - Actor label: `Cubeless_Only_VolumetricCloud`
+  - Applied MI: `/Game/Cubeless/Sky/Materials/MI_Cubeless_VolumetricClouds_MaterialOnly_UDSFree`
+  - MI parent: `/Game/Cubeless/Sky/Materials/Master/M_Cubeless_VolumetricClouds_MaterialOnly_UDSFree`
+- Dependency validation:
+  - Master dependencies: only Cubeless AF texture copies under `/Game/Cubeless/Sky/Textures/VolumetricClouds_AF`
+  - MI dependency: only the clean Cubeless master material
+  - `/Game/UltraDynamicSky` dependency count: `0`
+  - `/Game/_MCP_Temp` dependency count from master/MI: `0`
+- Final same-view files:
+  - Good AF reference: `Saved/MCP/CloudCompare/restart_compare_A_goodAF_sameView.png`
+  - Final clean root-fixed result: `Saved/MCP/CloudCompare/final_cleanRootFixed_UDSFree_sameView_NoUDS_singleVolCloud.png`
+  - Difference image: `Saved/MCP/CloudCompare/final_cleanRootFixed_UDSFree_diff_vs_goodAF.png`
+- Pixel comparison against the good AF reference:
+  - MAE: `0.28 / 255`
+  - RMS: `0.57 / 255`
+- Capture note:
+  - A fresh `HighResShot 1280x720` command did not emit a new file in `Saved`.
+  - The final named capture was therefore copied from the already validated same-view clean root-fixed screenshot generated immediately after the material fix.
+
+### 2026-06-14 Production UDS-Free Validation Map
+- Created a non-temp Cubeless validation map for the finalized volumetric cloud material:
+  - `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS`
+- The map contains only the clean validation scene actors:
+  - `Cubeless_Independent_SkyAtmosphere`
+  - `Cubeless_Independent_Sun`
+  - `Cubeless_Independent_SkyLight`
+  - `Cubeless_Independent_HeightFog`
+  - `Cubeless_Only_VolumetricCloud`
+- Validation actor state:
+  - `VolumetricCloud` actor count: `1`
+  - Applied MI: `/Game/Cubeless/Sky/Materials/MI_Cubeless_VolumetricClouds_MaterialOnly_UDSFree`
+  - Component quality values: bottom altitude `3.1`, layer height `2.2`, tracing start max distance `12.0`, tracing max distance `180.0`, view and shadow sample count scales `4.0`, stop tracing threshold `0.0008`
+- Dependency validation:
+  - Map dependencies include the Cubeless MI, plus engine/editor packages only.
+  - Master dependencies remain only Cubeless AF texture copies under `/Game/Cubeless/Sky/Textures/VolumetricClouds_AF`.
+  - MI dependency remains only the clean Cubeless master material.
+  - `/Game/UltraDynamicSky` dependency count: `0`
+  - `/Game/_MCP_Temp` dependency count: `0`
+- Production-map capture:
+  - `Saved/MCP/CloudCompare/production_map_cleanRootFixed_consoleHighRes_NoUDS_singleVolCloud.png`
+  - Difference image: `Saved/MCP/CloudCompare/production_map_cleanRootFixed_diff_vs_goodAF.png`
+  - Pixel comparison against good AF reference: MAE `0.33 / 255`, RMS `0.63 / 255`
+- Note: the first explicit `AutomationLibrary.take_high_res_screenshot` path did not write a file, but console `HighResShot 1280x720` succeeded and produced the production-map capture under `Saved/Screenshots/WindowsEditor`, then it was copied into `Saved/MCP/CloudCompare`.
+
+### 2026-06-14 Recursive Dependency and Texture Setting Audit
+- Reloaded the production validation map from disk:
+  - `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS`
+  - Reload result: success
+  - Actor count: `5`
+  - `VolumetricCloud` actor count: `1`
+  - UDS/Ultra/DynamicSky-like actor scan after label cleanup: `0`
+- Recursive AssetRegistry dependency audit:
+  - Root map recursive `/Game` dependencies including root: `8`
+  - MI recursive `/Game` dependencies including root: `7`
+  - Master recursive `/Game` dependencies including root: `6`
+  - Recursive `/Game/UltraDynamicSky` dependencies: `0`
+  - Recursive `/Game/_MCP_Temp` dependencies: `0`
+- Recursive production dependency set:
+  - `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS`
+  - `/Game/Cubeless/Sky/Materials/MI_Cubeless_VolumetricClouds_MaterialOnly_UDSFree`
+  - `/Game/Cubeless/Sky/Materials/Master/M_Cubeless_VolumetricClouds_MaterialOnly_UDSFree`
+  - `/Game/Cubeless/Sky/Textures/VolumetricClouds_AF/3D_Clouds/3D_Cells_32_Cubeless_AF`
+  - `/Game/Cubeless/Sky/Textures/VolumetricClouds_AF/3D_Clouds/3D_Cells_32_Sheet_Cubeless_AF`
+  - `/Game/Cubeless/Sky/Textures/VolumetricClouds_AF/Profiles/Cloud_Profile_Cubeless_AF`
+  - `/Game/Cubeless/Sky/Textures/VolumetricClouds_AF/Sky/CloudPaintTarget_Cubeless_AF`
+  - `/Game/Cubeless/Sky/Textures/VolumetricClouds_AF/Weather/ParticleClouds_Cubeless_AF`
+- Texture setting audit:
+  - Compared the Cubeless AF texture copies against their UDS source textures.
+  - `3D_Cells_32` VolumeTexture settings match source.
+  - `3D_Cells_32_Sheet` Texture2D settings and `1024x32` size match source.
+  - `Cloud_Profile` Texture2D settings and `64x256` size match source.
+  - `CloudPaintTarget` TextureRenderTarget2D settings match source.
+  - `ParticleClouds` Texture2D settings and `256x256` size match source; `sRGB=True` is intentional because the UDS source is also `sRGB=True`.
+- Dirty package check after audit:
+  - Dirty content packages: `0`
+  - Dirty map packages: `0`
+- Conclusion: the production validation map, MI, master material, volume texture, sheet texture, profile texture, render target, and weather texture are recursively UDS-free and `_MCP_Temp`-free while preserving the UDS source texture settings.
+
+### 2026-06-15 UDS Cloud Shape Source Check
+- Investigated why the Cubeless UDS-free volumetric cloud shape did not match the visible UDS sky in `Scene01`.
+- Actual UDS reference level used for the check:
+  - `/Game/Cubeless/Map/Scene01`
+  - UDS actor: `Ultra_Dynamic_Sky`
+  - UDS volumetric component: `VolumetricCloudComponent`
+  - UDS runtime material: `MID_Volumetric_Clouds_default_1`
+- Found that the UDS material reads runtime values from:
+  - `/Game/UltraDynamicSky/Materials/Material_Functions/UDS_VolumetricClouds_MPC`
+- Copied matching current UDS MPC runtime values into:
+  - `/Game/Cubeless/Sky/Materials/MI_Cubeless_VolumetricClouds_MaterialOnly_UDSFree`
+  - Applied `42` matching scalar parameters and `7` matching vector parameters.
+- Updated the UDS-free validation map's single VolumetricCloud actor:
+  - Map: `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS`
+  - Actor kept: `Cubeless_Only_VolumetricCloud`
+  - Material: `MI_Cubeless_VolumetricClouds_MaterialOnly_UDSFree`
+  - Component settings matched to `Scene01` UDS volumetric settings.
+- Compiled/saved the master material with `compile_error_count=0`.
+- Verification screenshots:
+  - UDS reference: `Saved/MCP/CloudCompare/scene01_uds_reference_automation.png`
+  - UDS reference with VolumetricCloudComponent hidden: `Saved/MCP/CloudCompare/scene01_uds_vol_hidden_automation.png`
+  - Cubeless UDS-free after MPC bake: `Saved/MCP/CloudCompare/udsfree_after_mpc_bake_automation.png`
+- Key finding:
+  - The large cloud shapes visible in the `Scene01` UDS reference remain visible even when the UDS `VolumetricCloudComponent` is hidden.
+  - Pixel comparison between the UDS reference and UDS-with-volumetric-hidden screenshots was nearly identical: MAE about `0.61 / 255`, RMS about `0.95 / 255`.
+  - Therefore those visible shapes are not produced by UDS volumetric clouds; they come from the UDS sky/static/2D cloud layer.
+- Implication:
+  - Matching those shapes through the volumetric cloud material alone is the wrong target.
+  - Exact visual matching requires separating the sky/static/2D cloud layer from true volumetric cloud work, then reproducing the visible 2D/static cloud source in the Cubeless sky system.
+
+### 2026-06-15 Cubeless UDS-Free Sky Dome Current Pass
+- Built a current-level UDS sky dome reproduction path for the cloud shapes that remain visible when UDS volumetric clouds are hidden.
+- Source reference:
+  - Map: `/Game/Cubeless/Map/Scene01`
+  - UDS component: `Ultra_Dynamic_Sky.Sky_Sphere`
+  - Runtime material: `MID_UDS_K_0`
+  - Parent chain: `UDS_K -> UDS_Default -> Ultra_Dynamic_Sky_Mat`
+- Created/updated Cubeless assets:
+  - Master: `/Game/Cubeless/Sky/Materials/Master/M_Cubeless_SkyDome_UDSFree_Current`
+  - MI: `/Game/Cubeless/Sky/Materials/MI_Cubeless_SkyDome_UDSFree_Current`
+  - Validation actor: `Cubeless_UDSFree_SkySphere_Current` in `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS`
+- Expanded UDS material functions in the Cubeless master:
+  - Expanded function calls: `594`
+  - Remaining function calls: `5`, all `/Engine/.../CustomRotator`
+  - Compile result: `compile_error_count=0`
+- Baked UDS runtime sky material parameters into the Cubeless MI:
+  - Scalars: `66`
+  - Vectors: `23`
+  - Textures: `10`
+  - Static switches: `9`
+- Corrected Cubeless texture overrides for sky/cloud/star/moon/sun LUT inputs, including:
+  - `ParticleClouds_Cubeless_AF`
+  - `Cloud_Wisps_Cubeless_AF`
+  - `Tiling_Stars_Cubeless_AF`
+  - `Stars_Noise_Cubeless_AF`
+  - `Moon_Color_Cubeless_AF`
+  - `Moon_PhaseNormal_Cubeless_AF`
+  - `Sun_Atmosphere_LUT_Cubeless_AF`
+  - `Moon_Atmosphere_LUT_Cubeless_AF`
+- In the UDS-free validation map:
+  - Added `Cubeless_UDSFree_SkySphere_Current` using the Cubeless sky sphere mesh copy.
+  - Kept `Cubeless_Only_VolumetricCloud` as the only VolumetricCloud actor/component.
+  - Screenshot after adding sky dome: `Saved/MCP/CloudCompare/udsfree_sky_dome_sundisc_off_automation.png`
+- Isolated material-match quality by swapping only the UDS `Sky_Sphere` material in `Scene01` temporarily:
+  - Screenshot: `Saved/MCP/CloudCompare/scene01_cubeless_skydome_material_swap_automation.png`
+  - Pixel comparison against UDS reference: RGB MAE about `6.02 / 255`, RGB RMS about `7.48 / 255`.
+  - The material swap visually preserved the UDS sky/static/2D cloud shapes closely in the same level.
+- Cleanup and residual risk:
+  - Replaced `613` Material Parameter Collection nodes in the Cubeless sky dome master with ordinary scalar/vector parameters using runtime values.
+  - Collection parameter node count after replacement: `0`.
+  - Asset Registry still reports UDS material-function and some texture dependencies on the expanded master, despite only engine `CustomRotator` function calls remaining. This likely needs a follow-up dependency cleanup/API pass or direct node-default texture replacement.
+  - The Cubeless MI uses Cubeless texture overrides for runtime validation, but the master default texture dependency cleanup is not finished yet.
+
+### 2026-06-15 Sky Dome Master Dependency Cleanup Follow-Up
+- Replaced all remaining UDS default texture references in `/Game/Cubeless/Sky/Materials/Master/M_Cubeless_SkyDome_UDSFree_Current` expression nodes.
+  - Replaced texture node refs: `499`
+  - Failures: `0`
+  - Post-check UDS texture refs: `0`
+  - Report: `Saved/MCP/CloudCompare/skydome_texture_replacement_report.json`
+- Cleaned UDS path text from material parameter node descriptions.
+  - Updated parameter descriptions: `613`
+  - Failures: `0`
+  - Report: `Saved/MCP/CloudCompare/skydome_desc_cleanup_report.json`
+- After cache refresh, remaining UDS dependencies were only stale/imported material-function package references; active material function call nodes were still only Engine `CustomRotator`.
+- Fresh package clone test showed the stale UDS material-function dependencies disappear when the graph is cloned into a new package.
+  - However, saving the fresh clone failed because `MaterialExpressionNamedRerouteUsage.Declaration` still pointed to private declarations in the source material package.
+
+### 2026-06-15 Sky Dome Fresh Clone Root Fix
+- Fixed the UnrealMCP fresh material clone path in both the project plugin and sibling `unreal-mcp-cubeless` plugin.
+  - `MaterialExpressionNamedRerouteUsage.Declaration` is now remapped to the cloned declaration node, preventing fresh-clone save failures from private source-package references.
+  - Material root property inputs are now copied from the source material and remapped to cloned expressions, preserving outputs such as `EmissiveColor` and `CustomizedUVs`.
+  - A final object reference replacement pass remaps any remaining cloned-graph expression references to the fresh package.
+- Live Coding compile succeeded in the running editor after the patch. A full editor-closed UnrealBuildTool build is still recommended before committing the C++ change.
+- Created the clean UDS-free sky dome master and instance:
+  - Master: `/Game/Cubeless/Sky/Materials/Master/M_Cubeless_SkyDome_UDSFree_Current_Clean3`
+  - Instance: `/Game/Cubeless/Sky/Materials/MI_Cubeless_SkyDome_UDSFree_Current_Clean3`
+- Validation result:
+  - `Clean3` master dependency count is `4`: Engine `CustomRotator` plus Cubeless AF texture assets only.
+  - `Clean3` master and MI both report `0` `/Game/UltraDynamicSky/` dependencies.
+  - Validation map `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS` keeps exactly one VolumetricCloud actor/component: `Cubeless_Only_VolumetricCloud`.
+  - `Cubeless_UDSFree_SkySphere_Current` uses `MI_Cubeless_SkyDome_UDSFree_Current_Clean3`.
+  - Added `Cubeless_CloudValidation_Camera` for a repeatable UDS-free cloud-visible view, then updated it to a sky-focused `pitch=55`, `yaw=-90` framing.
+  - Screenshots:
+    - `Saved/MCP/CloudCompare/udsfree_clean3_probe_pitch25_yaw-90.png`
+    - `Saved/MCP/CloudCompare/udsfree_clean3_probe_pitch55_yaw-90.png`
+- Removed failed intermediate clean-clone assets `Clean` and `Clean2` for the sky dome master/MI. Kept the original `Current` assets and final `Clean3` assets.
+- Residual risk:
+  - The same-level Scene01 material swap still proves close visual matching against UDS, but the UDS-free validation map can look brighter or flatter because it lacks Scene01's full UDS-driven exposure/fog/post-process context.
+  - The final production naming cleanup is still open: either keep `Clean3` as the validated asset or rename/promote it after one full build/editor restart pass.
+
+### 2026-06-15 Sky Dome Context and Texture Fidelity Follow-Up
+- Rechecked why the UDS-free validation map still looked different from Scene01 after `Clean3` dependency cleanup.
+- Same-camera comparisons showed:
+  - The validation map initially differed because it had its own independent SkyAtmosphere, HeightFog, and light context.
+  - Disabling SkyAtmosphere entirely was wrong because the UDS sky material has the `SkyAtmo` static switch enabled and expects a SkyAtmosphere scene context.
+  - Scene01's UDS actor owns internal `SkyAtmosphere`, `HeightFog`, `Sun`, and `Moon` components; those component settings must be mirrored in the UDS-free validation map.
+- Copied key UDS component settings into independent validation actors:
+  - `Cubeless_Independent_SkyAtmosphere`
+  - `Cubeless_Independent_HeightFog`
+  - `Cubeless_Independent_Sun`
+  - `Cubeless_Independent_Moon`
+- Fixed a bad pink-sky result by copying the missing SkyAtmosphere color properties:
+  - `rayleigh_scattering`
+  - `mie_scattering`
+  - `mie_absorption`
+  - `other_absorption`
+  - matching absorption/scattering scale values
+- Duplicated UDS source textures into Cubeless-owned UDSReference assets so the sky dome can avoid direct UDS texture dependencies while preserving UDS source art:
+  - `/Game/Cubeless/Sky/Textures/UDSReference/Sky/Cloud_Wisps_UDSRef`
+  - `/Game/Cubeless/Sky/Textures/UDSReference/Sky/Tiling_Stars_UDSRef`
+  - `/Game/Cubeless/Sky/Textures/UDSReference/Sky/Stars_Noise_UDSRef`
+  - `/Game/Cubeless/Sky/Textures/UDSReference/Sky/Moon_Color_UDSRef`
+  - `/Game/Cubeless/Sky/Textures/UDSReference/Sky/Moon_PhaseNormal_UDSRef`
+  - `/Game/Cubeless/Sky/Textures/UDSReference/Sky/Sun_Atmosphere_LUT_UDSRef`
+  - `/Game/Cubeless/Sky/Textures/UDSReference/Sky/Moon_Atmosphere_LUT_UDSRef`
+  - `/Game/Cubeless/Sky/Textures/UDSReference/Weather/ParticleClouds_UDSRef`
+  - `/Game/Cubeless/Sky/Textures/UDSReference/3D_Clouds/3D_Cells_32_UDSRef`
+- Updated `MI_Cubeless_SkyDome_UDSFree_Current_Clean3` exposed texture parameters to UDSReference copies.
+- Remaining implementation gap:
+  - The expanded `Clean3` master still has many default texture sample references that need a batch texture-reference replacement pass from AF copies to UDSReference copies.
+  - Existing MCP can set one material node property at a time, but this graph has hundreds of texture nodes. Add a C++/API batch command before doing this safely.
+  - Screenshot capture became unreliable again after the SkyAtmosphere color fix; named HighResShot and Automation screenshots stopped writing files. The existing screenshot API backlog remains active.
+  - Manual remap test fixed `1290` named reroute usages with `0` failures, confirming the root cause.
+- MCP/API follow-up implemented in sibling workspace `../unreal-mcp-cubeless`:
+  - `CloneMaterialExpressionsIntoFreshGraph` now remaps `UMaterialExpressionNamedRerouteUsage::Declaration` to the cloned declaration.
+  - Build verification is still pending because UBT refused to build while Live Coding is active in the running Unreal Editor.
+- Recommended next verification:
+  - Close or Live-Code-compile the editor, rebuild `MCPGameProjectEditor`, restart the editor, rerun fresh clone for the sky dome master, then verify `refresh_material_cached_expression_data` reports no `/Game/UltraDynamicSky` dependencies before replacing the production master.
+
+### 2026-06-15 UDS-Free Volumetric Cloud Matching Investigation
+- Continued the UDS-free cloud validation in `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS`.
+- Confirmed `Scene01`'s UDS sky visual cannot be matched by only copying the visible MID override arrays:
+  - Raw `MID_UDS_K_0` arrays only expose `30` scalar, `9` vector, and `4` texture overrides.
+  - A same-level `copy_material_instance_parameters` DMI exposes `53` scalar, `17` vector, and `7` texture values, including important runtime values such as `Cloud Density`.
+  - Copied those expanded values into `/Game/Cubeless/Sky/Materials/MI_Cubeless_SkyDome_UDSFree_Current_Clean3` using Cubeless-owned UDSReference textures.
+- Built a temporary exact UDS volumetric cloud test material under `_MCP_Temp`:
+  - Duplicated `/Game/UltraDynamicSky/Materials/Volumetric_Clouds`.
+  - Expanded the two UDS material functions into the master.
+  - Replaced `55` MPC collection nodes using current `Scene01` runtime values.
+  - Replaced UDS texture references with Cubeless-owned equivalents where available.
+  - Compile result: `0` errors.
+- Copied `Scene01` UDS environment component settings into the UDS-free validation actors:
+  - Sun/Moon directional light rotations and cloud luminance settings.
+  - SkyAtmosphere, HeightFog, SkyLight, and VolumetricCloud component settings.
+  - Validation map still keeps exactly one `VolumetricCloud` component.
+- Important finding:
+  - The blue high-frequency pattern used as the visual comparison target is not explained by the sky material or the VolumetricCloud material alone.
+  - Destroying only `Sky_Sphere`, only `VolumetricCloudComponent`, or both in `Scene01` did not remove the pattern from the captured viewport.
+  - Hiding the entire UDS actor did remove it, which suggests UDS Blueprint/runtime render-state behavior or capture viewport state is still involved.
+  - The next pass should isolate the actual rendering source with a stricter capture route or PIE/game viewport test, then promote only the confirmed UDS-free assets out of `_MCP_Temp`.
+
+### 2026-06-15 UDS-Free Sky/Cloud Camera Rebaseline and Clean5 Tuning
+- Corrected the prior comparison target:
+  - The earlier blue high-frequency pattern came from a wrong camera rotation. The validation camera was effectively looking downward, not at the sky.
+  - The correct upward comparison uses view rotation `[90, -55, 0]` at location `[2959.521174, 242.792215, 209.5]`.
+- Re-captured `Scene01` and the UDS-free map with the same upward view:
+  - Reference: `Saved/MCP/CloudCompare/scene01_full_up_rebaseline.png`
+  - Current UDS-free: `Saved/MCP/CloudCompare/udsfree_clean5_tuned06_ppbias025.png`
+  - Side-by-side: `Saved/MCP/CloudCompare/compare_scene01_vs_udsfree_clean5_tuned06_ppbias025.png`
+- Created and applied a new UDS-free sky instance because `Clean3` became risky after static-switch experiments:
+  - `/Game/Cubeless/Sky/Materials/MI_Cubeless_SkyDome_UDSFree_Current_Clean5`
+  - Parent remains `/Game/Cubeless/Sky/Materials/Master/M_Cubeless_SkyDome_UDSFree_Current_Clean3`
+  - `Clean5` direct asset registry dependencies report `0` `/Game/UltraDynamicSky` dependencies.
+- Validation map state:
+  - `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS`
+  - `Cubeless_UDSFree_SkySphere_Current` uses `MI_Cubeless_SkyDome_UDSFree_Current_Clean5`.
+  - Exactly one VolumetricCloud actor remains: `Cubeless_Only_VolumetricCloud`.
+  - `Cubeless_Independent_PostProcess` exposure bias is tuned to `0.0` for the current UDS-free material output.
+- Visual tuning applied to reduce the decomposed sky master's over-bright stars and wispy cloud layer:
+  - `One Cloud Layer = true`
+  - `Use_Dynamic_Clouds = true`
+  - `Stars Color = (0.025, 0.033, 0.052, 0.052)`
+  - `Wispy Cloud Alpha = 0.035`
+  - `Cloud Wisps Color = (0.001, 0.0015, 0.0024, 0.18)`
+  - `Sky Base Color = (0.50, 0.68, 1.0, 1.0)`
+  - `Overall Intensity = 0.92`
+  - `Saturation = 0.10`
+- Avoid using the validation camera actor for screenshots unless its aspect framing is explicitly wanted:
+  - The camera actor caused black camera-frame regions in captures.
+  - For current comparisons, temporarily hide `Cubeless_CloudValidation_Camera` and capture the free editor viewport.
+- Residual risk:
+  - `Clean5` is visually close but not a pixel-identical UDS clone. The remaining difference appears to come from the expanded sky master path and independent-map post-process/exposure context.
+  - The earlier belief that `One Cloud Layer=true` plus `Use_Dynamic_Clouds=true` produced a black material output was incorrect. The black captures were caused by the validation camera actor's frame/aspect capture state. Re-testing with the camera hidden showed the UDS-default switch combination renders correctly.
+  - Final comparison for this pass: `Saved/MCP/CloudCompare/compare_scene01_vs_udsfree_clean5_final.png`.
+
+### 2026-06-15 UDS-Free Sky/Cloud Final Candidate Lock
+- Locked the current validation candidate in `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS`.
+- Current sky instance:
+  - `/Game/Cubeless/Sky/Materials/MI_Cubeless_SkyDome_UDSFree_Current_Clean5`
+  - Parent: `/Game/Cubeless/Sky/Materials/Master/M_Cubeless_SkyDome_UDSFree_Current_Clean3`
+- Re-verified validation map state after the editor restart:
+  - Exactly one VolumetricCloud actor remains: `Cubeless_Only_VolumetricCloud`.
+  - `Cubeless_UDSFree_SkySphere_Current` uses `MI_Cubeless_SkyDome_UDSFree_Current_Clean5`.
+  - `Clean5` and its master report `0` direct `/Game/UltraDynamicSky` asset-registry dependencies.
+- Final post-process candidate on `Cubeless_Independent_PostProcess`:
+  - `override_color_gain = true`
+  - `color_gain = (0.89, 1.0, 1.20, 1.0)`
+  - `override_auto_exposure_bias = true`
+  - `auto_exposure_bias = 0.0`
+  - `bloom_intensity = 0.699999988079071`
+  - `bloom_threshold = 1.149999976158142`
+- Final comparison image for this candidate:
+  - `Saved/MCP/CloudCompare/compare_scene01_vs_udsfree_clean5_pp_gain_089_100_120.png`
+- Cropped comparison stats, ignoring the lower-left viewport axis overlay:
+  - Scene01 reference mean RGB: `[48.586, 105.460, 214.832]`
+  - UDS-free candidate mean RGB: `[51.747, 109.840, 192.867]`
+  - Luminance mean: reference `101.266`, candidate `103.484`
+  - Ref/candidate ratio: R `0.939`, G `0.960`, B `1.114`, luminance `0.979`
+- Crash lesson:
+  - Copying the full `PostProcessSettings` struct from Scene01 into the validation map caused an Unreal Editor crash/hang with a CoreUObject access violation.
+  - Do not copy the whole PP struct across maps. Copy only individually named scalar/vector/color properties, then read back and save.
+- Residual risk:
+  - This is a close visual match, not a pixel-identical clone. The remaining difference is mostly blue-channel depth and subtle Scene01 runtime/viewport context.
+  - Further broad color gain changes start to harm the already-close luminance and red/green balance, so the current candidate should be treated as the baseline before any deeper material-graph pass.
+
+### 2026-06-15 UDS-Free Sky/Cloud SceneCapture Color Refit
+- Continued matching after the previous viewport-based candidate because the remaining difference still looked visible.
+- Found that the editor viewport screenshot route was unreliable:
+  - `AutomationLibrary.take_high_res_screenshot` and console `HighResShot` accepted requests but did not write files in the current editor state.
+  - Window capture could grab stale/non-validation editor views, so it was not used as the quality source.
+- Switched to an explicit transient `SceneCapture2D` route:
+  - Spawned a temporary capture actor at location `(2959.521174, 242.792215, 209.5)`.
+  - Used exact rotation `pitch=90, yaw=-55, roll=0`.
+  - Exported a transient `TextureRenderTarget2D` to PNG, then destroyed the capture actor without saving it into the map.
+- Captured both sides through the same SceneCapture route:
+  - Reference: `Saved/MCP/CloudCompare/scene_capture_scene01_uds_ref.png`
+  - Current best UDS-free candidate: `Saved/MCP/CloudCompare/scene_capture_pp_gain_1055_1100_2200.png`
+  - Side-by-side: `Saved/MCP/CloudCompare/compare_scenecap_scene01_vs_udsfree_pp_gain_1055_1100_2200.png`
+- Updated the validation map's independent post-process candidate:
+  - `Cubeless_Independent_PostProcess.color_gain = (1.055, 1.100, 2.200, 1.0)`
+  - `override_color_gain = true`
+  - `auto_exposure_bias = 0.0`
+- SceneCapture comparison stats for the final candidate:
+  - Scene01 reference mean RGB: `[63.776, 123.349, 231.456]`
+  - UDS-free candidate mean RGB: `[66.697, 128.220, 221.560]`
+  - Luminance mean: reference `118.453`, candidate `121.882`
+  - MAE RGB: `[10.181, 8.007, 9.585]`
+  - RMS RGB: `[13.421, 10.400, 11.230]`
+- Re-verified final validation state:
+  - Map: `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS`
+  - Exactly one VolumetricCloud actor remains: `Cubeless_Only_VolumetricCloud`.
+  - The VolumetricCloud component is visible.
+  - `MI_Cubeless_SkyDome_UDSFree_Current_Clean5` and `M_Cubeless_SkyDome_UDSFree_Current_Clean3` report `0` direct `/Game/UltraDynamicSky` dependencies.
+- Ieta decision:
+  - Keep `(1.055, 1.100, 2.200, 1.0)` as the current baseline.
+  - Further color-only tuning gives diminishing returns; the remaining shape/edge difference should be solved in the sky material/context path, not by pushing global PP gain harder.
+
+### 2026-06-15 UDS-Free Sky Detail Layer Pass
+- Continued from the SceneCapture color baseline and analyzed the remaining difference as a high-frequency/detail-layer problem.
+- Baseline high-frequency comparison:
+  - Reference highpass absolute mean: `1.824`
+  - UDS-free baseline highpass absolute mean: `0.768`
+  - Reference highpass p99.5: `16.0`
+  - UDS-free baseline highpass p99.5: `8.0`
+  - Conclusion: the broad color match was close, but star/dust/wisp detail was too subdued.
+- Read the original Scene01 UDS dynamic sky material values from `MID_UDS_K_0`:
+  - `Stars Color = (0.225234, 0.297164, 0.465, 0.465)`
+  - `Wispy Cloud Alpha = 0.5`
+  - `Cloud Wisps Color = (0.012433, 0.018307, 0.028947, 2.0)`
+- Tested `detailboost01` by raising stars and wisps together. Rejected:
+  - It drove the sky extremely dark/blue.
+  - This means the wisp parameters are not safe additive-only detail controls in the expanded master; they also affect broader mask/blend behavior.
+- Tested star-only boosts:
+  - `Stars Color x1.5` kept the sky stable and raised highpass absolute mean to `1.062`.
+  - `Stars Color x2.2` kept the sky stable and raised highpass absolute mean to `1.470`, with p99.5 `14.0`, closer to the Scene01 reference.
+- Final detail-layer values saved on `/Game/Cubeless/Sky/Materials/MI_Cubeless_SkyDome_UDSFree_Current_Clean5`:
+  - `Stars Color = (0.055, 0.073, 0.114, 0.114)`
+  - `Wispy Cloud Alpha = 0.035`
+  - `Cloud Wisps Color = (0.001, 0.0015, 0.0024, 0.18)`
+- Post-process baseline remains:
+  - `Cubeless_Independent_PostProcess.color_gain = (1.055, 1.100, 2.200, 1.0)`
+  - `auto_exposure_bias = 0.0`
+- Final comparison capture for this pass:
+  - `Saved/MCP/CloudCompare/compare_scenecap_scene01_vs_stars_only_220.png`
+- Final stats for `Stars Color x2.2`:
+  - Scene01 reference mean RGB: `[63.776, 123.349, 231.456]`
+  - UDS-free candidate mean RGB: `[66.953, 128.178, 221.382]`
+  - Luminance mean: reference `118.453`, candidate `121.887`
+  - MAE RGB: `[10.434, 8.081, 9.743]`
+  - RMS RGB: `[13.808, 10.591, 11.374]`
+  - Highpass absolute mean: reference `1.824`, candidate `1.470`
+  - Highpass p99.5: reference `16.0`, candidate `14.0`
+- Re-verified final validation state:
+  - Map: `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS`
+  - Exactly one VolumetricCloud actor remains: `Cubeless_Only_VolumetricCloud`.
+  - The VolumetricCloud component is visible.
+  - `MI_Cubeless_SkyDome_UDSFree_Current_Clean5` and `M_Cubeless_SkyDome_UDSFree_Current_Clean3` report `0` direct `/Game/UltraDynamicSky` dependencies.
+- Ieta decision:
+  - Keep the star-only x2.2 detail boost.
+  - Do not raise `Wispy Cloud Alpha` or `Cloud Wisps Color` further until the expanded graph is inspected around those inputs, because they can collapse the sky output.
+
+### 2026-06-15 UDS-Free Sky Context Pass
+- Continued after the `Stars Color x2.2` detail pass and investigated the remaining broad gradient/color mismatch.
+- Spatial RGB delta from the SceneCapture reference showed:
+  - Top regions: UDS-free was still too high in R/G and low in B.
+  - Bottom regions: R was sometimes slightly low while B remained low.
+  - This suggested a broad sky/context issue rather than another star/detail issue.
+- Tested limited broad material candidates on `MI_Cubeless_SkyDome_UDSFree_Current_Clean5`:
+  - `skybase_blue01`: `Sky Base Color = (0.46, 0.62, 1.08, 1.0)`
+  - `skybase_blue02`: `Sky Base Color = (0.44, 0.60, 1.15, 1.0)`
+  - `saturation_plus01`: `Saturation = 0.18`
+- Result:
+  - Both `Sky Base Color` candidates had almost no measurable impact in this render path.
+  - `saturation_plus01` made the match worse by raising red/luminance and increasing total error.
+  - Decision: keep the material broad-layer values at the previous stable baseline:
+    - `Sky Base Color = (0.5, 0.68, 1.0, 1.0)`
+    - `Saturation = 0.10`
+    - `Overall Intensity = 0.92`
+- Compared Scene01 and UDS-free environment components and found missed context differences:
+  - Scene01 `SkyAtmosphere` uses `PLANET_TOP_AT_COMPONENT_TRANSFORM` at `(-161.806760, 1146.599093, 89.500001)`.
+  - UDS-free `SkyAtmosphere` had been at world origin using absolute-origin transform mode.
+  - Scene01 `HeightFog` is located at `(2959.521174, 242.792215, -60.499999)`.
+  - UDS-free `HeightFog` had been at world origin.
+  - Scene01 captured skylight lower hemisphere color is approximately `(0.002471, 0.003337, 0.005861, 1.0)`.
+- Applied and saved the context-match changes:
+  - `Cubeless_Independent_SkyAtmosphere` location and transform mode matched to Scene01.
+  - `Cubeless_Independent_HeightFog` location matched to Scene01.
+  - `Cubeless_Independent_SkyLight.lower_hemisphere_color` matched to the Scene01 captured skylight value.
+- Context candidate capture:
+  - `Saved/MCP/CloudCompare/compare_scenecap_scene01_vs_env_context01.png`
+- Context candidate stats were effectively unchanged from `Stars Color x2.2`:
+  - Previous total MAE: `9.419`
+  - Context total MAE: `9.425`
+  - Conclusion: these context settings are more semantically aligned with Scene01 and harmless, but they are not the main cause of the remaining sky-color mismatch in this test view.
+- Final saved state after this pass:
+  - `Sky Base Color = (0.5, 0.68, 1.0, 1.0)`
+  - `Saturation = 0.10`
+  - `Overall Intensity = 0.92`
+  - `Stars Color = (0.055, 0.073, 0.114, 0.114)`
+  - `Wispy Cloud Alpha = 0.035`
+  - `Cloud Wisps Color = (0.001, 0.0015, 0.0024, 0.18)`
+  - `Cubeless_Independent_PostProcess.color_gain = (1.055, 1.100, 2.200, 1.0)`
+- Re-verified:
+  - Map: `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS`
+  - Exactly one VolumetricCloud actor remains: `Cubeless_Only_VolumetricCloud`.
+  - The VolumetricCloud component is visible.
+  - `MI_Cubeless_SkyDome_UDSFree_Current_Clean5` and `M_Cubeless_SkyDome_UDSFree_Current_Clean3` report `0` direct `/Game/UltraDynamicSky` dependencies.
+- Ieta decision:
+  - Keep the environment context alignment because it matches Scene01 and does not harm the result.
+  - Do not keep the tested `Sky Base Color` or `Saturation` candidate values.
+  - The next meaningful improvement should inspect the expanded master graph path around broad sky color/atmosphere blending, because the exposed broad parameters no longer explain the remaining mismatch.
+
+### 2026-06-15 Volumetric Cloud Visibility Diagnostic
+- Continued UDS-free volumetric cloud validation in `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS`.
+- Reconfirmed the map keeps exactly one `VolumetricCloud` actor, labelled `Cubeless_Only_VolumetricCloud`.
+- Found that the active viewport capture route works for sky color changes, but earlier SceneCapture validation is not reliable for volumetric cloud contribution.
+- Important level finding:
+  - `Cubeless_Independent_Sun` had `intensity = 0.0`, while the sky sphere remained visible through emissive sky material.
+  - Set the Sun to a visible diagnostic value and disabled the Moon for daytime cloud tests.
+- Material graph finding:
+  - UDS original and the expanded Cubeless clone both contain `MaterialExpressionVolumetricAdvancedMaterialOutput`.
+  - The Cubeless MI static switch overrides are active: `Apply Drawn Target = false`, `TwoLayers = false`, `Simplified Extinction = false`.
+  - The Cubeless MI scalar/vector overrides are also active, including high diagnostic values for `Cloud Density`, `Extinction Scale`, `Albedo`, and emissive colors.
+- Confirmed the volumetric cloud render pass itself is alive:
+  - Created `/Game/_MCP_Temp/VolCloudExact/M_Diag_AdvancedConstantVolCloud_Overkill`.
+  - With extreme constant `Subsurface/Extinction` and `ConservativeDensity`, the viewport becomes uniformly covered by volume haze.
+  - This proves the level can render volumetric cloud material when density is forced.
+- Current blocker:
+  - The expanded UDS-derived Cubeless material and a first procedural scratch material still produce no readable cloud shapes, only near-uniform haze or effectively zero visible density.
+  - This points to the density-shaping path rather than the actor, material domain flag, or cvar setup.
+- Current temporary state:
+  - One `VolumetricCloud` actor remains.
+  - The latest diagnostic material applied is `/Game/_MCP_Temp/VolCloudMaterialOnly/M_Cubeless_ProceduralVolCloud_Scratch`.
+  - Sky sphere visibility was restored after hidden-sky diagnostics.
+- Next Ieta decision:
+  - Continue by isolating the density/sample-coordinate path, not by copying more MPC defaults.
+  - Use `_MCP_Temp` scratch materials until a visible shaped density path is confirmed, then port the correction back into the Cubeless UDS-free master.
+## 2026-06-15 Volumetric Cloud Material-Only Diagnostic Pass
+
+- Recovered the UnrealMCP bridge after a temp material delete attempt hit `ForceDeleteObject failed` on `/Game/_MCP_Temp/VolCloudMaterialOnly/M_Diag_CloudSample_NoSkip_Bands`; restarted the editor and changed the workflow to create uniquely named temp materials instead of deleting in-use assets.
+- Verified `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_NoUDS` still has exactly one `VolumetricCloud` actor: `Cubeless_Only_VolumetricCloud`.
+- Created and tested material-only diagnostic volume materials under `/Game/_MCP_Temp/VolCloudMaterialOnly`:
+  - `M_Diag_CloudSample_NoSkip_Bands_V03`
+  - `M_Diag_CloudSample_NoSkip_Bands_V04_Hot`
+  - `M_Cubeless_ProceduralVolCloud_MaterialOnly_V05_SoftCells`
+  - `M_Cubeless_ProceduralVolCloud_MaterialOnly_V06_LowExtinction`
+  - `M_Cubeless_ProceduralVolCloud_MaterialOnly_V07_OverheadVisible`
+- Important finding: `ConservativeDensity` must be treated as an empty-space skipping hint, not as the main artistic density. Keeping it constant while driving actual volume density through the normal volume input avoids prematurely hiding diagnostic samples.
+- Confirmed `CloudSampleAttribute.NormAltitudeInLayer` and world-position procedural density can render visible volume patterns in a horizon/long-ray diagnostic view. Screenshot: `C:\Git\CubelessStylized\Saved\MCP\CloudCompare\viewport_horizon_diag_cloudsample_v04_hot.png`.
+- The restored sky-dome-facing viewport rotation `[90, -55, 0]` mostly shows the sky dome surface and does not meaningfully validate volumetric cloud density; even the overkill constant-volume material was invisible there. Use a proven horizon/long-ray diagnostic camera or a proper game/camera render path for cloud material validation.
+- Current level state was restored to one VolumetricCloud using `/Game/_MCP_Temp/VolCloudMaterialOnly/M_Cubeless_ProceduralVolCloud_MaterialOnly_V07_OverheadVisible`.
+
+## 2026-06-15 Volumetric Cloud Reset Backup
+
+- Moved the recent volumetric-cloud material-only experiment assets under `/Game/Cubeless/Sky/Backup/VolCloud_MaterialOnly_Reset_20260615`.
+- Backed up the material experiments, UDS-derived material/function attempts, copied volumetric texture/reference folders, `UDSFreeFreshTest`, and the validation map `LV_CubelessVolCloud_UDSFree_NoUDS`.
+- The validation map failed Unreal AssetTools rename after its material dependencies had already moved, so it was moved as a raw `.umap` file after closing the editor. It has no detected external actor/object folder.
+- Three tiny `*VolumetricClouds*` files remain in `/Game/Cubeless/Sky/Materials`; their size indicates redirector remnants from the AssetTools move, not full material assets.
+- Reset decision: restart the UDS-free volumetric-cloud work from a clean, isolated folder instead of continuing to tune the failed material-only chain.
+- Next plan: build the new pass with one master material, one MI, one MPC path, one validation map, and a single VolumetricCloud actor. Do not mix UDS-derived expanded graphs, diagnostic temp materials, and production candidates in the same folder again.
+
+## 2026-06-15 Sky Redirector Cleanup
+
+- Ran redirector cleanup scoped to `/Game/Cubeless/Sky`.
+- Unreal Python reported 5 redirectors before cleanup.
+- `ResavePackages -FixupRedirects` did not remove them automatically because several referencers still pointed through moved material instance redirectors.
+- Loaded and saved the remaining external actor packages that referenced `MI_UDS_VolumetricClouds_Stylized`, then deleted only zero-referencer redirectors through `EditorAssetLibrary`.
+- Final Unreal AssetRegistry check reported `/Game/Cubeless/Sky` redirector count `0`.
+- Remaining caution: Git now shows the removed redirector packages as deletions. Review the broader Sky asset move/delete set before committing.
+
+## 2026-06-15 Sky Backup Reference Repair
+
+- Rechecked `/Game/Cubeless/Sky/Backup/VolCloud_MaterialOnly_Reset_20260615` after redirector cleanup.
+- Confirmed backup material instances now point at material parents inside the same backup folder.
+- Repaired `/Game/Cubeless/Sky/Backup/VolCloud_MaterialOnly_Reset_20260615/Materials/UDSFreeFreshTest/M_CubelessVolCloud_MaterialOnly_V2_Fresh` texture slots:
+  - `2D Turbulence` -> backup `ParticleClouds_Cubeless`
+  - `Cloud_Profile` -> backup `Cloud_Profile_Cubeless`
+  - `Formation Texture` and 3D texture object/sample nodes -> backup `3D_Cells_32_Cubeless`
+  - expanded conservative-density paint sample -> backup `CloudPaintTarget_Cubeless`
+- Refreshed cached expression data and compiled the repaired material with `compile_error_count=0`.
+- Also compiled representative backup masters:
+  - `M_Cubeless_VolumetricClouds_MaterialOnly_UDSFree`
+  - `M_Cubeless_VolumetricClouds_UDSFree`
+- Final validation:
+  - `/Game/Cubeless/Sky` redirector count: `0`
+  - old `/Game/Cubeless/Sky/Materials/Master` dependency count inside the backup set: `0`
+  - old `/Game/Cubeless/Sky/Textures/VolumetricClouds` dependency count inside the backup set: `0`
+- UDS reference dependencies inside the backup folder were intentionally left unchanged; this backup is an archive of the failed/diagnostic UDS-derived pass, not the clean production restart.
+
+## 2026-06-15 UnrealMCP Material/MPC API Readiness Pass
+
+- Applied and verified UnrealMCP API support needed before restarting the UDS sky dome + volumetric cloud extraction pass.
+- Confirmed `replace_material_texture_references` is now routed through the C++ bridge; after rebuild/restart it returns normal validation errors instead of `Unknown command`.
+- Confirmed recursive material-function expansion support is present, including unconnected function input fallback through `bUsePreviewValueAsDefault` and preview/default value node creation.
+- Added Python MCP exposure for existing C++ MPC setters:
+  - `set_material_parameter_collection_values`
+  - `set_material_parameter_collection_sync`
+- Added new C++ bridge/API commands for MPC-independent extraction:
+  - `mirror_material_parameter_collection`: mirrors same-name scalar/vector parameters from a source MPC into a target MPC, preserving parameter IDs by default for `MaterialExpressionCollectionParameter` compatibility.
+  - `replace_material_collection_references`: retargets `MaterialExpressionCollectionParameter` nodes to a target MPC and updates `ParameterId` from the target collection.
+- Added Python wrappers for the two new MPC commands.
+- Verification:
+  - `uv --directory Python run --python 3.11 python -m py_compile tools/material_tools.py` passed.
+  - `MCPGameProjectEditor Win64 Development` build through UE 5.7 UBT succeeded after closing the editor to clear Live Coding.
+  - Restarted the editor and verified bridge port `127.0.0.1:55557` opened.
+  - Smoke-tested new bridge commands directly:
+    - `mirror_material_parameter_collection` returned expected missing-parameter validation.
+    - `replace_material_collection_references` returned expected missing-parameter validation.
+    - `set_material_parameter_collection_values` returned expected missing-parameter validation.
+    - `set_material_parameter_collection_sync` returned success for `status`.
+- Note: the current Codex session's dynamic MCP tool metadata may not expose the two newest Python wrappers until the MCP server/session is restarted, but the C++ bridge commands are compiled and callable.
+
+## 2026-06-16 UDS Static Cloud Source Correction
+
+- Corrected the UDS reference target: the visible UDS demo clouds are not from the `VolumetricCloud` component. In `/Game/UltraDynamicSky/Maps/DemoMap`, `Ultra_Dynamic_Sky.VolumetricCloud` is `visible=False` and has no material; the visible clouds come from `Ultra_Dynamic_Sky.Sky_Sphere` using the static-cloud material path.
+- Confirmed the candidate map needed a UDS-like actor/component structure, not a plain `StaticMeshActor`. The broken candidate had actor scale `5000` and the static mesh component carrying world-like relative location, which suppressed the static cloud layer.
+- Created `/Game/Cubeless/Sky/Blueprints/BP_Cubeless_StaticSkySphereSCS` using `SubobjectDataSubsystem` so the structure matches UDS: `DefaultSceneRoot` plus child `Sky_Sphere`, relative location `0`, relative scale `5000`.
+- Updated `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_Candidate` to keep one active sky actor named `Cubeless_UDSFree_SkySphere` using the SCS Blueprint and `MI_Cubeless_UDS_KS_StaticCloud`; hidden backup sky actors were removed from the map.
+- Static-cloud comparison state keeps `Cubeless_UDSFree_VolumetricCloud` hidden so visual validation is not mixed with volumetric cloud output.
+- Captured validation screenshots:
+  - UDS reference: `Saved/MCP/CloudCompare/uds_demo_window_static_source_20260616.png`
+  - Candidate fixed: `Saved/MCP/CloudCompare/sky_staticcloud_scs_actor_candidate_saved_window_20260616.png`
+- Remaining cleanup/API note: `mirror_material_parameter_collection` appeared in tool metadata but returned `Unknown command` in the running bridge session, so MCP server/tool registration should be refreshed before the clean dependency-removal pass.
+
+## 2026-06-16 Static Cloud Comparison Retired
+
+- Correction: the recent Pass G/H/I visual comparison against UDS static clouds/skybox was the wrong validation line and is retired.
+- Do not use UDS static-cloud color matching or the discarded post-process target values (`auto_exposure_bias=0.11`, `saturation=0.62`, `gain=(1.10,1.20,1.02,1)`) as final criteria.
+- Continue the broader work: isolate the Cubeless sky dome, volumetric cloud material/texture/MI chain, and MPC path from UDS dependencies.
+- Current candidate map remains `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_Candidate`.
+- Read-only audit found the target map is open and no dirty Unreal packages are reported. `Cubeless_UDSFree_SkySphere` is hidden. `Cubeless_Independent_PostProcess` has exposure/saturation/gain overrides off, but `override_color_contrast` is still on. `Cubeless_UDSFree_VolumetricCloud` currently reads as hidden, and its cloud component reads as not visible.
+- The active volumetric cloud MI chain uses Cubeless-local textures and shows no direct UDS package dependencies. UDS dependencies remain in backups and sky-dome/static-cloud experiment assets, so those should be separated from the UDS-free candidate path during cleanup.
+- Notion capture was attempted but the Notion connector required reauthentication; this local work log entry is the fallback project memory.
+
+## 2026-06-16 Candidate Map Cleanup After Static Comparison Retirement
+
+- Cleaned only level actor/post-process state in `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_Candidate`; no code, C++, API, material graph, texture, or MPC asset was modified.
+- Kept retired `Cubeless_UDSFree_SkySphere` hidden.
+- Restored `Cubeless_UDSFree_VolumetricCloud` for the next volumetric pass:
+  - actor hidden: `false`
+  - editor hidden: `false`
+  - `VolumetricCloudComponent.visible`: `true`
+  - `VolumetricCloudComponent.hidden_in_game`: `false`
+  - applied material remains `/Game/Cubeless/Sky/Materials/MI_Cubeless_VolumetricClouds_UDSFree_FromBackup`.
+- Turned off residual post-process override flags on `Cubeless_Independent_PostProcess`:
+  - `override_auto_exposure_bias=false`
+  - `override_color_saturation=false`
+  - `override_color_gain=false`
+  - `override_color_contrast=false`
+- Stored post-process values still contain the old numbers, but they are inactive because the override flags are off.
+- Saved the target map successfully. Unreal dirty package check after save reported `[]`.
+
+## 2026-06-16 UDS Dirty Asset Restore
+
+- User reported UDS clouds were no longer visible while `/Game/UltraDynamicSky/Maps/DemoMap` was open.
+- Git showed two dirty UDS assets:
+  - `/Game/UltraDynamicSky/Blueprints/Weather_Effects/Weather_Presets/Cloudy`
+  - `/Game/UltraDynamicSky/Materials/Weather/UltraDynamicWeather_Parameters`
+- Read-only check found the UDS actor and cloud components were visible, but the live volumetric cloud material values read as `Cloud Density=0`, `Cloud Coverage=0`, and `Extinction Scale=0`. `UltraDynamicWeather_Parameters` also had `Cloud Coverage=0`.
+- First `git restore` failed because Unreal Editor was holding the `.uasset` files. After user approval, the editor was closed without saving and only the two UDS assets were restored from Git.
+- Verification: `git status --short -- Content/UltraDynamicSky` is clean after the restore. Other Cubeless sky candidate changes and local work-log edits were not touched.
+
+## 2026-06-16 UDS vs UDS-Free Candidate Map Baseline
+
+- Correct comparison/source map for the original UDS reference:
+  - `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDS_Candidate`
+- Correct working map for the UDS-free Cubeless extraction:
+  - `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_Candidate`
+- Do not use `/Game/UltraDynamicSky/Maps/DemoMap` as the active UDS sky/cloud comparison target for this pass.
+- Future checks should compare the two Cubeless Sky candidate maps above with matching camera/view settings, while keeping UDS dependencies out of the UDS-free candidate map.
+
+## 2026-06-16 UDS-Free Candidate Environment Match
+
+- Goal: make `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_Candidate` usable independently without UDS while matching the level environment and volumetric-cloud setup from `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDS_Candidate`.
+- Modified only the UDS-free candidate level actor/component state. No code, C++, API, material graph, texture, or UDS asset was modified.
+- Matched independent actors/components to the original UDS candidate map:
+  - `Cubeless_Independent_SkyAtmosphere` -> UDS `SkyAtmosphere` component world transform and scattering/fog/luminance settings.
+  - `Cubeless_Independent_HeightFog` -> UDS `HeightFog` component world transform and fog/volumetric-fog settings.
+  - `Cubeless_Independent_SkyLight` -> UDS visible `Captured Scene Sky Light` transform and captured-scene/realtime/lower-hemisphere settings.
+  - `Cubeless_Independent_Sun` and `Cubeless_Independent_Moon` -> UDS `Sun`/`Moon` component world transforms, intensities, atmosphere indices, cloud luminance, and shadow settings. Moon is visible but intensity remains `0.0`, matching the UDS source.
+  - `Cubeless_UDSFree_VolumetricCloud` -> UDS `VolumetricCloud` component world transform, layer/tracing/sample/shadow/occlusion settings.
+- Preserved the existing Cubeless-local volumetric material:
+  - `/Game/Cubeless/Sky/Materials/MI_Cubeless_VolumetricClouds_UDSFree_FromBackup`
+- Updated `Cubeless_Independent_PostProcess` to match the active UDS baseline: `override_auto_exposure_bias=true`, `auto_exposure_bias=0.0`; disabled the old bloom, vignette, color gain/saturation/contrast, gamma/offset, and film override flags.
+- Verification:
+  - Save result: success.
+  - Unreal dirty package check after save: `[]`.
+  - Target map direct `/Game/UltraDynamicSky` dependency count: `0`.
+  - Active target map dependency count reported by AssetRegistry: `4`.
+- Note: no `Cubeless_UDSFree_SkySphere` actor was found in the active target map during this pass, so sky-dome/static-sky work remains separate from this environment + volumetric-cloud alignment pass.
+
+## 2026-06-16 UDS-Free Candidate Sky Dome Dependency Cut
+
+- Goal: add/match a Cubeless-local sky dome in `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_Candidate` while keeping the map independent from `/Game/UltraDynamicSky`.
+- Added/updated `Cubeless_UDSFree_SkySphere` as a `StaticMeshActor` using:
+  - Mesh: `/Game/Cubeless/Sky/Meshes/SM_Cubeless_UDS_SkySphere`
+  - Material: `/Game/Cubeless/Sky/Materials/MI_Cubeless_SkyDome_UDSFree_UDSCandidate`
+- Matched the source UDS candidate sky-sphere transform from `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDS_Candidate`:
+  - Location `(2855, 435, 1235)`
+  - Rotation `(0, 0, 0)`
+  - Scale `(5000, 5000, 5000)`
+- Copied the source UDS sky material runtime scalar/vector values into the Cubeless-local material instance and retargeted texture parameters to Cubeless-local textures.
+- Removed the remaining recursive UDS dependency by switching `MI_Cubeless_SkyDome_UDSFree_UDSCandidate` from `M_Cubeless_SkyDome_UDSFree_Current_Clean3` to the already independent parent `M_Cubeless_SkyDome_UDSFree`.
+- Verification:
+  - Target map expected actors present: `Cubeless_Independent_SkyAtmosphere`, `Cubeless_Independent_HeightFog`, `Cubeless_Independent_SkyLight`, `Cubeless_Independent_Sun`, `Cubeless_Independent_Moon`, `Cubeless_UDSFree_VolumetricCloud`, `Cubeless_Independent_PostProcess`, and `Cubeless_UDSFree_SkySphere`.
+  - `MI_Cubeless_SkyDome_UDSFree_UDSCandidate` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - Target map recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - Unreal dirty package check after save/verification: `[]`.
+
+## 2026-06-16 UDS-Free Candidate Non-Cloud Environment And Skybox Match
+
+- Goal: before tuning cloud shape/density, match the UDS-free candidate's non-cloud environment and skybox basis against `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDS_Candidate`.
+- Corrected the screenshot comparison method. The earlier automation screenshot used a bad viewport rotation path; the reliable comparison source is the editor-window capture matching the user's UDS viewport.
+- Applied non-cloud environment corrections in `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_Candidate`:
+  - `Cubeless_Independent_SkyAtmosphere.other_absorption_scale` and `other_absorption` now match UDS `SkyAtmosphere`.
+  - `Cubeless_Independent_HeightFog.directional_inscattering_exponent` now matches UDS `HeightFog`.
+  - `MI_Cubeless_SkyDome_UDSFree_UDSCandidate` non-cloud sky parameters were matched to the UDS runtime sky MID: `Sky Base Color=(1,1,1,1)`, `DaylightOverrideAmount=0`, and `DaylightGradientPower=0`.
+- Switched `MI_Cubeless_SkyDome_UDSFree_UDSCandidate` to the fuller UDS-derived Cubeless parent:
+  - Parent: `/Game/Cubeless/Sky/Materials/Master/M_Cubeless_SkyDome_UDSFree_Current_Clean3`
+  - Copied UDS runtime sky MID scalar/vector values.
+  - Copied UDS_K static switch values, notably `Use_Dynamic_Clouds=false` and `One Cloud Layer=false`.
+  - Kept texture parameters pointed at Cubeless-local textures rather than original UDS textures.
+- Removed the last recursive UDS dependency from the new parent path by consolidating the Cubeless backup `3D_Cells_32_UDSRef` reference to the isolated Cubeless volume texture `/Game/Cubeless/Sky/Textures/VolumetricClouds/3D_Clouds_Isolated/3D_Cells_32_Cubeless_AF_Iso`, then refreshed cached expression data on `M_Cubeless_SkyDome_UDSFree_Current_Clean3`.
+- Verification:
+  - Target map recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MI_Cubeless_SkyDome_UDSFree_UDSCandidate` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `M_Cubeless_SkyDome_UDSFree_Current_Clean3` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - Unreal dirty package check after save/verification: `[]`.
+  - Git status for `Content/UltraDynamicSky`: clean.
+- Visual result: skybox/environment basis is closer after static switch matching, but the look is still not UDS-quality because cloud texture/layer content remains different. The next focused pass should tune or replace the Cubeless-local static/wispy cloud textures and volumetric cloud material parameters against the UDS candidate.
+
+## 2026-06-16 Preferred Sky Look Comparison Method
+
+- User approved the editor-window comparison style as the preferred repeated sky-look comparison workflow.
+- For sky/cloud look work, prefer this method when possible:
+  - Capture the actual Unreal Editor window with the user's visible viewport rather than relying only on `AutomationLibrary.take_high_res_screenshot` or `HighResShot`.
+  - Crop the stable viewport rectangle from the editor window capture.
+  - Build a side-by-side image with UDS candidate on the left and UDS-free candidate on the right.
+  - Keep the same viewport camera when switching between `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDS_Candidate` and `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_Candidate`.
+- Reason: the automation screenshot path previously captured an unintended view rotation, while the editor-window capture matched the user's actual viewport.
+
+## 2026-06-16 UDS-Free Volumetric Cloud Diagnostic Pass
+
+- User confirmed the side-by-side screenshot workflow is useful and should be remembered for repeated sky/cloud look checks.
+- Important baseline caveat: the saved user UDS reference screenshot still shows the intended rich cloud look, but a fresh live capture of `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDS_Candidate` during this pass showed a much emptier sky. Use the user-approved reference image as the visual target until the UDS source viewport state is re-established.
+- `CloudPaintTarget` is not the current mismatch source:
+  - `/Game/UltraDynamicSky/Textures/Sky/CloudPaintTarget`
+  - `/Game/Cubeless/Sky/Textures/VolumetricClouds/Sky/CloudPaintTarget_Cubeless`
+  - Both are 256x256 RGBA16F, RGB all zero, alpha one, and pixel diff is effectively zero.
+- The UDS and Cubeless `Cloud_Wisps` textures are identical:
+  - UDS: `/Game/UltraDynamicSky/Textures/Sky/Cloud_Wisps`
+  - Cubeless: `/Game/Cubeless/Sky/Textures/SkyDome/Sky/Cloud_Wisps_UDS_Cubeless`
+  - Exported PNG pixel diff was `0`.
+- The visible large cloud band in the UDS-free candidate is driven by the volumetric cloud component, not the sky dome. Strong isolation with sky sphere scaled down and `Cubeless_UDSFree_VolumetricCloud` hidden removed the band.
+- MPC tuning note: `MaterialLibrary` runtime MPC changes were not reliable for editor-rendered look comparison. Saved MPC asset-default changes on `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky` did affect the render; e.g. saving `Cloud Density=0` removed the volumetric cloud, then it was restored to `1.0199999809265137`.
+- Current verified state after diagnostics:
+  - `Cubeless_UDSFree_SkySphere` restored to location `(2855,435,1235)`, rotation `(0,0,0)`, scale `(5000,5000,5000)`.
+  - `Cubeless_UDSFree_VolumetricCloud` visibility restored.
+  - `Cloud Density` asset default restored to `1.0199999809265137`.
+  - No dirty Unreal content/map packages reported after the restore checks.
+- Next useful pass: tune volumetric-cloud MPC asset defaults through short save/capture/restore loops, using HighResShot for forced-state diagnostics and the editor-window crop side-by-side for the user-facing visual comparison.
+
+## 2026-06-16 UDS-Free Candidate Sky2D And Volume Baseline
+
+- Continued look-matching in `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_Candidate` against the user-provided UDS reference screenshot, because a fresh live capture of the UDS source map still rendered nearly cloudless.
+- Found that the Cubeless sky-dome material instance was not contributing enough 2D cloud content with the previous static-cloud path. The best current sky-dome baseline uses the fuller UDS-derived parent with local texture dependencies only:
+  - MI: `/Game/Cubeless/Sky/Materials/MI_Cubeless_SkyDome_UDSFree_UDSCandidate`
+  - `Use_Dynamic_Clouds=true`
+  - `One Cloud Layer=false`
+  - `Static Clouds=false`
+  - `Cloud Tiling=1.0`
+  - `Cloud Height=0.7`
+  - `Clouds B Speed=0.0`
+  - `Static Clouds` and `clouds_basetex` both point to `/Game/Cubeless/Sky/Textures/VolumetricClouds/Weather/ParticleClouds_Cubeless`.
+- Saved the current volume MPC baseline on `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`:
+  - `Cloud Density=0.95`
+  - `Extinction Scale=4.8`
+  - `Clouds Position=(60000,0,-90,1)`
+  - `Fog Position=(60000,0,-90,1)`
+  - Kept the prior softened shape/color values such as `Macro Variation=0.115`, `Floor Variation Cloudy=0.54`, `3D Erosion=1.36`, `3D Erosion Power=3.25`, `High Frequency Noise=0.245`, and the lifted albedo/emissive colors.
+- Diagnostic candidates rejected:
+  - Source-position volume pass `(-2855,-435,-1235,1)` created an oversized upper-right cloud mass.
+  - `Static Clouds=true` produced no useful visible sky-dome cloud change.
+  - `One Cloud Layer=true` darkened/simplified the current viewport and moved away from the UDS reference.
+  - `Cloud Tiling=1.8` produced useful mid-level streaking but left the view too sparse versus the UDS reference; `Cloud Tiling=1.0` is the current better baseline.
+  - Temporarily assigning `MI_Cubeless_SkyDome_UDSFree_Current_Clean5` was darker in the current candidate view and was reverted.
+- Current comparison image:
+  - `Saved/CodexScreenshots/LookCompare_20260616_CloudPass/UDS_reference_vs_UDSFree_current_baseline_sky2d_tiling10_volume_x60000_d095_e48_compare.png`
+- Verification:
+  - Target map recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MI_Cubeless_SkyDome_UDSFree_UDSCandidate` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `M_Cubeless_SkyDome_UDSFree_Current_Clean3` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MPC_Cubeless_StaticSky` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - Unreal dirty package check after save/verification: `[]`.
+- Residual visual gap: the UDS-free baseline is materially better than the earlier sparse skybox and oversized source-position volume tests, but it still lacks the UDS reference's broad upper cloud sheet and remains too sparse/dark in the left/top regions. The next pass should focus on sky-dome cloud texture/layout or a proper baked UDS-free sky cloud source, rather than pushing post-process color overrides.
+
+## 2026-06-16 UDS-Free Candidate Wisp And Volume Position Pass
+
+- Continued from the sky2D + volume baseline and focused on the missing broad/wispy upper cloud sheet without using post-process color overrides.
+- Screenshot workflow fix: Unreal viewport captures can save RGB with alpha `0`, making images appear invisible in some viewers. For user-facing comparison images, flatten captures to opaque RGB before display.
+- Rejected sky2D density tests:
+  - Raising `Zenith_Density_Multiplier` and widening `Latitude_Gradient_Width` filled the upper frame as a gray veil rather than preserving cloud structure.
+  - Changing `Clouds B Time` and enabling `Static Clouds` alongside dynamic clouds produced little useful movement or added detail.
+- Best current sky-dome MI values on `/Game/Cubeless/Sky/Materials/MI_Cubeless_SkyDome_UDSFree_UDSCandidate`:
+  - `Use_Dynamic_Clouds=true`
+  - `One Cloud Layer=false`
+  - `Static Clouds=false`
+  - `Overall Intensity=0.60`
+  - `Cloud Tiling=1.0`
+  - `Cloud Density=2.03370094`
+  - `Cloud Opacity=1.0`
+  - `Cloud Sharpness=1.0`
+  - `Wispy Cloud Alpha=0.60`
+  - `Cloud Wisps Color=(0.40,0.48,0.58,1.0)`
+  - `Clouds B Time=0.0`
+  - `Clouds B Speed=0.0`
+- Best current volume MPC values on `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`:
+  - `Cloud Density=0.92`
+  - `Extinction Scale=4.55`
+  - `Clouds Position=(60000,40000,-90,1)`
+  - `Fog Position=(60000,40000,-90,1)`
+  - Prior shape/detail values retained, including `Macro Variation=0.115`, `Floor Variation Cloudy=0.54`, `3D Erosion=1.36`, `3D Erosion Power=3.25`, and `High Frequency Noise=0.245`.
+- Candidate notes:
+  - `Y=60000` moved the upper volume cloud into the frame but was too heavy.
+  - `Y=-60000` pushed the main cloud mass out of view and became too sparse.
+  - `Y=40000` is the current best balance.
+  - A brighter/softer F candidate reduced volume presence too much, so the E-style values above were restored.
+- Current best opaque comparison image:
+  - `Saved/CodexScreenshots/LookCompare_20260616_CloudPass/UDS_reference_vs_UDSFree_current_best_wispE_y40000_compare.png`
+- Verification:
+  - Target map recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MI_Cubeless_SkyDome_UDSFree_UDSCandidate` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `M_Cubeless_SkyDome_UDSFree_Current_Clean3` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MPC_Cubeless_StaticSky` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - Unreal dirty package check after save/verification: `[]`.
+- Residual visual gap: the UDS-free candidate now has more upper wispy structure and a better-positioned volume mass, but it still does not match the UDS reference's broad continuous cloud sheet. The likely next step is a Cubeless-owned sky/wisp/static cloud texture or graph-level layout pass, not more global exposure/post-process tuning.
+
+## 2026-06-16 UDS-Free Candidate Volumetric Shape Pass
+
+- Continued cloud-shape matching in `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_Candidate` against the user-provided UDS reference screenshot.
+- Kept `/Game/UltraDynamicSky` untouched and kept the target dependency-free.
+- Diagnostic result:
+  - Sky/wisp-only capture showed broad background streaks but could not produce the main fluffy upper cloud mass.
+  - Volume-only capture showed that the visible cloud-mass mismatch is mostly controlled by the volumetric layer.
+  - MPC `Clouds Position`/`Fog Position` seed sweeps changed the upper mass location; `x60000 y80000` was the best position seed before altitude tuning.
+  - Re-enabling sky-dome `Static Clouds` was rejected: it produced hard, dark, skybox-like cloud shapes and was restored to `false`.
+- Saved the current volumetric shape candidate on `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`:
+  - `Cloud Density=0.93`
+  - `Extinction Scale=4.5`
+  - `Clouds Scale=1350000`
+  - `Macro Scale=1.65`
+  - `Macro Variation=0.145`
+  - `Floor Variation Clear=0.075`
+  - `Floor Variation Cloudy=0.62`
+  - `3D Erosion=1.10`
+  - `3D Erosion Power=2.35`
+  - `HF Distortion=0.19`
+  - `High Frequency Noise=0.19`
+  - `Layer Scale=0.58`
+  - `Bottom Altitude=42000`
+  - `Top Altitude=112000`
+  - `Shadows Altitude=65000`
+  - `Cloud Layer Height=75000`
+  - `Clouds Position=(60000,120000,-90,1)`
+  - `Fog Position=(60000,120000,-90,1)`
+- Current saved comparison image:
+  - `Saved/CodexScreenshots/LookCompare_20260616_ShapePass/UDS_reference_vs_UDSFree_shapeL_saved_final_compare.png`
+- Verification:
+  - Target map recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MI_Cubeless_SkyDome_UDSFree_UDSCandidate` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `M_Cubeless_SkyDome_UDSFree_Current_Clean3` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MI_Cubeless_VolumetricClouds_UDSFree_FromBackup` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MPC_Cubeless_StaticSky` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - Unreal dirty package check after save/verification: `[]`.
+- Residual visual gap: the saved shape pass moves the main upper cloud mass closer to the UDS reference, but the UDS-free candidate still lacks the reference's dense right-side layered streaks and broad continuous cloud sheet. The next useful step is likely sky/wisp texture/layout work or material graph-level shape controls, not further simple MPC density pushes.
+
+## 2026-06-16 UDS-Free Candidate Sky Shape Position Pass
+
+- Inspected the source UDS level `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDS_Candidate` and returned to the target level afterward without dirty packages.
+- Source UDS runtime sky MID reference:
+  - Actor/component: `Ultra_Dynamic_Sky` / `Sky_Sphere.MID_UDS_K_0`
+  - Parent: `/Game/UltraDynamicSky/Materials/Material_Instances/UDS_K`
+  - `Overall Intensity=0.375`
+  - `Wispy Cloud Alpha=0.5`
+  - `Cloud Tiling=1.0`
+  - `Cloud Height=0.7`
+  - `Cloud Density=2.03370094`
+  - `Cloud Sharpness=1.0`
+  - `Clouds Position=(0,0,0,1)`
+  - `Cloud Wisps Color=(0.28024584,0.32926667,0.37164408,1.0)`
+  - UDS textures were `/Game/UltraDynamicSky/Textures/Sky/Cloud_Wisps` and `/Game/UltraDynamicSky/Textures/Weather/ParticleClouds`.
+- Tested sky-dome shape candidates on `/Game/Cubeless/Sky/Materials/MI_Cubeless_SkyDome_UDSFree_UDSCandidate`:
+  - Full source sky values increased right-side streak presence but became too dark and visibly point-like.
+  - `Clouds Position=(0,0,0,1)` with the Cubeless softer color/alpha was the better direction.
+  - `Cloud Tiling=1.4` and `1.8` made the right-side streaks sparser, so `1.0` stayed best.
+  - Lowering `Cloud Sharpness` to `0.65` softened the point-like breakup better than `1.0`; `0.45` became too blurred.
+- Saved current sky-dome MI candidate:
+  - `Static Clouds=false`
+  - `Overall Intensity=0.60`
+  - `Wispy Cloud Alpha=0.60`
+  - `Cloud Tiling=1.0`
+  - `Cloud Sharpness=0.65`
+  - `Cloud Wisps Color=(0.40,0.48,0.58,1.0)`
+  - `Clouds Position=(0,0,0,1)`
+- Current saved comparison image:
+  - `Saved/CodexScreenshots/LookCompare_20260616_SkyShapePass/UDS_reference_vs_UDSFree_skyshape_saved_final_compare.png`
+- Verification:
+  - Target map recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MI_Cubeless_SkyDome_UDSFree_UDSCandidate` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `M_Cubeless_SkyDome_UDSFree_Current_Clean3` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MI_Cubeless_VolumetricClouds_UDSFree_FromBackup` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MPC_Cubeless_StaticSky` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - Unreal dirty package check after save/verification: `[]`.
+- Residual visual gap: the right-side layered cloud hints are slightly better than the previous shape pass, but the UDS-free candidate still lacks the source reference's long, dense, continuous streak bands. Further matching likely needs the Cubeless sky/wisp material graph to expose better directional stretch/anisotropic masking, or a purpose-built Cubeless-owned wisp texture.
+
+## 2026-06-16 UDS-Free Candidate Wisp UV Graph Shape Pass
+
+- Inspected `/Game/Cubeless/Sky/Materials/Master/M_Cubeless_SkyDome_UDSFree_Current_Clean3` from the Emissive output backward to find the actual wisp branch.
+- Important graph finding:
+  - The real wisp texture sample is `MaterialExpressionTextureSampleParameter2D_9`.
+  - Parameter name: `Cloud_Wisps_Texture`.
+  - UV input is directly driven by `MaterialExpressionTextureCoordinate_7`.
+  - `TextureCoordinate_10` affected a different cloud/star-like branch and had very little visible impact on the target view.
+- Rejected graph-shape candidates:
+  - `TextureCoordinate_10 u=0.55,v=1.0` and `u=1.0,v=0.55`: little useful visual change.
+  - `TextureCoordinate_7 u=0.45,v=1.0`: smeared the wisps in the wrong direction.
+  - `TextureCoordinate_7 u=1.0,v=0.45`: created strong streaks but looked too heavy/overstretched.
+  - `TextureCoordinate_7 u=1.0,v=0.75`: safer but weaker than the reference's visible layered streaks.
+- Saved current graph-shape candidate:
+  - `TextureCoordinate_7 u_tiling=1.0`
+  - `TextureCoordinate_7 v_tiling=0.65`
+  - `TextureCoordinate_10 u_tiling=1.0`
+  - `TextureCoordinate_10 v_tiling=1.0`
+  - No graph topology or node layout changes were made; only existing UV node properties changed.
+  - Material expression count remained `20903`.
+- Current saved comparison image:
+  - `Saved/CodexScreenshots/LookCompare_20260616_GraphShapePass/UDS_reference_vs_UDSFree_wisp_uv_v065_saved_final_compare.png`
+- Verification:
+  - Target map recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MI_Cubeless_SkyDome_UDSFree_UDSCandidate` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `M_Cubeless_SkyDome_UDSFree_Current_Clean3` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MI_Cubeless_VolumetricClouds_UDSFree_FromBackup` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - `MPC_Cubeless_StaticSky` recursive `/Game/UltraDynamicSky` dependencies: `0`.
+  - Unreal dirty package check after save/verification: `[]`.
+- Residual visual gap: the UDS-free candidate now has a much clearer long wisp direction in the right/center sky, but the reference still has denser, more layered fine streaks. The next likely useful step is either exposing this wisp UV scale as material parameters for non-destructive tuning, or authoring a Cubeless-owned wisp texture with more UDS-like fine band density.
+
+## 2026-06-16 UDS-Free Candidate Volume/Wisp Separation Check
+
+- Confirmed the user's distinction for the current look work:
+  - `wisp` is the sky-dome 2D/material layer driven by `MI_Cubeless_SkyDome_UDSFree_UDSCandidate` and `M_Cubeless_SkyDome_UDSFree_Current_Clean3`.
+  - The volumetric cloud is the separate `Cubeless_UDSFree_VolumetricCloud` actor using `MI_Cubeless_VolumetricClouds_UDSFree_FromBackup` and `MPC_Cubeless_StaticSky`.
+- Screenshot alpha finding:
+  - Native Unreal viewport captures under `Saved/CodexScreenshots/LookCompare_20260616_VolumeOnlyPass/` saved as RGBA with alpha mostly or entirely `0`.
+  - User-facing comparisons must continue to be flattened to opaque RGB before display.
+- Read UDS-like source values without modifying `/Game/UltraDynamicSky`:
+  - UDS actor settings: `Cloud Coverage=5.0`, `Cloud Coverage 0-3=1.5`, `Global/Local Overcast 0-1=0.333333`, `Overcast Floor Variation=0.8`, `Base Cloud Height=0.7`, `Fallback Cloud Layer Altitude=70000`.
+  - UDS callable derived values included `Current Volumetric Clouds Density=1.725`, `Current Volumetric Cloud Macro Variation=0.16`, `Get Current Volumetric Cloud Extinction Scale=10.0`, `Volumetric Cloud Layer Scale=0.5`, `Volumetric Cloud First Layer Top Altitude=131085`, and `Volumetric Cloud Simplified Material Switch=False`.
+  - Runtime UDS MPC values included `Bottom Altitude=61085`, `Top Altitude=131085`, `Cloud Layer Height=100000`, `Shadows Altitude=78585`, `Clouds Scale=1200000`, `Macro Scale=1.755`, `Macro Variation=0.16`, `Phase Blend=0.65`, `PhaseG=0.85`, and `PhaseG2=0.4`.
+- Rejected volume-only candidates:
+  - Directly copying UDS runtime volume color/density/extinction values made the Cubeless volume too dark and overcast.
+  - Keeping UDS shape/height/phase while using Cubeless brighter lighting reduced darkness but still produced large central volume blobs rather than the UDS reference's long layered sheet.
+  - Calibrated `Clouds Position/Fog Position=(60000,120000,-90,1)` helped placement in some horizon views, but in the upward reference view it still produced an oversized blob when density was high.
+  - Extra erosion/thinning reduced the blob but did not create the long streak structure; that structure should not be forced from the volume layer alone.
+- Restored `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky` from the pre-candidate backup after rejecting the tests:
+  - `Cloud Density=0.93`
+  - `Extinction Scale=4.5`
+  - `Clouds Scale=1350000`
+  - `Macro Scale=1.65`
+  - `Macro Variation=0.145`
+  - `3D Erosion=1.10`
+  - `3D Erosion Power=2.35`
+  - `High Frequency Noise=0.19`
+  - `HF Distortion=0.19`
+  - `Bottom Altitude=42000`
+  - `Top Altitude=112000`
+  - `Cloud Layer Height=75000`
+  - `Clouds Position=(60000,120000,-90,1)`
+  - `Fog Position=(60000,120000,-90,1)`
+- Current comparison artifacts:
+  - `Saved/CodexScreenshots/LookCompare_20260616_VolumeOnlyPass/UDS_reference_vs_c2_c3_c4_opaque_compare.png`
+  - `Saved/CodexScreenshots/LookCompare_20260616_VolumeOnlyPass/UserRef_vs_C6_vs_C7_upward_opaque_compare.png`
+  - `Saved/CodexScreenshots/LookCompare_20260616_VolumeOnlyPass/UserRef_vs_C7_gameview_opaque_compare.png`
+- Decision: do not treat the rejected volume-only candidates as progress. Continue from the restored MPC baseline and solve the remaining UDS-like long layered cloud structure through the sky-dome wisp/material layer or a Cubeless-owned wisp texture, while keeping volumetric cloud work focused on broad mass/thickness only.
+
+## 2026-06-16 UDS-Free Volume Instance/MPC Comparison Probe
+
+- Checked the user's hypothesis that UDS weather presets may drive the visible volume-cloud difference separately from the VolumetricCloud component settings.
+- Source and target VolumetricCloud component settings were already effectively identical for the inspected rendering properties.
+- Source UDS runtime VolumetricCloud MID had no scalar/vector overrides; its scalar/static-switch effective values matched `MI_Cubeless_VolumetricClouds_UDSFree_FromBackup` for the inspected instance keys (`RefractionDepthBias`, `Emissive Height Exp`, `Ext Emit Limit Distance`, `HF Scale`, `Apply Drawn Target`, `Simplified Extinction`, `TwoLayers`).
+- The meaningful difference is in UDS weather/runtime MPC values, not the visible material instance overrides. UDS uses `/Game/UltraDynamicSky/Materials/Material_Functions/UDS_VolumetricClouds_MPC`; Cubeless uses `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`.
+- Runtime-only tests were performed without saving:
+  - Exact UDS volume MPC copy made the Cubeless volume too empty or produced visible patterned/dithered cloud artifacts.
+  - Exact UDS volume MPC plus BP-derived `Cloud Density=1.725` produced a larger gray smear/ring and was not accepted.
+- `M_Cubeless_SkyDome_UDSFree_Current_Clean3` currently has no MPC collection parameter nodes, so the volume-MPC runtime tests did not affect the user's edited skybox material.
+- Restored the target level runtime state by reloading `/Game/Cubeless/Sky/Maps/LV_CubelessVolCloud_UDSFree_Candidate`; Unreal dirty content/map packages were `[]`.
+- Comparison artifacts:
+  - `Saved/CodexScreenshots/LookCompare_20260616_UDSVolumeMPCProbe/UDS_ref_vs_exactMPC_vs_density1725_rgb.png`
+  - `Saved/CodexScreenshots/LookCompare_20260616_UDSVolumeMPCProbe/fixedcam2_UDS_vs_target_current_exact_density_compare_rgb.png`
+- Decision: do not directly copy UDS MPC/runtime values as the final solution. Continue by using UDS weather-derived values as references only, then tune the Cubeless-owned volume layer conservatively against screenshots while preserving Cubeless-local textures and no UDS dependency.
+
+## 2026-06-16 UnrealMCP MPC/Material API Code Review Fix
+
+- Reviewed the UnrealMCP C++/Python material/MPC changes as conservative commit candidates for the UDS-free sky work.
+- Kept the useful read-only/material graph tooling and tightened the risky mutation paths:
+  - Synchronized `mirror_material_parameter_collection` and `replace_material_collection_references` into the Cubeless embedded bridge/handler surface so Python-exposed commands no longer fall through as unknown commands.
+  - Added MPC sync shutdown cleanup to the sibling UnrealMCP module.
+  - Stopped `save=false` material/MPC mutation paths from hiding real dirty packages; no-op and rollback cleanup paths may still clear temporary dirty state.
+  - Prevented compile-broken material replacement/refresh operations from saving and surfaced `save_skipped_due_to_compile_errors`.
+  - Fixed runtime-only MPC value setting so `old_asset_default` reports the real asset default and asset saves only occur when asset defaults actually changed.
+  - Reduced viewport screenshot redraw clamp from 120 to 20.
+- Verification:
+  - `git diff --check` passed for `C:/Git/CubelessStylized/Plugins/UnrealMCP` and `C:/Git/unreal-mcp-cubeless`.
+  - `uv run --python 3.11 python -m py_compile Python/tools/material_tools.py` passed.
+  - `MCPGameProjectEditor Win64 Development` UBT build passed.
+  - `StylizedCubelessEditor Win64 Development` compiled the touched UnrealMCP module but failed at DLL link because the running Unreal Editor and CrashReportClientEditor were locking `UnrealEditor-UnrealMCP.dll`.
+- Residual verification needed before commit/push: close Unreal Editor, rebuild `StylizedCubelessEditor`, restart the editor, then smoke-test the new material/MPC MCP commands through the bridge.
+
+## 2026-06-16 UnrealMCP Follow-up Review Fix
+
+- Followed up on the conservative code review findings before commit candidacy:
+  - Synchronized sibling `replace_material_collection_parameters` with Cubeless by adding ID-first MPC parameter resolution before name fallback.
+  - Deferred `Modify()` calls in material/MPC mutation helpers until the first real asset or graph write, reducing no-op dirty package risk.
+  - Matched sibling vector MPC input validation to Cubeless structured `r/x`, `g/y`, `b/z` component checks.
+  - Cleared temporary no-op dirty state consistently even when `save=true`.
+- Verification:
+  - `git diff --check` passed for both UnrealMCP workspaces.
+  - `uv run --python 3.11 python -m py_compile Python/tools/material_tools.py` passed.
+  - `MCPGameProjectEditor Win64 Development` UBT build passed.
+  - `StylizedCubelessEditor Win64 Development` compiled touched UnrealMCP code but still failed only at DLL link because the running editor processes lock `UnrealEditor-UnrealMCP.dll`.
+
+## 2026-06-16 UnrealMCP Full Build and Smoke Test
+
+- Closed stale editor/link-lock state, rebuilt `StylizedCubelessEditor Win64 Development`, and confirmed `Result: Succeeded`.
+- Relaunched Unreal Editor from `C:/Git/CubelessStylized/StylizedCubeless.uproject`; primary UnrealMCP bridge port `127.0.0.1:55557` opened and Ieta Slate status call succeeded.
+- Ran raw bridge smoke tests without saving assets:
+  - `get_material_parameter_collection_values` on `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`: returned `scalar_count=83`, `vector_count=19`.
+  - `mirror_material_parameter_collection` with source and target both `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`, `save=false`: `changed=false`, `saved=false`, `dirty_after_mirror=false`.
+  - `set_material_parameter_collection_values` invalid-vector validation, `save=false`: returned one structured missing-component error, `asset_defaults_changed=false`, `dirty_after_set=false`.
+  - `list_material_collection_parameter_nodes` on `/Game/Cubeless/Sky/Materials/Master/M_Cubeless_VolumetricClouds_UDSFree_FromBackup`: `node_count=55`, `mismatched_id_count=0`, `missing_collection_parameter_count=0`.
+  - `replace_material_collection_references` no-op retarget to `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`, `save=false`: `replaced_node_count=0`, `skipped_node_count=55`, `compiled=true`, `compile_error_count=0`, `dirty_after_replace=false`.
+- Post-test Unreal dirty package check through `EditorLoadingAndSavingUtils`: `dirty_count=0`, `dirty_packages=[]`.
