@@ -59,6 +59,11 @@ SEED_SUITE_REPORT_PATH = os.path.join(
     "MCP_Dungeon",
     "CubelessDungeonMVP_SeedSuite_Report.json",
 )
+AUTHORING_PRESET_MATRIX_REPORT_PATH = os.path.join(
+    unreal.Paths.project_saved_dir(),
+    "MCP_Dungeon",
+    "CubelessDungeonMVP_AuthoringPresetMatrix_Report.json",
+)
 GAMEPLAY_DATA_PATH = os.path.join(
     unreal.Paths.project_saved_dir(),
     "MCP_Dungeon",
@@ -304,6 +309,83 @@ DUNGEON_AUTHORING_PRESETS = {
         use_ceiling=0,
         max_loop_edges=2,
     ),
+    "small_route": dict(
+        DEFAULT_DUNGEON_CONFIG,
+        seed=142872,
+        room_count=7,
+        chest_count=2,
+        enemy_count=3,
+        max_loop_edges=1,
+        grid_cell_size=340,
+        corridor_width=260,
+    ),
+    "long_route": dict(
+        DEFAULT_DUNGEON_CONFIG,
+        seed=142876,
+        room_count=11,
+        chest_count=3,
+        enemy_count=4,
+        branch_chance_percent=55,
+        max_loop_edges=1,
+        grid_cell_size=440,
+        corridor_width=340,
+    ),
+    "loop_dense": dict(
+        DEFAULT_DUNGEON_CONFIG,
+        seed=142880,
+        room_count=11,
+        enemy_count=5,
+        branch_chance_percent=100,
+        max_loop_edges=5,
+        grid_cell_size=440,
+        corridor_width=340,
+    ),
+    "boss_focus": dict(
+        DEFAULT_DUNGEON_CONFIG,
+        seed=142884,
+        room_count=10,
+        chest_count=2,
+        enemy_count=5,
+        branch_chance_percent=85,
+        max_loop_edges=2,
+        grid_cell_size=460,
+        corridor_width=360,
+    ),
+}
+
+DUNGEON_AUTHORING_PRESET_NOTES = {
+    "default": {
+        "label": "Default closed-ceiling delivery",
+        "intent": "Stable V1 handoff preset with full ceiling coverage and balanced room roles.",
+    },
+    "compact_branching": {
+        "label": "Compact branching",
+        "intent": "Smaller footprint for quick review and dense branch readability.",
+    },
+    "wide_looped": {
+        "label": "Wide looped",
+        "intent": "Wider module spacing with more loops for route variety checks.",
+    },
+    "open_cutaway": {
+        "label": "Open cutaway",
+        "intent": "Ceiling-off structural review preset for top-down inspection.",
+    },
+    "small_route": {
+        "label": "Small route",
+        "intent": "Short dungeon pass for fast layout iteration and small-room readability.",
+    },
+    "long_route": {
+        "label": "Long route",
+        "intent": "Longer critical-path dungeon with limited loops for route-distance checks.",
+    },
+    "loop_dense": {
+        "label": "Loop dense",
+        "intent": "Higher loop budget stress preset for branch and connector validation.",
+    },
+    "boss_focus": {
+        "label": "Boss focus",
+        "intent": "Compact combat-heavy preset that keeps the boss/exit room prominent.",
+    },
 }
 
 MATERIALS = [
@@ -5211,12 +5293,15 @@ def _authoring_preset_reports():
     reports = {}
     for name, preset_config in sorted(DUNGEON_AUTHORING_PRESETS.items()):
         normalized = _normalize_authoring_config(preset_config)
+        notes = DUNGEON_AUTHORING_PRESET_NOTES.get(name, {})
         layout_summary = validate_layout_summary(
             normalized["seed"],
             normalized["room_count"],
             normalized,
         )
         reports[name] = {
+            "label": notes.get("label", name.replace("_", " ").title()),
+            "intent": notes.get("intent", ""),
             "config": normalized,
             "tags": _config_tags_from_config(normalized),
             "layout_summary": {
@@ -5234,6 +5319,150 @@ def _authoring_preset_reports():
             },
         }
     return reports
+
+
+def _compact_layout_summary(summary):
+    return {
+        "pass": bool(summary.get("pass")),
+        "seed": summary.get("seed"),
+        "requested_room_count": summary.get("requested_room_count"),
+        "room_count": summary.get("room_count"),
+        "edge_count": summary.get("edge_count"),
+        "added_loop_edges": summary.get("added_loop_edges"),
+        "cell_count": summary.get("cell_count"),
+        "main_path_room_count": summary.get("main_path_room_count"),
+        "side_room_count": summary.get("side_room_count"),
+        "locked_door_count": summary.get("locked_door_count"),
+        "lock_key_link_count": summary.get("lock_key_link_count"),
+        "lock_key_missing_key_count": summary.get("lock_key_missing_key_count"),
+        "encounter_spawn_slot_count": summary.get("encounter_spawn_slot_count"),
+        "reward_anchor_count": summary.get("reward_anchor_count"),
+        "start_exit_grid_distance": summary.get("start_exit_grid_distance"),
+        "connectivity": summary.get("connectivity"),
+        "role_counts": summary.get("role_counts"),
+    }
+
+
+def _preset_seed_values(config, seed_count):
+    normalized = _normalize_authoring_config(config)
+    base_seed = _coerce_int(normalized.get("seed"), DEFAULT_DUNGEON_CONFIG["seed"], 1, 2147483647)
+    count = _coerce_int(seed_count, 5, 1, 32)
+    return [base_seed + index for index in range(count)]
+
+
+def _write_authoring_preset_matrix_report(report):
+    os.makedirs(os.path.dirname(AUTHORING_PRESET_MATRIX_REPORT_PATH), exist_ok=True)
+    with open(AUTHORING_PRESET_MATRIX_REPORT_PATH, "w", encoding="utf-8") as handle:
+        json.dump(report, handle, indent=2, ensure_ascii=False)
+    return report
+
+
+def run_authoring_preset_seed_matrix(preset_names=None, seed_count=5, write_report=True):
+    if preset_names is None:
+        selected_names = sorted(DUNGEON_AUTHORING_PRESETS.keys())
+    else:
+        selected_names = [str(name) for name in preset_names]
+    count = _coerce_int(seed_count, 5, 1, 32)
+    presets = {}
+    missing_presets = []
+    failures = []
+    for name in selected_names:
+        preset = DUNGEON_AUTHORING_PRESETS.get(name)
+        if preset is None:
+            missing_presets.append(name)
+            continue
+        normalized = _normalize_authoring_config(preset)
+        notes = DUNGEON_AUTHORING_PRESET_NOTES.get(name, {})
+        seeds = _preset_seed_values(normalized, count)
+        summaries = [
+            _compact_layout_summary(validate_layout_summary(seed, normalized["room_count"], normalized))
+            for seed in seeds
+        ]
+        failed_seeds = [summary.get("seed") for summary in summaries if not summary.get("pass")]
+        pass_value = not failed_seeds
+        if not pass_value:
+            failures.append({"preset": name, "failed_seeds": failed_seeds})
+        presets[name] = {
+            "label": notes.get("label", name.replace("_", " ").title()),
+            "intent": notes.get("intent", ""),
+            "config": normalized,
+            "tags": _config_tags_from_config(normalized),
+            "seed_count": len(seeds),
+            "seeds": seeds,
+            "pass_count": sum(1 for summary in summaries if summary.get("pass")),
+            "fail_count": len(failed_seeds),
+            "failed_seeds": failed_seeds,
+            "summaries": summaries,
+            "pass": pass_value,
+        }
+    report = {
+        "schema": "cubeless_pcg_dungeon_authoring_preset_matrix_v1",
+        "status": "passed" if not failures and not missing_presets else "failed",
+        "policy": (
+            "Layout-only preset seed matrix for the PCG dungeon authoring surface. It does not regenerate "
+            "Unreal assets, run NativeOutput, capture screenshots, implement gameplay, or touch project C++."
+        ),
+        "root": ROOT,
+        "preset_count": len(presets),
+        "seed_count": count,
+        "available_presets": sorted(DUNGEON_AUTHORING_PRESETS.keys()),
+        "selected_presets": selected_names,
+        "missing_presets": missing_presets,
+        "presets": presets,
+        "failures": failures,
+        "report_path": AUTHORING_PRESET_MATRIX_REPORT_PATH,
+        "pass": not failures and not missing_presets,
+    }
+    if write_report:
+        _write_authoring_preset_matrix_report(report)
+    unreal.log(
+        "CubelessDungeonPCG authoring preset matrix: "
+        + json.dumps(
+            {
+                "pass": report["pass"],
+                "preset_count": report["preset_count"],
+                "seed_count": report["seed_count"],
+                "failure_count": len(failures),
+                "missing_presets": missing_presets,
+            },
+            ensure_ascii=False,
+        )
+    )
+    return report
+
+
+def get_authoring_preset_catalog(seed_count=0):
+    presets = _authoring_preset_reports()
+    matrix = None
+    if _coerce_int(seed_count, 0, 0, 32) > 0:
+        matrix = run_authoring_preset_seed_matrix(seed_count=seed_count, write_report=False)
+    report = {
+        "schema": "cubeless_pcg_dungeon_authoring_preset_catalog_v1",
+        "status": "passed",
+        "policy": (
+            "Human-readable preset catalog for the C++-free PCG dungeon authoring surface. "
+            "Use preset names with run_pcg_dungeon_generation_visual_gate_qa.py --preset <name>."
+        ),
+        "root": ROOT,
+        "default_preset": "default",
+        "available_presets": sorted(DUNGEON_AUTHORING_PRESETS.keys()),
+        "preset_count": len(presets),
+        "presets": presets,
+        "operator_commands": {
+            "list_matrix": "python Tools\\Unreal\\run_pcg_dungeon_authoring_preset_matrix.py --seed-count 5",
+            "apply_preset_pattern": (
+                "python Tools\\Unreal\\run_pcg_dungeon_generation_visual_gate_qa.py "
+                "--preset <preset_name> --archive-label <label> --redraw-count 2"
+            ),
+            "restore_default": (
+                "python Tools\\Unreal\\run_pcg_dungeon_generation_visual_gate_qa.py "
+                "--preset default --archive-label default_restored_after_preset_review --redraw-count 2"
+            ),
+        },
+        "seed_matrix": matrix,
+        "pass": True if matrix is None else bool(matrix.get("pass")),
+    }
+    return report
 
 
 def _config_preserved_actor_tags(tags):

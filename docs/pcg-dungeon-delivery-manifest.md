@@ -36,6 +36,7 @@ Include these paths when reviewing or committing this PCG dungeon work:
 - `Tools/Unreal/check_pcg_dungeon_handoff_readiness.py`
 - `Tools/Unreal/check_pcg_dungeon_live_dirty_state.py`
 - `Tools/Unreal/run_pcg_dungeon_delivery_closeout.py`
+- `Tools/Unreal/run_pcg_dungeon_authoring_preset_matrix.py`
 - `Tools/Unreal/run_pcg_dungeon_generation_visual_gate_qa.py`
 - `Tools/Unreal/run_pcg_dungeon_native_evidence_refresh.py`
 - `docs/pcg-dungeon-mvp.md`
@@ -151,6 +152,11 @@ The latest archived preset gate summaries all include `archive.pass=true`:
 | `compact_branching_postprocess` | `compact_branching` | `64` | `624` | `0` | `0` |
 | `open_cutaway_postprocess` | `open_cutaway` | `61` | `573` | `0` | `0` |
 | `default_restored_after_postprocess_preset_suite` | `default` | `65` | `816` | `0` | `0` |
+| `small_route_v1qa` | `small_route` | `64` | `529` | `0` | `0` |
+| `long_route_v1qa` | `long_route` | `65` | `757` | `0` | `0` |
+| `loop_dense_v1qa` | `loop_dense` | `64` | `854` | `0` | `0` |
+| `boss_focus_v1qa` | `boss_focus` | `65` | `701` | `0` | `0` |
+| `default_restored_after_v1qa_preset_expansion` | `default` | `65` | `816` | `0` | `0` |
 
 Archive root:
 
@@ -185,7 +191,13 @@ Run the one-command local closeout:
 python Tools\Unreal\run_pcg_dungeon_delivery_closeout.py
 ```
 
-The closeout refreshes live dirty state, the read-only asset manifest audit, native evidence summary, V1 handoff readiness, delivery preflight, and `git diff --check` in sequence.
+The closeout refreshes live dirty state, the read-only asset manifest audit, native evidence summary, authoring preset matrix, V1 handoff readiness, delivery preflight, and `git diff --check` in sequence.
+
+Run the layout-only preset matrix directly:
+
+```powershell
+python Tools\Unreal\run_pcg_dungeon_authoring_preset_matrix.py --seed-count 5
+```
 
 Refresh the live editor dirty-state report:
 

@@ -35,6 +35,7 @@ Local tooling:
 - `Tools/Unreal/check_pcg_dungeon_handoff_readiness.py`
 - `Tools/Unreal/check_pcg_dungeon_live_dirty_state.py`
 - `Tools/Unreal/run_pcg_dungeon_delivery_closeout.py`
+- `Tools/Unreal/run_pcg_dungeon_authoring_preset_matrix.py`
 - `Tools/Unreal/run_pcg_dungeon_generation_visual_gate_qa.py`
 - `Tools/Unreal/run_pcg_dungeon_native_evidence_refresh.py`
 
@@ -69,6 +70,7 @@ Check that:
 - Native PCG spawning uses `PCG_Cubeless_Dungeon_MVP_NativeIntegration`.
 - The bridge actor remains the source/control actor for authoring tags.
 - `open_cutaway` is still the ceiling-off review preset.
+- Authoring preset matrix passes for all documented presets across the current seed window.
 - Delivery closeout and handoff readiness are current and passing.
 
 ## Non-Goals

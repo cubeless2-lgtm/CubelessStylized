@@ -73,6 +73,16 @@ Supported presets:
 - `compact_branching`: smaller branching layout.
 - `wide_looped`: wider layout with more loop edges.
 - `open_cutaway`: ceiling disabled for structural review.
+- `small_route`: short dungeon for fast layout iteration.
+- `long_route`: longer critical-path layout with limited loops.
+- `loop_dense`: loop-heavy stress preset for branch/connector checks.
+- `boss_focus`: compact combat-heavy layout with a prominent boss route.
+
+To list and layout-check every documented preset across a 5-seed window:
+
+```powershell
+python Tools\Unreal\run_pcg_dungeon_authoring_preset_matrix.py --seed-count 5
+```
 
 To apply a preset, refresh the dungeon, capture screenshots, and close the gate:
 

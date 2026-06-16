@@ -398,6 +398,18 @@ Current documented presets:
 - `compact_branching`: `8` rooms, tighter `GridCellSize=340`, `CorridorWidth=260`, `1` loop edge, and full ceiling coverage.
 - `wide_looped`: `11` rooms, wider `GridCellSize=520`, `CorridorWidth=360`, `4` loop edges, and full ceiling coverage. This was reduced from an earlier 14-room draft because the 14-room version passed its selected seed but failed the 5-seed suite.
 - `open_cutaway`: default room count with ceiling disabled for clearer review.
+- `small_route`: `7` rooms, compact spacing, and `1` loop edge for fast layout iteration.
+- `long_route`: `11` rooms, limited loop budget, and longer route-distance seed window.
+- `loop_dense`: `11` rooms and `5` loop edges for branch/connector stress checks.
+- `boss_focus`: `10` rooms, combat-heavy role budget, and prominent boss/exit route.
+
+Run the layout-only authoring preset matrix before spending time on visual QA for new presets:
+
+```powershell
+python Tools\Unreal\run_pcg_dungeon_authoring_preset_matrix.py --seed-count 5
+```
+
+The current preset matrix covers all `8` documented presets with `5` seeds each and passes with no failed seeds.
 
 Ceiling generation now uses Geometry Script-baked Static Mesh modules split by PCG mesh key: `ceiling_room`, `ceiling_corridor`, and `ceiling_corner`. The latest default output spawns `172` room ceiling points, `33` corridor ceiling points, and `4` corner ceiling points, so each ceiling mesh key remains grouped into its own native PCG Static Mesh Spawner branch.
 
@@ -593,6 +605,8 @@ The locked-door tags are deliberately narrow: one sealed door and one gate volum
 
 `CubelessDungeonMVP_AuthoringPresetSmoke_Report.json` uses schema `cubeless_pcg_dungeon_authoring_preset_smoke_v1`. It records the preset apply/restore safety check for the current live bridge actor. The current smoke uses `wide_looped`, applies `11` rooms and `4` loop edges, then restores the exact original default bridge tags.
 
+`CubelessDungeonMVP_AuthoringPresetMatrix_Report.json` uses schema `cubeless_pcg_dungeon_authoring_preset_matrix_v1`. It records layout-only QA for all documented presets across a seed window before any NativeOutput or screenshot work is run. The runner wrapper writes `CubelessDungeonMVP_AuthoringPresetMatrixRunner_Report.json`.
+
 `CubelessDungeonMVP_PCGGeneration_Refresh_Report.json` uses schema `cubeless_pcg_dungeon_generation_refresh_v1`. It records the PCG-generation-only refresh path: bridge validation dungeon/contract refresh, authoring surface validation, preset apply/restore smoke, scale-parameter smoke, native point-source/skeleton/integration graph refresh, native output generation request, native output verification, structure/orientation audit, native-output-only review activation, camera setup, and dirty package save result. It intentionally excludes gameplay implementation validation.
 
 `CubelessDungeonMVP_PCGGeneration_FinalGate.json` uses schema `cubeless_pcg_dungeon_generation_final_gate_v1`. It is the current goal gate for PCG dungeon generation and intentionally does not require gameplay implementation readiness. It also requires the PCG generation refresh report, generation parameter-scale smoke report, authoring surface report, authoring preset smoke report, and the current top and oblique native-output-only screenshot QA reports to load, pass, point at non-empty PNG files, be newer than the latest PCG generation refresh report, and add no dirty packages during capture. The current native-output-only review mode hides bridge validation StaticMeshActors, the offset native preview output, and bridge-generated review PointLight/ThemeLight actors before screenshot capture. The visual runner additionally clears selected actors before each capture and requires the current PNG exposure review to pass, so closed-ceiling captures with white clipping do not count as a clean visual closeout.
@@ -637,9 +651,14 @@ Current PCG generation gate expected result:
 - top/oblique screenshot QA reports newer than latest PCG generation refresh `true`
 - visual gate QA runner pass `true`
 - preset-backed visual gate runner pass `true` with `default`
+- authoring preset matrix pass `true` for `8` presets x `5` seeds
 - archived `wide_looped` preset visual gate runner pass `true` with `64` native components / `764` instances
 - archived `compact_branching` preset visual gate runner pass `true` with `64` native components / `624` instances
 - archived `open_cutaway` preset visual gate runner pass `true` with `61` native components / `573` instances
+- archived `small_route` preset visual gate runner pass `true` with `64` native components / `529` instances
+- archived `long_route` preset visual gate runner pass `true` with `65` native components / `757` instances
+- archived `loop_dense` preset visual gate runner pass `true` with `64` native components / `854` instances
+- archived `boss_focus` preset visual gate runner pass `true` with `65` native components / `701` instances
 - default restore after non-default preset validation pass `true` with `65` native components / `816` instances
 - archived summary metadata and exposure review pass `true` for `wide_looped_postprocess`, `compact_branching_postprocess`, `open_cutaway_postprocess`, and `default_restored_after_postprocess_preset_suite`
 - dirty package count `0`

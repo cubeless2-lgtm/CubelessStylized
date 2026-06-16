@@ -6158,3 +6158,19 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - Static scan found no API-key, OpenAI Images endpoint, or `requests` call patterns in the changed server/texture files.
   - MCP `tools/list` still returned `160` tools.
   - `generate_texture_from_prompt` smoke returned `stage=builtin_image_generation_required`, `api_route_disabled=true`, and `image_generation_route=codex_builtin_image_generation`.
+
+## 2026-06-17 PCG Dungeon V1 Authoring Preset QA Expansion
+
+- Created branch `codex/pcg-dungeon-v1-qa-authoring` and relaunched Unreal Editor for the PCG dungeon V1 follow-up.
+- Refreshed the default PCG dungeon gate after a stale `NativeIntegrationOutput` report was found in `generation_requested`; final default state restored to `65` native components / `816` instances with closeout `pass=true`.
+- Added authoring preset catalog metadata and layout-only matrix QA for all documented presets.
+- Added new presets: `small_route`, `long_route`, `loop_dense`, and `boss_focus`.
+- Ran `run_pcg_dungeon_authoring_preset_matrix.py --seed-count 5`; all `8` presets passed across `5` seeds each.
+- Ran visual gates and archived evidence for the new presets:
+  - `small_route_v1qa`: `64` native components / `529` instances.
+  - `long_route_v1qa`: `65` native components / `757` instances.
+  - `loop_dense_v1qa`: `64` native components / `854` instances.
+  - `boss_focus_v1qa`: `65` native components / `701` instances.
+  - `default_restored_after_v1qa_preset_expansion`: `65` native components / `816` instances.
+- Updated closeout/preflight/docs so the authoring preset matrix is part of the V1 QA path.
+- Verification: Python compile passed, `git diff --check` passed, and `run_pcg_dungeon_delivery_closeout.py` passed with `failed_steps=[]`.

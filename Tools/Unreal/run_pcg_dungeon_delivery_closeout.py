@@ -114,6 +114,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             report_path=REPORT_DIR / "CubelessDungeonMVP_NativeEvidenceRefresh_Report.json",
         ),
         _step(
+            "authoring_preset_matrix",
+            [python, "Tools/Unreal/run_pcg_dungeon_authoring_preset_matrix.py", "--seed-count", "5"],
+            timeout_seconds=args.unreal_step_timeout_seconds,
+            report_path=REPORT_DIR / "CubelessDungeonMVP_AuthoringPresetMatrixRunner_Report.json",
+        ),
+        _step(
             "handoff_readiness",
             [python, "Tools/Unreal/check_pcg_dungeon_handoff_readiness.py"],
             timeout_seconds=args.local_step_timeout_seconds,

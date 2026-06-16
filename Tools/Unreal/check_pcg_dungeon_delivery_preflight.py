@@ -34,6 +34,7 @@ PYTHON_FILES = [
     PROJECT_ROOT / "Tools" / "Unreal" / "check_pcg_dungeon_handoff_readiness.py",
     PROJECT_ROOT / "Tools" / "Unreal" / "check_pcg_dungeon_live_dirty_state.py",
     PROJECT_ROOT / "Tools" / "Unreal" / "run_pcg_dungeon_delivery_closeout.py",
+    PROJECT_ROOT / "Tools" / "Unreal" / "run_pcg_dungeon_authoring_preset_matrix.py",
     PROJECT_ROOT / "Tools" / "Unreal" / "run_pcg_dungeon_generation_visual_gate_qa.py",
     PROJECT_ROOT / "Tools" / "Unreal" / "run_pcg_dungeon_native_evidence_refresh.py",
     PROJECT_ROOT / "Tools" / "Unreal" / "run_pcg_screenshot_visual_qa.py",
@@ -49,6 +50,7 @@ EXPECTED_GIT_PATH_PREFIXES = [
     "Tools/Unreal/check_pcg_dungeon_handoff_readiness.py",
     "Tools/Unreal/check_pcg_dungeon_live_dirty_state.py",
     "Tools/Unreal/run_pcg_dungeon_delivery_closeout.py",
+    "Tools/Unreal/run_pcg_dungeon_authoring_preset_matrix.py",
     "Tools/Unreal/run_pcg_dungeon_generation_visual_gate_qa.py",
     "Tools/Unreal/run_pcg_dungeon_native_evidence_refresh.py",
     "docs/pcg-dungeon-delivery-manifest.md",
@@ -64,6 +66,11 @@ ARCHIVE_LABELS = [
     "compact_branching_postprocess",
     "open_cutaway_postprocess",
     "default_restored_after_postprocess_preset_suite",
+    "small_route_v1qa",
+    "long_route_v1qa",
+    "loop_dense_v1qa",
+    "boss_focus_v1qa",
+    "default_restored_after_v1qa_preset_expansion",
 ]
 
 LOG_ERROR_PATTERNS = [
@@ -374,6 +381,34 @@ def _preset_archives() -> dict[str, Any]:
     return {"pass": all(entry.get("pass") for entry in entries), "entries": entries}
 
 
+def _authoring_preset_matrix() -> dict[str, Any]:
+    base = PROJECT_ROOT / "Saved" / "MCP_Dungeon"
+    runner_path = base / "CubelessDungeonMVP_AuthoringPresetMatrixRunner_Report.json"
+    matrix_path = base / "CubelessDungeonMVP_AuthoringPresetMatrix_Report.json"
+    runner = _read_json(runner_path)
+    matrix = _read_json(matrix_path)
+    return {
+        "runner_path": str(runner_path),
+        "matrix_path": str(matrix_path),
+        "runner_exists": runner_path.exists(),
+        "matrix_exists": matrix_path.exists(),
+        "runner_pass": bool(runner.get("pass")),
+        "matrix_pass": bool(matrix.get("pass")),
+        "preset_count": matrix.get("preset_count"),
+        "seed_count": matrix.get("seed_count"),
+        "failures": matrix.get("failures", []),
+        "missing_presets": matrix.get("missing_presets", []),
+        "pass": bool(
+            runner_path.exists()
+            and matrix_path.exists()
+            and runner.get("pass")
+            and matrix.get("pass")
+            and not matrix.get("failures")
+            and not matrix.get("missing_presets")
+        ),
+    }
+
+
 def _nested_dict(source: dict[str, Any], *keys: str) -> dict[str, Any]:
     value: Any = source
     for key in keys:
@@ -607,6 +642,7 @@ def run(_args: argparse.Namespace) -> dict[str, Any]:
         "asset_manifest_audit": _asset_manifest_audit(),
         "live_dirty_state": _live_dirty_state(),
         "preset_archives": _preset_archives(),
+        "authoring_preset_matrix": _authoring_preset_matrix(),
         "native_evidence_refresh": _native_evidence_refresh(),
         "handoff_readiness": _handoff_readiness(),
         "latest_editor_log_health": _latest_editor_log_health(),
