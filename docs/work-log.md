@@ -6125,3 +6125,36 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `list_material_collection_parameter_nodes` on `/Game/Cubeless/Sky/Materials/Master/M_Cubeless_VolumetricClouds_UDSFree_FromBackup`: `node_count=55`, `mismatched_id_count=0`, `missing_collection_parameter_count=0`.
   - `replace_material_collection_references` no-op retarget to `/Game/Cubeless/Sky/MPC_Cubeless_StaticSky`, `save=false`: `replaced_node_count=0`, `skipped_node_count=55`, `compiled=true`, `compile_error_count=0`, `dirty_after_replace=false`.
 - Post-test Unreal dirty package check through `EditorLoadingAndSavingUtils`: `dirty_count=0`, `dirty_packages=[]`.
+
+## 2026-06-16 UnrealMCP API Exposure Audit and Repair
+
+- Audited `D:/Git/CubelessStylized/.mcp.json`, sibling Python MCP registration, Cubeless embedded UnrealMCP submodule commands, and sibling `MCPGameProject` plugin commands for "code exists but Codex cannot call it" splits.
+- Fixed Python MCP exposure issues in `D:/Git/unreal-mcp-cubeless`:
+  - Removed duplicate `register_niagara_tools` import/registration.
+  - Added missing Material/MPC wrappers for collection-node listing, MPC mirroring, collection reference replacement, texture reference replacement, cached expression refresh, MPC value setting, and MPC sync status/start/stop.
+  - Exposed existing C++ bridge commands for `take_screenshot`, `focus_viewport`, `set_pawn_properties`, `analyze_blueprint_widget_fallbacks_mcp`, and `run_content_validation_pipeline_mcp`.
+  - Normalized `get_actors_in_level` and `find_actors_by_name` to return structured dictionaries with `actor_count` and `actors`.
+- Synchronized sibling `MCPGameProject/Plugins/UnrealMCP` C++ files to the Cubeless embedded submodule command set; project and sibling C++ bridge command sets now both contain 151 commands.
+- Verification:
+  - Python `py_compile` passed for the changed MCP server/tool files.
+  - MCP `tools/list` returned 160 tools, including the newly exposed Material/MPC, editor, Blueprint, and project validation wrappers.
+  - Static command audit: duplicate registration `0`, Python command calls missing in Cubeless C++ `0`, Python command calls missing in sibling C++ `0`, project/sibling C++ command split `0`.
+  - `StylizedCubelessEditor Win64 Development` build succeeded. Only warning: deprecated `FImageUtils::CompressImageArray` in the legacy screenshot command.
+  - Editor bridge smoke passed on `127.0.0.1:55557`: raw `ping` returned `pong`, `get_actors_in_level` returned structured `actor_count=366`, `set_material_parameter_collection_sync(action="status")` returned `enabled=false`, `list_pcg_assets(/Game)` returned `count=568`, and `execute_unreal_python` logged successfully.
+  - Post-smoke dirty package check returned `dirty_content=[]`, `dirty_maps=[]`; the smoke editor instance was closed.
+
+## 2026-06-16 UnrealMCP Logging and Texture Image Route Guard
+
+- Updated sibling `D:/Git/unreal-mcp-cubeless/Python/unreal_mcp_server.py` logging defaults:
+  - Default `UNREAL_MCP_LOG_LEVEL` is now `WARNING`.
+  - File logging now uses a `RotatingFileHandler` subclass with `UNREAL_MCP_LOG_MAX_BYTES` defaulting to 5 MiB and `UNREAL_MCP_LOG_BACKUP_COUNT` defaulting to 3.
+  - Windows log-file lock collisions during rollover are swallowed and retried later so MCP stdio is not polluted by logging tracebacks.
+- Updated `texture_generation` cost-control behavior:
+  - Removed direct API-key image generation calls from registered texture tools.
+  - `generate_texture_from_prompt`, `generate_texture_for_mesh_uv`, and `generate_and_apply_ai_texture` now return a structured `builtin_image_generation_required` handoff for Codex built-in image generation.
+  - The legacy `services/openai_image_service.py` is now a disabled compatibility shim that returns a structured refusal instead of making network calls.
+- Verification:
+  - `py_compile` passed for `unreal_mcp_server.py`, `tools/texture_generation.py`, and `services/openai_image_service.py`.
+  - Static scan found no API-key, OpenAI Images endpoint, or `requests` call patterns in the changed server/texture files.
+  - MCP `tools/list` still returned `160` tools.
+  - `generate_texture_from_prompt` smoke returned `stage=builtin_image_generation_required`, `api_route_disabled=true`, and `image_generation_route=codex_builtin_image_generation`.
