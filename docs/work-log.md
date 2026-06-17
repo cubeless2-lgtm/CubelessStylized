@@ -6670,3 +6670,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `353-360` post-recreation non-empty graph fixture contract/report coverage.
 - Latest sibling release boundary is `section_353_360_v149` with status `section_360_post_recreation_non_empty_graph_fixture_ready`.
 - Verification passed: targeted Section 353-360 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `167` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 361-368
+
+- Added a node-level graph fixture route preflight after the non-empty graph fixture; this section performed no node authoring, graph mutation, compile/save, delete, rename, overwrite, cleanup, or production path write.
+- Correct-project headless UE loaded `/Game/_MCP_Temp/DurableSaveGate/BP_DurableGraphDiagnosticsFixture` and `MCPNonEmptyDiagnosticsFunction`, then proved Python can construct a transient `K2Node_CallFunction` object but does not expose the mutation APIs needed for a valid graph node (`NodePosX`, pins, `SetFromFunction`, `AllocateDefaultPins`, graph `AddNode`).
+- Live UnrealMCP read-only `list_blueprint_nodes` could not find the fixture, so the live MCP node-authoring route was treated as not correct-project verified and remained blocked.
+- The contract proves `add_blueprint_call_function_node`, node position writes, pin connection writes, graph repair dispatch, compile/save, and asset writes all remained closed.
+- In sibling `unreal-mcp-cubeless`, added Sections `361-368` node-level graph fixture route preflight contract/report coverage.
+- Latest sibling release boundary is `section_361_368_v150` with status `section_368_node_level_graph_fixture_route_preflight_ready`.
+- Verification passed: targeted Section 361-368 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `168` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
