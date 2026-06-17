@@ -6720,3 +6720,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `393-400` UserWidget widget-tree live read-only preflight contract/report coverage.
 - Latest sibling release boundary is `section_393_400_v154` with status `section_400_user_widget_widget_tree_live_readonly_preflight_ready`.
 - Verification passed: targeted Section 393-400 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `172` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 401-408
+
+- Added a UserWidget widget-tree authoring dry-run admission contract; this section performed no Widget Blueprint asset creation, widget tree mutation, event graph/binding mutation, compile/save, delete, rename, overwrite, cleanup, or production path write.
+- The dry-run plan targets `/Game/_MCP_Temp/DurableSaveGate/UserWidgetDryRun/WBP_DurableWidgetTreeDryRun`, keeps parent class `UserWidget`, root widget `CanvasPanel`, child widgets `Button` and `TextBlock`, and slot layout plan as offline data only.
+- Binding/event graph work remains blocked pending a separate graph/binding contract, so actual Widget Blueprint creation is still not open.
+- The contract proves authoring admission planning is ready while creation commands, mutation commands, compile/save, dirty package, cleanup, delete, rename, overwrite, and production path writes all stayed closed.
+- In sibling `unreal-mcp-cubeless`, added Sections `401-408` UserWidget widget-tree authoring dry-run admission contract/report coverage.
+- Latest sibling release boundary is `section_401_408_v155` with status `section_408_user_widget_widget_tree_authoring_dry_run_admission_ready`.
+- Verification passed: targeted Section 401-408 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `173` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
