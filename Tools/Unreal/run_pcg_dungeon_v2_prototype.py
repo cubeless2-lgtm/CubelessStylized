@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -26,9 +27,17 @@ OBLIQUE_REPORT_PATH = REPORT_DIR / "CubelessDungeonV2_PCGGeneration_NativeOutput
 
 
 def _create_unreal_connection(timeout_seconds: int) -> UnrealConnection:
+    timeout = max(1, int(timeout_seconds))
+    os.environ["UNREAL_MCP_RESPONSE_TIMEOUT_SECONDS"] = str(timeout)
+    try:
+        import unreal_mcp_server  # type: ignore
+
+        unreal_mcp_server.UNREAL_RESPONSE_TIMEOUT_SECONDS = timeout
+    except Exception:
+        pass
     unreal = UnrealConnection()
     if hasattr(unreal, "timeout"):
-        unreal.timeout = max(1, int(timeout_seconds))
+        unreal.timeout = timeout
     return unreal
 
 
@@ -101,6 +110,13 @@ print(json.dumps({
     "pcg_spawn_point_count": payload.get("dungeon", {}).get("pcg_spawn_point_count"),
     "pcg_spawner_group_count": payload.get("dungeon", {}).get("pcg_spawner_group_count"),
     "dungeon_pass": bool(payload.get("dungeon", {}).get("pass")),
+    "bp_controller_pass": bool(payload.get("v2_bp_controller", {}).get("pass")),
+    "bp_controller_blueprint_path": payload.get("v2_bp_controller", {}).get("blueprint_path"),
+    "bp_controller_label": payload.get("v2_bp_controller", {}).get("controller_label"),
+    "bp_controller_created_blueprint": bool(payload.get("v2_bp_controller", {}).get("created_blueprint")),
+    "bp_controller_created_actor": bool(payload.get("v2_bp_controller", {}).get("created_actor")),
+    "pcg_parameter_binding_pass": bool(payload.get("v2_pcg_parameter_binding", {}).get("pass")),
+    "pcg_parameter_binding_report_path": payload.get("v2_pcg_parameter_binding", {}).get("report_path"),
     "native_integration_graph_pass": bool(payload.get("native_integration_graph", {}).get("pass")),
     "native_integration_audit_pass": bool(payload.get("native_integration_audit", {}).get("pass")),
     "seed_suite_pass": bool(payload.get("seed_suite", {}).get("pass")),
@@ -109,12 +125,63 @@ print(json.dumps({
     )
 
 
-def _begin_refresh(unreal: UnrealConnection, preset_name: str) -> dict[str, Any]:
+def _parse_config_overrides(values: list[str] | None) -> dict[str, str]:
+    overrides: dict[str, str] = {}
+    for raw in values or []:
+        if "=" not in raw:
+            raise ValueError("--set values must use KEY=VALUE syntax: {}".format(raw))
+        key, value = raw.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            raise ValueError("--set key cannot be empty: {}".format(raw))
+        if not value:
+            raise ValueError("--set value cannot be empty: {}".format(raw))
+        overrides[key] = value
+    return overrides
+
+
+def _begin_refresh_from_bp_controller(unreal: UnrealConnection) -> dict[str, Any]:
+    return _execute_v2_python(
+        unreal,
+        """
+result = dungeon_v2.begin_generation_refresh_with_bp_controller(
+    keep_existing_output=False,
+    save_dirty_packages=True,
+)
+sync = result.get("bp_controller_sync", {})
+controller_config = sync.get("controller_config", {})
+print(json.dumps({
+    "success": bool(
+        result.get("status") == "generation_requested"
+        and sync.get("pass")
+        and result.get("native_output_begin", {}).get("generate_request", {}).get("ok")
+    ),
+    "status": result.get("status"),
+    "source": result.get("source"),
+    "bp_controller_sync_pass": bool(sync.get("pass")),
+    "pcg_parameter_binding_pass": bool(sync.get("pcg_parameter_binding", {}).get("pass")),
+    "pcg_parameter_binding_report_path": sync.get("pcg_parameter_binding", {}).get("report_path"),
+    "bp_controller_label": sync.get("controller_label"),
+    "bridge_label": sync.get("bridge_label"),
+    "controller_config": controller_config.get("config"),
+    "dungeon_pass": bool(result.get("dungeon", {}).get("pass")),
+    "authoring_surface_pass": bool(result.get("authoring_surface", {}).get("pass")),
+    "native_integration_graph_pass": bool(result.get("native_integration_graph", {}).get("pass")),
+    "native_integration_audit_pass": bool(result.get("native_integration_audit", {}).get("pass")),
+    "output_requested": result.get("native_output_begin", {}).get("generate_request", {}).get("ok"),
+}, ensure_ascii=False))
+""",
+    )
+
+
+def _begin_refresh(unreal: UnrealConnection, preset_name: str, config_overrides: dict[str, str]) -> dict[str, Any]:
     return _execute_v2_python(
         unreal,
         f"""
 result = dungeon_v2.begin_generation_refresh_with_authoring_preset(
     preset_name={json.dumps(preset_name)},
+    config_overrides={json.dumps(config_overrides, ensure_ascii=False)},
     keep_existing_output=False,
     save_dirty_packages=True,
 )
@@ -126,7 +193,10 @@ print(json.dumps({{
     ),
     "status": result.get("status"),
     "preset_name": result.get("preset_name"),
+    "config_overrides": result.get("config_overrides"),
     "preset_apply_pass": bool(result.get("preset_apply", {{}}).get("pass")),
+    "config_overrides_pass": bool(result.get("config_overrides", {{}}).get("pass", True)),
+    "applied_config": result.get("preset_apply", {{}}).get("config"),
     "dungeon_pass": bool(result.get("dungeon", {{}}).get("pass")),
     "authoring_surface_pass": bool(result.get("authoring_surface", {{}}).get("pass")),
     "native_integration_graph_pass": bool(result.get("native_integration_graph", {{}}).get("pass")),
@@ -137,15 +207,21 @@ print(json.dumps({{
     )
 
 
-def _verify_refresh(unreal: UnrealConnection) -> dict[str, Any]:
+def _verify_refresh(unreal: UnrealConnection, allow_seed_suite_warning: bool = False) -> dict[str, Any]:
+    allow_seed_suite_warning_literal = "True" if allow_seed_suite_warning else "False"
     return _execute_v2_python(
         unreal,
         """
-result = dungeon_v2.verify_generation_refresh(enable_output_only_review=True, save_dirty_packages=True)
+result = dungeon_v2.verify_generation_refresh(
+    enable_output_only_review=True,
+    save_dirty_packages=True,
+    allow_seed_suite_warning=ALLOW_SEED_SUITE_WARNING,
+)
 print(json.dumps({
     "success": bool(result.get("pass")),
     "status": result.get("status"),
     "failed_checks": [key for key, value in result.get("checks", {}).items() if not value],
+    "seed_suite_warning": result.get("seed_suite_warning"),
     "native_components": result.get("native_output_verify", {}).get("generation_verification", {}).get("component_summary", {}).get("component_count"),
     "native_instances": result.get("native_output_verify", {}).get("generation_verification", {}).get("component_summary", {}).get("instance_count_total"),
     "structure_audit_pass": bool(result.get("structure_audit", {}).get("pass")),
@@ -153,16 +229,21 @@ print(json.dumps({
     "camera_success": bool(result.get("native_output_only_camera", {}).get("success")),
     "dirty_after": result.get("dirty_after_count"),
 }, ensure_ascii=False))
-""",
+""".replace("ALLOW_SEED_SUITE_WARNING", allow_seed_suite_warning_literal),
     )
 
 
-def _wait_for_verify(unreal: UnrealConnection, timeout_seconds: float, poll_seconds: float) -> dict[str, Any]:
+def _wait_for_verify(
+    unreal: UnrealConnection,
+    timeout_seconds: float,
+    poll_seconds: float,
+    allow_seed_suite_warning: bool = False,
+) -> dict[str, Any]:
     started_at = time.monotonic()
     attempts = []
     while True:
         try:
-            result = _verify_refresh(unreal)
+            result = _verify_refresh(unreal, allow_seed_suite_warning=allow_seed_suite_warning)
         except TimeoutError as exc:
             return {
                 "success": False,
@@ -194,7 +275,11 @@ def _wait_for_verify(unreal: UnrealConnection, timeout_seconds: float, poll_seco
         time.sleep(max(0.1, poll_seconds))
 
 
-def _recover_verify_after_timeout(args: argparse.Namespace, initial_verify: dict[str, Any]) -> tuple[dict[str, Any], UnrealConnection | None]:
+def _recover_verify_after_timeout(
+    args: argparse.Namespace,
+    initial_verify: dict[str, Any],
+    allow_seed_suite_warning: bool = False,
+) -> tuple[dict[str, Any], UnrealConnection | None]:
     if not args.recover_refresh_verify_timeout:
         return initial_verify, None
     if initial_verify.get("status") not in {"verify_response_timeout", "verify_connection_error"}:
@@ -206,7 +291,7 @@ def _recover_verify_after_timeout(args: argparse.Namespace, initial_verify: dict
     while time.monotonic() - started_at <= float(args.verify_recovery_timeout_seconds):
         recovery_unreal = _create_unreal_connection(args.verify_recovery_response_timeout_seconds)
         try:
-            result = _verify_refresh(recovery_unreal)
+            result = _verify_refresh(recovery_unreal, allow_seed_suite_warning=allow_seed_suite_warning)
         except (TimeoutError, OSError) as exc:
             attempts.append(
                 {
@@ -313,20 +398,24 @@ def _capture_args(output_prefix: str, report_path: Path, redraw_count: int) -> a
     )
 
 
-def _record_final_gate(unreal: UnrealConnection) -> dict[str, Any]:
+def _record_final_gate(unreal: UnrealConnection, allow_seed_suite_warning: bool = False) -> dict[str, Any]:
+    allow_seed_suite_warning_literal = "True" if allow_seed_suite_warning else "False"
     return _execute_v2_python(
         unreal,
         """
-result = dungeon_v2.record_generation_final_gate()
+result = dungeon_v2.record_generation_final_gate(
+    allow_seed_suite_warning=ALLOW_SEED_SUITE_WARNING,
+)
 print(json.dumps({
     "success": bool(result.get("pass")),
     "gate_pass": bool(result.get("pass")),
     "failed_checks": [key for key, value in result.get("checks", {}).items() if not value],
+    "seed_suite_warning": result.get("seed_suite_warning"),
     "native_components": result.get("live_native_output", {}).get("component_summary", {}).get("component_count"),
     "native_instances": result.get("live_native_output", {}).get("component_summary", {}).get("instance_count_total"),
     "dirty_count": result.get("live_dirty_packages", {}).get("count"),
 }, ensure_ascii=False))
-""",
+""".replace("ALLOW_SEED_SUITE_WARNING", allow_seed_suite_warning_literal),
     )
 
 
@@ -386,29 +475,55 @@ print(json.dumps({
 def run(args: argparse.Namespace) -> dict[str, Any]:
     started_at = time.monotonic()
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    config_overrides = _parse_config_overrides(args.config_override)
+    if args.verify_existing_output and config_overrides:
+        raise ValueError("--set/--config-override requires a refresh run; remove --verify-existing-output.")
+    if args.verify_existing_output and args.use_bp_controller:
+        raise ValueError("--use-bp-controller requires a refresh run; remove --verify-existing-output.")
+    if args.use_bp_controller and config_overrides:
+        raise ValueError("--use-bp-controller cannot be combined with --set/--config-override.")
+    allow_seed_suite_warning = bool(args.allow_seed_suite_warning or args.use_bp_controller or config_overrides)
     unreal = _create_unreal_connection(args.mcp_response_timeout_seconds)
 
     editor_paths = _get_editor_paths(unreal)
     _ensure_editor_project_matches(editor_paths)
 
-    mode = "verify_existing_output" if args.verify_existing_output else "build_refresh_verify"
+    if args.verify_existing_output:
+        mode = "verify_existing_output"
+    elif args.use_bp_controller:
+        mode = "bp_controller_refresh_verify"
+    else:
+        mode = "build_refresh_verify"
     if args.verify_existing_output:
         build = {"success": True, "skipped": True, "reason": "--verify-existing-output"}
         begin = {"success": True, "skipped": True, "reason": "--verify-existing-output"}
-        verify = _verify_refresh(unreal)
+        verify = _verify_refresh(unreal, allow_seed_suite_warning=allow_seed_suite_warning)
     else:
         build = _build_all(unreal) if args.build else {"success": True, "skipped": True}
         if not build.get("success"):
             raise RuntimeError("V2 build failed: " + json.dumps(build, ensure_ascii=False))
 
-        begin = _begin_refresh(unreal, args.preset)
+        begin = _begin_refresh_from_bp_controller(unreal) if args.use_bp_controller else _begin_refresh(
+            unreal,
+            args.preset,
+            config_overrides,
+        )
         if not begin.get("success"):
             raise RuntimeError("V2 refresh begin failed: " + json.dumps(begin, ensure_ascii=False))
         time.sleep(max(0.0, float(args.refresh_wait_seconds)))
         verify_unreal = _create_unreal_connection(args.refresh_verify_response_timeout_seconds)
-        verify = _wait_for_verify(verify_unreal, args.refresh_timeout_seconds, args.refresh_poll_seconds)
+        verify = _wait_for_verify(
+            verify_unreal,
+            args.refresh_timeout_seconds,
+            args.refresh_poll_seconds,
+            allow_seed_suite_warning=allow_seed_suite_warning,
+        )
         if not verify.get("success"):
-            recovered_verify, recovered_unreal = _recover_verify_after_timeout(args, verify)
+            recovered_verify, recovered_unreal = _recover_verify_after_timeout(
+                args,
+                verify,
+                allow_seed_suite_warning=allow_seed_suite_warning,
+            )
             verify = recovered_verify
             if recovered_unreal is not None:
                 unreal = recovered_unreal
@@ -445,7 +560,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         _capture_args("CubelessDungeonV2_PCGGenerationNativeOutputOnly_Oblique", OBLIQUE_REPORT_PATH, args.redraw_count)
     )
 
-    final_gate = _record_final_gate(unreal)
+    final_gate = _record_final_gate(unreal, allow_seed_suite_warning=allow_seed_suite_warning)
     report = {
         "success": bool(
             build.get("success")
@@ -466,6 +581,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mode": mode,
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "preset": args.preset,
+        "use_bp_controller": bool(args.use_bp_controller),
+        "config_overrides": config_overrides,
         "editor_paths": editor_paths,
         "build": build,
         "refresh_begin": begin,
@@ -501,6 +618,34 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build and validate PCG Dungeon V2 prototype.")
     parser.add_argument("--preset", default="default")
+    parser.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        dest="config_override",
+        metavar="KEY=VALUE",
+        help=(
+            "Override one V2 authoring config value on top of --preset before refresh. "
+            "Keys may be config keys such as room_count or tags such as DungeonRoomCount. "
+            "Repeat for multiple overrides."
+        ),
+    )
+    parser.add_argument(
+        "--config-override",
+        action="append",
+        dest="config_override",
+        metavar="KEY=VALUE",
+        help="Alias for --set.",
+    )
+    parser.set_defaults(config_override=[])
+    parser.add_argument(
+        "--use-bp-controller",
+        action="store_true",
+        help=(
+            "Read the placed BP_Cubeless_DungeonV2_Controller actor variables, sync them to bridge tags, "
+            "and refresh NativeOutput. Cannot be combined with --set or --verify-existing-output."
+        ),
+    )
     parser.add_argument("--no-build", action="store_false", dest="build")
     parser.set_defaults(build=True)
     parser.add_argument(
@@ -513,6 +658,15 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         dest="verify_existing_output",
         help="Alias for --verify-existing-output.",
+    )
+    parser.add_argument(
+        "--allow-seed-suite-warning",
+        action="store_true",
+        help=(
+            "Treat seed-suite failures as warnings during verification. This is enabled automatically for "
+            "--use-bp-controller and --set refreshes, and is useful when validating an already generated "
+            "single-seed custom/BP output."
+        ),
     )
     parser.add_argument("--refresh-wait-seconds", type=float, default=1.0)
     parser.add_argument("--refresh-timeout-seconds", type=float, default=600.0)
