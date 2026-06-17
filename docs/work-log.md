@@ -6710,3 +6710,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `385-392` broader non-Actor live authoring admission dry-run contract/report coverage.
 - Latest sibling release boundary is `section_385_392_v153` with status `section_392_broader_non_actor_live_authoring_admission_dry_run_ready`.
 - Verification passed: targeted Section 385-392 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `171` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 393-400
+
+- Added a UserWidget widget-tree live read-only preflight; this section performed no Widget Blueprint creation, root widget creation, child widget addition, slot/binding mutation, compile/save, delete, rename, overwrite, cleanup, or production path write.
+- Correct-project headless UE read-only preflight against `D:/Git/CubelessStylized/StylizedCubeless.uproject` confirmed `/Script/UMGEditor.WidgetBlueprint`, `/Script/UMGEditor.WidgetBlueprintFactory`, `/Script/UMG.UserWidget`, `/Script/UMG.WidgetTree`, `/Script/UMG.CanvasPanel`, `/Script/UMG.Button`, and `/Script/UMG.TextBlock` load successfully.
+- The read-only probe introduced no dirty maps or dirty content packages; ignored scratch output remains limited to `Saved/Codex` and existing `_MCP_Temp` generated artifacts.
+- The contract proves UserWidget widget-tree prerequisites are recorded while actual Widget Blueprint authoring and widget tree mutation remain blocked behind later dry-run/admission gates.
+- In sibling `unreal-mcp-cubeless`, added Sections `393-400` UserWidget widget-tree live read-only preflight contract/report coverage.
+- Latest sibling release boundary is `section_393_400_v154` with status `section_400_user_widget_widget_tree_live_readonly_preflight_ready`.
+- Verification passed: targeted Section 393-400 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `172` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
