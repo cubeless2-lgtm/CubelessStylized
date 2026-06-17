@@ -6853,3 +6853,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `505-512` correct-workspace bridge post-takeover verification admission contract/report coverage.
 - Latest sibling release boundary is `section_505_512_v168` with status `section_512_correct_workspace_bridge_post_takeover_verification_admission_ready`.
 - Verification passed: targeted Section 505-512 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `186` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 513-520
+
+- Added a correct-workspace bridge verification evidence schema gate after the post-takeover verification admission gate; this section performed no verification evidence ingest, schema validation execution, verification evidence admission, bridge verification, read-only probe result acceptance, live authoring dispatch, compile/save, delete, rename, overwrite, cleanup, or production path write.
+- The gate records the required future verification evidence fields: project file path, editor executable path, bridge host/port, MCP server command, read-only probe result, no-dirty before/after proof, and UTC timestamp.
+- The gate proves that evidence admission remains blocked until the future proof matches managed `D:/Git/CubelessStylized`, `127.0.0.1:55557`, and the expected UnrealMCP command, and rejects stale or wrong-workspace evidence.
+- In sibling `unreal-mcp-cubeless`, added Sections `513-520` correct-workspace bridge verification evidence schema contract/report coverage.
+- Latest sibling release boundary is `section_513_520_v169` with status `section_520_correct_workspace_bridge_verification_evidence_schema_ready`.
+- Verification passed: targeted Section 513-520 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `187` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
