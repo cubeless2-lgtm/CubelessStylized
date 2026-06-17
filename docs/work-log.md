@@ -6553,3 +6553,16 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Latest sibling release boundary is `section_257_264_v137` with status `section_264_live_actor_bp_authoring_checkpoint_ready_actual_authoring_closed`.
 - Verification for the latest section passed: targeted contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `155` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
 - Next important checkpoint: actual live Actor Blueprint variable/component/default authoring under `/Game/_MCP_Temp` requires explicit user approval before executing any Unreal asset write.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 265-272
+
+- User approved the actual live Actor Blueprint authoring checkpoint under `/Game/_MCP_Temp`; no production asset path, delete, rename, or overwrite operation was opened.
+- UnrealMCP wrote and saved `/Game/_MCP_Temp/DurableSaveGate/BP_DurableSaveGatePrep`:
+  - Added variable `MCPAuthoringScalar` with default `1.0`.
+  - Added `SceneComponent` component `MCPAuthoringProbeComponent`.
+  - Added CDO tag `MCP_DurableAuthoring_LiveProbe`.
+  - Compile/save/readback safety passed; target package was not dirty after save.
+- Pre-existing external editor dirty package `/Game/Cubeless/VFX/Fire/NS_Codex_Fire_01` was preserved exactly and was not saved or reverted.
+- In sibling `unreal-mcp-cubeless`, added Sections `265-272` live Actor BP actual authoring contract/report coverage and committed `5b0a79c Add sections 265-272 live Actor BP actual authoring`.
+- Latest sibling release boundary is `section_265_272_v138` with status `section_272_live_actor_bp_actual_authoring_readback_ready`.
+- Verification passed: targeted Section 265-272 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `156` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
