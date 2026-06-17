@@ -6660,3 +6660,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `345-352` graph repair execution dry-run contract/report coverage.
 - Latest sibling release boundary is `section_345_352_v148` with status `section_352_graph_repair_execution_dry_run_ready`.
 - Verification passed: targeted Section 345-352 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `166` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 353-360
+
+- Executed the approved post-recreation non-empty graph diagnostics fixture checkpoint under `/Game/_MCP_Temp/DurableSaveGate/`; this opened only a disposable temp Actor Blueprint fixture path.
+- Correct-project headless UE created or reused `Content/_MCP_Temp/DurableSaveGate/BP_DurableGraphDiagnosticsFixture.uasset` as an ignored generated validation asset, compiled/saved it, and verified final readback with a valid Actor Blueprint generated class and clean target package.
+- The fixture now exposes function graph inventory for `MCPNonEmptyDiagnosticsFunction` with `function_graph_count_after=1`; node count remains `0`, so node-level graph repair remains intentionally blocked for a later fixture/contract.
+- No production path write, cleanup, delete, rename, overwrite, graph repair dispatch, node position write, or pin connection write was opened in this section.
+- In sibling `unreal-mcp-cubeless`, added Sections `353-360` post-recreation non-empty graph fixture contract/report coverage.
+- Latest sibling release boundary is `section_353_360_v149` with status `section_360_post_recreation_non_empty_graph_fixture_ready`.
+- Verification passed: targeted Section 353-360 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `167` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
