@@ -6623,3 +6623,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `313-320` post-recreation Actor BP reauthoring actual contract/report coverage.
 - Latest sibling release boundary is `section_313_320_v144` with status `section_320_post_recreation_actor_bp_reauthoring_ready`.
 - Verification passed: targeted Section 313-320 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `162` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 321-328
+
+- Added a readback-strengthening checkpoint after post-recreation Actor BP reauthoring; this section performed no new Unreal asset write, compile/save, delete, rename, overwrite, cleanup, graph repair, node/pin mutation, or production path operation.
+- Correct-project headless UE readback against `D:/Git/CubelessStylized/StylizedCubeless.uproject` confirmed `/Game/_MCP_Temp/DurableSaveGate/BP_DurableSaveGatePrep` still has `MCPAuthoringScalar=1.0`, CDO tag `MCP_DurableAuthoring_LiveProbe`, and component evidence for `MCPAuthoringProbeComponent`.
+- The readback captured two raw `SubobjectData` handles for `MCPAuthoringProbeComponent`, then normalized them to one unique `MCPAuthoringProbeComponent` / `SceneComponent` identity so duplicate raw handles do not become false component duplication failures.
+- The target package remained clean after readback, with no dirty maps or dirty content packages introduced.
+- In sibling `unreal-mcp-cubeless`, added Sections `321-328` post-recreation Actor BP readback-strengthening contract/report coverage.
+- Latest sibling release boundary is `section_321_328_v145` with status `section_328_post_recreation_actor_bp_readback_strengthened`.
+- Verification passed: targeted Section 321-328 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `163` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
