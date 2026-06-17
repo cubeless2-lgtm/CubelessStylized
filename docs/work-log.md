@@ -6844,3 +6844,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `497-504` correct-workspace bridge takeover execution dry-run envelope contract/report coverage.
 - Latest sibling release boundary is `section_497_504_v167` with status `section_504_correct_workspace_bridge_takeover_execution_dry_run_envelope_ready`.
 - Verification passed: targeted Section 497-504 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `185` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 505-512
+
+- Added a correct-workspace bridge post-takeover verification admission gate after the takeover dry-run envelope; this section performed no takeover completion, correct-workspace editor/bridge detection, bridge verification, read-only probe dispatch, verification result admission, live authoring dispatch, compile/save, delete, rename, overwrite, cleanup, or production path write.
+- The gate records that takeover execution completion evidence, correct workspace bridge identity evidence, and read-only probe evidence are still required before any verification result can be admitted.
+- The gate proves that missing verification evidence keeps UserWidget live WidgetTree mutation and DataAsset/BFL actual temp checkpoints blocked even after the dry-run takeover envelope exists.
+- In sibling `unreal-mcp-cubeless`, added Sections `505-512` correct-workspace bridge post-takeover verification admission contract/report coverage.
+- Latest sibling release boundary is `section_505_512_v168` with status `section_512_correct_workspace_bridge_post_takeover_verification_admission_ready`.
+- Verification passed: targeted Section 505-512 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `186` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
