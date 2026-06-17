@@ -6642,3 +6642,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `329-336` post-recreation function diagnostics refresh contract/report coverage.
 - Latest sibling release boundary is `section_329_336_v146` with status `section_336_post_recreation_function_diagnostics_refreshed`.
 - Verification passed: targeted Section 329-336 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `164` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 337-344
+
+- Added a broader non-Actor Blueprint dry-run checkpoint; no `UserWidget`, `DataAsset`, or `AnimBlueprint` asset was created, compiled, saved, mutated, deleted, renamed, overwritten, or written to a production path.
+- The new dry-run contract classifies `UserWidget`, `DataAsset`, and `AnimBlueprint` authoring plans under `_MCP_Temp`, records class-specific prerequisites, and keeps actual non-Actor Blueprint authoring blocked.
+- `AnimBlueprint` remains execution-blocked until a skeleton/animation target contract exists; `DataAsset` default mutation and Widget tree mutation also require separate contracts.
+- In sibling `unreal-mcp-cubeless`, added Sections `337-344` broader non-Actor Blueprint dry-run contract/report coverage.
+- Latest sibling release boundary is `section_337_344_v147` with status `section_344_broader_non_actor_blueprint_dry_run_ready`.
+- Verification passed: targeted Section 337-344 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `165` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
