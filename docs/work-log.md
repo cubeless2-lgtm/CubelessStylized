@@ -6526,3 +6526,19 @@ These entries were visible from Notion search/fetch results earlier in this Code
     `Saved/UDS_Analysis/uds_analysis_staging_scope_20260617_023149.json`.
   - Refreshed delivery manifest:
     `Saved/UDS_Analysis/uds_analysis_delivery_manifest_20260617_023159.json`.
+
+## 2026-06-17 - Removed Cubeless Sky content root
+
+- Deleted all tracked Unreal content under `/Game/Cubeless/Sky`
+  (`Content/Cubeless/Sky`) from `main`.
+- Asset deletion commit: `04716d74f` (`Remove Cubeless Sky content assets`).
+- Scope verified before commit: 35 tracked Unreal asset/map files staged as
+  deletions only, `git diff --cached --check` passed, `git ls-files --
+  Content/Cubeless/Sky` returned no remaining tracked files, and the
+  `Content/Cubeless/Sky` folder no longer existed in the main worktree.
+- Pushed deletion to `origin/main`.
+- Residual note: historical documentation and audit helper references to
+  `/Game/Cubeless/Sky` were left untouched because the requested operation was
+  asset-folder removal.
+- Notion capture fallback: Notion MCP required reauthentication, so this
+  work-log entry records the operation locally.
