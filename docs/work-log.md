@@ -6750,3 +6750,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `417-424` UserWidget WidgetTree mutation route preflight contract/report coverage.
 - Latest sibling release boundary is `section_417_424_v157` with status `section_424_user_widget_widget_tree_mutation_route_preflight_ready`.
 - Verification passed: targeted Section 417-424 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `175` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 425-432
+
+- Hardened the UnrealMCP UMG C++ route for UserWidget WidgetTree commands inside `Plugins/UnrealMCP`.
+- The route now defaults Widget Blueprint targets to `/Game/_MCP_Temp/DurableSaveGate/UserWidgetActual`, validates long package names, blocks production package paths unless `allow_production_path=true` is explicitly supplied, and keeps `save=false` by default.
+- `create_umg_widget_blueprint`, `add_text_block_to_widget`, `add_button_to_widget`, `bind_widget_event`, `set_text_block_binding`, and `add_widget_to_viewport` now share target-path resolution and guarded finalize behavior; Button/TextBlock/RootCanvas creation uses `WidgetTree->ConstructWidget`.
+- No live WidgetTree mutation command was dispatched for this section, and delete, rename, overwrite, cleanup, and production writes stayed closed.
+- UBT build passed with `-NoHotReloadFromIDE` while Unreal Editor and LiveCodingConsole were still running, avoiding an editor close.
+- In sibling `unreal-mcp-cubeless`, added Sections `425-432` UserWidget UMG C++ route hardening contract/report coverage.
+- Latest sibling release boundary is `section_425_432_v158` with status `section_432_user_widget_widget_tree_umg_cpp_route_hardening_ready`.
