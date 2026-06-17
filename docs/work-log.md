@@ -6730,3 +6730,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `401-408` UserWidget widget-tree authoring dry-run admission contract/report coverage.
 - Latest sibling release boundary is `section_401_408_v155` with status `section_408_user_widget_widget_tree_authoring_dry_run_admission_ready`.
 - Verification passed: targeted Section 401-408 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `173` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 409-416
+
+- Executed the approved correct-project headless Unreal temp Widget Blueprint create/reuse checkpoint under `/Game/_MCP_Temp/DurableSaveGate/UserWidgetActual/WBP_DurableWidgetTreeActual`.
+- The first pass created the ignored `_MCP_Temp` asset, and the final validation pass reused it; final package file size was `21229` bytes with `WidgetBlueprint` class, generated class present, compile/save successful, and readback confirmed.
+- Dirty content/maps stayed empty after the run, and the target package was not left dirty.
+- WidgetTree mutation was not attempted because the safe Python property route was not exposed for `WidgetBlueprint`; root/child widget creation, slot/binding mutation, event graph mutation, delete, rename, overwrite, cleanup, and production path writes remained blocked.
+- In sibling `unreal-mcp-cubeless`, added Sections `409-416` UserWidget actual temp asset creation checkpoint contract/report coverage.
+- Latest sibling release boundary is `section_409_416_v156` with status `section_416_user_widget_actual_asset_creation_checkpoint_ready`.
+- Verification passed: targeted Section 409-416 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `174` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
