@@ -6700,3 +6700,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `377-384` broader non-Actor live read-only preflight contract/report coverage.
 - Latest sibling release boundary is `section_377_384_v152` with status `section_384_broader_non_actor_live_readonly_preflight_ready`.
 - Verification passed: targeted Section 377-384 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `170` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 385-392
+
+- Added a broader non-Actor Blueprint live authoring admission dry-run; this section performed no UserWidget, DataAsset-style Blueprint, AnimBlueprint, Blueprint Function Library, or Blueprint Interface creation.
+- The new contract classifies the admission scope under `/Game/_MCP_Temp/DurableSaveGate/NonActorAdmissionDryRun` and requires the Section 377-384 correct-project read-only preflight before any live non-Actor route can advance.
+- UserWidget admission remains blocked pending a widget-tree contract, DataAsset-style Blueprint admission remains blocked pending default mutation rules, AnimBlueprint admission remains blocked pending a skeleton contract, and Function Library/Interface admission remains blocked pending graph/interface-function contracts.
+- The contract proves live non-Actor admission dispatch, creation commands, mutation, compile/save, dirty package, cleanup, delete, rename, overwrite, and production path writes all stayed closed.
+- In sibling `unreal-mcp-cubeless`, added Sections `385-392` broader non-Actor live authoring admission dry-run contract/report coverage.
+- Latest sibling release boundary is `section_385_392_v153` with status `section_392_broader_non_actor_live_authoring_admission_dry_run_ready`.
+- Verification passed: targeted Section 385-392 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `171` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
