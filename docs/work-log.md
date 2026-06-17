@@ -6680,3 +6680,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `361-368` node-level graph fixture route preflight contract/report coverage.
 - Latest sibling release boundary is `section_361_368_v150` with status `section_368_node_level_graph_fixture_route_preflight_ready`.
 - Verification passed: targeted Section 361-368 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `168` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 369-376
+
+- Added a correct-project live MCP route preflight; this section performed no live MCP activation command, node authoring, graph mutation, compile/save, delete, rename, overwrite, cleanup, or production path write.
+- Verified the project `.mcp.json` `unrealMCP` command shape remains `uv --directory ../unreal-mcp-cubeless/Python run --python 3.11 unreal_mcp_server.py`, with the sibling server path treated as the expected route.
+- Recorded the read-only live MCP `list_blueprint_nodes` probe against `/Game/_MCP_Temp/DurableSaveGate/BP_DurableGraphDiagnosticsFixture`; because the bridge still cannot find that correct-project fixture, live MCP node authoring remains blocked.
+- The contract proves live MCP activation, `add_blueprint_call_function_node`, node position writes, pin connection writes, graph repair dispatch, compile/save, and asset writes all remained closed.
+- In sibling `unreal-mcp-cubeless`, added Sections `369-376` correct-project live MCP route preflight contract/report coverage.
+- Latest sibling release boundary is `section_369_376_v151` with status `section_376_correct_project_live_mcp_route_preflight_ready`.
+- Verification passed: targeted Section 369-376 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `169` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
