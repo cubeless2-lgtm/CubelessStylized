@@ -183,7 +183,8 @@ This project uses three named agent roles. The Korean names are display names; t
 - Treat `/Content/_MCP_Sample/` as a local learning/sample resource folder for MCP-related study assets. It is gitignored by default and must not be staged or committed unless the user explicitly asks to version a specific sample asset.
 - Do not open, reload, create, or switch maps through generic UnrealMCP `execute_python` calls. In particular, do not call Python APIs such as `EditorLoadingAndSavingUtils.load_map`, `new_blank_map`, `load_map_with_dialog`, or `new_map_from_template` through `execute_python`; this path can keep old world packages referenced by `FPyReferenceCollector` and crash the editor with `World Memory Leaks`.
 - For MCP-driven existing-map opens, use the native C++ `open_editor_level` command instead. Run it as a dry run first by default, keep `allow_dirty_packages=false` unless the user explicitly approves otherwise, and only perform the real load when preflight reports that the target exists and dirty-package blockers are clear.
-- Manual map switching in the Unreal Editor UI remains allowed. New-map/preview-map workflows need either manual editor action or a dedicated safe native MCP command; do not reintroduce Python map switching as a shortcut.
+- For MCP-driven new temporary preview maps, use the native C++ `safe_new_preview_map` command instead. Keep `dry_run=true` by default, keep the target under `/Game/_MCP_Temp`, and perform real creation only when `can_create=true` with no dirty-package blockers.
+- Manual map switching in the Unreal Editor UI remains allowed. Do not reintroduce Python map switching as a shortcut.
 
 ## Unreal Packaging Output Rules
 
