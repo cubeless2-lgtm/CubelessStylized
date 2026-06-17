@@ -6651,3 +6651,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `337-344` broader non-Actor Blueprint dry-run contract/report coverage.
 - Latest sibling release boundary is `section_337_344_v147` with status `section_344_broader_non_actor_blueprint_dry_run_ready`.
 - Verification passed: targeted Section 337-344 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `165` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 345-352
+
+- Added a graph repair execution dry-run checkpoint for the current temp Actor Blueprint; this admits only dry-run command admission/execution evidence and performs no actual graph repair dispatch.
+- Because the current `/Game/_MCP_Temp/DurableSaveGate/BP_DurableSaveGatePrep` graph/function state is empty, the dry-run repair result is a no-op with zero node-position and pin-connection repair plans.
+- Actual node movement, pin rewiring, graph mutation, compile/save, asset write, delete, rename, overwrite, cleanup, and production path writes remain blocked.
+- In sibling `unreal-mcp-cubeless`, added Sections `345-352` graph repair execution dry-run contract/report coverage.
+- Latest sibling release boundary is `section_345_352_v148` with status `section_352_graph_repair_execution_dry_run_ready`.
+- Verification passed: targeted Section 345-352 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `166` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
