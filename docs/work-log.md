@@ -6575,3 +6575,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Unsupported broader Blueprint classes (`UserWidget`, `DataAsset`, `AnimBlueprint`) remain blocked until a separate authoring contract exists.
 - Latest sibling release boundary is `section_273_280_v139` with status `section_280_live_actor_bp_component_default_readback_ready`.
 - Verification passed: targeted Section 273-280 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `157` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 281-288
+
+- Added a diagnostic-only function-call and graph-layout gate; no new Unreal asset write, graph mutation, node move, pin rewire, compile, save, delete, rename, overwrite, or production path operation was opened.
+- In sibling `unreal-mcp-cubeless`, added Sections `281-288` function diagnostics / graph layout repair suggestion contract and report coverage, committed `0295a24 Add sections 281-288 function diagnostics layout gate`.
+- The new gate proves function-call target diagnostics, exec/data pin diagnostics, graph layout/spacing diagnostics, and manual repair suggestions are ready.
+- Automatic graph repair execution remains blocked; repair suggestions are recorded as manual-only until a separate dry-run or execution contract exists.
+- Latest sibling release boundary is `section_281_288_v140` with status `section_288_function_diagnostics_graph_layout_repair_suggestions_ready`.
+- Verification passed: targeted Section 281-288 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `158` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
