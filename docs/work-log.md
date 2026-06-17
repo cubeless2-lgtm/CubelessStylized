@@ -6594,3 +6594,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `289-296` cleanup/delete actual execution contract and report coverage, committed `3414b1d Add sections 289-296 cleanup delete actual execution`.
 - Latest sibling release boundary is `section_289_296_v141` with status `section_296_cleanup_delete_actual_execution_readback_ready`.
 - Verification passed: targeted Section 289-296 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `159` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 297-304
+
+- Added a post-delete recreation/readback reset gate; no Unreal asset recreation, save, compile, graph repair, readback command, diagnostics command, delete, rename, overwrite, cleanup, or production path write was opened.
+- Live read-only UnrealMCP preflight confirmed `/Game/_MCP_Temp/DurableSaveGate/BP_DurableSaveGatePrep` no longer exists, asset data is invalid, no maps are dirty, and the only dirty content package remains `/Game/Cubeless/VFX/Fire/NS_Codex_Fire_01`.
+- The new contract proves stale readback and diagnostics paths are reset after delete, and future temp Actor Blueprint recreation requires a separate explicit checkpoint before any command can dispatch.
+- In sibling `unreal-mcp-cubeless`, added Sections `297-304` post-delete recreation reset contract/report coverage, committed `4fdd351 Add sections 297-304 post delete reset`.
+- Latest sibling release boundary is `section_297_304_v142` with status `section_304_post_delete_recreation_reset_ready`.
+- Verification passed: targeted Section 297-304 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `160` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
