@@ -6835,3 +6835,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `489-496` correct-workspace bridge takeover handoff contract/report coverage.
 - Latest sibling release boundary is `section_489_496_v166` with status `section_496_correct_workspace_bridge_takeover_handoff_ready`.
 - Verification passed: targeted Section 489-496 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `184` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 497-504
+
+- Added a correct-workspace bridge takeover execution dry-run envelope after the handoff gate; this section performed no wrong-workspace editor stop, bridge port release, correct-workspace editor launch, MCP server start, bridge start/verification, read-only probe dispatch, live authoring dispatch, compile/save, delete, rename, overwrite, cleanup, or production path write.
+- The gate records the future execution scope for `wrong_workspace_process_stop`, `bridge_port_release`, `correct_workspace_editor_launch`, `mcp_server_start`, and `correct_workspace_bridge_read_only_verify`, but keeps actual takeover authorization closed.
+- The envelope proves that takeover execution still requires an explicit actual-takeover request before any process, port, editor, MCP, bridge, or asset authoring command can dispatch.
+- In sibling `unreal-mcp-cubeless`, added Sections `497-504` correct-workspace bridge takeover execution dry-run envelope contract/report coverage.
+- Latest sibling release boundary is `section_497_504_v167` with status `section_504_correct_workspace_bridge_takeover_execution_dry_run_envelope_ready`.
+- Verification passed: targeted Section 497-504 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `185` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
