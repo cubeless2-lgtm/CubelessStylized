@@ -6584,3 +6584,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Automatic graph repair execution remains blocked; repair suggestions are recorded as manual-only until a separate dry-run or execution contract exists.
 - Latest sibling release boundary is `section_281_288_v140` with status `section_288_function_diagnostics_graph_layout_repair_suggestions_ready`.
 - Verification passed: targeted Section 281-288 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `158` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 289-296
+
+- User had approved the isolated temporary cleanup/delete checkpoint; this opened only a single `/Game/_MCP_Temp/DurableSaveGate/BP_DurableSaveGatePrep` delete path, not broad cleanup, rename, overwrite, compile/save, or production writes.
+- UnrealMCP preflight proved the target existed under `/Game/_MCP_Temp/DurableSaveGate/`, was not dirty, had no map dirtiness, and had no external referencers.
+- UnrealMCP executed the actual delete for `/Game/_MCP_Temp/DurableSaveGate/BP_DurableSaveGatePrep`; the asset and `Content/_MCP_Temp/DurableSaveGate/BP_DurableSaveGatePrep.uasset` were absent on readback.
+- Pre-existing external dirty package `/Game/Cubeless/VFX/Fire/NS_Codex_Fire_01` was preserved exactly before and after the delete; no cleanup, rename, overwrite, or production path write was executed.
+- In sibling `unreal-mcp-cubeless`, added Sections `289-296` cleanup/delete actual execution contract and report coverage, committed `3414b1d Add sections 289-296 cleanup delete actual execution`.
+- Latest sibling release boundary is `section_289_296_v141` with status `section_296_cleanup_delete_actual_execution_readback_ready`.
+- Verification passed: targeted Section 289-296 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `159` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
