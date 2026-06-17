@@ -6826,3 +6826,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `481-488` non-Actor actual temp checkpoint bridge blocker contract/report coverage.
 - Latest sibling release boundary is `section_481_488_v165` with status `section_488_non_actor_actual_temp_checkpoint_bridge_blocker_ready`.
 - Verification passed: targeted Section 481-488 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `183` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 489-496
+
+- Added a correct-workspace bridge takeover handoff gate after the non-Actor actual temp checkpoint bridge blocker; this section performed no wrong-workspace editor stop, bridge port release, correct-workspace editor launch, MCP server start, bridge verification, live authoring dispatch, compile/save, delete, rename, overwrite, cleanup, or production path write.
+- The gate records the current wrong-workspace bridge owner context, expected `D:/Git/CubelessStylized/StylizedCubeless.uproject` launch target, expected UnrealMCP server command, and read-only correct-project verification requirement.
+- Automatic takeover remains blocked; a separate explicit bridge takeover action is required before `127.0.0.1:55557` can be released and re-verified for managed `CubelessStylized`.
+- In sibling `unreal-mcp-cubeless`, added Sections `489-496` correct-workspace bridge takeover handoff contract/report coverage.
+- Latest sibling release boundary is `section_489_496_v166` with status `section_496_correct_workspace_bridge_takeover_handoff_ready`.
+- Verification passed: targeted Section 489-496 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `184` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
