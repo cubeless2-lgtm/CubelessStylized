@@ -6871,3 +6871,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `521-528` correct-workspace bridge verification evidence payload dry-run contract/report coverage.
 - Latest sibling release boundary is `section_521_528_v170` with status `section_528_correct_workspace_bridge_verification_evidence_payload_dry_run_ready`.
 - Verification passed: targeted Section 521-528 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `188` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 529-536
+
+- Added a correct-workspace bridge verification evidence validation rule dry-run gate after the payload dry-run gate; this section performed no validation execution, payload ingest, verification evidence admission, bridge verification, read-only probe result acceptance, live authoring dispatch, compile/save, delete, rename, overwrite, cleanup, or production path write.
+- The gate records required-field, project identity, editor executable, bridge endpoint, MCP command, read-only probe, dirty-state, timestamp freshness, and placeholder-rejection validation rules for future correct-workspace bridge proof.
+- The gate proves that validation/admission remains blocked until real read-only evidence replaces the dry-run placeholders and explicitly passes the rule set.
+- In sibling `unreal-mcp-cubeless`, added Sections `529-536` correct-workspace bridge verification evidence validation rule dry-run contract/report coverage.
+- Latest sibling release boundary is `section_529_536_v171` with status `section_536_correct_workspace_bridge_verification_evidence_validation_rule_dry_run_ready`.
+- Verification passed: targeted Section 529-536 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `189` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
