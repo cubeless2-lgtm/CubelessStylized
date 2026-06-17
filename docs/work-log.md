@@ -6808,3 +6808,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `465-472` Blueprint Function Library read-only preflight contract/report coverage.
 - Latest sibling release boundary is `section_465_472_v163` with status `section_472_blueprint_function_library_readonly_preflight_ready`.
 - Verification passed: targeted Section 465-472 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `181` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 473-480
+
+- Added a Blueprint Function Library authoring dry-run admission gate after the BFL read-only preflight; this section performed no BFL Blueprint creation, function graph mutation, function signature change, node/pin write, readback command, compile/save, delete, rename, overwrite, cleanup, or production path write.
+- The new gate records the `_MCP_Temp` dry-run target path, `BlueprintFunctionLibrary` parent class, function signature plan, and graph node plan while keeping all actual command dispatch closed.
+- The remaining BFL/DataAsset next steps are actual temp asset checkpoints, which should wait until live route and approval conditions are explicit; UserWidget live mutation still separately waits on correct bridge ownership of `127.0.0.1:55557`.
+- In sibling `unreal-mcp-cubeless`, added Sections `473-480` Blueprint Function Library authoring dry-run admission contract/report coverage.
+- Latest sibling release boundary is `section_473_480_v164` with status `section_480_blueprint_function_library_authoring_dry_run_admission_ready`.
+- Verification passed: targeted Section 473-480 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `182` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
