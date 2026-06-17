@@ -6690,3 +6690,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `369-376` correct-project live MCP route preflight contract/report coverage.
 - Latest sibling release boundary is `section_369_376_v151` with status `section_376_correct_project_live_mcp_route_preflight_ready`.
 - Verification passed: targeted Section 369-376 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `169` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 377-384
+
+- Added a broader non-Actor Blueprint live read-only preflight; this section performed no non-Actor Blueprint creation, Widget tree mutation, DataAsset default mutation, AnimBlueprint graph mutation, compile/save, delete, rename, overwrite, cleanup, or production path write.
+- Correct-project headless UE read-only preflight against `D:/Git/CubelessStylized/StylizedCubeless.uproject` confirmed `WidgetBlueprintFactory`, `BlueprintFactory`, `AnimBlueprintFactory`, `BlueprintFunctionLibraryFactory`, and `BlueprintInterfaceFactory` are visible.
+- The same read-only probe confirmed parent class availability for `/Script/UMG.UserWidget`, `/Script/Engine.PrimaryDataAsset`, `/Script/Engine.AnimInstance`, and `/Script/Engine.BlueprintFunctionLibrary`, with no dirty maps or dirty content packages introduced.
+- The contract proves broader non-Actor authoring prerequisites are now recorded while actual non-Actor creation/mutation remains blocked behind later admission/activation gates.
+- In sibling `unreal-mcp-cubeless`, added Sections `377-384` broader non-Actor live read-only preflight contract/report coverage.
+- Latest sibling release boundary is `section_377_384_v152` with status `section_384_broader_non_actor_live_readonly_preflight_ready`.
+- Verification passed: targeted Section 377-384 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `170` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
