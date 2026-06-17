@@ -6993,7 +6993,60 @@ These entries were visible from Notion search/fetch results earlier in this Code
 
 - User clarified that `Content/ANGRY_MESH` is only the validation example, not the intended fixed target. The reusable memory should be a generic MCP workflow for cases where imported Unreal texture source data needs a maximum source dimension.
 - Generic workflow: for an explicitly approved Unreal content root/package path, scan texture assets, identify `Texture2D` assets above a requested max source size, export only oversized textures to image backups, resize exported images while preserving aspect ratio, reimport the resized images into the same Unreal texture assets, restore important texture settings/import metadata, save assets, and rescan to prove no targeted `Texture2D` remains above the limit.
+- Path rule for MCP/Python implementation: never hardcode machine-local absolute paths such as `C:\Git\...`. Resolve paths from the active project root or `.uproject` path, accept Unreal package roots such as `/Game/...` or project/content-relative paths, and keep backups/reports under project-relative `Saved/Codex` or `Saved/MCP` folders.
 - Validation example from this run: under `Content/ANGRY_MESH`, `31` oversized `4096x4096` `Texture2D` assets became `2048x2048`; post-scan reported `0` textures above `2048`; the folder shrank from about `726.26 MB` to `272.83 MB`, and its `Textures` folder from about `650.30 MB` to `196.86 MB`.
 - Implementation caveat: `UnrealEditor-Cmd` can scan/export safely, but `AssetTools.import_asset_tasks` reimport can assert in commandlet mode because the Content Browser/Slate path expects a valid `SlateApplication`. Run the reimport phase in full `UnrealEditor.exe` with a Python startup/execute path and quit the editor after writing the report.
 - Future MCP registration idea: add a protected, target-agnostic UnrealMCP tool such as `downscale_texture_sources(root_path, max_size=2048, dry_run=true)` with dry-run scan/report by default, explicit write mode, per-asset manifest, backup export path under `Saved/Codex` or `Saved/MCP`, setting restoration, post-scan verification, and a hard project-content-root plus user-approved-root guard so it cannot touch unrelated content.
 - Notion capture was attempted but the Notion connector required reauthentication, so this local work-log entry is the durable project memory fallback.
+
+## 2026-06-17 ANGRY_MESH Stylized Water System read-only analysis
+
+- Read-only UnrealMCP analysis covered `/Game/ANGRY_MESH/StylizedPack_WaterSystem` as the starting sample for a project-specific stylized water implementation; no Unreal assets, files, materials, Blueprints, meshes, or code were modified during the asset analysis.
+- Main reusable architecture: `M_Water_01` is a node/function-based `SingleLayerWater` masked, two-sided material with no Custom HLSL, backed by modular water material functions, water material instances, `MPC_AG_Global_01` Gerstner wave controls, water textures, spline/waterfall meshes, WaterBody/River/Waterfall Blueprints, ripple render target/VFX, underwater PP/fog, SFX, and buoyancy support.
+- High-value reuse candidates are the modular material-function split, global wave MPC (`Global Waves Height`, `Global Waves Length`, `Global Waves Stepness`, `Wind Arrow Direction`), layered normal motion, camera-distance normal fade, depth/edge/foam/caustics controls, flowmap river function, river spline mesh-density pattern, waterfall base-plus-extra-foam actor pattern, and `RT_RippleCapture_01_M` interactive ripple idea.
+- Caution areas: `BP_AG_WaterBody_01` is broad and monolithic, several asset names contain typos such as `Foarm` and `Remove HISM Mehes`, the flowmap texture is HDR/data-like and should not be treated as color, underwater/post-process and buoyancy should stay optional modules, and broad Niagara graph dumps can be too large for routine analysis.
+- Recommended implementation path: first create a small Cubeless core lake material/actor, then add river spline flowmap support, then waterfall support, then optional ripple RT/Niagara, underwater PP/fog, buoyancy, VFX, and SFX once the visual base is approved.
+- Notion capture was attempted for the operating-document hub, but the Notion connector required reauthentication, so this local work-log entry is the durable project memory fallback.
+
+## 2026-06-17 Cubeless water Phase 1 temp prototype
+
+- Created a disposable Phase 1 prototype under `/Game/_MCP_Temp/CubelessWaterPrototype` using the analyzed ANGRY_MESH water sample as the parent/reference layer.
+- Created and saved `/Game/_MCP_Temp/CubelessWaterPrototype/MI_CL_Water_Core_Prototype`, parented to `/Game/ANGRY_MESH/StylizedPack_WaterSystem/Materials/Masters/M_Water_01`, with lake/pond-oriented Cubeless overrides for base opacity/refraction/roughness, depth/scattering/absorption colors, foam, caustics, normals, WPO multipliers, and ripples.
+- Static switches were set for a clean core-water prototype: river off, river waterfall off, ocean foam off, foam on, caustics on, edge line on, interactive ripples on, procedural ripples on, sparks off, spots off, micro normal on, water clipping off.
+- Created and saved `/Game/_MCP_Temp/CubelessWaterPrototype/BP_CL_WaterBody_Prototype` as an Actor Blueprint with `DefaultSceneRoot` plus `WaterSurface` StaticMeshComponent using `SM_WaterPlane_01_Medium` and `MI_CL_Water_Core_Prototype`.
+- Verification passed: material instance overrides saved with `0` parameter failures, Blueprint component listing reported `2` components, and `compile_and_validate_blueprint` reported `compiled=true`, `validation_pass=true`, `compile_error_count=0`, `compile_warning_count=0`, `dirty_after_compile=false`.
+- Scope note: the prototype remains under `_MCP_Temp`, so it is disposable validation content and should be promoted to a production `/Game/...` path only after visual review.
+
+## 2026-06-17 Cubeless water transient preview attempt
+
+- Attempted to continue Phase 1 visual review by creating a preview level and placing `/Game/_MCP_Temp/CubelessWaterPrototype/BP_CL_WaterBody_Prototype`, but `EditorLoadingAndSavingUtils.NewBlankMap` through UnrealMCP `execute_python` caused Unreal Editor to exit with `World Memory Leaks` fatal while cleaning the previously open map package.
+- Relaunched UE_5.7 and switched to a safer transient-preview path: spawned temporary preview actors in the currently opened map without saving, focused the viewport, and captured `C:/Git/CubelessStylized/Saved/MCP/WaterPrototype/CL_Water_Phase1_TransientPreview.png`.
+- The transient screenshot was captured successfully, but the visual read is weak because the preview landed inside the currently opened environment map and existing foliage/ground dominate the frame; it should be treated as a technical capture proof, not an art approval capture.
+- Cleanup/reload limitation: calling `EditorLoadingAndSavingUtils.LoadMap` through UnrealMCP `execute_python` to clear the transient dirty state hit the same `World Memory Leaks` fatal. Avoid map transition/reload calls from this MCP Python path until the bridge has a safer map-load wrapper or the operation is performed manually in the editor.
+- Current durable outputs from this step are the existing Phase 1 prototype assets and the screenshot PNG; the intended preview map `/Game/_MCP_Temp/CubelessWaterPrototype/Map_CL_WaterPrototype` was not saved.
+- Review-image rule added by user: screenshot/check images shown for human review must be fully opaque with alpha fixed to `1.0`/`255`; generated review copy `C:/Git/CubelessStylized/Saved/MCP/WaterPrototype/CL_Water_Phase1_TransientPreview_opaque.png` has `alpha_min=255` and `alpha_max=255`.
+
+## Review image alpha rule
+
+- User-confirmed durable rule: when a review/check image does not semantically need transparency, export or post-process it as fully opaque before showing it to the user.
+- Required verification for these review images: alpha must be fixed to `1.0`/`255` across the whole image, or the image should be converted to an opaque format/mode with the same visual result.
+- This applies especially to Unreal viewport screenshots, material previews, UV texture previews, temporary validation captures, and before/after comparison images where alpha is not part of the thing being reviewed.
+
+## 2026-06-17 Unreal editor crash audit for water preview
+
+- Current state after audit: `UnrealEditor.exe` is not running and UnrealMCP bridge port `127.0.0.1:55557` is closed; only the `mcp-unreal` helper process remains.
+- Latest crash folders are `Saved/Crashes/UECC-Windows-A18B166B4594D98C807F61966E2C206C_0000` at about `2026-06-17 23:19:58` and `Saved/Crashes/UECC-Windows-08FAF9EA45987C5FF3492285C560B705_0000` at about `2026-06-17 23:16:11`.
+- Both crashes are `CrashType=Assert` on UE `5.7.4-51494982+++UE5+Release-5.7`, with fatal source `EditorServer.cpp` line `1938` and message `World Memory Leaks: 1 leaks objects and packages`.
+- First crash trigger: UnrealMCP `execute_python` called `EditorLoadingAndSavingUtils.NewBlankMap`; old package `/Game/UltraDynamicSky/Maps/DemoMap` was still referenced by `FPyReferenceCollector`.
+- Second crash trigger: UnrealMCP `execute_python` called `EditorLoadingAndSavingUtils.LoadMap`; old package `/Game/DreamscapeSeries/DreamscapeMountains/Maps/ExampleMap` was still referenced by `FPyReferenceCollector`.
+- Repro signature: `Old Package ... not cleaned up by GC`, `GCObjectReferencer /Engine/Transient.GCObjectReferencer_0`, `FPyReferenceCollector::AddReferencedObjects`, script stack at `EditorLoadingAndSavingUtils.NewBlankMap` or `EditorLoadingAndSavingUtils.LoadMap`, then UnrealMCP callstack through `FUnrealMCPProjectCommands::HandleExecutePython`.
+- Durable workaround: do not call map transition/reload APIs from the current UnrealMCP Python execution path. For preview work, either use an already-open map without map switching and avoid cleanup via reload, perform map switching manually in the editor, or add a safer UnrealMCP/native wrapper that avoids retained Python references before loading maps.
+
+## 2026-06-17 UnrealMCP Python map-transition guard
+
+- Added an `execute_python` safety guard in the UnrealMCP plugin to block Python code strings that call map transition/reload APIs such as `EditorLoadingAndSavingUtils.new_blank_map`, `new_map_from_template`, `load_map`, and `load_map_with_dialog`, including common alias forms like `uls.load_map(...)`.
+- The guard returns a structured error before Python execution, so the editor should not enter the crash path where `FPyReferenceCollector` keeps the old world package alive and UE asserts with `World Memory Leaks`.
+- Existing native C++ command `open_editor_level` remains the approved MCP route for opening existing maps. It preflights target existence and dirty packages, supports dry-run by default, and calls `FEditorFileUtils::LoadMap` outside the generic Python bridge.
+- Applied the same guard to both the active project submodule copy `Plugins/UnrealMCP` and the sibling workspace copy `../unreal-mcp-cubeless/MCPGameProject/Plugins/UnrealMCP` to avoid drift.
+- Verification passed: `git diff --check` in both UnrealMCP workspaces and `Build.bat StylizedCubelessEditor Win64 Development -Project=C:/Git/CubelessStylized/StylizedCubeless.uproject -WaitMutex -NoHotReload` succeeded.
+- Live validation after editor restart passed: an unreachable `if False: unreal.EditorLoadingAndSavingUtils.load_map(...)` script was blocked before Python execution with the new structured guard error, proving the rebuilt plugin DLL was loaded. The native `open_editor_level` tool was exposed and returned a successful dry-run for `/Game/DreamscapeSeries/DreamscapeMountains/Maps/ExampleMap` with `target_exists=true`, `already_open=true`, `can_load=true`, `blocked_reasons=[]`, and `load_attempted=false`.
