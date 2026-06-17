@@ -6760,3 +6760,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - UBT build passed with `-NoHotReloadFromIDE` while Unreal Editor and LiveCodingConsole were still running, avoiding an editor close.
 - In sibling `unreal-mcp-cubeless`, added Sections `425-432` UserWidget UMG C++ route hardening contract/report coverage.
 - Latest sibling release boundary is `section_425_432_v158` with status `section_432_user_widget_widget_tree_umg_cpp_route_hardening_ready`.
+- Verification passed: UBT editor build with `-NoHotReloadFromIDE`, targeted Section 425-432 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `176` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 BP Authoring Completion Branch Sections 433-440
+
+- Added a correct-workspace reload preflight after the UserWidget UMG C++ route hardening; this section performed no live WidgetTree mutation command, root/child creation, compile/save, delete, rename, overwrite, cleanup, or production path write.
+- Process inspection found the currently running Unreal Editor was launched with `D:/Git/CubelessStylized-delete-sky-main/StylizedCubeless.uproject`, not the managed `D:/Git/CubelessStylized/StylizedCubeless.uproject`.
+- The running editor had loaded `D:/Git/CubelessStylized-delete-sky-main/Plugins/UnrealMCP/Binaries/Win64/UnrealEditor-UnrealMCP.dll`, while the hardened DLL for this work is `D:/Git/CubelessStylized/Plugins/UnrealMCP/Binaries/Win64/UnrealEditor-UnrealMCP.dll` at submodule commit `df47193754f421e38f31d9627f0a5257824a2a3c`.
+- Because the live editor is attached to a different workspace, correct-project live UserWidget WidgetTree mutation remains blocked until the correct `CubelessStylized` editor session is restarted or launched with the hardened UnrealMCP DLL loaded.
+- In sibling `unreal-mcp-cubeless`, added Sections `433-440` correct-workspace reload preflight contract/report coverage.
+- Latest sibling release boundary is `section_433_440_v159` with status `section_440_user_widget_correct_workspace_reload_preflight_ready`.
