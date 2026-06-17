@@ -6898,3 +6898,93 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - In sibling `unreal-mcp-cubeless`, added Sections `545-552` correct-workspace bridge verification evidence validation result schema contract/report coverage.
 - Latest sibling release boundary is `section_545_552_v173` with status `section_552_correct_workspace_bridge_verification_evidence_validation_result_schema_ready`.
 - Verification passed: targeted Section 545-552 contract test, release boundary smoke, report `--no-write`, report write, full analysis loop `191` tests, `python -m compileall Python/scripts/analysis`, and `git diff --check`.
+
+## 2026-06-17 PCG Dungeon V2 2x Prototype
+
+- Created the V2 PCG dungeon prototype on branch `codex/pcg-dungeon-v2-prototype` under `/Game/Cubeless/PCG/DungeonV2`, leaving V1 `/Game/Cubeless/PCG/Dungeon` untouched.
+- V2 reuses the V1 Geometry Script module/spawner validation path but starts with 2x spatial scale: `DungeonGridCellSize=800` and `DungeonCorridorWidth=800`.
+- Added `CubelessDungeonPCGV2.py`, `CubelessDungeonPCGV2Entrypoint.py`, `Tools/Unreal/run_pcg_dungeon_v2_prototype.py`, and `docs/pcg-dungeon-v2-prototype.md`.
+- The runner now fails early when the live Unreal Editor is attached to a different Git worktree, preventing asset writes into the wrong checkout.
+- During validation, the editor was corrected from `D:/Git/CubelessStylized-delete-sky-main/` to `D:/Git/CubelessStylized/`; the accidental duplicate `/Content/Cubeless/PCG/DungeonV2` output in the wrong worktree was removed after path verification.
+- Smoke validation passed: `64` native components, `772` instances, top/oblique screenshot capture QA passed, final gate passed, and no dirty packages remained after generation.
+- Notion capture was attempted for `CubelessStylized 운영 문서` but the Notion app required reauthentication, so this local log entry is the durable project memory for the result.
+
+## 2026-06-17 Recurring Image Alpha Issue
+
+- User flagged a recurring issue: generated/imported images can lose their alpha channel.
+- Treat alpha preservation as an explicit QA check for future image, texture, source-art, mask, decal, UI, cloud, or transparent-background work.
+- Before applying or presenting such assets as final, verify that the output file format supports alpha and that the actual file still contains non-opaque alpha data where expected.
+
+## 2026-06-17 PCG Dungeon V2 Core Output Pass
+
+- Updated V2 to use a core structure NativeOutput policy by default while keeping room-rule and semantic marker data in the generated reports.
+- Excluded `marker`, `room_variant_detail`, and `detail_mesh` modules from the V2 Native PCG spawner contract so floor role markers and confusing room-detail objects do not appear in the default structural review.
+- V2 output-only review was adjusted to expect full bridge validation actors plus the smaller filtered NativeOutput actor set.
+- Split validation passed after the update: `37` native components, `725` instances, `47` static mesh validation actors excluded from NativeOutput (`24` detail meshes, `12` markers, `11` room-variant details), top/oblique screenshot QA passed, final gate passed, and dirty packages were saved back to zero.
+- A `--no-build` runner retry timed out after requesting a refresh; the live editor remained responsive, NativeOutput was valid, and the map was saved clean afterward. Use split verification/final-gate flow if a refresh request is already complete but the runner times out during immediate verify.
+
+## 2026-06-17 PCG Dungeon V2 Existing Output Verification Runner
+
+- Added `--verify-existing-output` and alias `--skip-refresh` to `Tools/Unreal/run_pcg_dungeon_v2_prototype.py`.
+- The new mode verifies the currently generated V2 NativeOutput, captures top/oblique screenshots, and records the final gate without running `build_all()` or requesting another async PCG refresh.
+- This is now the preferred recovery path when a refresh has already completed but the immediate runner verification loop times out.
+- Verification passed: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --verify-existing-output --mcp-response-timeout-seconds 300 --redraw-count 2` completed in `6.125` seconds with `37` native components, `725` instances, screenshot QA pass, final gate pass, and zero dirty packages.
+
+## 2026-06-17 PCG Dungeon V2 Room Rule Summary
+
+- Added `CubelessDungeonV2_RoomRuleSummary.json` and `CubelessDungeonV2_RoomRuleSummary.md` generation through `CubelessDungeonPCGV2.write_room_rule_summary()`.
+- The summary explains V2 room roles, marker meanings, room archetype counts, room-variant detail counts, detail mesh counts, excluded modules, and adjustable config values.
+- The V2 runner now writes the room-rule summary during both normal validation and `--verify-existing-output` validation.
+- Verification passed: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --verify-existing-output --mcp-response-timeout-seconds 300 --redraw-count 2` completed in `6.468` seconds with room-rule summary pass, `11` rooms, role counts `start=1`, `exit=1`, `boss=1`, `key=1`, `shop=1`, `treasure=3`, `combat=4`, `locked_after=1`, excluded module counts `detail_mesh=24`, `marker=12`, `room_variant_detail=11`, screenshot QA pass, final gate pass, and zero dirty packages.
+
+## 2026-06-17 PCG Dungeon V2 Room Rule Matrix
+
+- Added `CubelessDungeonV2_RoomRuleMatrix.json` and `CubelessDungeonV2_RoomRuleMatrix.md` generation through `CubelessDungeonPCGV2.write_room_rule_matrix()`.
+- The matrix compares all 8 V2 authoring presets without issuing another PCG refresh, so room-count, route, loop, key/shop/treasure/combat, locked-gate, ceiling, grid, and corridor settings can be reviewed quickly.
+- The V2 runner now writes the matrix during both normal validation and `--verify-existing-output` validation.
+- Verification passed: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --verify-existing-output --mcp-response-timeout-seconds 300 --redraw-count 2` completed in `6.765` seconds with matrix pass across `boss_focus`, `compact_branching`, `default`, `long_route`, `loop_dense`, `open_cutaway`, `small_route`, and `wide_looped`, screenshot QA pass, final gate pass, and zero dirty packages.
+
+## 2026-06-17 PCG Dungeon V2 Tuning Guide
+
+- Added `CubelessDungeonV2_TuningGuide.json` and `CubelessDungeonV2_TuningGuide.md` generation through `CubelessDungeonPCGV2.write_tuning_guide()`.
+- The tuning guide translates the current RoomRuleMatrix into 6 quick-choice goals: balanced default, fast small iteration, loop/route variety, ceiling-off structural review, boss/combat focus, and longer route with fewer loops.
+- The V2 runner now writes the tuning guide during both normal validation and `--verify-existing-output` validation.
+- Verification passed: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --verify-existing-output --mcp-response-timeout-seconds 300 --redraw-count 2` completed in `6.984` seconds with tuning guide pass, `37` native components, `725` instances, screenshot QA pass, final gate pass, and zero dirty packages.
+
+## 2026-06-17 PCG Dungeon V2 Preset Refresh Smoke
+
+- Ran an actual `loop_dense` preset refresh with `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset loop_dense --no-build --mcp-response-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 2`.
+- The immediate `_wait_for_verify` call timed out, matching the known post-refresh MCP response pattern, but follow-up `--verify-existing-output` passed in `7.718` seconds with `37` native components, `722` instances, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero dirty packages.
+- Restored the output by running an actual `default` preset refresh with `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset default --no-build --mcp-response-timeout-seconds 900 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 2`.
+- The immediate verify call timed out again, but follow-up `--verify-existing-output` passed in `7.797` seconds with `37` native components, `725` instances, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, zero dirty packages, and final `GameplayData` restored to default config (`seed=242857`, `grid_cell_size=800`, `corridor_width=800`).
+
+## 2026-06-17 PCG Dungeon V2 Refresh Timeout Auto-Recovery
+
+- Updated `Tools/Unreal/run_pcg_dungeon_v2_prototype.py` so post-refresh verify socket timeouts are recoverable: immediate verify now uses `--refresh-verify-response-timeout-seconds`, and timeout/connection errors trigger a fresh UnrealMCP connection with `--verify-recovery-*` settings before the runner continues to reports, screenshots, and final gate.
+- Added `--no-refresh-verify-timeout-recovery` for disabling this behavior when a strict fail-fast run is needed.
+- Verification passed for `loop_dense`: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset loop_dense --no-build --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 2` completed in `85.640` seconds. The first verify socket timed out after `60.047` seconds, automatic recovery succeeded in `4.469` seconds, and the final result passed with `37` native components, `722` instances, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero dirty packages.
+- Verification passed for final `default` restoration: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset default --no-build --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 2` completed in `21.141` seconds. Immediate verify passed without recovery in `1.469` seconds, with `37` native components, `725` instances, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero dirty packages.
+
+## 2026-06-17 PCG Dungeon V2 Representative Preset Smoke
+
+- Verified `small_route` with the auto-recovering runner: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset small_route --no-build --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 2` completed in `83.922` seconds. The first verify socket timed out after `60.016` seconds, automatic recovery succeeded in `4.672` seconds, and the final result passed with `38` native components, `520` instances, `7` rooms, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero dirty packages.
+- Verified `open_cutaway` with the auto-recovering runner: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset open_cutaway --no-build --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 2` completed in `19.282` seconds. Immediate verify passed without recovery in `1.375` seconds, and the final result passed with `33` native components, `492` instances, ceiling-disabled structure review, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero dirty packages.
+- Verified `boss_focus` with the auto-recovering runner: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset boss_focus --no-build --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 2` completed in `83.344` seconds. The first verify socket timed out after `60.032` seconds, automatic recovery succeeded in `4.687` seconds, and the final result passed with `38` native components, `683` instances, `10` rooms, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero dirty packages.
+- Restored final `default` output after the representative preset smoke: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset default --no-build --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 2` completed in `84.313` seconds. The first verify socket timed out after `60.032` seconds, automatic recovery succeeded in `4.703` seconds, and the final result passed with `37` native components, `725` instances, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero dirty packages.
+
+## 2026-06-17 PCG Dungeon V2 Remaining Preset Smoke And Usage Docs
+
+- Verified the remaining Matrix presets with actual refresh smoke, completing real refresh coverage for all 8 V2 presets.
+- `compact_branching` passed: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset compact_branching --no-build --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 2` completed in `20.657` seconds with immediate verify pass, `38` native components, `562` instances, `8` rooms, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero dirty packages.
+- `wide_looped` passed: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset wide_looped --no-build --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 2` completed in `84.563` seconds. The first verify socket timed out after `60.031` seconds, automatic recovery succeeded in `4.781` seconds, and the final result passed with `38` native components, `778` instances, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero dirty packages.
+- `long_route` passed: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset long_route --no-build --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 2` completed in `85.172` seconds. The first verify socket timed out after `60.032` seconds, automatic recovery succeeded in `4.500` seconds, and the final result passed with `38` native components, `720` instances, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero dirty packages.
+- Restored final `default` output after all 8 preset smokes: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset default --no-build --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 2` completed in `83.969` seconds. The first verify socket timed out after `60.031` seconds, automatic recovery succeeded in `4.781` seconds, and the final result passed with `37` native components, `725` instances, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero dirty packages.
+- Updated `docs/pcg-dungeon-v2-prototype.md` with V2 tuning instructions. The current supported authoring surface is the `MCP_Cubeless_Dungeon_V2_PCGBridge` actor Tags using `Dungeon...` keys such as `DungeonRoomCount`, `DungeonBranchChancePercent`, `DungeonMaxLoopEdges`, `DungeonGridCellSize`, `DungeonCorridorWidth`, `DungeonUseCeiling`, and gameplay budget tags.
+
+## 2026-06-17 PCG Dungeon V2 Commit Readiness Check
+
+- Checked the current V2 commit candidate scope: `61` new Unreal asset files under `/Game/Cubeless/PCG/DungeonV2` (`4` graphs, `1` map, `22` materials, `34` meshes), `CubelessDungeonPCGV2.py`, `CubelessDungeonPCGV2Entrypoint.py`, `Tools/Unreal/run_pcg_dungeon_v2_prototype.py`, `docs/pcg-dungeon-v2-prototype.md`, `docs/work-log.md`, and `AGENTS.md`.
+- Confirmed generated validation outputs under `Saved/MCP_DungeonV2/` are ignored by `.gitignore` through `Saved/*` and should not be staged.
+- Verification passed: `python -m py_compile Tools\Unreal\run_pcg_dungeon_v2_prototype.py Plugins\CustomTools\Content\Python\ArtScripts\CubelessDungeonPCGV2.py Plugins\CustomTools\Content\Python\ArtScripts\CubelessDungeonPCGV2Entrypoint.py`.
+- Verification passed: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --verify-existing-output --mcp-response-timeout-seconds 300 --redraw-count 2` completed in `7.109` seconds with `37` native components, `725` instances, Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero dirty packages.
+- `git diff --check` reports only the known `AGENTS.md` LF-to-CRLF warning.
