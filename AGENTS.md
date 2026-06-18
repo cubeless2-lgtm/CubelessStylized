@@ -3,7 +3,7 @@
 ## Related Workspace Scope
 
 - Treat this repository (`CubelessStylized`) and the sibling workspace folder `../unreal-mcp-cubeless` as the default managed project scope.
-- On the user's current machine this sibling folder is expected at `C:\Git\unreal-mcp-cubeless`; on other machines, resolve it relative to the parent folder of the cloned `CubelessStylized` repository.
+- Do not assume a fixed drive letter for this sibling folder. On the user's machines it may be under `C:`, `D:`, `F:`, or another workspace drive; resolve it relative to the parent folder of the cloned `CubelessStylized` repository first, and use an absolute path only after discovering it locally.
 - When MCP behavior, tooling, or integration work may require changes in `unreal-mcp-cubeless`, inspect and modify that sibling workspace without requiring the user to repeat this instruction.
 - Keep Git status, diffs, staging, commits, and summaries separate for `CubelessStylized` and `unreal-mcp-cubeless` so changes from the two workspaces are not mixed accidentally.
 

@@ -7202,6 +7202,17 @@ These entries were visible from Notion search/fetch results earlier in this Code
 
 - Main `CubelessStylized` commit scope should include the new production content root `Content/Cubeless/VFX/Volumetrics`, `docs/ultra-volumetrics-modularization.md`, and this `docs/work-log.md` update.
 - Active project submodule scope is separate: `Plugins/UnrealMCP/Source/UnrealMCP/Private/Commands/UnrealMCPEditorCommands.cpp` contains only the PIE/SIE screenshot guard for `capture_viewport_bookmark_screenshot` and `take_screenshot`.
-- Sibling workspace scope is also separate: `C:/Git/unreal-mcp-cubeless/MCPGameProject/Plugins/UnrealMCP/Source/UnrealMCP/Private/Commands/UnrealMCPEditorCommands.cpp` contains the same PIE/SIE screenshot guard.
+- Sibling workspace scope is also separate: `../unreal-mcp-cubeless/MCPGameProject/Plugins/UnrealMCP/Source/UnrealMCP/Private/Commands/UnrealMCPEditorCommands.cpp` contains the same PIE/SIE screenshot guard.
 - Do not stage `_MCP_Temp` validation maps or package outputs. `_MCP_Temp` remained gitignored during this pass.
 - `git diff --check` passed in the main repository. The two UnrealMCP workspaces reported only LF-to-CRLF warnings for the touched C++ file.
+
+## 2026-06-18 UltraVolumetrics MCP common audit promotion
+
+- Conservative promotion decision: add only one shared read-only MCP command first, `audit_content_root_mcp`, instead of promoting UltraVolumetrics-specific helpers or mutating validation flows.
+- Overlap comparison: `run_content_validation_pipeline_mcp` remains the heavy recreate/postprocess/world-repair pipeline, and `compile_blueprint` remains a single Blueprint compile tool. `audit_content_root_mcp` fills the missing lightweight root-audit role without compiling, saving, deleting, creating, or switching maps.
+- Implemented in both UnrealMCP plugin copies: active `Plugins/UnrealMCP` and sibling `../unreal-mcp-cubeless/MCPGameProject/Plugins/UnrealMCP`.
+- Implemented Python FastMCP exposure in sibling `../unreal-mcp-cubeless/Python/tools/project_tools.py` and added the tool to the MCP info prompt.
+- The new command audits a `/Game/...` root through AssetRegistry and reports asset count, class counts, folder counts, redirectors, dirty packages, required asset paths, expected asset/class count mismatches, and forbidden dependency prefix hits. Default forbidden dependency prefix is `/Game/_MCP_Temp`.
+- Path rule update: do not assume the sibling workspace is on `C:`. Resolve `../unreal-mcp-cubeless` relative to the active `CubelessStylized` checkout first; the user's machines may use `C:`, `D:`, `F:`, or another workspace drive.
+- Verification: Python `uv run python -m py_compile` passed for the changed MCP Python files. MCP parity audit reported `missing_in_cpp=0` and `missing_in_python=0` for routes/tools; its fail status came only from pre-existing duplicate route/tool findings.
+- C++ verification: full editor build reached UnrealMCP compilation and `UnrealEditor-UnrealMCP.lib` link without compile errors, then failed final DLL linking because the running Unreal Editor and CrashReportClient held loaded editor/plugin DLLs. A narrowed `-Module=UnrealMCP -ModuleWithSuffix=UnrealMCP,<timestamp>` UBT check completed successfully with the target up to date.
