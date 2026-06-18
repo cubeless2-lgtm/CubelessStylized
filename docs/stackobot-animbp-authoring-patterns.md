@@ -311,5 +311,6 @@ Do not treat an authored animation change as complete until the relevant checks 
 - Do not call `unreal.SystemLibrary.quit_editor()` from MCP Python cleanup routes.
 - Prefer native `open_editor_level` or `safe_new_preview_map` for map work, with dry-run first.
 - For SIE proof actors, create or identify the editor-world actor before starting SIE if the command needs to match the PIE duplicate by label.
+- For ControlRig same-instance PoseWatch, do not call the capture command immediately after `editor_play_simulate`. Poll `inspect_anim_instance_runtime_state(require_pie_world=true)` until the matched PIE actor reports a live AnimInstance, then run `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)`.
 - Treat `editor_is_playing`, `refresh_bone_transforms`, and similar Python wrapper methods as version-dependent; failed helper calls should not be confused with final command failures.
 - Keep `_MCP_Sample` learning assets disposable and gitignored unless the user explicitly asks to version a specific sample asset.
