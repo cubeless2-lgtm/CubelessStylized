@@ -2,6 +2,18 @@
 
 Durable local fallback for project memory when Notion capture is unavailable.
 
+## 2026-06-18 - Multi-project agent operations design note
+
+- User proposed splitting this topic into a new session titled `상위 이에타 멀티프로젝트 운영 설계`.
+- Operating model: create a top-level manager layer over multiple Unreal projects, with top-level Ieta handling priorities/rules/quality/knowledge transfer, top-level Tivret handling common MCP/build/automation/verification pipelines, and top-level Keilan handling shared art-generation principles and style/reference transfer rules.
+- Project-local subagents remain separate: company-project Ieta/Tivret/Keilan prioritize delivery, operations, and security; Stylized Ieta/Tivret/Keilan prioritize reference work, experiments, learning, and validation sandboxing.
+- Core transfer rule: Stylized is a place to learn and verify, not a source to copy blindly into the company project. Any transfer into the company project must document intent, differences, risks, verification method, affected files, and rollback plan before approval.
+- Routing rule: top-level Ieta first classifies work as company-project work, Stylized reference work, shared MCP/tooling work, or Stylized-to-company transfer work, then delegates design/review/risk to the relevant Ieta, Unreal asset/BP/material/PCG changes to the relevant Tivret, image/texture/source-art generation to the relevant Keilan, and shared MCP improvements through top-level Tivret with per-project verification.
+- Git boundary rule: company project, CubelessStylized, and shared MCP repo must keep branches, commits, staging, pushes, remotes, LFS/submodule checks, hooks, and summaries separate. Never mix experimental `_MCP_Temp`, samples, references, or unrelated asset dirtiness into company-project commits.
+- MCP/tooling rule: resolve project roots relative to the current repo, sibling folders, or environment variables, never fixed drive letters. Keep project-specific `.mcp.json` validation separate even if server names match; before asset edits, check project path, opened `.uproject`, bridge port, dirty packages, and Git branch.
+- Recommended next steps: add upper/lower agent operating rules to `AGENTS.md`, create `docs/multi-project-agent-operations.md`, inspect company-project path/remote/branch/LFS/submodule/hooks state, compare Stylized and company MCP structures, decide common MCP source/submodule/copy policy, and write a project-specific Git safety checklist.
+- Notion capture was attempted for the `CubelessStylized 운영 문서` hub, but the Notion connector required reauthentication, so this local work-log entry is the durable project memory fallback.
+
 ## 2026-06-18 - Workspace-relative path hardening
 
 - Fixed immediate hardcoded workspace-drive paths in `CubelessStylized` Unreal/Python tooling and the sibling `../unreal-mcp-cubeless` analysis contracts.
