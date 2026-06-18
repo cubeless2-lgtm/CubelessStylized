@@ -1,10 +1,11 @@
 """Audit StackOBot animation study documentation references and structure.
 
 This local/read-only check validates that StackOBot study docs point to existing
-relative docs, required study documents still exist, key template sections,
-request-run example fields, MCP command syntax examples, command parameters, and
-sample-path guards are present, and the sibling/sample workspace paths used by
-the workflow still exist on this machine.
+relative docs, required study documents still exist, the doc index covers the
+required document set, key template sections, request-run example fields, MCP
+command syntax examples, command parameters, and sample-path guards are present,
+and the sibling/sample workspace paths used by the workflow still exist on this
+machine.
 It does not call Unreal, does not touch assets, and does not require the editor
 bridge to be online.
 """
@@ -775,6 +776,21 @@ def _required_doc_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _doc_index_coverage_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-doc-index.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    return [
+        {
+            "path": path_text,
+            "required_doc": required_doc,
+            "exists": required_doc in text,
+        }
+        for required_doc in REQUIRED_DOC_PATHS
+        if required_doc != path_text
+    ]
+
+
 def _required_section_entries() -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for path_text, sections in REQUIRED_SECTIONS.items():
@@ -1195,6 +1211,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_external_paths = [entry for entry in external_paths if not entry["exists"]]
     required_docs = _required_doc_entries()
     missing_required_docs = [entry for entry in required_docs if not entry["exists"]]
+    doc_index_coverage = _doc_index_coverage_entries()
+    missing_doc_index_entries = [
+        entry for entry in doc_index_coverage if not entry["exists"]
+    ]
     required_sections = _required_section_entries()
     missing_required_sections = [entry for entry in required_sections if not entry["exists"]]
     required_tokens = _required_token_entries()
@@ -1241,6 +1261,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         not missing_references
         and not missing_external_paths
         and not missing_required_docs
+        and not missing_doc_index_entries
         and not missing_required_sections
         and not missing_required_tokens
         and not missing_example_fields
@@ -1254,7 +1275,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v13",
+        "schema": "stackobot_animation_docs_link_audit_v14",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -1263,6 +1284,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_reference_count": len(missing_references),
         "missing_external_path_count": len(missing_external_paths),
         "missing_required_doc_count": len(missing_required_docs),
+        "missing_doc_index_entry_count": len(missing_doc_index_entries),
         "missing_required_section_count": len(missing_required_sections),
         "missing_required_token_count": len(missing_required_tokens),
         "missing_example_field_count": len(missing_example_fields),
@@ -1278,6 +1300,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_references": missing_references,
         "external_paths": external_paths,
         "missing_required_docs": missing_required_docs,
+        "doc_index_coverage": doc_index_coverage,
+        "missing_doc_index_entries": missing_doc_index_entries,
         "missing_required_sections": missing_required_sections,
         "missing_required_tokens": missing_required_tokens,
         "example_fields": example_fields,
@@ -1315,6 +1339,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_refs={report['missing_reference_count']} "
             f"missing_external={report['missing_external_path_count']} "
             f"missing_required_docs={report['missing_required_doc_count']} "
+            f"missing_doc_index_entries={report['missing_doc_index_entry_count']} "
             f"missing_required_sections={report['missing_required_section_count']} "
             f"missing_required_tokens={report['missing_required_token_count']} "
             f"missing_example_fields={report['missing_example_field_count']} "
@@ -1333,6 +1358,7 @@ def _format_summary(report: dict[str, Any]) -> str:
         for key in [
             "missing_references",
             "missing_required_docs",
+            "missing_doc_index_entries",
             "missing_required_sections",
             "missing_required_tokens",
             "missing_example_fields",
