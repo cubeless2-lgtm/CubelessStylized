@@ -1,5 +1,8 @@
 # StackOBot Animation Study Notes
 
+Authoring-pattern guide for future build requests:
+`docs/stackobot-animbp-authoring-patterns.md`.
+
 이 문서는 `D:/Git/SampleProject/StackOBot`을 애니메이션 학습용으로 볼 때의 기준 노트다. 원본 StackOBot 애셋은 읽기 전용으로 두고, 실험은 `/Game/_MCP_Sample/AnimStudy/` 아래 disposable 샘플에서 진행한다.
 
 ## 학습 순서

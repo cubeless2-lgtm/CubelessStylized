@@ -4,6 +4,9 @@ This note summarizes the current learning state for StackOBot animation systems.
 
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`
 
+Authoring-pattern guide for future build requests:
+`docs/stackobot-animbp-authoring-patterns.md`.
+
 ## Runtime Pose Flow
 
 ```mermaid

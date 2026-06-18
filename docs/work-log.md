@@ -8418,3 +8418,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Cleanup ended SIE and reported empty dirty content packages; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor spawn/delete. The hidden validation editor was then stopped externally rather than by `quit_editor()`, and the lingering `CrashReportClientEditor` process was stopped.
 - Latest log caveat: failed setup attempts before the successful smoke produced `LogUtils: Error` lines and Python setup errors (`editor_is_playing` missing, `refresh_bone_transforms` not exposed, and attempted PIE-world direct spawn). The final `sample_anim_node_pre_post_runtime_pose` command succeeded with empty command errors/warnings, so treat those log errors as validation-script route mistakes, not as ControlRig PoseWatch failures.
 - Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, `docs/stackobot-animbp-inventory.md`, and sibling design note `D:/Git/unreal-mcp-cubeless/Docs/Analysis/StackOBot/sample_anim_node_pre_post_runtime_pose_design.md`. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot AnimBP authoring pattern guide
+
+- Created `docs/stackobot-animbp-authoring-patterns.md` as the reusable grammar for future StackOBot-style AnimBP requests.
+- The guide maps request types to authoring surfaces: state machines, BlendSpaces, slots/layered blends, ControlRig, Post Process AnimBP, RigidBody, Trail, and PoseWatch pre/post verification.
+- Captured the current C++/API escalation policy: use existing MCP/editor asset routes first; keep broader same-instance node support as a future candidate only when a new unusual node class falls outside the smoked paths.
+- Linked the guide from `docs/stackobot-animation-study.md` and `docs/stackobot-animation-execution-map.md`.
+- No Unreal assets, sample assets, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
