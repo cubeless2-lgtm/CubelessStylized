@@ -197,9 +197,10 @@ Result:
 - Reusable MCP command `sample_blendspace_runtime_pose_grid` is now implemented and StackOBot live-smoked. Its controlled `UAnimSingleNodeInstance` sampling returned `BS_Bot_WalkRunLean` max delta `30.707 cm` and `BS_Bot_RunIdleJump` max delta `5.757 cm`.
 - The non-SIE full-editor `AnimationSingleNode` path wrote `StackOBot_BlendSpace_LiveTickPoseGrid.*` but returned `0.0` pose deltas, so use it as an API-gap record rather than as animation evidence.
 - For current study purposes, the execution map should treat BlendSpace interpolation as proven through SIE/game-world component tick. Use the reusable MCP command for repeatable audits; its fixed sample-time/forced-tick deltas are not expected to numerically match the older async SIE script exactly.
-- Current authoring gap: the available BlendSpace command is read-only sampling.
-  Future speed/lean authoring requests need a sample-only duplicate/edit command
-  before claiming a modified BlendSpace variant.
+- Sample authoring route is now available through `ensure_blendspace_sample_variant`.
+  `LeanWideStudy` created `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy`,
+  widened left/right lean samples to `1.25/-1.25`, saved the target asset, and
+  editor-world pose-grid fallback returned `input_changed_pose=true`.
 
 ## Transition Inventory Status
 
@@ -416,7 +417,7 @@ Use this checklist when adding or validating another animation experiment.
 | ---: | --- | --- | --- |
 | Done | Slot and LayeredBoneBlend | Inventory complete for `UpperBody`, `CashedPose_UpperBody`, branch filters, filename/class montage evidence, AssetRegistry-level interaction references, and read-only Blueprint call topology. | `BP_Bot` topology shows interact/grab component flow, not a direct montage/dynamic-slot playback call. |
 | Done/Runtime metrics | State-machine transitions | No-C++ transition topology probing is complete; live current-state reading, state weights, transition progress, relevant anim timing, runtime property setting, per-case state resampling, and meaningful `ABP_Bot` driver sequences are captured. | Full K2 call topology still needs follow-up API work. |
-| Done/SIE pose grid + MCP API | BlendSpace runtime pose grid | Source pose map, SIE game-world pose grid, and reusable `sample_blendspace_runtime_pose_grid` command are complete for `BS_Bot_WalkRunLean` and `BS_Bot_RunIdleJump`. | Study evidence can use `StackOBot_BlendSpace_SIEPoseGrid.*`; repeatable MCP audits should use `StackOBot_BlendSpaceRuntimePoseGridMCP_*`. Authoring a modified BlendSpace still needs `ensure_blendspace_sample_variant` or equivalent. |
+| Done/SIE pose grid + MCP API | BlendSpace runtime pose grid and sample authoring | Source pose map, SIE game-world pose grid, reusable `sample_blendspace_runtime_pose_grid`, and sample-only `ensure_blendspace_sample_variant` are complete for `BS_Bot_WalkRunLean` style edits. | Study evidence can use `StackOBot_BlendSpace_SIEPoseGrid.*`; repeatable MCP audits should use `StackOBot_BlendSpaceRuntimePoseGridMCP_*`. Authoring must still stay under `_MCP_Sample` unless original mutation is explicitly approved. |
 | Done/PoseWatch + forced-driver | Control Rig pre/post | Direct-gate MCP probe, sample ModifyCurve curve-forcing, sample ControlRig input-default forcing, combined forced-driver sample assembly, direct transient ControlRig pre/post solve probe, and compiled AnimGraph same-instance PoseWatch capture are complete. | Same-instance ControlRig evidence uses the safe `_MCP_Sample` forced-driver AnimBP, not the original inactive `ABP_Bot` gate state. |
 | Done/PoseWatch | Post Process pre/post | Static single-input-pose pre/post isolation and live same-instance PoseWatch capture are complete for the two variants. | Use `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)` for comparable Post Process node checks. |
 | Done/PoseWatch + isolated + mapping | Physics pre/post | Evidence synthesis complete for learning baseline; RigidBody/Trail isolated source-vs-output sampling is implemented and live-smoked; compiled runtime-node mapping and pose-link preflight are implemented and live-smoked; `ABP_Baddy` RigidBody and `ABP_Bot_Trail_Study` Post Process Trail same-instance PoseWatch pre/post capture are implemented and live-smoked. | Broader unusual node classes beyond the current RigidBody/Trail/ModifyBone/LayeredBoneBlend/ControlRig coverage may still need lower-level taps. |
@@ -442,15 +443,11 @@ Implemented APIs to keep available for future audits:
 15. `inspect_anim_graph_protected_topology` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Bot` ControlRig topology. Current artifacts are `StackOBot_AnimGraphProtectedTopology_ControlRig_*`.
 16. `ensure_postprocess_anim_demo_variant` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against the existing `HeadPitch` Post Process sample. It duplicates/reuses sample-only AnimBP/SkeletalMesh targets, ensures the Modify Bone chain, compiles the AnimBP, assigns the SkeletalMesh Post Process AnimBlueprint, saves, and reports `original_assets_modified=false`. Current artifacts are `StackOBot_PostProcessDemoVariantEnsure_*`.
 17. `sample_blendspace_runtime_pose_grid` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `BS_Bot_WalkRunLean` plus `BS_Bot_RunIdleJump` in PIE/SIE. It uses a transient `SkeletalMeshActor`, fixed sample time, bounded forced ticks, and cleanup-only runtime sampling. Current artifacts are `StackOBot_BlendSpaceRuntimePoseGridMCP_*`.
+18. `ensure_blendspace_sample_variant` - implemented in the StackOBot UnrealMCP plugin and sibling Python wrapper, build-verified with `UnrealEditor Win64 Development -Project=StackOBot.uproject`, and live-smoked against `BS_Bot_WalkRunLean`. It created `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy`, edited lean samples to `1.25/-1.25`, saved the target, reported `original_assets_modified=false`, and was followed by `sample_blendspace_runtime_pose_grid(require_pie_world=false)` with `valid_pose_count=3` and `input_changed_pose=true`.
 
 Remaining C++/UnrealMCP candidates if reusable tooling is explicitly resumed:
 
-1. `ensure_blendspace_sample_variant`: duplicate or reuse a source BlendSpace under
-   `/Game/_MCP_Sample/AnimStudy`, apply explicit axis/sample-coordinate edits, refuse
-   original asset mutation by default, validate skeleton/animation compatibility,
-   save the sample target only, and immediately verify with
-   `sample_blendspace_runtime_pose_grid`.
-2. expand same-instance AnimGraph pre/post capture only if a new unusual node class falls outside the smoked RigidBody/Trail/Post Process ModifyBone/LayeredBoneBlend/ControlRig paths.
+1. expand same-instance AnimGraph pre/post capture only if a new unusual node class falls outside the smoked RigidBody/Trail/Post Process ModifyBone/LayeredBoneBlend/ControlRig paths.
 
 Implemented `sample_skeletal_bones_in_sie` detail:
 

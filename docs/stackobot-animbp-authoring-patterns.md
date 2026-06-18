@@ -107,8 +107,8 @@ Expected workflow:
 
 1. Read authored axis ranges and sample coordinates.
 2. Confirm which source clips carry the visible motion.
-3. Modify or create the BlendSpace only in a sample path first, but only after a
-   dedicated authoring command exists.
+3. Modify or create the BlendSpace only in a sample path first with
+   `ensure_blendspace_sample_variant`.
 4. Runtime-sample the grid through SIE/PIE style ticking.
 5. Compare new pose deltas against the source pose-map baseline.
 
@@ -126,12 +126,11 @@ Preferred verification:
 
 Current tooling status:
 
-- `sample_blendspace_runtime_pose_grid` is read-only runtime evidence, not an
-  authoring command.
-- There is no current MCP command that duplicates `BS_Bot_WalkRunLean` or
-  `BS_Bot_RunIdleJump` and edits BlendSpace sample coordinates safely.
-- For speed/lean requests, record the intended axis/sample remap and keep C++/API
-  work as a candidate until `ensure_blendspace_sample_variant` or equivalent exists.
+- `ensure_blendspace_sample_variant` creates/reuses `_MCP_Sample` BlendSpace
+  variants, edits axis ranges or sample coordinates, validates/resamples, and saves
+  only the target asset.
+- `sample_blendspace_runtime_pose_grid` remains the runtime evidence command.
+- Smoke asset: `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy`.
 
 ### 3. Slot And Layered Blend Pattern
 
@@ -258,7 +257,7 @@ Preferred verification:
 | Runtime current state, weights, timing, transitions | `inspect_anim_instance_runtime_state` |
 | Runtime property driver matrix | `sample_anim_state_machine_runtime_response` |
 | BlendSpace runtime pose grid | `sample_blendspace_runtime_pose_grid` |
-| BlendSpace sample variant authoring | candidate: `ensure_blendspace_sample_variant` |
+| BlendSpace sample variant authoring | `ensure_blendspace_sample_variant` |
 | Control Rig direct gate proof | `controlrig_direct_gate_probe` |
 | Sample ModifyCurve before ControlRig | `ensure_anim_graph_modify_curve_demo` |
 | Set ControlRig input defaults in a sample | `set_anim_graph_controlrig_input_defaults` |
@@ -276,10 +275,8 @@ current API surface cannot safely express or verify the requested behavior.
 Keep these as candidate API needs, not immediate work:
 
 1. Expand same-instance AnimGraph pre/post capture only if a new unusual node class falls outside the smoked RigidBody, Trail, ModifyBone, LayeredBoneBlend, and ControlRig paths.
-2. Add `ensure_blendspace_sample_variant` when a request needs a safe `_MCP_Sample`
-   BlendSpace duplicate with edited axis ranges or sample coordinates.
-3. Add narrower authoring commands when a requested graph edit requires protected pin routing or node configuration that Python/editor scripting cannot safely do.
-4. Add runtime probes only when the existing state, BlendSpace, ControlRig, Post Process, and PoseWatch commands cannot produce the needed evidence.
+2. Add narrower authoring commands when a requested graph edit requires protected pin routing or node configuration that Python/editor scripting cannot safely do.
+3. Add runtime probes only when the existing state, BlendSpace, ControlRig, Post Process, and PoseWatch commands cannot produce the needed evidence.
 
 Approval boundary:
 

@@ -6,10 +6,12 @@ Durable local fallback for project memory when Notion capture is unavailable.
 
 - Audited the current UnrealMCP BlendSpace tooling for future requests such as speed/lean response changes.
 - Confirmed the existing reusable route is `sample_blendspace_runtime_pose_grid`, which is read-only runtime sampling through a transient `SkeletalMeshActor` and `UAnimSingleNodeInstance`.
-- Confirmed there is no current command to duplicate a BlendSpace under `/Game/_MCP_Sample/AnimStudy` and safely edit authored axis ranges or sample coordinates.
-- Updated the StackOBot animation playbook, authoring patterns, and execution map so BlendSpace requests are handled as baseline/sample-grid evidence plus a C++/API candidate until an authoring command exists.
-- Recorded candidate API `ensure_blendspace_sample_variant`: sample-only duplicate/reuse, explicit axis/sample-coordinate edits, original-asset mutation refusal by default, skeleton/animation compatibility validation, sample-target save, and immediate `sample_blendspace_runtime_pose_grid` verification.
-- No Unreal assets, StackOBot source assets, or sibling `unreal-mcp-cubeless` files were modified in this audit.
+- Implemented the missing StackOBot UnrealMCP command `ensure_blendspace_sample_variant` in the sample project's `Plugins/UnrealMCP` copy and exposed it through sibling `unreal-mcp-cubeless` Python/docs.
+- The command duplicates or reuses a source BlendSpace under `/Game/_MCP_Sample/AnimStudy`, applies explicit axis/sample-coordinate edits, refuses non-sample targets by default, validates skeleton/animation compatibility, validates/resamples, saves only the target, and reports `original_assets_modified=false`.
+- Build verification passed: `Build.bat UnrealEditor Win64 Development -Project="D:\Git\SampleProject\StackOBot\StackOBot.uproject" -WaitMutex`. Existing `FImageUtils::CompressImageArray` deprecation warning remains unrelated.
+- Live dry-run against `BS_Bot_WalkRunLean` succeeded with `source_sample_count=4`, Lean axis `-1..1`, Speed axis `0..500`, and target `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideDryRun`.
+- Live authoring smoke created `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy`, changed `A_Bot_Run_LeanLeft` from `Lean=1` to `1.25`, changed `A_Bot_Run_LeanRight` from `Lean=-1` to `-1.25`, expanded the Lean axis to `-1.5..1.5`, saved the target, and left the source BlendSpace untouched.
+- Follow-up `sample_blendspace_runtime_pose_grid(require_pie_world=false)` against the sample variant succeeded in Editor-world diagnostic mode with `valid_pose_count=3`, `input_changed_pose=true`, and max location delta from the first sample about `5.046 cm`. Full SIE/PIE pose-grid remains the stronger visual proof for production-level BlendSpace behavior.
 
 ## 2026-06-12 - PCG production validation steps 1-3 branch pass
 
