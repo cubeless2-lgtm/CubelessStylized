@@ -8851,3 +8851,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added sample-path guards for sample-authoring command examples so Post Process, ControlRig forced-driver, Trail, and RigidBody tuning snippets keep their writable targets under `/Game/_MCP_Sample/AnimStudy`.
 - Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with `missing_command_params=0` and `unsafe_command_paths=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request example safety audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v12`.
+- The checker now validates request-run example safety values, including sample target scope, handoff template names, C++/API status wording, ask-user-first shape, first command route, and verification command route.
+- Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with `unsafe_request_examples=0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

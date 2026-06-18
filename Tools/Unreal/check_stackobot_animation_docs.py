@@ -536,6 +536,35 @@ REQUEST_EXAMPLE_REQUIRED_FIELDS = [
     "ask_user_first",
 ]
 
+REQUEST_EXAMPLE_ALLOWED_HANDOFFS = {
+    "Post Process ModifyBone",
+    "BlendSpace Sample Variant",
+    "Trail Or Secondary Motion",
+    "UpperBody Slot And LayeredBlend",
+    "Notify, Curve, Sync Marker, Or Montage Internals",
+    "ControlRig Late Correction",
+    "State Machine Or Runtime Driver",
+}
+
+REQUEST_EXAMPLE_FIRST_COMMAND_KEYWORDS = [
+    "ensure_postprocess_anim_demo_variant",
+    "ensure_blendspace_sample_variant",
+    "ensure_anim_graph_trail_demo",
+    "slot/cached-pose inventory",
+    "safe animation asset inventory",
+    "inspect_anim_graph_protected_topology",
+    "inspect_anim_state_machine_transitions",
+    "inspect_anim_graph_node_settings",
+    "compiled mapping",
+]
+
+REQUEST_EXAMPLE_VERIFICATION_KEYWORDS = [
+    "sample_anim_node_pre_post_runtime_pose",
+    "sample_blendspace_runtime_pose_grid",
+    "sample_anim_state_machine_runtime_response",
+    "none for protected internals",
+]
+
 COMMAND_SYNTAX_REQUIRED_JSON_COMMANDS = [
     "ensure_postprocess_anim_demo_variant",
     "sample_anim_node_pre_post_runtime_pose",
@@ -786,6 +815,118 @@ def _request_example_field_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _request_example_records() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-request-run-examples.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    matches = list(EXAMPLE_SECTION_RE.finditer(text))
+    records: list[dict[str, Any]] = []
+
+    for index, match in enumerate(matches):
+        section_start = match.end()
+        section_end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        section_text = text[section_start:section_end]
+        fence_match = TEXT_FENCE_RE.search(section_text)
+        fields = _parse_example_fields(fence_match.group("body")) if fence_match else {}
+        records.append(
+            {
+                "path": path_text,
+                "example": match.group(0).strip(),
+                "fields": fields,
+            }
+        )
+
+    return records
+
+
+def _contains_any(value: str, needles: list[str] | set[str]) -> bool:
+    return any(needle in value for needle in needles)
+
+
+def _request_example_safety_entries() -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for record in _request_example_records():
+        fields = record["fields"]
+        sample_target = fields.get("sample_target", "")
+        sample_target_lower = sample_target.lower()
+        sample_target_safe = (
+            sample_target.startswith(SAMPLE_ANIM_STUDY_ROOT)
+            or sample_target_lower.startswith("none")
+        )
+        entries.append(
+            {
+                "path": record["path"],
+                "example": record["example"],
+                "check": "sample_target_scope",
+                "value": sample_target,
+                "safe": sample_target_safe,
+            }
+        )
+
+        handoff_template = fields.get("handoff_template", "")
+        handoff_safe = (
+            handoff_template in REQUEST_EXAMPLE_ALLOWED_HANDOFFS
+            or handoff_template.startswith("no authoring handoff")
+        )
+        entries.append(
+            {
+                "path": record["path"],
+                "example": record["example"],
+                "check": "handoff_template",
+                "value": handoff_template,
+                "safe": handoff_safe,
+            }
+        )
+
+        cxx_api_status = fields.get("cxx_api_status", "").lower()
+        cxx_safe = "not needed" in cxx_api_status or "candidate" in cxx_api_status
+        entries.append(
+            {
+                "path": record["path"],
+                "example": record["example"],
+                "check": "cxx_api_status",
+                "value": fields.get("cxx_api_status", ""),
+                "safe": cxx_safe,
+            }
+        )
+
+        ask_user_first = fields.get("ask_user_first", "").lower()
+        ask_user_safe = ask_user_first.startswith("false") or ask_user_first.startswith("true")
+        entries.append(
+            {
+                "path": record["path"],
+                "example": record["example"],
+                "check": "ask_user_first",
+                "value": fields.get("ask_user_first", ""),
+                "safe": ask_user_safe,
+            }
+        )
+
+        first_command = fields.get("first_read_or_authoring_command", "")
+        entries.append(
+            {
+                "path": record["path"],
+                "example": record["example"],
+                "check": "first_read_or_authoring_command",
+                "value": first_command,
+                "safe": _contains_any(first_command, REQUEST_EXAMPLE_FIRST_COMMAND_KEYWORDS),
+            }
+        )
+
+        verification_command = fields.get("verification_command", "")
+        entries.append(
+            {
+                "path": record["path"],
+                "example": record["example"],
+                "check": "verification_command",
+                "value": verification_command,
+                "safe": _contains_any(verification_command, REQUEST_EXAMPLE_VERIFICATION_KEYWORDS),
+            }
+        )
+
+    return entries
+
+
 def _command_syntax_json_blocks() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-mcp-command-syntax.md"
     path = PROJECT_ROOT / path_text
@@ -997,6 +1138,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_example_fields = [
         entry for entry in example_fields if not entry["exists"] or not entry["has_value"]
     ]
+    request_example_safety = _request_example_safety_entries()
+    unsafe_request_examples = [
+        entry for entry in request_example_safety if not entry["safe"]
+    ]
     command_syntax_json_blocks = _command_syntax_json_blocks()
     invalid_command_syntax_json = [
         entry for entry in command_syntax_json_blocks if not entry["parse_success"]
@@ -1030,6 +1175,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_required_sections
         and not missing_required_tokens
         and not missing_example_fields
+        and not unsafe_request_examples
         and not invalid_command_syntax_json
         and not missing_command_syntax_commands
         and not unsafe_command_syntax_authoring
@@ -1038,7 +1184,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v11",
+        "schema": "stackobot_animation_docs_link_audit_v12",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -1050,6 +1196,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_required_section_count": len(missing_required_sections),
         "missing_required_token_count": len(missing_required_tokens),
         "missing_example_field_count": len(missing_example_fields),
+        "unsafe_request_example_count": len(unsafe_request_examples),
         "invalid_command_syntax_json_count": len(invalid_command_syntax_json),
         "missing_command_syntax_command_count": len(missing_command_syntax_commands),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
@@ -1064,6 +1211,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_required_tokens": missing_required_tokens,
         "example_fields": example_fields,
         "missing_example_fields": missing_example_fields,
+        "request_example_safety": request_example_safety,
+        "unsafe_request_examples": unsafe_request_examples,
         "command_syntax_json_blocks": command_syntax_json_blocks,
         "invalid_command_syntax_json": invalid_command_syntax_json,
         "command_syntax_commands": command_syntax_commands,
@@ -1096,6 +1245,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_required_sections={report['missing_required_section_count']} "
             f"missing_required_tokens={report['missing_required_token_count']} "
             f"missing_example_fields={report['missing_example_field_count']} "
+            f"unsafe_request_examples={report['unsafe_request_example_count']} "
             f"invalid_command_json={report['invalid_command_syntax_json_count']} "
             f"missing_command_examples={report['missing_command_syntax_command_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
@@ -1112,6 +1262,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_required_sections",
             "missing_required_tokens",
             "missing_example_fields",
+            "unsafe_request_examples",
             "invalid_command_syntax_json",
             "missing_command_syntax_commands",
             "unsafe_command_syntax_authoring",
