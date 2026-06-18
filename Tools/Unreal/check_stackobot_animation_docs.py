@@ -6,9 +6,10 @@ required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters,
 request-run route and acceptance-focus coverage, and sample-path guards are
 present, request-run routes map to the expected handoff templates and
-first/verification commands, and acceptance universal/route/evidence/reporting
-fields plus escalation triggers are preserved. It also confirms the
-sibling/sample workspace paths used by the workflow still exist on this machine.
+first/verification commands plus C++/API status, and acceptance
+universal/route/evidence/reporting fields plus escalation triggers are
+preserved. It also confirms the sibling/sample workspace paths used by the
+workflow still exist on this machine.
 It does not call Unreal, does not touch assets, and does not require the editor
 bridge to be online.
 """
@@ -615,6 +616,18 @@ REQUEST_EXAMPLE_ROUTE_FIRST_COMMAND_RULES = {
     "state-machine runtime-driver proof": ["inspect_anim_state_machine_transitions"],
     "Baddy RigidBody": ["inspect_anim_graph_node_settings"],
     "node resolver plus same-instance pre/post proof": ["inspect_anim_graph_protected_topology", "compiled mapping"],
+}
+
+REQUEST_EXAMPLE_ROUTE_CXX_STATUS_RULES = {
+    "Post Process ModifyBone": ["not needed"],
+    "BlendSpace sample variant": ["not needed"],
+    "Bot Trail sample": ["not needed"],
+    "UpperBody Slot and LayeredBlend": ["candidate"],
+    "protected metadata boundary": ["candidate"],
+    "ControlRig gate probe": ["not needed"],
+    "state-machine runtime-driver proof": ["candidate"],
+    "Baddy RigidBody": ["not needed", "candidate"],
+    "node resolver plus same-instance pre/post proof": ["not needed"],
 }
 
 REQUEST_EXAMPLE_MIN_ACCEPTANCE_FOCUS_BULLETS = 3
@@ -1269,6 +1282,49 @@ def _request_example_route_first_command_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _request_example_route_cxx_status_entries() -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for record in _request_example_records():
+        fields = record["fields"]
+        route = fields.get("route", "")
+        cxx_api_status = fields.get("cxx_api_status", "")
+        matched_tokens = [
+            token
+            for token in REQUEST_EXAMPLE_ROUTE_CXX_STATUS_RULES
+            if token in route
+        ]
+        if not matched_tokens:
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "cxx_api_status": cxx_api_status,
+                    "expected_cxx_status": [],
+                    "matches": False,
+                    "known_route": False,
+                }
+            )
+            continue
+
+        for route_token in matched_tokens:
+            expected_cxx_status = REQUEST_EXAMPLE_ROUTE_CXX_STATUS_RULES[route_token]
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "route_token": route_token,
+                    "cxx_api_status": cxx_api_status,
+                    "expected_cxx_status": expected_cxx_status,
+                    "matches": _contains_any(cxx_api_status.lower(), set(expected_cxx_status)),
+                    "known_route": True,
+                }
+            )
+
+    return entries
+
+
 def _request_example_acceptance_focus_entries() -> list[dict[str, Any]]:
     records = _request_example_records()
     entries: list[dict[str, Any]] = []
@@ -1665,6 +1721,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for entry in request_example_route_first_commands
         if not entry["known_route"] or not entry["matches"]
     ]
+    request_example_route_cxx_statuses = _request_example_route_cxx_status_entries()
+    mismatched_request_example_route_cxx_statuses = [
+        entry
+        for entry in request_example_route_cxx_statuses
+        if not entry["known_route"] or not entry["matches"]
+    ]
     request_example_acceptance_focus = _request_example_acceptance_focus_entries()
     missing_request_example_acceptance_focus = [
         entry
@@ -1737,6 +1799,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_request_example_route_coverage
         and not mismatched_request_example_route_handoffs
         and not mismatched_request_example_route_first_commands
+        and not mismatched_request_example_route_cxx_statuses
         and not mismatched_request_example_route_verifications
         and not missing_request_example_acceptance_focus
         and not missing_request_run_template_fields
@@ -1754,7 +1817,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v25",
+        "schema": "stackobot_animation_docs_link_audit_v26",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -1771,6 +1834,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
         "mismatched_request_example_route_handoff_count": len(mismatched_request_example_route_handoffs),
         "mismatched_request_example_route_first_command_count": len(mismatched_request_example_route_first_commands),
+        "mismatched_request_example_route_cxx_status_count": len(mismatched_request_example_route_cxx_statuses),
         "mismatched_request_example_route_verification_count": len(mismatched_request_example_route_verifications),
         "missing_request_example_acceptance_focus_count": len(missing_request_example_acceptance_focus),
         "missing_request_run_template_field_count": len(missing_request_run_template_fields),
@@ -1804,6 +1868,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_handoffs": mismatched_request_example_route_handoffs,
         "request_example_route_first_commands": request_example_route_first_commands,
         "mismatched_request_example_route_first_commands": mismatched_request_example_route_first_commands,
+        "request_example_route_cxx_statuses": request_example_route_cxx_statuses,
+        "mismatched_request_example_route_cxx_statuses": mismatched_request_example_route_cxx_statuses,
         "request_example_route_verifications": request_example_route_verifications,
         "mismatched_request_example_route_verifications": mismatched_request_example_route_verifications,
         "request_example_acceptance_focus": request_example_acceptance_focus,
@@ -1859,6 +1925,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
             f"mismatched_request_example_route_handoffs={report['mismatched_request_example_route_handoff_count']} "
             f"mismatched_request_example_first_commands={report['mismatched_request_example_route_first_command_count']} "
+            f"mismatched_request_example_cxx_status={report['mismatched_request_example_route_cxx_status_count']} "
             f"mismatched_request_example_verification_commands={report['mismatched_request_example_route_verification_count']} "
             f"missing_acceptance_focus_blocks={report['missing_request_example_acceptance_focus_count']} "
             f"missing_template_fields={report['missing_request_run_template_field_count']} "
@@ -1889,6 +1956,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_request_example_route_coverage",
             "mismatched_request_example_route_handoffs",
             "mismatched_request_example_route_first_commands",
+            "mismatched_request_example_route_cxx_statuses",
             "mismatched_request_example_route_verifications",
             "missing_request_example_acceptance_focus",
             "missing_request_run_template_fields",
