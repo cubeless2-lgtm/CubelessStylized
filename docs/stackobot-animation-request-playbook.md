@@ -6,6 +6,7 @@ execution protocol.
 
 Related docs:
 
+- `docs/stackobot-animation-study-closeout.md`
 - `docs/stackobot-animation-quickstart.md`
 - `docs/stackobot-animation-authoring-templates.md`
 - `docs/stackobot-request-compiler-drills.md`

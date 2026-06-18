@@ -10,6 +10,9 @@ Authoring-pattern guide for future build requests:
 Quickstart:
 `docs/stackobot-animation-quickstart.md`.
 
+Closeout/readiness gate:
+`docs/stackobot-animation-study-closeout.md`.
+
 Request execution playbook:
 `docs/stackobot-animation-request-playbook.md`.
 

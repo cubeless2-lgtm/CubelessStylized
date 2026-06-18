@@ -8644,3 +8644,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Classified currently covered routes as do-not-rebuild: Post Process ModifyBone, Bot Trail, Baddy RigidBody read/tuning, BlendSpace variants, ControlRig forced-driver, existing UpperBody route proof, state-machine read/runtime response, and current node contribution proof.
 - Parked future candidates until concrete requests require them: state-machine sample authoring, new layered overlay samples, Bot RigidBody graph authoring, physics variant matrix, PhysicsAsset constraint inspection, guarded notify/curve/Montage internals, target actor resolution, broader Trail parameter editing, and Blueprint call topology.
 - Current timing decision remains no new C++ yet, because the 2026-06-19 live read drill confirmed the request compiler still matches live StackOBot nodes. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation study closeout
+
+- Added `docs/stackobot-animation-study-closeout.md` as the readiness gate for future StackOBot animation requests without user-provided samples.
+- Captured the ready sample-first routes for Post Process ModifyBone, BlendSpace tuning, state-machine runtime drivers, ControlRig, UpperBody LayeredBoneBlend, Bot Trail, Baddy RigidBody, and node contribution proof.
+- Restated the current C++ timing: no new C++ before a concrete blocked request; use `docs/stackobot-cpp-api-decision-matrix.md` only when a trigger is hit.
+- Recorded the residual risks: visible upper-body action source is not authored yet, new state/transition graph authoring remains parked, Montage/notify/curve internals need guarded native tooling, and command availability must be checked against the StackOBot-local UnrealMCP plugin copy.
+- Linked the closeout from the quickstart, request playbook, and execution map. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
