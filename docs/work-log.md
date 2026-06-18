@@ -8907,3 +8907,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now validates the `docs/stackobot-animation-acceptance-checklist.md` Evidence Strength Levels rows for read-only topology, sample compile/load, runtime smoke, and same-instance pre/post proof.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_evidence_strength_levels=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot acceptance escalation trigger audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v20`.
+- The checker now validates the `docs/stackobot-animation-acceptance-checklist.md` When To Stop And Escalate triggers for blocked authoring, blocked route-specific proof, protected metadata, repeated actor/AnimInstance resolution failure, missing source/overlay samples, visual-complexity non-escalation, and safe-route-blocked escalation.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_acceptance_escalation_triggers=0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

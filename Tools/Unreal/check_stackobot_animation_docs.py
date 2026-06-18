@@ -5,8 +5,8 @@ relative docs, required study documents still exist, the doc index covers the
 required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters, and
 sample-path guards are present, and acceptance universal/route/evidence/reporting
-fields are preserved. It also confirms the sibling/sample workspace paths used
-by the workflow still exist on this machine.
+fields plus escalation triggers are preserved. It also confirms the
+sibling/sample workspace paths used by the workflow still exist on this machine.
 It does not call Unreal, does not touch assets, and does not require the editor
 bridge to be online.
 """
@@ -654,6 +654,18 @@ ACCEPTANCE_EVIDENCE_STRENGTH_LEVELS = [
     "Same-instance pre/post",
 ]
 
+ACCEPTANCE_ESCALATION_TRIGGERS = {
+    "cannot_author_sample_graph": "the current command surface cannot author the requested sample graph",
+    "cannot_verify_route_proof": "the current command surface cannot verify the result with route-specific proof",
+    "protected_metadata_required": "protected notifies, curves, sync markers, or Montage internals are required",
+    "actor_resolution_repeated_failure": "target actor or AnimInstance resolution fails repeatedly",
+    "missing_visible_action_source": "a visible action request needs a source clip, Montage, Slot path, or overlay",
+    "missing_visible_action_sample": "sample that does not exist",
+    "do_not_escalate_visual_complexity": "Do not escalate just because the request is visually complex.",
+    "only_when_safe_route_blocked": "Escalate only when",
+    "safe_route_blocked": "the existing safe route is blocked.",
+}
+
 COMMAND_SYNTAX_REQUIRED_QUICK_MAP_COMMANDS = [
     "inspect_anim_graph_protected_topology",
     "inspect_anim_state_machine_transitions",
@@ -1143,6 +1155,23 @@ def _acceptance_evidence_strength_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _acceptance_escalation_trigger_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-acceptance-checklist.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## When To Stop And Escalate")
+    return [
+        {
+            "path": path_text,
+            "section": "## When To Stop And Escalate",
+            "trigger": trigger,
+            "token": token,
+            "exists": token in section,
+        }
+        for trigger, token in ACCEPTANCE_ESCALATION_TRIGGERS.items()
+    ]
+
+
 def _command_syntax_json_blocks() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-mcp-command-syntax.md"
     path = PROJECT_ROOT / path_text
@@ -1398,6 +1427,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_acceptance_evidence_strength_levels = [
         entry for entry in acceptance_evidence_strength_levels if not entry["exists"]
     ]
+    acceptance_escalation_triggers = _acceptance_escalation_trigger_entries()
+    missing_acceptance_escalation_triggers = [
+        entry for entry in acceptance_escalation_triggers if not entry["exists"]
+    ]
     command_syntax_json_blocks = _command_syntax_json_blocks()
     invalid_command_syntax_json = [
         entry for entry in command_syntax_json_blocks if not entry["parse_success"]
@@ -1442,6 +1475,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_acceptance_universal_pass_fields
         and not missing_acceptance_route_criteria
         and not missing_acceptance_evidence_strength_levels
+        and not missing_acceptance_escalation_triggers
         and not invalid_command_syntax_json
         and not missing_command_syntax_commands
         and not missing_command_quick_map_commands
@@ -1451,7 +1485,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v19",
+        "schema": "stackobot_animation_docs_link_audit_v20",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -1470,6 +1504,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_acceptance_universal_pass_field_count": len(missing_acceptance_universal_pass_fields),
         "missing_acceptance_route_criteria_count": len(missing_acceptance_route_criteria),
         "missing_acceptance_evidence_strength_level_count": len(missing_acceptance_evidence_strength_levels),
+        "missing_acceptance_escalation_trigger_count": len(missing_acceptance_escalation_triggers),
         "invalid_command_syntax_json_count": len(invalid_command_syntax_json),
         "missing_command_syntax_command_count": len(missing_command_syntax_commands),
         "missing_command_quick_map_command_count": len(missing_command_quick_map_commands),
@@ -1499,6 +1534,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_acceptance_route_criteria": missing_acceptance_route_criteria,
         "acceptance_evidence_strength_levels": acceptance_evidence_strength_levels,
         "missing_acceptance_evidence_strength_levels": missing_acceptance_evidence_strength_levels,
+        "acceptance_escalation_triggers": acceptance_escalation_triggers,
+        "missing_acceptance_escalation_triggers": missing_acceptance_escalation_triggers,
         "command_syntax_json_blocks": command_syntax_json_blocks,
         "invalid_command_syntax_json": invalid_command_syntax_json,
         "command_syntax_commands": command_syntax_commands,
@@ -1540,6 +1577,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_acceptance_universal_fields={report['missing_acceptance_universal_pass_field_count']} "
             f"missing_acceptance_routes={report['missing_acceptance_route_criteria_count']} "
             f"missing_evidence_strength_levels={report['missing_acceptance_evidence_strength_level_count']} "
+            f"missing_acceptance_escalation_triggers={report['missing_acceptance_escalation_trigger_count']} "
             f"invalid_command_json={report['invalid_command_syntax_json_count']} "
             f"missing_command_examples={report['missing_command_syntax_command_count']} "
             f"missing_quick_map_commands={report['missing_command_quick_map_command_count']} "
@@ -1564,6 +1602,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_acceptance_universal_pass_fields",
             "missing_acceptance_route_criteria",
             "missing_acceptance_evidence_strength_levels",
+            "missing_acceptance_escalation_triggers",
             "invalid_command_syntax_json",
             "missing_command_syntax_commands",
             "missing_command_quick_map_commands",
