@@ -8,12 +8,16 @@ C++/API escalation rules.
 Related docs:
 
 - `docs/stackobot-animation-request-playbook.md`
+- `docs/stackobot-animation-tivret-handoff-templates.md`
 - `docs/stackobot-animbp-authoring-patterns.md`
 - `docs/stackobot-animation-mcp-command-syntax.md`
 - `docs/stackobot-animation-execution-map.md`
 
 Default rule: start sample-only under `/Game/_MCP_Sample/AnimStudy` unless the
 user explicitly approves original StackOBot asset mutation.
+
+When asset/editor work is needed, show the matching handoff block from
+`docs/stackobot-animation-tivret-handoff-templates.md` before Tivret executes.
 
 ## Routing Table
 

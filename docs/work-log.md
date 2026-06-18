@@ -8604,3 +8604,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Captured the completion contract for future work: classification, exact sample paths, evidence artifacts, runtime result summary, cleanup state, and explicit C++/API decision.
 - Linked the new template sheet from the request playbook, authoring patterns guide, and command syntax sheet.
 - No Unreal assets, sample assets, editor sessions, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot Tivret handoff templates
+
+- Added `docs/stackobot-animation-tivret-handoff-templates.md` as the visible handoff prompt library Ieta should show before Tivret performs StackOBot animation asset/editor work.
+- Covered handoff blocks for Post Process ModifyBone, BlendSpace sample variants, state-machine/runtime drivers, ControlRig late correction, UpperBody Slot/LayeredBlend, Trail/secondary motion, and notify/curve/sync-marker/Montage metadata boundaries.
+- Added the expected final report shape from Tivret back to Ieta: route, created/reused assets, original mutation status, runtime world, evidence, errors/warnings, dirty packages, cleanup, C++/API need, and artifact paths.
+- Linked the handoff template library from `docs/stackobot-animation-authoring-templates.md` and `docs/stackobot-animation-request-playbook.md`.
+- No Unreal assets, sample assets, editor sessions, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
