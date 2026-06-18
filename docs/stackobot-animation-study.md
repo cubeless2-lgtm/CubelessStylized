@@ -1152,23 +1152,25 @@ Artifacts:
 | Compiled node mapping raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_raw.json` |
 | Compiled pose-link mapping summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_Summary.json` |
 | Compiled pose-link mapping raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_raw.json` |
+| PoseWatch same-instance pre/post summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_Summary.json` |
+| PoseWatch same-instance pre/post raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_raw.json` |
 
 Current evidence:
 
 | System | Current evidence | Strongest observation | Exact pre/post status |
 | --- | --- | --- | --- |
-| Baddy RigidBody | SIE runtime variant comparison plus authored source-clip magnitude baseline. | `WorldSpace` amplifies stalk motion to walk-scale while `Head_02` and `TailEnd` stay idle-scale. | `blocked_without_runtime_node_prepost_sampler` |
+| Baddy RigidBody | SIE runtime variant comparison, authored source-clip magnitude baseline, compiled node mapping, runtime pose-link mapping, and PoseWatch same-instance capture. | `pose_watch_capture` samples `ComponentPose` input link `11` vs RigidBody output link `1` in the same `ABP_Baddy_C` instance; `R_Stalk_04` delta is about `4.904 cm` / `26.743 deg`, `L_Stalk_04` about `5.546 cm` / `12.181 deg`. | `same_instance_posewatch_prepost_verified` |
 | Bot Trail | SIE raw-vs-trail component comparison with explicit component-level Post Process override. | `antenna_04_l` max Trail-Raw distance is about `2.945 cm` in `SIE_ExplicitPPOverride`. | `blocked_without_runtime_node_prepost_sampler` |
 
 Interpretation:
 
-- The physics systems are proven active under the correct runtime setup, but current evidence is not exact same-frame source-vs-post-node subtraction.
-- Baddy RigidBody currently has a magnitude-level source-vs-runtime comparison.
+- The physics systems are proven active under the correct runtime setup.
+- Baddy RigidBody now has exact same-instance PoseWatch input/output evidence for the selected compiled RigidBody node.
 - Bot Trail currently has a runtime raw-vs-trail component comparison.
 - `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` now proves the `ABP_Baddy` RigidBody editor node maps to the live compiled `FAnimNode_RigidBody` instance in PIE: `same_anim_instance_node_mapping=true`, `runtime_node_instance_mapped=true`, `find_debug_anim_node_mapped=true`, and `pointer_match=true`.
 - The mapping response now includes runtime pose-link inventory. For the RigidBody smoke, `ComponentPose` resolves to `AnimGraphNode_LocalToComponentSpace` with `LinkID=11`, `SourceLinkID=1`, and `linked_pointer_match=true`.
-- This is the runtime-node address preflight needed for future node-stack instrumentation, but it does not sample node input/output poses.
-- Exact physics contribution still needs a future runtime mode that samples immediately before and after a selected compiled AnimGraph node in one runtime tick.
+- `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` now uses transient debug-data PoseWatches and confirmed `runtime_graph_prepost=true`, `same_instance_prepost=true`, `transient_pose_watches=true`, `debug_object_restored=true`, and `original_assets_modified=false` on `ABP_Baddy`.
+- Exact Bot Trail same-instance attribution remains future work; the RigidBody path is no longer blocked.
 
 ## Post Process Runtime and Static Pose Comparison
 

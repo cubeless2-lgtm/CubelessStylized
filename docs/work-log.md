@@ -8262,3 +8262,24 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_Summary.json`
 - Cleanup ended SIE and reported dirty content package count `0`; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor spawning, so the smoke editor was closed without saving.
 - Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 UnrealMCP PoseWatch AnimGraph same-instance pre/post capture
+
+- Added `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` in sibling `D:/Git/unreal-mcp-cubeless`.
+- The new mode temporarily sets the AnimBP debug object, registers transient `FAnimBlueprintDebugData` PoseWatch entries for the selected compiled node output link and the first runtime input pose link, forces bounded ticks, reads `FAnimNodePoseWatch` bone transforms, then restores the debug object and removes only transient watches.
+- It does not append to `UAnimBlueprint::PoseWatches`, does not save assets, and reports `transient_pose_watches`, `debug_object_restored`, `pre_pose`, `post_pose`, and `deltas`.
+- Updated `Python/tools/node_tools.py`, `Python/unreal_mcp_server.py`, `Docs/Tools/node_tools.md`, and `Docs/Analysis/StackOBot/sample_anim_node_pre_post_runtime_pose_design.md`.
+- Synced the changed `UnrealMCPBlueprintNodeCommands.cpp` and `UnrealMCP.Build.cs` into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP` for smoke testing.
+- Verification passed:
+  - `git diff --check`
+  - `MCPGameProjectEditor Win64 Development`
+  - `UnrealEditor Win64 Development -Project=D:/Git/SampleProject/StackOBot/StackOBot.uproject`
+  - Live StackOBot bridge smoke on `127.0.0.1:55557`
+- Live smoke used a transient `MCP_PoseWatch_Smoke_Baddy` actor with `SKM_Baddy` and original `ABP_Baddy_C` in PIE. Original StackOBot assets were not saved.
+- The `ABP_Baddy` RigidBody node `81E779C34D36CC52F0125F91BF52BAF3` captured same-instance pre/post data with `runtime_graph_prepost=true`, `same_instance_prepost=true`, `same_anim_instance_node_mapping=true`, output link `1`, and input `ComponentPose` link `11`.
+- The final capture sampled `34` required bones for both pre and post poses. Strong deltas were on the stalks: `R_Stalk_04` about `4.904 cm` / `26.743 deg`, and `L_Stalk_04` about `5.546 cm` / `12.181 deg`; `Head_02` and `TailEnd` stayed near floating-point noise.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_Summary.json`
+- Cleanup ended SIE, removed the transient actor, and reported dirty content package count `0`; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor spawning/deletion, so the smoke editor was closed without saving.
+- Updated `docs/stackobot-animation-study.md` and `docs/stackobot-animation-execution-map.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.

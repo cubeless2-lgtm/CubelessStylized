@@ -398,7 +398,7 @@ Use this checklist when adding or validating another animation experiment.
 | Done/Runtime metrics | State-machine transitions | No-C++ transition topology probing is complete; live current-state reading, state weights, transition progress, relevant anim timing, runtime property setting, per-case state resampling, and meaningful `ABP_Bot` driver sequences are captured. | Full K2 call topology still needs follow-up API work. |
 | Done/Runtime pending | Control Rig pre/post | Direct-gate MCP probe, sample ModifyCurve curve-forcing, sample ControlRig input-default forcing, combined forced-driver sample assembly, and direct transient ControlRig pre/post solve probe are complete. | True compiled AnimGraph-internal source-vs-post subtraction still needs `sample_anim_node_pre_post_runtime_pose` or equivalent instrumentation. |
 | Done | Post Process pre/post | Static single-input-pose pre/post isolation is complete for the two variants. | `sample_postprocess_pre_post_pose` is only needed for live same-frame component runtime sampling. |
-| Done/Isolated + mapping | Physics pre/post | Evidence synthesis complete for learning baseline; RigidBody/Trail isolated source-vs-output sampling is implemented and live-smoked; compiled runtime-node mapping preflight is implemented and live-smoked. | True same-instance compiled node input/output pose tapping remains future work. |
+| Done/PoseWatch + isolated + mapping | Physics pre/post | Evidence synthesis complete for learning baseline; RigidBody/Trail isolated source-vs-output sampling is implemented and live-smoked; compiled runtime-node mapping and pose-link preflight are implemented and live-smoked; `ABP_Baddy` RigidBody same-instance PoseWatch pre/post capture is implemented and live-smoked. | Bot Trail and broader node classes may still need same-instance PoseWatch or lower-level taps. |
 
 ## Deferred API Work
 
@@ -416,6 +416,7 @@ Implemented APIs to keep available for future audits:
 10. `sample_anim_state_machine_runtime_response` - implemented, build-verified, synced into StackOBot, and live-smoked with restored runtime property cases plus active transition metric capture; current artifacts include `StackOBot_AnimStateMachineRuntimeResponseMCPProbe.*` and `StackOBot_AnimStateRuntimeMetrics_*`.
 11. `inspect_blueprint_graph_call_topology` - implemented, build-verified, synced into StackOBot, and live-smoked against `BP_Bot` plus `BPC_InteractionHandler`; current artifacts are `StackOBot_BlueprintCallTopology_*`.
 12. `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody. It maps editor node GUID `81E779C34D36CC52F0125F91BF52BAF3` to live compiled property `AnimGraphNode_RigidBody` / `/Script/AnimGraphRuntime.AnimNode_RigidBody` with pointer parity against `FindDebugAnimNode`, and now reports runtime pose-link topology such as `ComponentPose -> AnimGraphNode_LocalToComponentSpace`.
+13. `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody. It uses transient debug-data PoseWatches to capture selected output link `1` and input `ComponentPose` link `11` in the same `ABP_Baddy_C` runtime instance, with `runtime_graph_prepost=true`, `same_instance_prepost=true`, `debug_object_restored=true`, and artifacts `StackOBot_PoseWatchPrePost_*`.
 
 Remaining candidates until C++/UnrealMCP implementation is explicitly resumed:
 
@@ -423,7 +424,7 @@ Remaining candidates until C++/UnrealMCP implementation is explicitly resumed:
 2. `sample_blendspace_runtime_pose_grid`
 3. `ensure_postprocess_anim_demo_variant`
 4. `sample_postprocess_pre_post_pose`
-5. true same-instance compiled AnimGraph input/output pose tap for `sample_anim_node_pre_post_runtime_pose`
+5. expand same-instance AnimGraph pre/post capture beyond the smoked `ABP_Baddy` RigidBody path, especially Bot Trail and multi-input/custom node cases
 
 Implemented `sample_skeletal_bones_in_sie` detail:
 
