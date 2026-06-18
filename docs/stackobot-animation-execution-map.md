@@ -234,15 +234,17 @@ Current non-C++ runtime-state feasibility:
 | Probe | Result |
 | --- | --- |
 | Read AnimBP variables | Works for key variables such as `GroundSpeed`, `MovementInput?`, `IsInAir?`, `IsInactive`, `InteractWorldLocation`, and `Is Moving`. |
-| Read current state name | Blocked; the Python `AnimInstance` wrapper does not expose current-state APIs. |
-| Force variables on AnimInstance | Blocked; editor-world and SIE instances report that the variables cannot be edited on instances. |
+| Read current state name | Works through `inspect_anim_instance_runtime_state` / `sample_anim_state_machine_runtime_response`; blocked only through plain Python wrapper calls. |
+| Force variables on AnimInstance | Works through `sample_anim_state_machine_runtime_response`; blocked only through plain Python wrapper calls. |
 | Read runtime pose/socket data | Works in delayed SIE; Bot and Baddy runtime socket transforms were sampled. |
 
 Interpretation:
 
 - Runtime pose sampling is viable.
-- Controlled transition sampling is not viable through plain Python because the test cannot both force variables and read current state names.
-- The useful next API should combine runtime state-name reading, safe variable forcing, ticking, and socket/bone sampling in one command.
+- Controlled transition sampling is viable through the reusable MCP command because it combines runtime state-name reading, safe variable forcing, ticking, and restore in one command.
+- Plain Python remains insufficient for this route because it cannot reliably force instance variables and read current state names on this UE wrapper.
+- Request-template rehearsal artifact: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachineRuntimeRehearsal_GroundSpeedResponse_Summary.json`.
+- In that rehearsal, editor-world transient `SKM_Bot + ABP_Bot_C` stayed runtime-only: `GroundSpeed=0` sampled `GroundLocomotion=Idle`, `GroundSpeed=500` sampled `GroundLocomotion=Walk/Run`, and returning to `GroundSpeed=0` sampled `Idle`; `asset_modified=false`, `saves_assets=false`, `errors=[]`, and `warnings=[]`.
 
 ## Control Rig Gate Summary
 

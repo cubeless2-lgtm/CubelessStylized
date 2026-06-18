@@ -93,6 +93,7 @@ Useful StackOBot evidence:
 - `ABP_Bot` ground locomotion is `Idle <-> Walk/Run`, gated by `GroundSpeed`.
 - `ABP_Bot` air locomotion uses `IsInAir?`, `MovementInput?`, and `IsHovering`.
 - `ABP_Baddy` is the compact physics sample: `A_Baddy_Idle <-> A_Baddy_Walk`, gated by `Is Moving`.
+- The request-template runtime-driver rehearsal proved the read-only route end to end in editor-world: `GroundSpeed=0` sampled `GroundLocomotion=Idle`, `GroundSpeed=500` sampled `Walk/Run`, and a final `GroundSpeed=0` returned to `Idle`, with `asset_modified=false` and `saves_assets=false`.
 
 Preferred verification:
 
@@ -100,6 +101,10 @@ Preferred verification:
 - `inspect_anim_instance_runtime_state`.
 - `sample_anim_state_machine_runtime_response`.
 - Runtime bone/socket sampling only after the state transition is proven.
+
+Known pitfall:
+
+- Treat old plain-Python state-machine notes as API-gap history. Current runtime-driver verification should use the MCP commands above, not direct Python `AnimInstance` wrapper calls.
 
 ### 2. BlendSpace Pattern
 
