@@ -8317,3 +8317,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_Summary.json`
 - Cleanup ended SIE, removed the transient proof actors after a follow-up cleanup check, and reported dirty content package count `0`; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor work, so the smoke editor was closed without saving.
 - Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot animation backlog consolidation
+
+- Rechecked existing BlendSpace artifacts and confirmed no new editor run is needed for the current learning pass.
+- `StackOBot_BlendSpace_SIEPoseGrid.*` remains the runtime-style evidence: `BS_Bot_WalkRunLean` changed by up to `66.061 cm`, and `BS_Bot_RunIdleJump` changed by up to `35.438 cm` in SIE game-world sampling.
+- The non-SIE `StackOBot_BlendSpace_LiveTickPoseGrid.*` result remains an API-gap artifact because it accepted input values but produced `0.0` pose deltas.
+- Updated the StackOBot study docs to separate completed learning results from optional future reusable C++/UnrealMCP commands.
+- Optional future candidates retained: `inspect_anim_graph_protected_topology`, reusable `sample_blendspace_runtime_pose_grid`, reusable `ensure_postprocess_anim_demo_variant`, and broader same-instance AnimGraph pre/post capture for multi-input/custom node classes.
+- Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

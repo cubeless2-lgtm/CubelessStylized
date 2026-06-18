@@ -710,15 +710,17 @@ Implemented APIs:
 | `set_anim_instance_runtime_property_for_probe` | Set supported reflected properties on a matched live AnimInstance for runtime probing. | Implemented in UnrealMCP, build-verified in both editor targets, synced into StackOBot, and StackOBot live-smoked with `bUseMultiThreadedAnimationUpdate`. It reports `runtime_only=true`, `asset_modified=false`, and property echo before/after assignment. Current artifacts are `StackOBot_AnimRuntimePropertyMCPSet.*`. |
 | `sample_anim_state_machine_runtime_response` | Apply runtime property cases, force bounded component animation ticks, sample state-machine snapshots, and restore successful changes per case. | Implemented in UnrealMCP, build-verified in both editor targets, synced into StackOBot, and StackOBot live-smoked with restored runtime property cases plus active transition metric capture. Current artifacts include `StackOBot_AnimStateMachineRuntimeResponseMCPProbe.*` and `StackOBot_AnimStateRuntimeMetrics_*`. |
 
-Remaining candidates:
+API follow-up status:
 
-| Candidate command | Purpose | Notes |
+| Command | Status | Notes |
 | --- | --- | --- |
-| `sample_anim_node_pre_post_runtime_pose` | Sample the same runtime frame immediately before and after a selected compiled AnimGraph node such as ControlRig, RigidBody, or Trail. | `compiled_graph_mapping`, `active_component_tick_delta`, `isolated_temp_components`, and `pose_watch_capture` are implemented. Same-instance PoseWatch capture is live-smoked for `ABP_Baddy` RigidBody and the `ABP_Bot_Trail_Study` Post Process AnimBP Trail node. Use `anim_instance_source=post_process` when the selected node lives in the component's Post Process AnimBP. Remaining expansion is broader multi-input/custom-node coverage. |
-| `ensure_anim_graph_trail_demo` | Create a `_MCP_Sample` AnimBP with an active Trail Controller path. | Needed to compare the currently disconnected original Trail node against a real connected Trail chain. |
-| `inspect_anim_graph_protected_topology` | Return protected graph nodes, pins, and links in a stable read-only format. | Existing `inspect_anim_graph_node_settings` covers much of this, but a topology-focused response would make graph-edit planning safer. |
-| `inspect_anim_state_machine_transitions` | Read source state, target state, and transition condition topology for AnimBP state machines. | Implemented, build-verified, and StackOBot live-smoked on bridge port `55558`; `StackOBot_StateMachine_TransitionMCPInspect.*` is the current source/target and rule-summary artifact. |
-| `inspect_blueprint_graph_call_topology` | Read Blueprint graph nodes, function calls, asset references, and pin links for selected Blueprint assets. | Implemented in UnrealMCP, build-verified in both editor targets, synced into StackOBot, and StackOBot live-smoked against `BP_Bot` plus `BPC_InteractionHandler`. Current artifacts are `StackOBot_BlueprintCallTopology_*`. |
+| `sample_anim_node_pre_post_runtime_pose` | Implemented, with follow-up expansion | `compiled_graph_mapping`, `active_component_tick_delta`, `isolated_temp_components`, and `pose_watch_capture` are implemented. Same-instance PoseWatch capture is live-smoked for `ABP_Baddy` RigidBody, `ABP_Bot_Trail_Study`, and Post Process ModifyBone variants. Use `anim_instance_source=post_process` when the selected node lives in the component's Post Process AnimBP. Remaining expansion is broader multi-input/custom-node coverage. |
+| `ensure_anim_graph_trail_demo` | Implemented | Creates safe `_MCP_Sample` Trail Post Process AnimBP chains and refuses original asset mutation by default. Current Trail learning evidence already uses this path. |
+| `inspect_anim_graph_protected_topology` | Optional future candidate | Existing `inspect_anim_graph_node_settings` covers much of this, but a topology-focused response would make graph-edit planning safer. |
+| `sample_blendspace_runtime_pose_grid` | Optional future candidate | Current StackOBot BlendSpace learning evidence is already complete through `StackOBot_BlendSpace_SIEPoseGrid.*`; a named MCP command is only needed if this must become reusable tooling. |
+| `ensure_postprocess_anim_demo_variant` | Optional future candidate | Current `HeadPitch` and `AntennaRoll` fixtures plus same-instance PoseWatch captures are complete; a named ensure command is only needed if more Post Process variants should be generated repeatedly. |
+| `inspect_anim_state_machine_transitions` | Implemented | Build-verified and StackOBot live-smoked on bridge port `55558`; `StackOBot_StateMachine_TransitionMCPInspect.*` is the current source/target and rule-summary artifact. |
+| `inspect_blueprint_graph_call_topology` | Implemented | Build-verified in both editor targets, synced into StackOBot, and StackOBot live-smoked against `BP_Bot` plus `BPC_InteractionHandler`. Current artifacts are `StackOBot_BlueprintCallTopology_*`. |
 
 Priority recommendation:
 
@@ -733,9 +735,8 @@ Priority recommendation:
 9. Completed for live AnimInstance current-state reading: `inspect_anim_instance_runtime_state` was run against StackOBot through the primary bridge port and sampled the transient Bot actor from `sampled_world_type=PIE`.
 10. Completed for runtime property set and response scaffolding: `set_anim_instance_runtime_property_for_probe` and `sample_anim_state_machine_runtime_response` were run against StackOBot through the primary bridge port with restored `bUseMultiThreadedAnimationUpdate` cases.
 11. Completed for meaningful `ABP_Bot` transition drivers: `GroundSpeed`, `IsInAir?`, `MovementInput?`, and `IsHovering` were set on a transient runtime `ABP_Bot_C` instance and produced the expected ground, jump/fall, landing, and jetpack state sequences.
-11. Identify real `ABP_Bot` transition-driving runtime values or drive movement/velocity through gameplay components before attempting a meaningful state-change matrix.
 12. Completed for Blueprint call topology: `inspect_blueprint_graph_call_topology` proved the current `BP_Bot` interact path and found no direct montage/dynamic-slot playback call in the smoked `BP_Bot` event/function topology.
-13. Implement `ensure_anim_graph_trail_demo` when returning to the Trail Controller active sample.
+13. Completed for Trail Controller active sample authoring: `ensure_anim_graph_trail_demo` now creates/reuses safe `_MCP_Sample` Trail Post Process AnimBP chains and refuses original asset mutation by default.
 
 ## Trail No-C++ Active Sample Feasibility
 
@@ -757,7 +758,7 @@ Result:
 Current no-C++ decision:
 
 - Do not attempt protected AnimGraph mutation through Python.
-- Keep `ensure_anim_graph_trail_demo` as a deferred UnrealMCP C++ API candidate, restricted to `/Game/_MCP_Sample/AnimStudy` by default.
+- `ensure_anim_graph_trail_demo` has since been implemented as the narrow MCP graph-edit command for this case, restricted to `/Game/_MCP_Sample/AnimStudy` by default.
 
 ## Learning Map
 

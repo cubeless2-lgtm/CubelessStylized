@@ -400,6 +400,7 @@ Use this checklist when adding or validating another animation experiment.
 | ---: | --- | --- | --- |
 | Done | Slot and LayeredBoneBlend | Inventory complete for `UpperBody`, `CashedPose_UpperBody`, branch filters, filename/class montage evidence, AssetRegistry-level interaction references, and read-only Blueprint call topology. | `BP_Bot` topology shows interact/grab component flow, not a direct montage/dynamic-slot playback call. |
 | Done/Runtime metrics | State-machine transitions | No-C++ transition topology probing is complete; live current-state reading, state weights, transition progress, relevant anim timing, runtime property setting, per-case state resampling, and meaningful `ABP_Bot` driver sequences are captured. | Full K2 call topology still needs follow-up API work. |
+| Done/SIE pose grid | BlendSpace runtime pose grid | Source pose map and SIE game-world pose grid are complete for `BS_Bot_WalkRunLean` and `BS_Bot_RunIdleJump`. | A reusable named MCP command is optional; current study evidence should use `StackOBot_BlendSpace_SIEPoseGrid.*`. |
 | Done/Runtime pending | Control Rig pre/post | Direct-gate MCP probe, sample ModifyCurve curve-forcing, sample ControlRig input-default forcing, combined forced-driver sample assembly, and direct transient ControlRig pre/post solve probe are complete. | True compiled AnimGraph-internal source-vs-post subtraction still needs `sample_anim_node_pre_post_runtime_pose` or equivalent instrumentation. |
 | Done/PoseWatch | Post Process pre/post | Static single-input-pose pre/post isolation and live same-instance PoseWatch capture are complete for the two variants. | Use `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)` for comparable Post Process node checks. |
 | Done/PoseWatch + isolated + mapping | Physics pre/post | Evidence synthesis complete for learning baseline; RigidBody/Trail isolated source-vs-output sampling is implemented and live-smoked; compiled runtime-node mapping and pose-link preflight are implemented and live-smoked; `ABP_Baddy` RigidBody and `ABP_Bot_Trail_Study` Post Process Trail same-instance PoseWatch pre/post capture are implemented and live-smoked. | Broader multi-input/custom node classes may still need lower-level taps. |
@@ -421,12 +422,13 @@ Implemented APIs to keep available for future audits:
 11. `inspect_blueprint_graph_call_topology` - implemented, build-verified, synced into StackOBot, and live-smoked against `BP_Bot` plus `BPC_InteractionHandler`; current artifacts are `StackOBot_BlueprintCallTopology_*`.
 12. `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody. It maps editor node GUID `81E779C34D36CC52F0125F91BF52BAF3` to live compiled property `AnimGraphNode_RigidBody` / `/Script/AnimGraphRuntime.AnimNode_RigidBody` with pointer parity against `FindDebugAnimNode`, and now reports runtime pose-link topology such as `ComponentPose -> AnimGraphNode_LocalToComponentSpace`.
 13. `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody plus `ABP_Bot_Trail_Study` Post Process Trail. It uses transient debug-data PoseWatches to capture selected output and first input pose links in the same runtime AnimInstance. RigidBody artifacts are `StackOBot_PoseWatchPrePost_*`; Trail artifacts are `StackOBot_TrailPoseWatchPrePost_*`.
+14. `ensure_anim_graph_trail_demo` - implemented, build-verified, and StackOBot live-smoked; it creates/reuses safe `_MCP_Sample` Trail Post Process AnimBP chains and refuses original asset mutation by default.
 
-Remaining candidates until C++/UnrealMCP implementation is explicitly resumed:
+Remaining C++/UnrealMCP candidates if reusable tooling is explicitly resumed:
 
 1. `inspect_anim_graph_protected_topology`
-2. `sample_blendspace_runtime_pose_grid`
-3. `ensure_postprocess_anim_demo_variant`
+2. optional reusable `sample_blendspace_runtime_pose_grid` command; the current StackOBot study already has `StackOBot_BlendSpace_SIEPoseGrid.*`.
+3. optional reusable `ensure_postprocess_anim_demo_variant` command; the current fixtures and PoseWatch captures are already complete for `HeadPitch` and `AntennaRoll`.
 4. expand same-instance AnimGraph pre/post capture beyond the smoked RigidBody/Trail/Post Process ModifyBone paths, especially multi-input/custom node cases
 
 Implemented `sample_skeletal_bones_in_sie` detail:
