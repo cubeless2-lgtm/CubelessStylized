@@ -8358,3 +8358,47 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Post-smoke dirty check through `ExecuteFile` reported empty dirty content/map package lists, and the validation editor was closed.
 - The latest StackOBot log still shows four startup `LogAutomationTest: Error: Condition failed` lines before the command ran; no new error was observed in the command execution/save section.
 - Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot multi-input PoseWatch capture API
+
+- Extended sibling `D:/Git/unreal-mcp-cubeless` `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` with runtime input-pose selection.
+- New parameters:
+  - `input_pose_mode=first|all`
+  - `input_pose_field_path=<runtime pose-link field_path>`
+  - `input_pose_index=<zero-based valid runtime pose-link index>`
+- Backward compatibility is preserved: default behavior remains `input_pose_mode=first`, and the existing `pre_pose`, `pre_input_link_id`, `pre_input_field_path`, and `deltas` fields still describe the primary selected input.
+- New response fields include `input_pose_mode`, `input_pose_selection_count`, `pre_input_pose_links`, `pre_input_poses`, and `deltas_by_input`, allowing multi-input nodes to compare each selected input pose against the same post-node output.
+- Updated `Python/tools/node_tools.py` and `Docs/Tools/node_tools.md`, then synced the changed plugin C++ source into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP` for smoke validation.
+- Build verification passed for both `MCPGameProjectEditor Win64 Development -NoHotReload` and `StackOBotEditor Win64 Development -NoHotReload`.
+- Live StackOBot bridge smoke on `127.0.0.1:55557` used a transient `SKM_Bot` actor with `ABP_Bot_C` in SIE and targeted `ABP_Bot` `AnimGraphNode_LayeredBoneBlend_149` (`node_id=A6513D7A4006C58E2BC82AADE84F15F6`).
+- Smoke result: `success=true`, `runtime_graph_prepost=true`, `same_instance_prepost=true`, `input_pose_mode=all`, `input_pose_selection_count=2`, selected fields `BasePose` and `BlendPoses[0]`, `pre_pose_valid_count=2`, `post_pose_valid=true`, `delta_field_count=2`, `errors=[]`, and `warnings=[]`.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_LayeredBlendPoseWatchAllInputs_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_LayeredBlendPoseWatchAllInputs_Summary.json`
+- Cleanup ended SIE and destroyed the transient actor. Dirty content packages were empty; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor spawn/delete, so the validation editor was closed without saving.
+- The latest StackOBot log includes failed validation-script attempts before the successful smoke: a BOM `SyntaxError` from an initial setup script file and one inline newline `SyntaxError` during cleanup. These are script-dispatch mistakes; the final all-input PoseWatch command returned success with empty command errors/warnings.
+- Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot BlendSpace runtime pose-grid MCP API
+
+- Implemented the reusable UnrealMCP command `sample_blendspace_runtime_pose_grid` in sibling `D:/Git/unreal-mcp-cubeless`.
+- The command loads a SkeletalMesh and one or more BlendSpaces, spawns a transient `SkeletalMeshActor`, drives an `UAnimSingleNodeInstance` at requested BlendSpace inputs, forces bounded ticks at a fixed sample time, samples requested bones/sockets, reports weighted source samples, computes per-sample deltas from the first pose, and destroys the transient actor when `cleanup=true`.
+- Updated `MCPGameProject/Plugins/UnrealMCP/Source/UnrealMCP/Private/Commands/UnrealMCPBlueprintNodeCommands.cpp`, `UnrealMCPBlueprintNodeCommands.h`, `UnrealMCPBridge.cpp`, `Python/tools/node_tools.py`, `Python/unreal_mcp_server.py`, and `Docs/Tools/node_tools.md`.
+- Synced the changed UnrealMCP plugin C++ files into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP` for sample-project smoke validation.
+- Verification passed:
+  - `python -m py_compile D:/Git/unreal-mcp-cubeless/Python/tools/node_tools.py D:/Git/unreal-mcp-cubeless/Python/unreal_mcp_server.py`
+  - `git diff --check` in `D:/Git/unreal-mcp-cubeless`
+  - `MCPGameProjectEditor Win64 Development -NoHotReload`
+  - `StackOBotEditor Win64 Development -NoHotReload`
+  - Live StackOBot bridge smoke on `127.0.0.1:55557`
+- Live smoke result: `success=true`, `sampled_world_type=PIE`, `is_play_session_active=true`, `blendspace_count=2`, transient actor cleanup succeeded, and command `errors=[]` / `warnings=[]`.
+- `BS_Bot_WalkRunLean` smoke result: `sample_count=9`, `valid_pose_count=9`, `input_changed_pose=true`, max location delta `30.707 cm`, strongest sampled delta around the antenna chain.
+- `BS_Bot_RunIdleJump` smoke result: `sample_count=5`, `valid_pose_count=5`, `input_changed_pose=true`, max location delta `5.757 cm`.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpaceRuntimePoseGridMCP_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpaceRuntimePoseGridMCP_Summary.json`
+- The controlled MCP command uses fixed sample-time and forced-tick `UAnimSingleNodeInstance` sampling, so its max deltas are repeatable tooling evidence and are not expected to numerically match the older async SIE script artifacts (`StackOBot_BlendSpace_SIEPoseGrid.*`).
+- The smoke-start helper used deprecated `EditorLevelLibrary.editor_play_simulate`; the smoke passed, but future helper scripts should move to the newer Unreal editor subsystem route when convenient.
+- Cleanup note: the hidden StackOBot editor was closed after validation, but the cleanup helper used `execute_python` + `unreal.SystemLibrary.quit_editor()` and the latest log records a UE TaskGraph assertion during shutdown. Treat that as a cleanup-route issue after the successful command smoke, not as a `sample_blendspace_runtime_pose_grid` failure. Future hidden-editor test cleanup should prefer an external process shutdown route or a reviewed native/deferred exit command instead of calling `quit_editor()` from MCP Python dispatch.
+- Stopped the lingering `CrashReportClientEditor` process after the editor exited.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and this work log. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

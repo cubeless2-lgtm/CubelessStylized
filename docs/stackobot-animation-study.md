@@ -506,6 +506,7 @@ Remaining state-machine gap:
    - Completed the `UpperBody` slot, cached `CashedPose_UpperBody`, and pelvis/thigh branch filter inventory.
    - Completed the AssetRegistry-level interaction reference probe.
    - Completed the read-only Blueprint call-topology probe for `BP_Bot` and `BPC_InteractionHandler`.
+   - Completed same-instance PoseWatch all-input capture for `ABP_Bot` `AnimGraphNode_LayeredBoneBlend_149`: `BasePose` and `BlendPoses[0]` both captured as pre-input poses against the same runtime post-node output.
    - Bot montage-like filename candidates were not found; the only loaded AnimMontage asset found by class scan is Baddy death.
    - `BP_Bot` has no direct `Montage` graph reference in the smoked event/function topology. The interact path resolves to `BPI_TouchInterface.Interact`, `Potential Interact`, and the grab-init/clear/update component path rather than a dynamic slot or montage playback path.
 2. State machine transition pass
@@ -718,8 +719,8 @@ API follow-up status:
 | `sample_anim_node_pre_post_runtime_pose` | Implemented, with follow-up expansion | `compiled_graph_mapping`, `active_component_tick_delta`, `isolated_temp_components`, and `pose_watch_capture` are implemented. Same-instance PoseWatch capture is live-smoked for `ABP_Baddy` RigidBody, `ABP_Bot_Trail_Study`, and Post Process ModifyBone variants. Use `anim_instance_source=post_process` when the selected node lives in the component's Post Process AnimBP. Remaining expansion is broader multi-input/custom-node coverage. |
 | `ensure_anim_graph_trail_demo` | Implemented | Creates safe `_MCP_Sample` Trail Post Process AnimBP chains and refuses original asset mutation by default. Current Trail learning evidence already uses this path. |
 | `inspect_anim_graph_protected_topology` | Implemented | Build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Bot` ControlRig topology. It returned one `AnimGraphNode_ControlRig_0`, two pose links, `read_only=true`, and `asset_modified=false`. Current artifacts are `StackOBot_AnimGraphProtectedTopology_ControlRig_*`. |
-| `sample_blendspace_runtime_pose_grid` | Optional future candidate | Current StackOBot BlendSpace learning evidence is already complete through `StackOBot_BlendSpace_SIEPoseGrid.*`; a named MCP command is only needed if this must become reusable tooling. |
-| `ensure_postprocess_anim_demo_variant` | Optional future candidate | Current `HeadPitch` and `AntennaRoll` fixtures plus same-instance PoseWatch captures are complete; a named ensure command is only needed if more Post Process variants should be generated repeatedly. |
+| `sample_blendspace_runtime_pose_grid` | Implemented | Build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `BS_Bot_WalkRunLean` plus `BS_Bot_RunIdleJump` in PIE/SIE. Current artifacts are `StackOBot_BlendSpaceRuntimePoseGridMCP_*`. |
+| `ensure_postprocess_anim_demo_variant` | Implemented | Build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against the existing `HeadPitch` Post Process sample. Current artifacts are `StackOBot_PostProcessDemoVariantEnsure_*`. |
 | `inspect_anim_state_machine_transitions` | Implemented | Build-verified and StackOBot live-smoked on bridge port `55558`; `StackOBot_StateMachine_TransitionMCPInspect.*` is the current source/target and rule-summary artifact. |
 | `inspect_blueprint_graph_call_topology` | Implemented | Build-verified in both editor targets, synced into StackOBot, and StackOBot live-smoked against `BP_Bot` plus `BPC_InteractionHandler`. Current artifacts are `StackOBot_BlueprintCallTopology_*`. |
 
@@ -1009,6 +1010,8 @@ Artifacts:
 | SIE pose grid Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.md` |
 | SIE pose grid SVG | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.svg` |
 | Non-SIE live tick gap probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_LiveTickPoseGrid.md` |
+| Reusable MCP runtime pose-grid summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpaceRuntimePoseGridMCP_Summary.json` |
+| Reusable MCP runtime pose-grid raw JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpaceRuntimePoseGridMCP_raw.json` |
 
 Key readings:
 
@@ -1017,9 +1020,17 @@ Key readings:
 | `BS_Bot_WalkRunLean` | Input changes produced visible pose changes; max location delta from first sample was `66.061 cm`, strongest at `run_authored antenna_04_r`. |
 | `BS_Bot_RunIdleJump` | Input changes produced visible pose changes; max location delta from first sample was `35.438 cm`, strongest at `axis_min_speed antenna_04_r`. |
 
+Reusable MCP command smoke:
+
+| BlendSpace | Controlled runtime command result |
+| --- | --- |
+| `BS_Bot_WalkRunLean` | `sample_blendspace_runtime_pose_grid` sampled `9` poses with `valid_pose_count=9`, `input_changed_pose=true`, and max location delta `30.707 cm`. |
+| `BS_Bot_RunIdleJump` | `sample_blendspace_runtime_pose_grid` sampled `5` poses with `valid_pose_count=5`, `input_changed_pose=true`, and max location delta `5.757 cm`. |
+
 Interpretation:
 
 - SIE/game-world component tick is required for this Python route; the non-SIE single-node editor tick path is not enough to refresh a meaningful BlendSpace pose.
+- The reusable MCP command is now the repeatable route for future audits. Its fixed sample-time/forced-tick `UAnimSingleNodeInstance` measurements are controlled tooling evidence, so the exact deltas are allowed to differ from the older async SIE script artifacts.
 - `BS_Bot_WalkRunLean` runtime-style pose changes are large at the upper body and antenna chain because the sampled locomotion clips change the whole body posture, not just feet.
 - `BS_Bot_RunIdleJump` still has near-overlapping authored jump samples, but off-sample axis probes show the BlendSpace can change output when the input moves away from that narrow authored band.
 - Original StackOBot assets were not saved or modified.
