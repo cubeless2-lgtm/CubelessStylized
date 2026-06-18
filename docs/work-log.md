@@ -8723,3 +8723,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Updated `docs/stackobot-animation-doc-index.md` to show `--summary` for routine checks and `--write-report` for audit artifacts.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `doc_count=20`, `reference_count=128`, and all missing counts at `0`; `--summary --write-report` also wrote `Saved/MCP_DocAudit/StackOBotAnimationDocsLinkAudit.json`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 Git hook UTF-8 staged Python read fix
+
+- Updated `Tools/GitHooks/check_unreal_python_uv_safety.py` so Git subprocess output is decoded as UTF-8 with replacement fallback instead of the Windows default code page.
+- Reason: recent StackOBot documentation checker commits staged Python containing non-ASCII safety tokens, which could make the pre-commit hook print a non-fatal `cp949` reader-thread decode exception during commit output handling.
+- Smoke result: `python -m py_compile Tools/GitHooks/check_unreal_python_uv_safety.py` passed, `python Tools/GitHooks/check_unreal_python_uv_safety.py` passed, and direct `run_git(["show", "HEAD:Tools/Unreal/check_stackobot_animation_docs.py"])` read succeeded.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
