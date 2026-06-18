@@ -7120,3 +7120,973 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Kept required structural modules in the default output: `cell` floor/corridor modules, `wall`, `door`, `ceiling`, `column`, `stair`, and `locked_door_seal`.
 - Verification passed: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --use-bp-controller --no-build --allow-seed-suite-warning --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 1` completed in `88.219` seconds with the current BP-authored `DungeonRoomCount=8`, `32` native components, `486` instances, screenshot QA pass, and final gate pass.
 - Verification passed: `CubelessDungeonV2_PCGSpawnerContract.json` now reports `486` output points, `0` exact duplicate groups, and `0` same-location groups. Excluded counts were `connector_detail=18`, `corridor_detail=27`, `detail_mesh=18`, `marker=9`, and `room_variant_detail=8`.
+
+## 2026-06-18 StackOBot UnrealMCP project plugin install
+
+- Installed the project-local UnrealMCP plugin into the non-Git sample project `D:/Git/SampleProject/StackOBot` by copying the source, resources, `.gitignore`, and `UnrealMCP.uplugin` from `D:/Git/unreal-mcp-cubeless/MCPGameProject/Plugins/UnrealMCP` into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`. Build outputs and the plugin `.git` metadata were intentionally not copied.
+- Added `UnrealMCP` to `StackOBot.uproject` as an editor-only enabled plugin and added `D:/Git/SampleProject/StackOBot/.mcp.json` pointing `unrealMCP` to `uv --directory ../../unreal-mcp-cubeless/Python run --python 3.11 unreal_mcp_server.py`.
+- Verification passed: both `StackOBot.uproject` and `.mcp.json` parse as JSON, the relative MCP Python path resolves to `D:/Git/unreal-mcp-cubeless/Python`, and `uv --directory ../../unreal-mcp-cubeless/Python run --python 3.11 python -c "import unreal_mcp_server"` printed `server_import_ok` from the StackOBot working directory.
+- Verification passed: `Build.bat StackOBotEditor Win64 Development -Project=D:/Git/SampleProject/StackOBot/StackOBot.uproject -WaitMutex` succeeded and produced `Plugins/UnrealMCP/Binaries/Win64/UnrealEditor-UnrealMCP.dll`. The only compile warning was the known UE deprecation warning for `FImageUtils::CompressImageArray` in `UnrealMCPEditorCommands.cpp`.
+- Runtime smoke passed by log: `UnrealEditor-Cmd.exe` loaded the StackOBot project, mounted `Project plugin UnrealMCP`, and the latest StackOBot log reported `UnrealMCPBridge: Server started on 127.0.0.1:55557` followed by clean shutdown. No `Error:` lines were found in that latest log. A direct socket `ping` validation could not be completed from the current shell tooling because local TCP probing returned timeout/access-denied behavior even though the Unreal log showed the bridge was listening.
+- Notion auto-capture was attempted first, but the Notion connector required reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot animation study read-only pass
+
+- Ran read-only Unreal commandlet analysis against `D:/Git/SampleProject/StackOBot` to map the animation learning targets without modifying Unreal assets. Generated scratch JSON/script artifacts only under `%TEMP%`.
+- `ABP_Bot` is the main locomotion study asset: target skeleton `SK_Bot`, two state machines (`GroundLocomotion` and `AirLocomotion`), 10 state graphs, 14 transition graphs, 8 sequence players, 2 blendspace players, 1 Control Rig node, 1 `UpperBody` slot, 1 layered bone blend, cached poses, and a `Trail` node for secondary motion. Key blendspaces are `BS_Bot_WalkRunLean` and `BS_Bot_RunIdleJump`.
+- `ABP_Baddy` is the compact physics-animation study asset: target skeleton `SK_Baddy`, one simple Idle/Walk state machine, and a `RigidBody` node wrapped by local/component space conversion nodes.
+- Sequence scan found Bot animations use 53 tracks and Baddy animations use 34 tracks. Bot jump/land clips (`A_Bot_IdleJump`, `A_Bot_RunJump`, `A_Bot_LandIdle`, `A_Bot_LandRun`) contain `PlaySound` notifies; other scanned clips have no notify names or sync markers exposed.
+- Skeletal mesh scan found no existing Post Process AnimBP assignment on `SKM_Bot` or `SKM_Baddy`, so StackOBot does not provide a ready post-process sample. Any Post Process AnimBP learning should use a new disposable sample under `/Game/_MCP_Sample/AnimStudy/`, not the original assets.
+- Physics scan separated character animation physics from world physics: character-side examples are `ABP_Bot` `Trail` and `ABP_Baddy` `RigidBody`; world-side examples include `PhysicsConstraint` use in `BP_Balance`, `BP_FloatingPlatform`, `BP_LampostPlatform`, and `BP_SpinningWithTrigger`, plus `GeometryCollection` use in `BP_DestructiblePlatform_Destruction`.
+- PhysicsAsset solver settings differ: `PhA_Bot` has `cull_distance=1.0`, `use_linear_joint_solver=false`, and `use_manifolds=false`; `PA_Baddy` has `cull_distance=3.0`, `use_linear_joint_solver=true`, and `use_manifolds=true`. Constraint counts are exposed as 13 for Bot and 8 for Baddy, but detailed constraint accessor fields are not exposed through the probed UE Python properties.
+- Live MCP validation failed because no Unreal Editor process was running and `127.0.0.1:55557` was not listening. Asset creation, graph screenshots, and Post Process AnimBP sample creation were intentionally not attempted until a live editor/MCP session is available for compile and visual verification.
+- Notion auto-capture was attempted again but still requires reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot live MCP animation graph inspection
+
+- Started the StackOBot Unreal Editor for live MCP inspection only. The UnrealMCP bridge opened on `127.0.0.1:55557`, and the editor process remained responsive.
+- Live `list_blueprint_graphs` confirmed `ABP_Bot` graph structure beyond the commandlet pass: `AnimGraph` has 30 nodes, `GroundLocomotion` has 5 nodes, `AirLocomotion` has 22 nodes, `CalcLean` has 14 nodes, and `EventGraph` has 39 nodes.
+- `ABP_Bot` EventGraph flow: `Blueprint Update Animation` validates `Try Get Pawn Owner`, reads the movement component, sets `IsInAir?` from `Is Falling`, sets `GroundSpeed` from horizontal movement length, calls `CalcLean`, sets `MovementInput?` from last movement input vector length, then casts to `BP_Bot` to pull `JetpackActive`, `IsInactive`, and `InteractionWorldLocation` into AnimBP variables.
+- `ABP_Bot` `CalcLean` flow: `Get Owning Actor -> Get Actor Rotation -> Delta (Rotator)` compares current and previous rotation, uses the yaw delta as target, smooths it with `FInterp To` at interp speed `2.0`, writes `LeanAmount`, then updates `PreviousRotation`. This is the source value for the lean axis in `BS_Bot_WalkRunLean`.
+- `ABP_Bot` AnimGraph live nodes confirmed the modular pose cache order: `GroundLocomotion -> GroundLocoPose`, `AirLocomotion -> LocomotionPose`, `UpperBody` slot into `CashedPose_UpperBody`, layered bone blend into `FullBodyPose`, inactive pose switch, Control Rig output, and `Trail controller` on `VB VBHead`.
+- `ABP_Bot` state machines confirmed transitions: `GroundLocomotion` is `Idle <-> Walk/Run`; `AirLocomotion` contains `Walk/Run`, `Jump`, `Fall`, `LandIdle`, `LandRun`, `StartJetpack`, `JetpackHovering`, `EndJetpack`, and a `ToLand` alias that branches to idle/run landing based on movement input.
+- `ABP_Baddy` live graph inspection confirmed the compact physics path: `New State Machine -> LocalToComponentSpace -> RigidBody -> ComponentToLocalSpace -> DefaultSlot -> Output Pose`. Its EventGraph initializes `NewVar` from `Try Get Pawn Owner` and updates `Is Moving` from movement velocity length greater than `5.0`; `BlueprintThreadSafeUpdateAnimation` is present but has no connected logic.
+- Dirty package check after live inspection reported `dirty_package_count=0`; no StackOBot Unreal assets were modified or saved.
+
+## 2026-06-18 StackOBot Post Process AnimBP study sample
+
+- Created disposable learning assets under `D:/Git/SampleProject/StackOBot/Content/_MCP_Sample/AnimStudy/` only: `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study` and `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study`.
+- `ABP_Bot_PostProcess_Study` was created with `SK_Bot` as the target skeleton and `SKM_Bot` as the preview skeletal mesh. UnrealMCP `compile_and_validate_blueprint` passed with `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`, and `saved=true`.
+- `SKM_Bot_PostProcess_Study` is a duplicate of the original StackOBot bot skeletal mesh. Its `post_process_anim_blueprint` property was set to `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study.ABP_Bot_PostProcess_Study_C`.
+- Verified the original `/Game/StackOBot/Characters/Bot/Mesh/SKM_Bot` still has no `post_process_anim_blueprint` assignment. Only the duplicated sample mesh is connected to the study Post Process AnimBP.
+- Live UnrealMCP graph listing confirmed the sample AnimBP contains an `AnimGraph` and `EventGraph`. The graph is intentionally minimal for this first safe Post Process AnimBP connection test; deeper AnimGraph node experiments should be done next inside the same `_MCP_Sample` folder.
+- Final dirty package check reported no dirty content packages after saving the sample assets.
+
+## 2026-06-18 StackOBot Post Process AnimBP study actor
+
+- Created `/Game/_MCP_Sample/AnimStudy/BP_Bot_PostProcess_StudyActor` as a disposable Blueprint Actor for testing the study Post Process AnimBP setup without editing maps or original StackOBot assets.
+- Added one `SkeletalMeshComponent` named `BotStudyMesh`. Its `SkeletalMeshAsset` is `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study.SKM_Bot_PostProcess_Study`.
+- Set `BotStudyMesh.AnimClass` to `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot_C` as a read-only reference to the original main AnimBP. The original `ABP_Bot` asset was not modified or saved.
+- `BP_Bot_PostProcess_StudyActor` compiled and saved with `compile_error_count=0`, `compile_warning_count=0`, and `validation_pass=true`.
+- Verified the actor component template values through UnrealMCP: `SkeletalMeshAsset` points at the duplicated study mesh, `AnimClass` points at original `ABP_Bot_C`, and `AnimationMode` remains the Animation Blueprint mode value exposed by the component.
+- Verified again that the original `/Game/StackOBot/Characters/Bot/Mesh/SKM_Bot` still has no `post_process_anim_blueprint` assignment, while the duplicated study mesh still points at `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study.ABP_Bot_PostProcess_Study_C`.
+- Probed automatic AnimGraph pass-through authoring for the study Post Process AnimBP. UE Python exposes `AnimGraphNode_SubInput` and the `AnimationGraph` can read nodes by class, but the current MCP/Python surface does not safely expose arbitrary AnimGraph node creation and pin linking. Keep deeper AnimGraph node experiments as the next explicit step rather than forcing unsafe graph edits.
+- Final dirty package check reported no dirty content packages after saving the study actor.
+
+## 2026-06-18 StackOBot AnimGraph pass-through MCP support
+
+- Added a narrow UnrealMCP node command in sibling `D:/Git/unreal-mcp-cubeless`: `ensure_anim_graph_input_pose_passthrough`. The command targets an Animation Blueprint `AnimGraph`, creates or reuses `AnimGraphNode_LinkedInputPose`, and connects its `Pose` output to the root node `Result` input.
+- Added the required plugin routing and `AnimGraph` module dependency, plus a Python MCP wrapper and `Docs/Tools/node_tools.md` entry. The command is intentionally scoped to the safe Post Process AnimBP pass-through setup rather than exposing arbitrary AnimGraph node mutation.
+- Synced the changed UnrealMCP C++ plugin files into the non-Git StackOBot project-local plugin copy under `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed: `MCPGameProjectEditor` and `StackOBotEditor` both built successfully with UE_5.7. The only recurring build warning was the existing `FImageUtils::CompressImageArray` deprecation in `UnrealMCPEditorCommands.cpp`.
+- Applied the new command to `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study`. The study AnimGraph now contains `AnimGraphNode_LinkedInputPose_0` at `(-320, 0)` connected as `Pose -> AnimGraphNode_Root_0.Result`.
+- Verification passed: `ABP_Bot_PostProcess_Study` compiled and saved with `compile_error_count=0`, `compile_warning_count=0`, and `validation_pass=true`.
+- Idempotency verification passed: re-running `ensure_anim_graph_input_pose_passthrough` returned `already_connected=true`, `created_input_node=false`, and `graph_changed=false`.
+- Verified the original `/Game/StackOBot/Characters/Bot/Mesh/SKM_Bot` still has no `post_process_anim_blueprint` assignment, while the duplicated study mesh still points at `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study.ABP_Bot_PostProcess_Study_C`.
+- Final dirty package check reported no dirty content packages. The latest StackOBot log still contains four startup `LogAutomationTest: Error: Condition failed` lines, which appear unrelated to the AnimGraph command but remain visible log errors.
+
+## 2026-06-18 StackOBot Post Process AnimBP Modify Bone demo
+
+- Added a second narrow UnrealMCP node command in sibling `D:/Git/unreal-mcp-cubeless`: `ensure_anim_graph_modify_bone_demo`. The command creates or reuses a safe Post Process AnimBP demo chain: `LinkedInputPose -> LocalToComponentSpace -> Transform (Modify) Bone -> ComponentToLocalSpace -> Root`.
+- Configured the demo command to use a real skeleton bone by default (`head`) instead of the original `ABP_Bot` Trail virtual bone label (`VB VBHead`), because `Transform (Modify) Bone` compile validation requires an actual skeleton bone.
+- Configured the Modify Bone node for additive bone-space rotation, ignored translation/scale, and synchronized the exposed `Rotation` input pin default with the runtime node setting so the graph's visible pin value matches the intended effect.
+- Synced the changed UnrealMCP C++ plugin files into the non-Git StackOBot project-local plugin copy under `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed: `MCPGameProjectEditor` and `StackOBotEditor` both built successfully with UE_5.7 after the command changes.
+- Applied the command to `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study` with `bone_name=head`, additive rotation `[0, 0, 4]`, and `replace_existing=true`. The study AnimGraph now has five nodes and the `Rotation` pin default reports `0.000000,0.000000,4.000000`.
+- Verification passed: `ABP_Bot_PostProcess_Study` compiled and saved with `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`, and `dirty_after_compile=false`.
+- Idempotency verification passed: re-running `ensure_anim_graph_modify_bone_demo` returned `graph_changed=false`, `settings_changed=false`, and `links_changed=false`.
+- Verified the original `/Game/StackOBot/Characters/Bot/Mesh/SKM_Bot` still has no `post_process_anim_blueprint` assignment, while the duplicated study mesh still points at `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study.ABP_Bot_PostProcess_Study_C`.
+- Final dirty package check reported no dirty content packages after saving the Modify Bone sample.
+
+## 2026-06-18 StackOBot AnimGraph physics node settings inspection
+
+- Added a read-only UnrealMCP node command in sibling `D:/Git/unreal-mcp-cubeless`: `inspect_anim_graph_node_settings`. The command resolves an Animation Blueprint graph and reflects the wrapped `FAnimNode_*` UPROPERTY values for matching AnimGraph nodes.
+- Added bridge routing, a Python MCP wrapper, and `Docs/Tools/node_tools.md` documentation for the command. Also corrected the Python/server description of `ensure_anim_graph_modify_bone_demo` so the default bone is `head`, not the invalid `VB VBHead` skeleton target.
+- Synced the changed UnrealMCP C++ plugin files into the non-Git StackOBot project-local plugin copy under `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed: `MCPGameProjectEditor` and `StackOBotEditor` both built successfully with UE_5.7 after the read-only inspection command change.
+- Live MCP inspection of `/Game/StackOBot/Characters/Blobling/Anim/ABP_Baddy` confirmed the active physics animation chain: `New State Machine -> LocalToComponentSpace -> RigidBody -> ComponentToLocalSpace -> DefaultSlot -> Root`.
+- `ABP_Baddy` RigidBody settings of interest: default skeletal mesh PhysicsAsset, `SimulationSpace=ComponentSpace`, `Alpha=1.0`, no external force, no world geometry, no gravity override, `ComponentAppliedLinearAccClamp=(10000,10000,10000)`, `EvaluationResetTime=0.01`, and `LODThreshold=-1`.
+- `ABP_Baddy` state machine and EventGraph were verified: `Idle -> Walk` uses `Is Moving`, `Walk -> Idle` uses `NOT Is Moving`, and `Is Moving` is set from `Vector Length(Velocity) > 5.0`.
+- `PA_Baddy` read-only inspection confirmed solver type `WORLD`, solver settings `position_iterations=6`, `velocity_iterations=1`, `projection_iterations=1`, `cull_distance=3.0`, `use_linear_joint_solver=true`, `use_manifolds=true`, and exposed constraint count `8`.
+- Live MCP inspection of `/Game/StackOBot/Characters/Bot/ABP_Bot` found the `Trail controller / Bone: VB VBHead` node settings, but the node's `ComponentPose` input and `Pose` output are currently unlinked in the main AnimGraph. Treat it as a retained settings example, not an active final-pose physics path.
+- `ABP_Bot` active late-stage correction path is Control Rig: `ControlRigClass=/Game/StackOBot/Characters/Bot/Rig/CR_Bot_Correction.CR_Bot_Correction_C`, with `InteractionWorldLocation` and `ShouldDoIKTrace` input pins connected and pose output connected to the AnimGraph root.
+- Added the persistent learning note `docs/stackobot-animation-study.md` with the Post Process AnimBP sample, Baddy RigidBody analysis, Bot Trail disconnected finding, ControlRig path, and recommended next experiments.
+
+## 2026-06-18 StackOBot Baddy RigidBody study variants
+
+- Created baseline Baddy RigidBody study assets under `D:/Git/SampleProject/StackOBot/Content/_MCP_Sample/AnimStudy/`: `/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study`, `/Game/_MCP_Sample/AnimStudy/SKM_Baddy_RigidBody_Study`, `/Game/_MCP_Sample/AnimStudy/PA_Baddy_RigidBody_Study`, and `/Game/_MCP_Sample/AnimStudy/BP_Baddy_RigidBody_StudyActor`.
+- The study skeletal mesh now points at the duplicated study physics asset, while the original `/Game/StackOBot/Characters/Blobling/SKM_Baddy` still points at the original `/Game/StackOBot/Characters/Blobling/PA_Baddy`.
+- Added a narrow UnrealMCP write command in sibling `D:/Git/unreal-mcp-cubeless`: `set_anim_graph_rigidbody_settings`. It can edit `alpha`, `external_force`, `simulation_space`, and `enable_world_geometry` on a RigidBody AnimGraph node, updates exposed `Alpha` and `ExternalForce` pin defaults, and refuses to modify non-`/Game/_MCP_Sample/` AnimBPs unless `allow_non_sample=true`.
+- Synced the changed UnrealMCP C++ plugin files into the non-Git StackOBot project-local plugin copy under `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed: `MCPGameProjectEditor` and `StackOBotEditor` both built successfully with UE_5.7 after adding the RigidBody settings command.
+- Created and compiled three RigidBody comparison AnimBP variants: `/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study_AlphaHalf` with `Alpha=0.5`, `/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study_ForceZ` with `ExternalForce=(0,0,350)`, and `/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study_WorldSpace` with `SimulationSpace=WorldSpace`.
+- Created matching actor variants: `/Game/_MCP_Sample/AnimStudy/BP_Baddy_RigidBody_StudyActor_AlphaHalf`, `/Game/_MCP_Sample/AnimStudy/BP_Baddy_RigidBody_StudyActor_ForceZ`, and `/Game/_MCP_Sample/AnimStudy/BP_Baddy_RigidBody_StudyActor_WorldSpace`. Each actor uses the duplicated study mesh and its matching study AnimBP class.
+- Verification passed: baseline and variant AnimBPs and actor Blueprints compiled with `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`, and `dirty_after_compile=false`.
+- Guard verification passed: attempting `set_anim_graph_rigidbody_settings` on original `/Game/StackOBot/Characters/Blobling/Anim/ABP_Baddy` was rejected with the non-sample protection error.
+- Updated `docs/stackobot-animation-study.md` with the baseline/variant sample asset list and comparison guidance.
+
+## 2026-06-18 StackOBot safe preview map and RigidBody comparison capture
+
+- Added a native UnrealMCP editor command in sibling `D:/Git/unreal-mcp-cubeless`: `safe_new_preview_map`. It defaults to `dry_run=true`, only allows targets under `/Game/_MCP_Temp/`, blocks dirty packages by default, blocks existing map targets by default, and creates/saves maps through native C++ editor APIs rather than Python map creation/loading APIs.
+- Added bridge routing, a Python MCP wrapper, and `Docs/Tools/editor_tools.md` documentation for `safe_new_preview_map`.
+- Verification passed: `MCPGameProjectEditor` and `StackOBotEditor` both built successfully with UE_5.7 after the new editor command. The only recurring warning was the existing `FImageUtils::CompressImageArray` deprecation.
+- Created `/Game/_MCP_Temp/AnimStudy/M_Baddy_RigidBody_Compare_MCP` through `safe_new_preview_map`. Dry-run reported `can_create=true`, no blockers, and `dirty_package_count_before=0`; real creation reported `created=true`, `saved=true`, and `dirty_package_count_after=0`.
+- Placed four RigidBody comparison preview actors in the temp map as `SkeletalMeshActor` instances using `/Game/_MCP_Sample/AnimStudy/SKM_Baddy_RigidBody_Study` and the four study AnimBP classes: Baseline, AlphaHalf, ForceZ, and WorldSpace. The older study Blueprint actors remain asset templates, but direct map spawning through the old `spawn_blueprint_actor` route produced zero render bounds because that command still assumes `/Game/Blueprints/`.
+- Saved the review screenshot at `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_Compare_Annotated.png`. Viewport capture rendered only editor primitives in the hidden editor session, so the usable review image was generated through `SceneCapture2D -> RTF_RGBA8 RenderTarget -> PNG` and then annotated with 2D labels.
+- Verification passed: final screenshot is a readable nonblank PNG showing all four preview silhouettes in order. This is a shape/order review artifact, not a runtime physics simulation proof.
+- The temp preview map was saved before shutdown. The Unreal Editor process launched for this work was force-closed afterward to discard a transient dirty `/Engine/BasicShapes/BasicShapeMaterial` package caused by preview-only material overrides; no dirty map packages were reported before that cleanup attempt.
+- Latest StackOBot log now includes expected intermediate failure entries from this run: one Python API mistake (`SkeletalMeshComponent.mark_render_state_dirty` is not exposed) and two `execute_python` timeout entries from trying to reload/cleanup the transient dirty Engine material package. The final map creation, map save, build verification, and final PNG capture succeeded after those failures.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Blueprint actor spawn and SkeletalMeshComponent repair
+
+- Fixed the UnrealMCP `spawn_blueprint_actor` path resolver in sibling `D:/Git/unreal-mcp-cubeless` so it now accepts short legacy names, full package paths, object paths, and generated `_C` class paths instead of assuming `/Game/Blueprints/<Name>`.
+- Updated the Python `spawn_blueprint_actor` wrapper to document full-path input and accept optional `scale`, then documented the command in `Docs/Tools/editor_tools.md`.
+- Found the Baddy study actor Blueprint templates had a `BaddyStudyMesh` component but null SkeletalMeshComponent mesh defaults after direct spawn, which produced zero render bounds.
+- A generic `set_component_property` attempt against `SkeletalMeshAsset` followed by compile crashed Unreal with `Trying to call UObject::FinishDestroy from outside of UObject::ConditionalFinishDestroy on object BaddyStudyMesh_GEN_VARIABLE`; the crash also left `CrashReportClientEditor.exe` holding the plugin DLL until it was closed.
+- Added a narrow UnrealMCP command, `set_skeletal_mesh_component_anim_defaults`, for SkeletalMeshComponent defaults. It calls the SkeletalMeshComponent API, sets Animation Blueprint mode/class, marks the Blueprint modified, optionally compiles, validates, and saves. This command is documented in `D:/Git/unreal-mcp-cubeless/Docs/Tools/blueprint_tools.md`.
+- Verification passed: `MCPGameProjectEditor` and `StackOBotEditor` both built successfully with UE_5.7 after the new command and spawn-path changes.
+- Repaired the four study actor templates under `/Game/_MCP_Sample/AnimStudy/`: Baseline, AlphaHalf, ForceZ, and WorldSpace. Each now uses `/Game/_MCP_Sample/AnimStudy/SKM_Baddy_RigidBody_Study` and its matching study AnimBP class.
+- Created `/Game/_MCP_Temp/AnimStudy/M_BPSpawn_PathSmoke_Fixed_MCP` through `safe_new_preview_map`, then spawned the four study actor Blueprints by full object path as `MCP_BPSpawn_Baseline`, `MCP_BPSpawn_AlphaHalf`, `MCP_BPSpawn_ForceZ`, and `MCP_BPSpawn_WorldSpace`.
+- Verification passed: all four spawned actors had nonzero bounds (`bounds_extent_size` about `92.805873`), valid SkeletalMeshComponent data, `ANIMATION_BLUEPRINT` mode, valid animation instances, two materials, `save_ok=true`, and no dirty content or map packages after save.
+- Updated `docs/stackobot-animation-study.md` with the Blueprint actor repair result, smoke-test map path, and current RigidBody study workflow.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Baddy RigidBody runtime sampling
+
+- Opened `/Game/_MCP_Temp/AnimStudy/M_BPSpawn_PathSmoke_Fixed_MCP` through native `open_editor_level`; preflight and real load both reported no dirty package blockers.
+- Confirmed the saved map contains the four study Blueprint actors by object name: `MCP_BPSpawn_Baseline`, `MCP_BPSpawn_AlphaHalf`, `MCP_BPSpawn_ForceZ`, and `MCP_BPSpawn_WorldSpace`.
+- Ran an editor-tick sampler with `SkeletalMeshComponent.set_update_animation_in_editor(True)`, sinusoidal actor movement, and actor-relative socket sampling. Output: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_EditorTickSamples.json`.
+- Editor-tick result: `32` samples completed, but actor-relative bone ranges were all `0.0`; for this AnimBP/RigidBody setup, editor tick alone is not enough to observe the physics animation.
+- Runtime/SIE smoke confirmed `EditorLevelLibrary.editor_play_simulate()` works and `get_pie_worlds(false)` exposes the PIE world with all four study actors.
+- Ran a SIE sampler for `5` seconds with the same sinusoidal actor movement and sampled `Head_02`, `R_Stalk_04`, `L_Stalk_04`, `TailEnd`, `L_Foot`, and `R_Foot`. Output: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIESamples.json`.
+- SIE result: `40` samples completed and End Play returned cleanly. Dirty package count after SIE was `0`, and `pie_world_count=0`.
+- Useful motion difference appeared on stalk bones. Baseline `R_Stalk_04` max actor-relative delta was about `2.00` and `L_Stalk_04` about `0.93`; AlphaHalf shifted that distribution to about `1.61` and `1.37`; ForceZ increased vertical stalk response (`R_Stalk_04 RangeZ` about `1.54` vs baseline `1.24`, `L_Stalk_04 RangeZ` about `1.00` vs baseline `0.77`); WorldSpace was the strongest difference with `R_Stalk_04` max delta about `19.46` and `L_Stalk_04` about `22.99`.
+- `Is Moving` exists on the AnimBP instance, but Python cannot edit it directly on instances (`cannot be edited on instances`). The current runtime driver is therefore actor movement in SIE; a later dedicated test actor or AnimBP-exposed debug variable would be cleaner if deeper state-machine control is needed.
+- One reflection probe failed during exploration because `AnimBlueprintGeneratedClass.get_properties()` is not exposed to Python in this environment. It did not affect the final SIE sample.
+- Latest StackOBot log also contains PIE runtime errors from `GM_InGame.Retrieve Spawn Transform` reading `ActiveSpawnPad=None`. This is expected for a minimal `_MCP_Temp` animation test map without the normal gameplay spawn-pad setup, and it did not block the actor-level SIE sample. A cleaner next pass should use an animation-only test GameMode or a spawn-pad fixture if PIE log cleanliness matters.
+- Updated `docs/stackobot-animation-study.md` with the editor-tick limitation, SIE sample artifact paths, and observed RigidBody variant differences.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot clean GameMode SIE RigidBody sampling
+
+- Reopened `/Game/_MCP_Temp/AnimStudy/M_BPSpawn_PathSmoke_Fixed_MCP` through native `open_editor_level`; preflight and real load had no dirty package blockers.
+- Confirmed the map's `WorldSettings.default_game_mode` was `None`, so PIE/SIE fell back to the project default `GM_InGame`, which caused the earlier `ActiveSpawnPad=None` log noise.
+- Set the temp map's `default_game_mode` to `/Script/Engine.GameModeBase` and saved the map. Dirty package count after save was `0`.
+- One setup attempt called `World.mark_package_dirty()`, which is not exposed to Unreal Python and logged an AttributeError. The setting had already applied through `WorldSettings.modify()`, and the subsequent `EditorLevelLibrary.save_current_level()` saved the map cleanly.
+- Ran a clean SIE pass with marker `MCP_ANIMSTUDY_CLEAN_SIE_START_20260618_0339`. Output: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameModeSamples.json`.
+- Clean SIE result: status `completed`, sample count `40`, PIE GameMode `/Script/Engine.GameModeBase`, sampler errors `0`, End Play completed, and `ErrorCountAfterMarker=0` in the latest StackOBot log.
+- Clean SIE motion pattern matched the prior noisy SIE pass while giving cleaner logs. Baseline `R_Stalk_04` max delta was about `2.71` and `L_Stalk_04` about `1.26`; AlphaHalf was about `2.05` and `1.82`; ForceZ increased vertical stalk response (`R_Stalk_04 RangeZ` about `2.08` vs baseline `1.71`, `L_Stalk_04 RangeZ` about `1.35` vs baseline `1.05`); WorldSpace remained the clearest difference with `R_Stalk_04` max delta about `19.84` and `L_Stalk_04` about `23.05`.
+- Updated `docs/stackobot-animation-study.md` to prefer the clean GameMode SIE JSON as the main runtime comparison artifact.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot RigidBody clean SIE metric artifacts
+
+- Converted `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameModeSamples.json` into compact review artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameModeMetrics.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameModeSummary.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameMode_StalkMaxDelta.svg`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameMode_StalkMaxDelta.png`
+- The CSV contains `24` rows: four variants by six sampled bones, including XYZ ranges, range magnitude, max delta from first sample, and baseline comparison columns.
+- The PNG chart visually confirms the clean SIE conclusion: WorldSpace dominates stalk response, ForceZ increases vertical stalk response, and AlphaHalf changes left/right distribution rather than uniformly halving all motion.
+- Updated `docs/stackobot-animation-study.md` to link the CSV, summary Markdown, and stalk delta chart alongside the source JSON.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Post Process AnimBP inventory refresh
+
+- Reopened StackOBot through UnrealMCP for a read-only Post Process AnimBP inventory pass. Slate status call succeeded and the editor bridge was reachable on `127.0.0.1:55557`.
+- Wrote `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_StudyInventory.json`. Inventory status was `completed` and dirty package count after inventory was `0`.
+- Reconfirmed the original `/Game/StackOBot/Characters/Bot/Mesh/SKM_Bot` still has no Post Process AnimBP assignment.
+- Reconfirmed the duplicated study mesh `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study` points to `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study.ABP_Bot_PostProcess_Study_C`.
+- `compile_and_validate_blueprint` passed for both `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study` and `/Game/_MCP_Sample/AnimStudy/BP_Bot_PostProcess_StudyActor` with `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`, `dirty_after_compile=false`, and `save=false`.
+- Generic Unreal Python reflection could read the skeletal mesh post-process assignment but could not read AnimBlueprint graph arrays or Blueprint SCS through the simple property path. The narrow UnrealMCP node command was used instead for AnimGraph inspection.
+- Direct bridge call through sibling `uv --directory D:/Git/unreal-mcp-cubeless/Python run --python 3.11` saved `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_StudyAnimGraphInspect.json`.
+- AnimGraph inspect confirmed `5` nodes: `LinkedInputPose -> LocalToComponentSpace -> Transform (Modify) Bone -> ComponentToLocalSpace -> Root`. The Modify Bone node targets `head`, uses additive bone-space rotation, and applies `Roll=4` with `Alpha=1`.
+- Wrote the compact summary `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_StudySummary.md`.
+- Updated `docs/stackobot-animation-study.md` with the Post Process verification artifacts, compile validation status, inspected AnimGraph chain, and the next visual/runtime test plan.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Post Process AnimBP runtime proof
+
+- Created `/Game/_MCP_Temp/AnimStudy/M_Bot_PostProcess_Compare_MCP` through the native UnrealMCP `safe_new_preview_map` bridge command. Dry-run reported `can_create=true`; real creation reported `created=true`, `saved=true`, and dirty package count `0`.
+- Set the temp map's `WorldSettings.default_game_mode` to `/Script/Engine.GameModeBase`.
+- Placed two temp-map-only comparison actors:
+  - `MCP_BotPostProcess_Baseline`: original `/Game/StackOBot/Characters/Bot/Mesh/SKM_Bot` with original `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot_C`.
+  - `MCP_BotPostProcess_Study`: duplicated `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study` with the same original `ABP_Bot_C`; the duplicated mesh owns the study Post Process AnimBP assignment.
+- Saved the temp map with a key light and camera helper. Dirty package count after save was `0`.
+- Ran clean SIE sampling with marker `MCP_ANIMSTUDY_BOT_POSTPROCESS_SIE_START_20260618_0400`. Output: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_HeadSIESamples.json`.
+- Runtime result: status `completed`, sample count `24`, PIE GameMode `/Script/Engine.GameModeBase`, sampler errors `0`.
+- The comparison proved the Post Process AnimBP is active at runtime: `pelvis` and `neck_01` rotation delta stayed `0.0`, while `head`, `antenna_04_l`, and `antenna_04_r` all showed exactly `4.0` degrees of rotation delta versus baseline.
+- Generated compact review artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_HeadSIESummary.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_HeadSIESummary.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_HeadRotationDelta.png`
+- Updated `docs/stackobot-animation-study.md` with the runtime Post Process test result and artifact paths.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot ABP_Bot Trail Controller inactive proof
+
+- Reopened StackOBot through UnrealMCP for a read-only Trail Controller audit. Slate status call succeeded and the editor bridge was reachable on `127.0.0.1:55557`.
+- Inspected original `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot` only; no original asset edits, map edits, or saves were performed.
+- Direct bridge call through sibling `uv --directory D:/Git/unreal-mcp-cubeless/Python run --python 3.11` saved:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_AnimGraphInspect.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_TrailControllerInspect.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_TrailControllerInactiveSummary.md`
+- `ABP_Bot` AnimGraph inspect reported `30` nodes.
+- The active root-connected chain is `Root -> ControlRig -> BlendListByBool`; the Trail Controller is not in that root chain.
+- The Trail Controller node exists as `AnimGraphNode_Trail` titled `Trail controller / Bone: VB VBHead`, with retained settings `TrailBone=VB VBHead`, `BaseJoint=head`, `ChainLength=2`, `ChainBoneAxis=X`, and `Alpha=1`.
+- The Trail node's `ComponentPose` input links and `Pose` output links are both empty. Treat it as retained settings/reference data, not an active final-pose physics animation path.
+- Dirty package count after read-only inspection was `0`, and no PIE world was active.
+- Updated `docs/stackobot-animation-study.md` with the Trail inactive proof artifacts and conclusion.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot ABP_Bot Control Rig active path audit
+
+- Reopened StackOBot through UnrealMCP for a read-only Control Rig audit. Slate status call succeeded and the editor bridge was reachable on `127.0.0.1:55557`.
+- Inspected original `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot` and `/Game/StackOBot/Characters/Bot/Rig/CR_Bot_Correction.CR_Bot_Correction` only; no original asset edits, map edits, or saves were performed.
+- Direct bridge call through sibling `uv --directory D:/Git/unreal-mcp-cubeless/Python run --python 3.11` saved `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRigNodeInspect.json`.
+- The active ControlRig AnimGraph node is `AnimGraphNode_ControlRig` with `ControlRigClass=/Game/StackOBot/Characters/Bot/Rig/CR_Bot_Correction.CR_Bot_Correction_C`, `Alpha=1`, `bExecute=true`, `bTransferInputPose=true`, and `bTransferInputCurves=true`.
+- Pin links confirmed the active correction path: `Source` is linked from `AnimGraphNode_BlendListByBool_0.Pose`, `Pose` is linked to `AnimGraphNode_Root_5.Result`, `InteractionWorldLocation` is linked from `K2Node_VariableGet_1.InteractWorldLocation`, and `ShouldDoIKTrace` is linked from `K2Node_CallFunction_0.ReturnValue`.
+- Wrote `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_Inventory.json`. The Control Rig asset loaded as `/Script/ControlRigDeveloper.ControlRigBlueprint`, generated class `/Game/StackOBot/Characters/Bot/Rig/CR_Bot_Correction.CR_Bot_Correction_C`, hierarchy was readable, controller was readable, dirty package count after inventory was `0`, and error count was `0`.
+- Wrote compact summaries:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRigAuditSummary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRigAuditSummary.md`
+- Control Rig hierarchy parsing found `64` keys: `54` bones, `4` controls, and `6` curves.
+- `compile_and_validate_blueprint(save=false, refresh_nodes=false)` passed for original `ABP_Bot` with `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`, and `dirty_after_compile=false`.
+- Updated `docs/stackobot-animation-study.md` with the Control Rig audit artifacts and current next-candidate recommendation: use a clean `_MCP_Temp` runtime driver for `InteractWorldLocation`/`ShouldDoIKTrace`, and keep any active Trail experiment separate in `_MCP_Sample`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot ABP_Bot Control Rig runtime driver probe
+
+- Created `/Game/_MCP_Temp/AnimStudy/M_Bot_ControlRig_Driver_MCP` with the native UnrealMCP `safe_new_preview_map` command. Dry-run reported `can_create=true`; real creation reported `created=true`, `saved=true`, and dirty package count `0`.
+- Added only temporary map actors: `MCP_ControlRig_RawBot`, `MCP_ControlRig_BotBP`, `MCP_ControlRig_Floor`, and `MCP_ControlRig_LeftFootBlock`.
+- Confirmed the raw actor and BP actor both used original `/Game/StackOBot/Characters/Bot/Mesh/SKM_Bot.SKM_Bot` and `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot_C`.
+- Ran SIE driver sampling and saved:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_DriverSamples.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_DriverSummary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_BPCompareSamples.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_BPCompareSummary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_CurveProbeSummary.json`
+- `InteractWorldLocation` was writable and echoed on runtime `ABP_Bot_C`, but neutral/high-Z/low-Z/side-low phases produced `0.0` distance delta on pelvis, thigh, calf, and foot bones.
+- Raw SkeletalMeshActor and spawned `BP_Bot` produced the same zero-delta result, even with a collision floor and a raised block near the BP_Bot left foot.
+- Runtime curve probe reported `IKBlend_l=0.0`, `IK_blend_interact=0.0`, and no active curves for both actors. The practical interpretation is that the active ControlRig node exists, but this temp SIE setup leaves the foot/interaction branch gated off.
+- `ShouldDoIKTrace` remains linked into the ControlRig node from a Blueprint function return, but the generated function was not callable from Python by common names. The next useful experiment is a duplicate `_MCP_Sample` driver that explicitly forces the IK trace/curve gate or directly exercises `IK_foot_L`/`IK_foot_R`.
+- Updated `docs/stackobot-animation-study.md` with the runtime driver probe result and artifact paths.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot CR_Bot_Correction direct gate probe
+
+- Created direct runtime `CR_Bot_Correction` instances through `ControlRigBlueprint.create_control_rig()` without saving or modifying the original Control Rig asset.
+- Confirmed `InteractionWorldLocation` and `ShouldDoIKTrace` are writable ControlRig instance UPROPERTY inputs.
+- Confirmed `IKBlend_l` and `IK_blend_interact` are hierarchy curves, not direct UPROPERTY fields; they can be set with `RigHierarchy.set_curve_value`.
+- Executed `Forwards Solve` and sampled global transforms for `foot_l`, `foot_r`, `IK_foot_L`, and `IK_foot_R`.
+- Saved:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_DirectGateProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_DirectGateProbeSummary.md`
+- Direct probe result: `ShouldDoIKTrace=true` alone produced no foot deltas, and `IKBlend_l=1` alone also produced no foot deltas. Setting `IK_blend_interact=1` produced measurable movement; with both curves `1` and `InteractionWorldLocation=[80,-40,80]`, `foot_l` moved about `0.2202`, `foot_r` about `0.2402`, `IK_foot_L` about `0.1594`, and `IK_foot_R` about `0.1693`.
+- Updated interpretation: the active Control Rig can respond, but the prior AnimBP SIE actor setup kept the interaction blend curve path inactive. The next full runtime proof should use a duplicate `_MCP_Sample/AnimStudy` AnimBP/driver that forces or exposes `ShouldDoIKTrace`, `InteractionWorldLocation`, and `IK_blend_interact` together.
+- Verification note: final dirty package count was `0` and no PIE world remained active. The latest StackOBot log still contains earlier contained errors from failed JSON serialization attempts in the first sampler draft, plus `SetInputMode_GameOnly` PIE errors from spawning original `BP_Bot` without a valid player controller in the temp SIE map. The final retry sampler, curve probe, and direct gate probe completed and wrote outputs.
+- Updated `docs/stackobot-animation-study.md` with the direct gate probe result and artifact paths.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Control Rig no-C++ forced driver feasibility
+
+- Kept the C++/API items as candidates only and continued with non-C++ MCP/editor scripting checks.
+- Wrote feasibility proof artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRig_NoCppForcedDriverFeasibility.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRig_NoCppForcedDriverFeasibility.md`
+- Result: Python can load original `ABP_Bot`, call `get_animation_graphs()`, find `AnimGraph`, and find `AnimGraphNode_ControlRig_0` via `get_graph_nodes_of_class`.
+- Blocker: Python cannot read the protected graph `Nodes` array or ControlRig node `pins` property directly, and `K2Node_CallFunction` cannot be queried through `AnimationGraph.get_graph_nodes_of_class` because that helper only accepts `AnimGraphNode_Base` classes.
+- Decision: do not hand-edit protected AnimGraph internals through Python. The forced AnimBP driver remains a narrow UnrealMCP C++ API candidate that should duplicate and modify only `/Game/_MCP_Sample/AnimStudy` assets.
+- Generated compact direct-gate review artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_DirectGateProbeMetrics.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_DirectGateProbeDistances.svg`
+- Updated `docs/stackobot-animation-study.md` with the feasibility result, direct-gate CSV/SVG paths, and the deferred UnrealMCP C++ API candidate backlog: `controlrig_direct_gate_probe`, `ensure_anim_graph_modify_curve_demo`, `set_anim_graph_controlrig_input_defaults`, `ensure_controlrig_forced_driver_animbp`, `sample_skeletal_bones_in_sie`, `ensure_anim_graph_trail_demo`, and `inspect_anim_graph_protected_topology`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Trail active sample feasibility and execution map
+
+- Continued without implementing C++ APIs. Reopened StackOBot through UnrealMCP and verified the Slate status call succeeded.
+- Re-read the original `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot` Trail Controller node through `inspect_anim_graph_node_settings`.
+- Confirmed the original Trail node remains inactive: `ComponentPose` input links and `Pose` output links are empty.
+- Wrote feasibility proof artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_Trail_NoCppActiveSampleFeasibility.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_Trail_NoCppActiveSampleFeasibility.md`
+- Feasibility result: Python can find `AnimGraph`, `AnimGraphNode_Trail`, `LocalToComponentSpace`, `ComponentToLocalSpace`, and root node classes, but it cannot safely read protected graph `Nodes` or node `pins`. Therefore a connected active Trail sample should wait for the deferred `ensure_anim_graph_trail_demo` UnrealMCP C++ API candidate.
+- Added `docs/stackobot-animation-execution-map.md`, a compact learning map covering runtime pose flow, system roles, Control Rig gates, Trail status, sampling checklist, and deferred API work.
+- Updated `docs/stackobot-animation-study.md` with the Trail feasibility result and a link to the execution map.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot AnimBP state machine inventory
+
+- Continued read-only StackOBot animation study through UnrealMCP. Slate status call succeeded.
+- Generated read/API and AnimGraph inventory artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_ReadApiProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_AnimGraphInspect_Refresh.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Baddy_AnimGraphInspect.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateGraph_NodeAssetProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_StateMachineInventory.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_StateMachineInventory.md`
+- Added `docs/stackobot-animbp-inventory.md` as a project-facing learning note.
+- Updated `docs/stackobot-animation-execution-map.md` with the main `ABP_Bot` and `ABP_Baddy` pose chains.
+- Updated `docs/stackobot-animation-study.md` with the new inventory artifact paths and learning interpretation.
+- `ABP_Bot` flow captured: `GroundLocomotion -> GroundLocoPose -> AirLocomotion -> LocomotionPose -> UpperBody Slot -> layered blend -> FullBodyPose -> IsInactive switch -> ControlRig -> Root`.
+- `ABP_Baddy` flow captured: `New State Machine -> LocalToComponentSpace -> RigidBody -> ComponentToLocalSpace -> DefaultSlot -> Root`.
+- Transition condition internals remain a protected-topology gap for a future MCP command; state playback assets and main pose chains are readable now.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot AnimBP transition graph inventory
+
+- Continued read-only StackOBot animation study; original StackOBot assets were not modified or saved.
+- Tried the secondary `mcp_unreal` AnimBP query path first, but port `8090` was unavailable in this session.
+- Used the primary UnrealMCP Python fallback to inspect transition graph objects and saved:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionApiProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TransitionGraph_GuidProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.md`
+- `ABP_Bot` transition inventory: `GroundLocomotion` has 2 discoverable transition graphs and `AirLocomotion` has 12.
+- `ABP_Baddy` transition inventory: `New State Machine` has 2 discoverable transition graphs.
+- Each transition graph exposes a readable `AnimGraphNode_TransitionResult`, but exact K2 condition nodes and pins remain blocked by protected graph topology.
+- Updated `docs/stackobot-animbp-inventory.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animation-study.md`.
+- Deferred API candidates retained for later C++/MCP work: `inspect_anim_state_machine_transitions` and `inspect_anim_graph_protected_topology`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot AnimInstance runtime state probe
+
+- Continued the StackOBot animation study without implementing new C++ APIs and without modifying original StackOBot assets.
+- Created a disposable preview map under `/Game/_MCP_Temp/AnimStudy/M_AnimInstance_StateProbe_MCP` with the native `safe_new_preview_map` command. Dry-run and real creation both passed, and dirty package count after save was `0`.
+- Added only temporary map actors for probing: `MCP_AnimStateProbe_Bot` using original `SKM_Bot` + `ABP_Bot_C`, and `MCP_AnimStateProbe_Baddy` using original `SKM_Baddy` + `ABP_Baddy_C`.
+- Saved probe artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_StateApiProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UnrealPython_StateLibraryProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SkeletalMeshComponent_TickMethodProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_StateProbe_Setup.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_SIEMutabilityProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_SIEDelayedMutabilityProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_RuntimeStateProbeSummary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_RuntimeStateProbeSummary.md`
+- Readable variables confirmed: `ABP_Bot` exposes `GroundSpeed`, `LeanAmount`, `MovementInput?`, `IsInAir?`, `IsInactive`, and `InteractWorldLocation`; `ABP_Baddy` exposes `Is Moving` and `NewVar`.
+- Current-state read is blocked through Python: `AnimInstance` does not expose `get_current_state_name`, `get_state_machine_instance_desc`, or `get_state_weight`.
+- Runtime variable forcing is also blocked through Python: editor-world and delayed SIE instances both reject `set_editor_property` with `cannot be edited on instances`, and direct `setattr` fails.
+- Delayed SIE did produce one PIE world and valid runtime pose/socket samples for both temporary actors, so socket/bone sampling is viable once a controlled driver exists.
+- Updated `docs/stackobot-animbp-inventory.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animation-study.md` with the runtime-state probe result.
+- Deferred API candidates added for later C++/MCP work: `inspect_anim_instance_runtime_state`, `set_anim_instance_runtime_property_for_probe`, and `sample_anim_state_machine_runtime_response`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot animation asset playback inventory
+
+- Continued the StackOBot animation study without implementing new C++ APIs and without modifying original StackOBot animation assets.
+- Used the live primary UnrealMCP bridge to run read-only Unreal Python probes for Animation Sequence and BlendSpace metadata.
+- Saved probe artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_ReadApiProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_DetailProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_Inventory.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_Inventory.md`
+- Inventory result: `16` sequence assets and `2` BlendSpace assets loaded successfully with `0` load errors.
+- Bot sequence set: `14` sequences, total length about `18.04s`, approximately `25 fps`, root motion disabled on all inspected Bot clips.
+- Baddy sequence set: `2` sequences, total length about `1.33s`, approximately `30 fps`, root motion disabled on both inspected Baddy clips.
+- `BS_Bot_WalkRunLean` axes are `Lean -1..1` and `Speed 0..500`; samples are `A_Bot_Walk` at `(0,96.978)`, `A_Bot_Run` at `(0,500)`, `A_Bot_Run_LeanLeft` at `(1,258.546)`, and `A_Bot_Run_LeanRight` at `(-1,259.420)`.
+- `BS_Bot_RunIdleJump` uses `Speed 0..500`; samples are `A_Bot_IdleJump` at `54.485` and `A_Bot_RunJump` at `54.552`.
+- Both inspected BlendSpaces use notify trigger mode `HIGHEST_WEIGHTED_ANIMATION` and target weight interpolation speed `0.0`.
+- Sequence `Notifies`, sync markers, and curve data remain protected through the current Python property path, so notify/curve study remains a future API/manual-inspection item.
+- Updated `docs/stackobot-animbp-inventory.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animation-study.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Post Process AnimBP variant samples
+
+- Reopened the StackOBot editor for primary UnrealMCP work. Primary `unrealMCP` bridge on `127.0.0.1:55557` connected and the Ieta Slate status call succeeded. Secondary `mcp_unreal` on `8090` was not used because it reported the CubelessStylized context and plugin offline.
+- Created disposable Post Process learning variants under `/Game/_MCP_Sample/AnimStudy` only:
+  - `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadPitch`
+  - `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study_HeadPitch`
+  - `/Game/_MCP_Sample/AnimStudy/BP_Bot_PostProcess_StudyActor_HeadPitch`
+  - `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_AntennaRoll`
+  - `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study_AntennaRoll`
+  - `/Game/_MCP_Sample/AnimStudy/BP_Bot_PostProcess_StudyActor_AntennaRoll`
+- `HeadPitch` variant uses `Transform (Modify) Bone` on `head` with additive bone-space `Pitch=6`.
+- `AntennaRoll` variant uses `Transform (Modify) Bone` on `antenna_04_l` with additive bone-space `Roll=12`.
+- Both variant AnimBPs compile and save with `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`, and `dirty_after_compile=false`.
+- Both variant actor Blueprints compile and save with `compile_error_count=0`, `compile_warning_count=0`, `validation_pass=true`, and `dirty_after_compile=false`.
+- Both duplicated skeletal meshes point at their matching variant Post Process AnimBP generated class.
+- Both variant actors use their matching duplicated skeletal mesh and the original main `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot_C`.
+- Original `/Game/StackOBot/Characters/Bot/Mesh/SKM_Bot` still has no Post Process AnimBP assignment.
+- Saved verification artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSetup.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantMeshLink.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_ComponentTemplateProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSummary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSummary.md`
+- Dirty content package count after setup was `0`.
+- Runtime SIE sampling was intentionally skipped for these variants to avoid dirtying/switching the current map after the prior world-reference cleanup crash. Treat these as compiled asset-level samples until `sample_postprocess_pre_post_pose` or another safe runtime probe exists.
+- Latest `StackOBot.log` still contains four existing startup `LogAutomationTest: Error: Condition failed` lines; no variant Blueprint compile errors were reported by MCP validation.
+- Updated `docs/stackobot-animbp-inventory.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animation-study.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Post Process variant impact map
+
+- Continued from the compiled Post Process variant samples with read-only analysis only. No actor spawn, PIE/SIE, map switch, asset edit, or asset save was performed.
+- Used saved variant summary, base `head` Post Process SIE summary, ControlRig hierarchy API probe, and AnimPose API probe to map expected impacted bones for the two new variants.
+- Saved impact artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.svg`
+- `HeadPitch` expected affected bones: `head`, `antenna_04_l`, and `antenna_04_r`, based on the prior base `head` roll SIE sample where those bones measured `4.0` degrees and `pelvis`/`neck_01` stayed at `0.0`.
+- `AntennaRoll` expected affected bone: `antenna_04_l` only; ControlRig hierarchy reports `antenna_04_l` has parent `antenna_03_l` and no children.
+- Read limit: current Skeleton Python access exposes `AnimPose` bone names/transforms but not parent indexes. ControlRig hierarchy exposes the antenna chain but did not expose head descendants in this probe.
+- Exact per-variant runtime deltas remain future `sample_postprocess_pre_post_pose` work.
+- Dirty content package count from the read-only probes remained `0`.
+- Updated `docs/stackobot-animbp-inventory.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animation-study.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot sequence motion profile
+
+- Continued the StackOBot animation study without implementing new C++ APIs and without modifying original StackOBot assets.
+- Probed pose sampling routes and confirmed `AnimSequence.get_anim_pose_at_time` returns an `AnimPose` with usable `get_bone_pose`, `get_curve_names`, `get_curve_weight`, `get_socket_pose`, and reference-pose comparison helpers.
+- Sampled all `16` inspected sequence assets with `0` pose sampling errors.
+- Bot sampled bones: `pelvis`, `head`, `foot_l`, and `foot_r`.
+- Baddy sampled bones: `Head_02`, `R_Stalk_04`, `L_Stalk_04`, and `TailEnd`.
+- Saved artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_PoseSamplingApiProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_AnimPoseApiProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_Profile.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_ProfileMetrics.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_Profile.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_ProfileTopDeltas.svg`
+- Largest Bot authored movement: `A_Bot_Run_LeanLeft foot_l` about `53.10`, `A_Bot_Run_LeanRight foot_r` about `52.70`, and `A_Bot_Run foot_l` about `52.15` max distance from first sampled pose.
+- Largest Baddy authored movement: `A_Baddy_Walk TailEnd` about `36.71`, `L_Stalk_04` about `22.26`, and `R_Stalk_04` about `20.85`.
+- Interpretation: source clip motion is now separated from final runtime graph output. Baddy RigidBody analysis should compare against authored stalk/tail motion first, and Bot Control Rig analysis should compare against authored foot motion before attributing movement to IK correction.
+- Verification note: pose sampling itself completed and wrote artifacts before cleanup. A later cleanup attempt to switch from dirty `/Game/StackOBot/Maps/Lvl_Empty` to `_MCP_Temp` through native `open_editor_level` crashed the editor with UE `World Memory Leaks`; the log showed `/Game/StackOBot/Maps/Lvl_Empty` still referenced by `FPyReferenceCollector` inside `FUnrealMCPEditorCommands::HandleOpenEditorLevel`. Crash folder: `D:/Git/SampleProject/StackOBot/Saved/Crashes/UECC-Windows-F3BFBFEA47AD4C6C1DF706A74665CEA4_0000`.
+- Follow-up rule from this incident: after Python pose/map probes that touch the current level, do not attempt another level open as cleanup while Python references may still exist. Prefer closing the editor without saving, or start future sampling in `_MCP_Temp` from the beginning.
+- Updated `docs/stackobot-animbp-inventory.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animation-study.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Baddy RigidBody source-vs-runtime split
+
+- Continued the StackOBot animation study offline from saved artifacts; Unreal Editor was not opened, no C++ API was implemented, and original StackOBot assets were not modified or saved.
+- Compared authored Baddy source clip motion from `StackOBot_SequenceMotion_Profile.json` against clean SIE RigidBody runtime samples from `Baddy_RigidBody_SIECleanGameModeSamples.json`.
+- Saved comparison artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.svg`
+- The clean SIE runtime capture lines up closer to `A_Baddy_Idle` than `A_Baddy_Walk` for `Head_02` and `TailEnd`, so this captured case should be treated as idle-scale animation plus physics response.
+- `Head_02` stayed around `1.411` runtime max delta and `TailEnd` around `0.189` across all tested RigidBody variants.
+- RigidBody variant differences are concentrated on `R_Stalk_04` and `L_Stalk_04`.
+- `WorldSpace` made stalk motion walk-scale: `R_Stalk_04` reached `19.836`, about `95.1%` of the `A_Baddy_Walk` source value, and `L_Stalk_04` reached `23.050`, about `103.6%`.
+- Because the tail remains idle-scale while the stalks become walk-scale, interpret WorldSpace as simulation-space amplification rather than evidence that the walk clip became active.
+- This was a magnitude-level comparison, not a frame-synchronized pose subtraction. Exact source-vs-post-RigidBody contribution remains a future runtime probe/API candidate.
+- Updated `docs/stackobot-animbp-inventory.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animation-study.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Bot BlendSpace source pose map
+
+- Continued the StackOBot animation study offline from saved artifacts; Unreal Editor was not opened, no C++ API was implemented, and original StackOBot assets were not modified or saved.
+- Mapped Bot BlendSpace sample coordinates from `StackOBot_BlendSpace_DetailProbe.json` to source sequence motion metrics from `StackOBot_SequenceMotion_Profile.json`.
+- Saved pose-map artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.svg`
+- `BS_Bot_WalkRunLean` maps neutral locomotion from `A_Bot_Walk` at `Lean=0`, `Speed=96.978` to `A_Bot_Run` at `Lean=0`, `Speed=500`.
+- Lean samples sit at mid-speed: `A_Bot_Run_LeanLeft` at `Lean=1`, `Speed=258.546`, and `A_Bot_Run_LeanRight` at `Lean=-1`, `Speed=259.420`.
+- The strongest authored foot deltas in this BlendSpace stay around run scale: `A_Bot_Run_LeanLeft foot_l` about `53.10`, `A_Bot_Run_LeanRight foot_r` about `52.70`, and `A_Bot_Run` feet about `51` to `52`.
+- `BS_Bot_RunIdleJump` samples are almost coincident on the Speed axis: `A_Bot_IdleJump` at `54.485`, `A_Bot_RunJump` at `54.552`; runtime meaning likely depends on state/transition context rather than a broad speed ramp inside this asset alone.
+- This source pose map does not evaluate Unreal runtime BlendSpace interpolation, Control Rig correction, slots, or Post Process AnimBP.
+- Updated `docs/stackobot-animbp-inventory.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animation-study.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Control Rig contribution synthesis
+
+- Continued the StackOBot animation study offline from saved artifacts; Unreal Editor was not opened, no C++ API was implemented, and original StackOBot assets were not modified or saved.
+- Synthesized source sequence motion, direct `CR_Bot_Correction` gate probes, SIE AnimBP driver probes, curve probe results, and no-C++ forced-driver feasibility.
+- Saved synthesis artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.svg`
+- Active graph fact remains: `ABP_Bot` has an active `AnimGraphNode_ControlRig` connected to the final AnimGraph root, with `Source`, `Pose`, `InteractionWorldLocation`, and `ShouldDoIKTrace` linked.
+- Strongest source BlendSpace foot delta is `A_Bot_Run_LeanLeft foot_l`, about `53.10`.
+- Direct Control Rig probe result: `ShouldDoIKTrace` alone and `IKBlend_l` alone produced `0.0` foot delta; `IK_blend_interact=1` opened measurable movement.
+- Strongest direct Control Rig foot delta in the existing probe was `0.2402`, about `0.45%` of the strongest source clip foot delta.
+- SIE AnimBP probe result remained `0.0` foot delta across raw and `BP_Bot` phase tests, with `IKBlend_l=0.0` and `IK_blend_interact=0.0` in the last curve probe.
+- Interpretation: source clips provide the large locomotion foot motion, while Control Rig is an active late-stage correction layer whose interaction branch remained gated off in the temp SIE setup.
+- Exact source-vs-post-ControlRig subtraction remains a future controlled runtime probe/API candidate.
+- Updated deferred API candidates with `sample_blendspace_runtime_pose_grid`, `sample_controlrig_pre_post_runtime_pose`, `ensure_postprocess_anim_demo_variant`, and `sample_postprocess_pre_post_pose`.
+- Updated `docs/stackobot-animbp-inventory.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animation-study.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot active Trail sample API and assets
+
+- Implemented the deferred UnrealMCP command `ensure_anim_graph_trail_demo` in sibling `D:/Git/unreal-mcp-cubeless`. The command creates/reuses `LinkedInputPose -> LocalToComponentSpace -> Trail -> ComponentToLocalSpace -> Root`, sets Trail parameters, and refuses non-`/Game/_MCP_Sample/` AnimBP edits unless `allow_non_sample=true`.
+- Updated the Python MCP wrapper and `Docs/Tools/node_tools.md` for `ensure_anim_graph_trail_demo`.
+- Verification passed:
+  - `python -m py_compile` for `Python/tools/node_tools.py` and `Python/unreal_mcp_server.py`.
+  - `MCPGameProjectEditor Win64 Development` build succeeded.
+  - `StackOBotEditor Win64 Development` build succeeded after clearing a stale `CrashReportClientEditor.exe` DLL lock.
+- Confirmed safety guard: a direct command call against original `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot` failed with the intended non-sample refusal.
+- Created sample-only assets:
+  - `/Game/_MCP_Sample/AnimStudy/ABP_Bot_Trail_Study`
+  - `/Game/_MCP_Sample/AnimStudy/SKM_Bot_Trail_Study`
+  - `/Game/_MCP_Sample/AnimStudy/BP_Bot_Trail_StudyActor`
+- First activation using the original retained `TrailBone=VB VBHead` produced a compile warning because the skeleton could not find `VB VBHead`. Final clean sample uses `TrailBone=antenna_04_l`, `BaseJoint=head`, `ChainLength=4`, `ChainBoneAxis=X`, `Alpha=1.0`, and `FakeVelocity=(0,0,0)`.
+- `ABP_Bot_Trail_Study` compiled and saved with `0` errors and `0` warnings. `BP_Bot_Trail_StudyActor` also compiled and saved with `0` errors and `0` warnings.
+- `SKM_Bot_Trail_Study` has Post Process AnimBP set to `/Game/_MCP_Sample/AnimStudy/ABP_Bot_Trail_Study.ABP_Bot_Trail_Study_C`; `BP_Bot_Trail_StudyActor.BotStudyMesh` uses original main anim class `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot_C`.
+- Final dirty content/map package count was `0`.
+- Runtime SIE sampling was skipped in this pass to avoid dirtying/switching the current map after the earlier world-reference cleanup crash. Runtime Trail motion measurement remains a future controlled sampler task.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Post Process runtime/static comparison
+
+- Continued the StackOBot animation study with `_MCP_Sample/AnimStudy` Post Process variants only. Original StackOBot assets were not saved.
+- Verified required sample assets existed and the editor started with dirty package count `0`.
+- Ran a SIE raw-vs-variant smoke sampler for `HeadPitch` and `AntennaRoll`. It completed with `36` samples and PIE duplicate actors, but separate AnimInstance phase drift introduced pelvis/head location noise, so it is kept as smoke evidence rather than exact attribution.
+- Ran a static single-node `A_Bot_Idle` pose comparison at time `0.0` to isolate Post Process effects without main AnimBP phase drift.
+- Saved artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_RuntimeSamples.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseSamples.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.svg`
+- Static result: `HeadPitch` changes `head` by about `5.99 deg` and moves descendant antenna leaf sockets about `8.6 cm`; `AntennaRoll` changes only `antenna_04_l` roll by `12.0 deg`, with `head`, `neck`, and `antenna_04_r` unchanged within floating-point noise.
+- Implementation note: proof actors must explicitly set Post Process AnimBP through `set_override_post_process_anim_bp(..., true)`.
+- Temporary proof actors were removed. The current map package `/Game/StackOBot/Maps/Lvl_Empty` became dirty from reversible temp actor spawning; the editor should be closed without saving to discard this state.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Bot Trail runtime comparison
+
+- Continued the active Trail sample verification using only `_MCP_Sample/AnimStudy` assets and transient proof actors. Original StackOBot animation assets were not saved.
+- Ran three Raw-vs-Trail comparison passes:
+  - `EditorTick_DefaultMeshPP`: no measurable Trail-vs-raw difference.
+  - `SIE_DefaultMeshPP`: no measurable Trail-vs-raw difference when relying only on the skeletal mesh asset Post Process AnimBP assignment for transient proof actors.
+  - `SIE_ExplicitPPOverride`: measurable Trail-vs-raw difference after explicitly calling `set_override_post_process_anim_bp(ABP_Bot_Trail_Study_C, true)` on the runtime Trail component.
+- Saved artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_EditorTickSamples.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_SIESamples.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_SIEOverrideSamples.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.svg`
+- Key measurement from `SIE_ExplicitPPOverride`: max Trail-vs-raw distance increased along the chain, from `head` about `0.846 cm` to `antenna_04_l` about `2.945 cm`.
+- Interpretation: the active Trail graph is valid, and future proof actors must set the Post Process AnimBP at component level instead of trusting mesh defaults on transient actors.
+- Temporary proof actors were removed. The current map package `/Game/StackOBot/Maps/Lvl_Empty` remained dirty from reversible temp actor spawning; do not save this map for the run. Close the editor without saving to discard it.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot BlendSpace SIE pose grid
+
+- Continued the StackOBot animation study with runtime-style BlendSpace evaluation. Original StackOBot assets were not saved or modified.
+- First tested a full-editor non-SIE `AnimationSingleNode` route. It accepted `set_blend_space_position` calls but produced `0.0` pose deltas, so it is retained as an API-gap record:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_LiveTickPoseGrid.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_LiveTickPoseGrid.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_LiveTickPoseGrid.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_LiveTickPoseGrid.svg`
+- Then ran a SIE game-world transient `SkeletalMeshActor` pose grid, which produced meaningful input-dependent pose deltas:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.svg`
+- SIE result: `BS_Bot_WalkRunLean` max location delta from first sample was `66.061 cm`; strongest listed delta was `run_authored antenna_04_r`.
+- SIE result: `BS_Bot_RunIdleJump` max location delta from first sample was `35.438 cm`; strongest listed delta was `axis_min_speed antenna_04_r`.
+- Latest StackOBot log ended in clean editor shutdown. It includes a cleanup-time `LogUtils: Error: The Editor is currently in a play mode` line immediately before `QUIT_EDITOR` and PIE teardown; treat it as a shutdown cleanup artifact for this run, not a failed sample.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Control Rig pre/post API candidate refinement
+
+- Rechecked the existing Control Rig audit, direct-gate probe, curve probe, and no-C++ forced-driver feasibility artifacts.
+- Current conclusion is unchanged: `ABP_Bot` has an active Control Rig node, and direct `CR_Bot_Correction` probing proves movement when `IK_blend_interact=1`, but plain Python cannot safely isolate the same runtime frame before and after the Control Rig node.
+- Did not create C++ and did not modify or save original StackOBot assets.
+- Refined the future `sample_controlrig_pre_post_runtime_pose` MCP/C++ candidate with concrete scope, inputs, outputs, safety checks, and failure handling.
+- Added the remaining study backlog: Slot/LayeredBoneBlend inventory, state-machine transition/runtime sampling, Control Rig pre/post, Post Process pre/post, and physics pre/post.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Slot/LayeredBoneBlend inventory
+
+- Continued the StackOBot animation study from existing read-only `ABP_Bot_AnimGraphInspect_Refresh.json`; no Unreal Editor launch was needed.
+- Generated slot/layered blend artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SlotLayeredBlend_Inventory.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SlotLayeredBlend_Inventory.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SlotLayeredBlend_Inventory.md`
+- Ran a read-only commandlet AssetRegistry/Blueprint-reference probe and generated:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UpperBody_InteractionReferenceProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UpperBody_InteractionReferenceProbe.md`
+- `ABP_Bot` uses `AnimGraphNode_Slot_1` with `SlotName=UpperBody`, `Group=DefaultGroup`, and `bAlwaysUpdateSourcePose=false`.
+- Flow is `LocomotionPose -> UpperBody Slot -> CashedPose_UpperBody -> LayeredBoneBlend.BlendPoses_0`; `LayeredBoneBlend.BasePose` also uses `LocomotionPose`.
+- `LayeredBoneBlend` uses `BlendWeights_0=1`, `BlendMode=BranchFilter`, `bMeshSpaceRotationBlend=true`, and `CurveBlendOption=Override`.
+- Branch filters are `pelvis BlendDepth=4`, `thigh_r BlendDepth=-1`, and `thigh_l BlendDepth=-1`, matching the intended upper-body-only overlay while protecting leg branches.
+- Filename and AssetRegistry class scans found no Bot montage-like asset candidate. The only loaded `AnimMontage` found was `/Game/StackOBot/Characters/Blobling/Anim/AM_Baddy_Death.AM_Baddy_Death`.
+- `IA_Interact` is referenced by `/Game/StackOBot/Input/IMC_ThirdPersonControls`; `BP_Bot` dependencies did not include `IA_Interact` or a Bot montage asset.
+- The graph comment remains the current evidence that this slot is intended for an interact/press-button montage; exact Blueprint node/call topology requires a future read-only graph command.
+- Latest commandlet log ended in clean editor shutdown. It still contains the recurring startup `LogAutomationTest: Error: Condition failed` lines and some missing editor-icon warnings.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot transition topology deep probe
+
+- Continued the StackOBot animation study with a read-only transition topology probe. Original StackOBot assets were not modified or saved.
+- Added and ran `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/probe_transition_topology_deep.py` through `UnrealEditor-Cmd.exe`.
+- Generated artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TransitionTopology_DeepProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TransitionTopology_DeepProbe.md`
+- Result: `16` transition graphs were probed: `14` in `ABP_Bot` and `2` in `ABP_Baddy`.
+- Transition graph objects and their outer `AnimStateTransitionNode_*` objects are reachable.
+- Each transition graph still exposes one `AnimGraphNode_TransitionResult`.
+- Candidate transition source/target properties such as `PreviousState`, `NextState`, `SourceState`, and `TargetState` were not readable on any transition node.
+- K2 condition node queries such as `K2Node_VariableGet`, `K2Node_CallFunction`, `K2Node_BooleanOperator`, and `K2Node_TransitionRuleGetter` stayed unavailable through the current Python graph helper.
+- Decision: no-C++ transition topology probing is complete for now. Exact source state, target state, and boolean condition graphs remain future MCP/C++ API work under `inspect_anim_state_machine_transitions` and `inspect_anim_graph_protected_topology`.
+- Latest commandlet log ended in clean editor shutdown. It still contains the recurring startup `LogAutomationTest: Error: Condition failed` lines and missing editor-icon warnings.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Post Process pre/post pose isolation
+
+- Continued the StackOBot animation study offline from existing Post Process static samples. Unreal Editor was not opened, and original StackOBot assets were not modified or saved.
+- Reclassified the existing static single-node `A_Bot_Idle` pose comparison as an explicit pre/post table:
+  - pre: `main-only A_Bot_Idle at time 0.0`
+  - post: `_MCP_Sample/AnimStudy` Post Process variant output
+- Generated artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.svg`
+- `HeadPitch` is a parent-bone post-process edit: `head` changes directly, and `antenna_04_l`/`antenna_04_r` move about `8.6 cm` through inherited child transforms.
+- `AntennaRoll` is a leaf-bone post-process edit: only `antenna_04_l` rotates by `12 deg`; `pelvis`, `neck`, `head`, and `antenna_04_r` remain unchanged within floating-point tolerance.
+- Decision: no-C++ static Post Process pre/post attribution is complete. A future `sample_postprocess_pre_post_pose` command is only needed for live same-frame component runtime sampling.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 PCG Dungeon V2 ceiling light seal
+
+- Root cause found for the far-distance ceiling light leak: V2 walls/doors/columns reach `Z=640`, while generated ceiling points sit at `Z=650` and the base ceiling slab only reached down to about `Z=641`, leaving a thin wall/ceiling seam that review DirectionalLight/SkyLight could expose at distance.
+- Added V2-only ceiling mesh builders for `ceiling`, `ceiling_room`, `ceiling_corridor`, and `ceiling_corner`. Each builder keeps the inherited ceiling shape and adds a `32uu` downward perimeter light-seal skirt.
+- Targeted rebuild passed: `Saved/MCP_DungeonV2/CubelessDungeonV2_CeilingLightSealRebuild.json` reports all four ceiling modules rebuilt, local min Z `-32`, world seal min Z `618`, and `22uu` overlap below the `640` wall top.
+- V2 no-build BP refresh passed after the rebuild: `32` native components, `486` instances, screenshot QA pass, and final gate pass using the current BP-authored `DungeonRoomCount=8`.
+- Interior review capture was exported with alpha forced to `255` while preserving RGB: `Saved/MCP_DungeonV2/CubelessDungeonV2_CeilingLightSeal_InteriorCheck2_rgb_preserve_opaque.png`.
+
+## 2026-06-18 StackOBot physics pre/post evidence synthesis
+
+- Continued the StackOBot animation study offline from existing Baddy RigidBody and Bot Trail artifacts. Unreal Editor was not opened, and original StackOBot assets were not modified or saved.
+- Generated physics evidence synthesis artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.md`
+- Baddy RigidBody current evidence is SIE runtime variant comparison plus authored source-clip magnitude baseline. The strongest result remains that `WorldSpace` amplifies stalk motion to walk-scale while `Head_02` and `TailEnd` stay idle-scale.
+- Bot Trail current evidence is SIE raw-vs-trail component comparison with explicit component-level Post Process override. The strongest measured Trail-Raw distance remains `antenna_04_l` at about `2.945 cm`.
+- Decision: physics evidence is complete for the current learning baseline, but exact same-frame source-vs-post-RigidBody/Trail subtraction remains blocked until a future `sample_anim_node_pre_post_runtime_pose` MCP command exists.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot state-machine transition MCP API
+
+- Implemented the read-only UnrealMCP command `inspect_anim_state_machine_transitions` in sibling `D:/Git/unreal-mcp-cubeless`.
+- The command reports AnimBP state-machine nodes, source/target states through `UAnimStateTransitionNode::GetPreviousState()` and `GetNextState()`, bound transition rule graphs, optional rule graph nodes/pins, custom transition graph presence, and transition blend/priority settings.
+- Updated the Python MCP wrapper `Python/tools/node_tools.py`, server command summary `Python/unreal_mcp_server.py`, and `Docs/Tools/node_tools.md`.
+- Synced the changed C++ plugin files into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `git diff --check` in `D:/Git/unreal-mcp-cubeless` with only existing LF/CRLF warnings
+  - `MCPGameProjectEditor Win64 Development` build with `-LiveCoding`
+  - `StackOBotEditor Win64 Development` build with `-LiveCoding`
+- Both builds succeeded. The only C++ warning was the existing `FImageUtils::CompressImageArray` deprecation in `UnrealMCPEditorCommands.cpp`.
+- Live StackOBot bridge command smoke was not run because the fixed bridge port `127.0.0.1:55557` is currently occupied by the existing Cubeless Unreal Editor process. Do not close that editor automatically because it may carry unrelated dirty asset state.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md` to mark state-machine transition API as implemented/build-verified but live-smoke pending.
+- Notion auto-capture was still unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot state-machine transition MCP live smoke
+
+- Added optional UnrealMCP bridge port override support in the plugin/Python server path so a second editor can run without occupying the default Cubeless bridge port: C++ reads `-UnrealMCPPort=<port>` or `UNREAL_MCP_PORT`, and the Python MCP server reads `UNREAL_MCP_PORT`.
+- Synced the updated UnrealMCP plugin bridge and transition-inspection code into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verified a normal `StackOBotEditor Win64 Development` build with `-NoLiveCoding`; this was required because the earlier Live Coding build did not update the fresh editor process DLL for the new command.
+- Launched StackOBot on alternate bridge port `55558` and ran `inspect_anim_state_machine_transitions` against:
+  - `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot`
+  - `/Game/StackOBot/Characters/Blobling/Anim/ABP_Baddy.ABP_Baddy`
+- Saved read-only artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect_Normalized.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect.md`
+- Result: `ABP_Bot` returned `2` state machines and `14` transitions; `ABP_Baddy` returned `1` state machine and `2` transitions.
+- Source/target state names are now read from editor transition nodes through `UAnimStateTransitionNode`, not inferred from graph paths.
+- Rule summaries distinguish K2 variable/function conditions from automatic sequence-player rules. Bot ground locomotion is `Idle <-> Walk/Run` through `GroundSpeed`; Baddy is `A_Baddy_Idle <-> A_Baddy_Walk` through `Is Moving`.
+- Runtime active state names, transition weights, and forced-variable response remain future AnimInstance API work.
+- Closed the temporary StackOBot editor process after the smoke test. Original StackOBot assets were not modified or saved.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md` to treat transition source/target and rule topology as completed.
+- Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot ControlRig direct gate MCP API
+
+- Implemented the read-only UnrealMCP command `controlrig_direct_gate_probe` in sibling `D:/Git/unreal-mcp-cubeless`.
+- The command creates transient `UControlRig` instances from `/Game/StackOBot/Characters/Bot/Rig/CR_Bot_Correction.CR_Bot_Correction`, sets `ShouldDoIKTrace`, `InteractionWorldLocation`, `IKBlend_l`, and `IK_blend_interact`, executes `Forwards Solve`, samples requested bone/control transforms, and reports deltas from the baseline case.
+- Added Python MCP wrapper coverage in `Python/tools/node_tools.py`, server command summary text in `Python/unreal_mcp_server.py`, and tool docs in `Docs/Tools/node_tools.md`.
+- Synced the changed UnrealMCP plugin files into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `python -m py_compile Python/unreal_mcp_server.py Python/tools/node_tools.py`
+  - `MCPGameProjectEditor Win64 Development -NoLiveCoding`
+  - `StackOBotEditor Win64 Development -NoLiveCoding`
+  - Live StackOBot command smoke on alternate bridge port `55558`
+- Saved read-only artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe_Normalized.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.csv`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.md`
+- Result: `success=true`, `read_only=true`, `asset_modified=false`, `case_count=6`, `success_cases=6`, and `error_count=0`. `Construction` and `Post Forwards Solve` returned false for this rig and are recorded as warnings, while `Forwards Solve` is the useful execution event.
+- The side-location case produced the largest sampled transform delta, about `20.937` on pelvis/thigh elements; foot/control movement remains the smaller correction-scale signal.
+- Closed the temporary StackOBot editor process after the smoke test. Original StackOBot assets were not modified or saved.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md` to mark direct ControlRig gate probing as implemented and live-smoked.
+- Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot ModifyCurve MCP forced curve API
+
+- Implemented the sample-only UnrealMCP command `ensure_anim_graph_modify_curve_demo` in sibling `D:/Git/unreal-mcp-cubeless`.
+- The command creates or reuses a `LinkedInputPose -> ModifyCurve -> Root` sample AnimGraph path, defaults `IK_blend_interact=1.0`, `IKBlend_l=1.0`, `Alpha=1.0`, and `ApplyMode=Add`, and refuses non-`/Game/_MCP_Sample/` AnimBPs unless explicitly overridden.
+- Synced the changed UnrealMCP plugin C++ files into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `MCPGameProjectEditor Win64 Development -NoLiveCoding`
+  - `StackOBotEditor Win64 Development -NoLiveCoding`
+  - Live StackOBot command smoke on alternate bridge port `55558`
+- The live smoke duplicated `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study` to `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ModifyCurve_Study`, verified the original `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot` mutation guard, ran the ensure command twice, and compiled/saved the sample with `0` errors and `0` warnings.
+- Saved artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ModifyCurveMCPEnsure.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ModifyCurveMCPEnsure_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ModifyCurveMCPEnsure_Normalized.json`
+- The second ensure call was idempotent with `graph_changed=false`, `settings_changed=false`, and `links_changed=false`.
+- `inspect_anim_graph_node_settings` timed out during the live smoke, so node-level verification relies on the ensure responses plus successful compile/save.
+- Original StackOBot assets were not modified or saved. The next ControlRig step is `set_anim_graph_controlrig_input_defaults`, followed by forced-driver sample assembly and exact pre/post sampling.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot ControlRig input defaults MCP API
+
+- Implemented the sample-only UnrealMCP command `set_anim_graph_controlrig_input_defaults` in sibling `D:/Git/unreal-mcp-cubeless`.
+- The command exposes selected ControlRig AnimGraph input pins, sets safe default values, optionally disconnects existing input links for forced-driver samples, and refuses non-`/Game/_MCP_Sample/` AnimBPs unless explicitly overridden.
+- C++ API reason: UE 5.7 ControlRig AnimGraph custom input pins are backed by protected editor optional-pin state, so plain Python reflection should not hand-edit those pins.
+- Added Python MCP wrapper coverage, server summary text, and `Docs/Tools/node_tools.md` documentation. The C++ API need/implementation list now includes this command as implemented.
+- Synced the changed UnrealMCP plugin C++ files into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `python -m py_compile Python/unreal_mcp_server.py Python/tools/node_tools.py`
+  - `MCPGameProjectEditor Win64 Development -NoLiveCoding`
+  - `StackOBotEditor Win64 Development -NoLiveCoding`
+  - Live StackOBot command smoke on alternate bridge port `55558`
+- The live smoke duplicated `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot` to `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_InputDefaults_Study`, verified the original `ABP_Bot` mutation guard, disconnected linked `InteractionWorldLocation` and `ShouldDoIKTrace` pins in the sample, set defaults to `[80, -40, 80]` and `true`, then compiled/saved with `0` errors and `0` warnings.
+- Saved artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigInputDefaultsMCPSet.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigInputDefaultsMCPSet_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigInputDefaultsMCPSet_Normalized.json`
+- The second command call was idempotent with `graph_changed=false`, `defaults_changed=false`, and `links_changed=false`.
+- Original StackOBot assets were not modified or saved. The next ControlRig step is `ensure_controlrig_forced_driver_animbp`, followed by exact pre/post ControlRig sampling.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot ControlRig forced-driver AnimBP MCP API
+
+- Implemented the sample-only UnrealMCP command `ensure_controlrig_forced_driver_animbp` in sibling `D:/Git/unreal-mcp-cubeless`.
+- C++ API reason: the existing sample `ensure_anim_graph_modify_curve_demo` builds `LinkedInputPose -> ModifyCurve -> Root`, but the StackOBot ControlRig proof needs to preserve the original `ABP_Bot` upstream pose and insert `ModifyCurve -> ControlRig` before the existing ControlRig node. That graph surgery and ControlRig optional-pin/default handling should not be done through generic Python reflection.
+- The command refuses non-`/Game/_MCP_Sample/` AnimBPs unless explicitly overridden, finds the target ControlRig node, creates or reuses a `ModifyCurve` node feeding ControlRig `Source`, forces `IK_blend_interact=1.0` and `IKBlend_l=1.0`, exposes/disconnects forced ControlRig inputs, and sets `ShouldDoIKTrace=true` plus `InteractionWorldLocation=(80,-40,80)`.
+- Added Python MCP wrapper coverage, server summary text, and `Docs/Tools/node_tools.md` documentation. The C++ API need/implementation list now includes this command as implemented.
+- Synced the changed UnrealMCP plugin C++ files into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `python -m py_compile Python/unreal_mcp_server.py Python/tools/node_tools.py`
+  - `MCPGameProjectEditor Win64 Development -NoLiveCoding`
+  - `StackOBotEditor Win64 Development -NoLiveCoding`
+  - Live StackOBot command smoke on alternate bridge port `55558`
+- The live smoke duplicated `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot` to `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ForcedDriver_Study`, verified the original `ABP_Bot` mutation guard, ran the ensure command twice, and compiled/saved the sample with `0` errors and `0` warnings.
+- First ensure call changed the graph, created the `ModifyCurve` node, inserted it before the ControlRig node, changed pose links, disconnected forced ControlRig input links, and changed defaults. The second ensure call was idempotent with `graph_changed=false`.
+- Saved artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure_Normalized.json`
+- Original StackOBot assets were not modified or saved. The next ControlRig step is `sample_controlrig_pre_post_runtime_pose`.
+- Closed the temporary StackOBot editor process after the smoke test.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot ControlRig direct pre/post MCP API
+
+- Implemented the read-only UnrealMCP command `sample_controlrig_pre_post_runtime_pose` in sibling `D:/Git/unreal-mcp-cubeless`.
+- Scope clarification: this command samples a transient ControlRig hierarchy before and after execute events. It deliberately reports `runtime_source=direct_transient_controlrig` and `runtime_graph_prepost=false`, so it is not claiming compiled AnimGraph node-stack instrumentation.
+- The default StackOBot case forces `ShouldDoIKTrace=true`, `InteractionWorldLocation=(80,-40,80)`, `IKBlend_l=1.0`, and `IK_blend_interact=1.0`, then samples requested hierarchy elements before and after `Forwards Solve`.
+- Added Python MCP wrapper coverage, server summary text, and `Docs/Tools/node_tools.md` documentation.
+- Synced the changed UnrealMCP plugin C++ files into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `python -m py_compile Python/unreal_mcp_server.py Python/tools/node_tools.py`
+  - `MCPGameProjectEditor Win64 Development -NoLiveCoding`
+  - `StackOBotEditor Win64 Development -NoLiveCoding`
+  - Live StackOBot command smoke on alternate bridge port `55558`
+- The live smoke ran against `/Game/StackOBot/Characters/Bot/Rig/CR_Bot_Correction.CR_Bot_Correction` with read-only flags intact: `read_only=true`, `asset_modified=false`, `case_count=1`, `error_count=0`, and `warning_count=0`.
+- Measured direct transient pre/post solve deltas: max translation delta was `pelvis=20.9368`; max rotation delta was `calf_r=40.3937 deg`.
+- Saved artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe_Normalized.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe.csv`
+- Original StackOBot assets were not modified or saved. The next runtime-sampling API candidate is `sample_skeletal_bones_in_sie`; exact compiled AnimGraph node-stack source-vs-post attribution remains future `sample_anim_node_pre_post_runtime_pose` work.
+- Closed the temporary StackOBot editor process after the smoke test.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot SIE skeletal bone sampler MCP API
+
+- Implemented the read-only UnrealMCP command `sample_skeletal_bones_in_sie` in sibling `D:/Git/unreal-mcp-cubeless`.
+- Scope clarification: this command samples the current `SkeletalMeshComponent` pose from an active PIE/SIE world when available, otherwise the editor world. It does not start SIE or tick frames by itself.
+- Added Python MCP wrapper coverage, server summary text, and `Docs/Tools/node_tools.md` documentation.
+- Synced the changed UnrealMCP plugin C++ files into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development -NoHotReload`
+  - `StackOBotEditor Win64 Development -NoHotReload`
+  - Live StackOBot command smoke on primary bridge port `55557`
+- The live smoke spawned a transient `SKM_Bot` actor, started SIE, sampled `sampled_world_type=PIE` while `is_play_session_active=true`, then closed the temporary editor process.
+- Sampled bones `pelvis`, `foot_l`, `foot_r`, `head`, `antenna_04_l`, and `antenna_04_r`; all returned valid transforms with no command warnings.
+- Saved artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SkeletalBonesInSIE_MCPProbe.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SkeletalBonesInSIE_MCPProbe_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SkeletalBonesInSIE_MCPProbe_raw.json`
+- Original StackOBot assets were not modified or saved. Exact compiled AnimGraph node-stack source-vs-post attribution remains future `sample_anim_node_pre_post_runtime_pose` work.
+- Latest StackOBot log still contains startup `LogAutomationTest: Error: Condition failed` lines and one cleanup-time `LogUtils: Error: The Editor is currently in a play mode` line; the command smoke itself returned success and cleanup completed.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot AnimInstance runtime-state inspector MCP API
+
+- Implemented the read-only UnrealMCP command `inspect_anim_instance_runtime_state` in sibling `D:/Git/unreal-mcp-cubeless`.
+- C++ API reason: UE Python does not expose a stable current-state API for live `UAnimInstance` state machines, and the existing `UAnimInstance` helper index path can be unsafe when confused with baked state-machine array indexes.
+- Added Python MCP wrapper coverage, server summary text, and `Docs/Tools/node_tools.md` documentation.
+- First live smoke crashed the editor because the initial implementation treated baked state-machine indexes as runtime state-machine node indexes. The fix now probes live `FAnimNode_StateMachine` runtime instances and maps them back with `StateMachineIndexInClass`; per-state weights/relevant animation timing are intentionally omitted in this safe MVP.
+- Synced the changed UnrealMCP plugin C++ files into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development -NoHotReload`
+  - `StackOBotEditor Win64 Development -NoHotReload`
+  - Live StackOBot command smoke on primary bridge port `55557`
+- The live smoke spawned a transient `SKM_Bot` actor, assigned `ABP_Bot_C`, started SIE, inspected the PIE `AnimInstance`, ended play, ran cleanup, and closed the temporary editor process without saving.
+- Runtime state result: `AirLocomotion` was in `Walk/Run` and `GroundLocomotion` was in `Idle`; the command returned `success=true`, `read_only=true`, `asset_modified=false`, `sampled_world_type=PIE`, and `is_play_session_active=true`.
+- Requested curve names `GroundSpeed`, `IK_blend_interact`, and `IKBlend_l` were reported as not found on this transient idle smoke actor; that is a warning-only result and not a command failure.
+- The final StackOBot log still contains a cleanup-time `LogUtils: Error: The Editor is currently in a play mode` line from ending SIE through Python. The command smoke and cleanup response succeeded, and the temporary editor process was closed without saving.
+- Saved artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstanceRuntimeState_MCPInspect.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstanceRuntimeState_MCPInspect_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstanceRuntimeState_MCPInspect_raw.json`
+- Original StackOBot assets were not modified or saved. Transition weights, forced AnimInstance variable response, and exact same-frame node pre/post attribution remain future MCP/API work.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot AnimInstance runtime property and state-response MCP APIs
+
+- Implemented two UnrealMCP commands in sibling `D:/Git/unreal-mcp-cubeless`:
+  - `set_anim_instance_runtime_property_for_probe`
+  - `sample_anim_state_machine_runtime_response`
+- C++ API reason: after `inspect_anim_instance_runtime_state`, the next useful state-machine learning step needs controlled live `AnimInstance` property assignment, bounded component animation ticking, state resampling, and per-case restoration without saving Animation Blueprint assets.
+- `set_anim_instance_runtime_property_for_probe` sets supported reflected properties on the currently matched live `UAnimInstance` only. It reports `read_only=false`, `runtime_only=true`, `asset_modified=false`, and `saves_assets=false`.
+- `sample_anim_state_machine_runtime_response` applies case property maps, forces bounded `USkeletalMeshComponent::TickAnimation` calls, samples state-machine snapshots, and restores successful property changes per case by default.
+- Added Python MCP wrapper coverage, server summary text, and `Docs/Tools/node_tools.md` documentation.
+- Synced the changed UnrealMCP plugin C++ files into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development -NoHotReload`
+  - `StackOBotEditor Win64 Development -NoHotReload`
+  - Live StackOBot command smoke on primary bridge port `55557`
+- The live smoke spawned a transient `SKM_Bot` actor, assigned `ABP_Bot_C`, started SIE, and used the base runtime bool property `bUseMultiThreadedAnimationUpdate` to verify set/echo/tick/snapshot/restore behavior.
+- Smoke result for `set_anim_instance_runtime_property_for_probe`: `success=true`, `runtime_only=true`, `asset_modified=false`, `sampled_world_type=PIE`, `is_play_session_active=true`, property echo changed from `true` to `false`, and state snapshots remained valid.
+- Smoke result for `sample_anim_state_machine_runtime_response`: `success=true`, `case_count=2`, `successful_case_count=2`, `runtime_only=true`, `asset_modified=false`, with both cases restoring successfully and returning `AirLocomotion=Walk/Run`, `GroundLocomotion=Idle`.
+- This verifies the runtime response scaffold, not a meaningful locomotion transition yet. Next learning step is to identify the actual ABP_Bot transition-driving properties or drive movement/velocity through a gameplay component, then run a case matrix that changes states.
+- The final StackOBot log still contains a cleanup-time `LogUtils: Error: The Editor is currently in a play mode` line from ending SIE through Python. No new crash folder appeared, the command smoke and cleanup response succeeded, and the temporary editor process was closed without saving.
+- Saved artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimRuntimePropertyMCPSet.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimRuntimePropertyMCPSet_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateMachineRuntimeResponseMCPProbe.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateMachineRuntimeResponseMCPProbe_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateMachineRuntimeResponseMCPProbe_raw.json`
+- Original StackOBot assets were not modified or saved. Transition weights and exact same-frame node pre/post attribution remain future MCP/API work.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot ABP_Bot runtime transition-driver matrix
+
+- Used the existing read-only `inspect_anim_state_machine_transitions` command and runtime-only `sample_anim_state_machine_runtime_response` command against a transient `SKM_Bot` actor using `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot_C`.
+- No original StackOBot assets were saved or modified. The temporary editor process was closed after cleanup.
+- Transition rule topology reduced meaningful `ABP_Bot` state-machine drivers to four reflected runtime properties:
+  - `GroundSpeed` (`DoubleProperty`)
+  - `IsInAir?` (`BoolProperty`)
+  - `MovementInput?` (`BoolProperty`)
+  - `IsHovering` (`BoolProperty`)
+- Runtime property echo and state-machine response were confirmed:
+  - `GroundSpeed=0` kept `GroundLocomotion=Idle`.
+  - `GroundSpeed=180` and `GroundSpeed=420` moved `GroundLocomotion` to `Walk/Run`.
+  - `IsInAir?=true` moved `AirLocomotion` from `Walk/Run` to `Jump`.
+- Directed runtime sequences confirmed the main air branches:
+  - Landing idle: `Walk/Run -> Jump -> Fall -> LandIdle -> Walk/Run`
+  - Landing run: `Walk/Run -> Jump -> Fall -> LandRun -> Walk/Run`
+  - Jetpack: `Walk/Run -> Jump -> Fall -> StartJetpack -> JetpackHovering -> Fall`
+- Saved artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_RuntimeDriverMatrix.md`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_StateMachineTransitions_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_TransitionDriverCandidates_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_RuntimeDriverResponseMatrix_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_RuntimeDriverResponseMatrix_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_DirectedRuntimeSequences_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_DirectedRuntimeSequencesPIE_Summary.json`
+- Python graph-subobject loading for full `EventGraph`/`CalcLean` K2 node traversal timed out or was not exposed reliably in UE 5.7, so full Blueprint call topology remains a C++ API candidate.
+- Remaining C++/API candidates are `inspect_blueprint_graph_call_topology`, a safe transition-weight reader, and `sample_anim_node_pre_post_runtime_pose`.
+- The latest StackOBot log contains expected probe errors from an initial wrong Python execution mode and one PIE-teardown retry; the editor stayed responsive, cleanup removed the transient actor, and the hidden editor process was closed.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`.
+- Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 UnrealMCP Anim runtime probe maintenance
+
+- Fixed the reviewed `set_anim_instance_runtime_property_for_probe` contract in sibling `D:/Git/unreal-mcp-cubeless`: `tick_after_set=false` no longer triggers a refresh-only `TickSkeletalComponentForAnimRuntimeProbe` block just because `refresh_bone_transforms=true`.
+- Added `require_pie_world` to runtime skeletal/AnimInstance probe paths so validation calls can fail instead of silently falling back to the editor world:
+  - `sample_skeletal_bones_in_sie`
+  - `inspect_anim_instance_runtime_state`
+  - `set_anim_instance_runtime_property_for_probe`
+  - `sample_anim_state_machine_runtime_response`
+- Updated `Python/tools/node_tools.py` wrappers and `Docs/Tools/node_tools.md` documentation for the new option and clarified that `refresh_bone_transforms` is tied to forced ticks for `set_anim_instance_runtime_property_for_probe`.
+- Synced the fixed `UnrealMCPBlueprintNodeCommands.cpp` into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development -NoHotReload`
+  - `StackOBotEditor Win64 Development -NoHotReload`
+  - Live StackOBot bridge smoke on `127.0.0.1:55557`
+- Live smoke results:
+  - `set_anim_instance_runtime_property_for_probe` against a transient editor-world `SKM_Bot` actor returned `success=true`, `sampled_world_type=Editor`, and no `tick_after_set` field when `tick_after_set=false` and `refresh_bone_transforms=true`.
+  - `inspect_anim_instance_runtime_state` with `require_pie_world=true` failed as expected instead of falling back to the editor world, with error text ending in `active PIE/game worlds`.
+  - Temporary actor was removed, and the hidden StackOBot editor process was closed.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimRuntimeProbePatchSmoke_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimRuntimeProbePatchSmoke_raw.json`
+- Original StackOBot assets were not saved or intentionally modified. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 UnrealMCP Anim runtime probe wording maintenance
+
+- Closed the conservative review P3 follow-up for the `require_pie_world` runtime probe option.
+- Kept the API name unchanged, but clarified user-facing wording to describe the actual behavior: editor-world fallback is blocked and only active PIE/SIE/play worlds are considered.
+- Updated sibling `D:/Git/unreal-mcp-cubeless` files:
+  - `MCPGameProject/Plugins/UnrealMCP/Source/UnrealMCP/Private/Commands/UnrealMCPBlueprintNodeCommands.cpp`
+  - `Python/tools/node_tools.py`
+  - `Python/unreal_mcp_server.py`
+  - `Docs/Tools/node_tools.md`
+- Synced the changed `UnrealMCPBlueprintNodeCommands.cpp` into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `git diff --check` for the touched UnrealMCP files
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development -NoHotReload`
+  - `StackOBotEditor Win64 Development -NoHotReload`
+- The StackOBot C++ plugin file hash matches the sibling UnrealMCP source file hash after sync.
+- Original StackOBot assets were not saved or intentionally modified. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 UnrealMCP Anim runtime probe pre-commit hardening
+
+- Closed the final conservative review P3 items before commit.
+- Clarified `Docs/Tools/node_tools.md` so `prefer_pie_world` and `require_pie_world` are documented as target/world selection options, not snapshot filters.
+- Narrowed `TickSkeletalComponentForAnimRuntimeProbe` behavior so `tick_count=0` performs no forced `TickAnimation` and no bone-transform refresh.
+- Updated `Python/tools/node_tools.py` docstrings and `Docs/Tools/node_tools.md` to state that `refresh_bone_transforms` only applies during/after forced ticks when `tick_count > 0`.
+- Synced the changed `UnrealMCPBlueprintNodeCommands.cpp` into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `git diff --check`
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development -NoHotReload`
+  - `StackOBotEditor Win64 Development -NoHotReload`
