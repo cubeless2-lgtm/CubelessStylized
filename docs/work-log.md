@@ -8620,3 +8620,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Updated the authoring template, request playbook, command syntax sheet, and execution map to link the physics grammar and expose RigidBody read/sample-tuning commands.
 - The StackOBot UnrealMCP bridge was not connected during this pass, so no editor commands, Unreal assets, sample assets, or C++ files were modified. The update is based on existing saved RigidBody/Trail evidence artifacts under `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
 - Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request compiler drills
+
+- Added `docs/stackobot-request-compiler-drills.md` as the natural-language request compiler for future StackOBot animation requests.
+- The compiler record maps a user sentence to assumptions, target character, body area, runtime layer, route, sample target, first command, verification command, evidence, handoff template, C++/API status, and whether user input is required first.
+- Added signal words and drills for Korean/English requests covering Post Process ModifyBone, Trail secondary motion, BlendSpace lean/speed, state-machine runtime response, ControlRig IK, UpperBody Slot/LayeredBlend, Baddy RigidBody, protected montage metadata, and node instrumentation.
+- Linked the compiler drill sheet from the request playbook, authoring templates, command syntax sheet, and execution map.
+- No Unreal assets, sample assets, editor sessions, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

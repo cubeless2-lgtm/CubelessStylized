@@ -10,6 +10,9 @@ Authoring-pattern guide for future build requests:
 Request execution playbook:
 `docs/stackobot-animation-request-playbook.md`.
 
+Request compiler drills:
+`docs/stackobot-request-compiler-drills.md`.
+
 Physics request grammar:
 `docs/stackobot-physics-request-grammar.md`.
 

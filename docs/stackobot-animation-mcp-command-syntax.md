@@ -6,6 +6,8 @@ and `D:/Git/unreal-mcp-cubeless/Docs/Tools/node_tools.md`.
 
 For request-to-route authoring templates, start with
 `docs/stackobot-animation-authoring-templates.md`.
+For natural-language request compilation drills, use
+`docs/stackobot-request-compiler-drills.md`.
 
 Default safety rules:
 

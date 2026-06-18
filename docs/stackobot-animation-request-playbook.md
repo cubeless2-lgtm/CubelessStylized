@@ -7,6 +7,7 @@ execution protocol.
 Related docs:
 
 - `docs/stackobot-animation-authoring-templates.md`
+- `docs/stackobot-request-compiler-drills.md`
 - `docs/stackobot-animation-tivret-handoff-templates.md`
 - `docs/stackobot-physics-request-grammar.md`
 - `docs/stackobot-animbp-authoring-patterns.md`
@@ -30,6 +31,9 @@ reference inputs and duplicate or create safe sample variants.
 ## Intake
 
 For every request, extract these fields before doing asset work:
+
+For natural-language compilation drills and filled examples, use
+`docs/stackobot-request-compiler-drills.md` before selecting the handoff block.
 
 | Field | Meaning | Example |
 | --- | --- | --- |

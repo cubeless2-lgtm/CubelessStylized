@@ -8,6 +8,7 @@ C++/API escalation rules.
 Related docs:
 
 - `docs/stackobot-animation-request-playbook.md`
+- `docs/stackobot-request-compiler-drills.md`
 - `docs/stackobot-animation-tivret-handoff-templates.md`
 - `docs/stackobot-physics-request-grammar.md`
 - `docs/stackobot-animbp-authoring-patterns.md`
