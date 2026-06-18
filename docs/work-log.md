@@ -8134,3 +8134,24 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostActiveTickSmoke_Summary.json`
 - Dirty content package count was zero after cleanup. `/Game/StackOBot/Maps/Lvl_Empty` became dirty from transient actor spawn/destroy, but the editor was closed without saving, so original StackOBot assets were not intentionally saved or modified.
 - The isolated temporary source-vs-output sampler under `/Game/_MCP_Temp/AnimNodePrePost` remains the next implementation step. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 UnrealMCP Anim node isolated temp sampler
+
+- Extended sibling `D:/Git/unreal-mcp-cubeless` command `sample_anim_node_pre_post_runtime_pose` with `mode=isolated_temp_components`.
+- The new mode duplicates the target AnimBP under `/Game/_MCP_Temp/AnimNodePrePost`, rewires the source-bypass copy around the selected node, compiles both source-bypass and post-node temp AnimBPs, samples separate transient components, and compares `source_pose` vs `post_pose`.
+- It currently supports RigidBody/Trail-style AnimGraph nodes with one upstream input pose and downstream output pose links.
+- Responses keep `runtime_graph_prepost=false`, `same_instance_prepost=false`, and `original_assets_modified=false`; this is isolated source-vs-output evidence, not true same-instance compiled graph instrumentation.
+- Updated `Python/tools/node_tools.py`, `Python/unreal_mcp_server.py`, `Docs/Tools/node_tools.md`, and `Docs/Analysis/StackOBot/sample_anim_node_pre_post_runtime_pose_design.md`.
+- Synced the changed C++ plugin file into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development -NoHotReload`
+  - `StackOBotEditor Win64 Development -NoHotReload`
+  - Live StackOBot bridge smoke on `127.0.0.1:55557`
+- Live smoke sampled `ABP_Baddy` RigidBody node `81E779C34D36CC52F0125F91BF52BAF3` with `SKM_Baddy`; both temp AnimBPs compiled, source bypass graph changed as expected, and cleanup deleted both temp actors and temp assets.
+- Smoke output showed nonzero source-vs-post deltas for `R_Stalk_04` and `L_Stalk_04`, with no runtime errors or warnings.
+- After cleanup, dirty content packages, dirty map packages, and `/Game/_MCP_Temp/AnimNodePrePost` assets were all empty.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostIsolatedTempSmoke_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostIsolatedTempSmoke_Summary.json`
+- Remaining future scope is true same-instance compiled graph instrumentation. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
