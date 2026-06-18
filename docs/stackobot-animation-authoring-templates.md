@@ -10,6 +10,7 @@ Related docs:
 - `docs/stackobot-animation-request-playbook.md`
 - `docs/stackobot-request-compiler-drills.md`
 - `docs/stackobot-animation-tivret-handoff-templates.md`
+- `docs/stackobot-animation-acceptance-checklist.md`
 - `docs/stackobot-physics-request-grammar.md`
 - `docs/stackobot-animbp-authoring-patterns.md`
 - `docs/stackobot-animation-mcp-command-syntax.md`
@@ -197,7 +198,8 @@ these fields. Do not explore Montage internals through generic Python reflection
 
 ## Completion Contract
 
-Every authored or probed request should finish with:
+Every authored or probed request should pass
+`docs/stackobot-animation-acceptance-checklist.md` and finish with:
 
 1. Classification and chosen route.
 2. Exact sample asset paths or explicit statement that the pass is read-only.

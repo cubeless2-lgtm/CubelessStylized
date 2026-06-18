@@ -8,6 +8,7 @@ Related docs:
 
 - `docs/stackobot-animation-study-closeout.md`
 - `docs/stackobot-animation-next-work-backlog.md`
+- `docs/stackobot-animation-acceptance-checklist.md`
 - `docs/stackobot-animation-quickstart.md`
 - `docs/stackobot-animation-authoring-templates.md`
 - `docs/stackobot-request-compiler-drills.md`
@@ -80,8 +81,9 @@ non-exception C++, or materially change the intended visual result.
    - Physics, state machine, BlendSpace, gameplay-driven gates: prefer SIE/PIE.
    - Multi-input blend: use all-input PoseWatch.
 8. Write artifacts under `Saved/MCP/AnimStudy`.
-9. Check dirty packages and never save dirty original maps just to clean up a proof actor.
-10. Update Cubeless docs/work-log, then commit only relevant docs or tooling files.
+9. Check the pass criteria in `docs/stackobot-animation-acceptance-checklist.md`.
+10. Check dirty packages and never save dirty original maps just to clean up a proof actor.
+11. Update Cubeless docs/work-log, then commit only relevant docs or tooling files.
 
 ## Tivret Instruction Templates
 

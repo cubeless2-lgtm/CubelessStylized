@@ -43,6 +43,7 @@ Use this as the first page for future StackOBot animation requests.
 
 - Closeout/readiness: `docs/stackobot-animation-study-closeout.md`
 - Next-work backlog: `docs/stackobot-animation-next-work-backlog.md`
+- Acceptance checklist: `docs/stackobot-animation-acceptance-checklist.md`
 - Request compiler: `docs/stackobot-request-compiler-drills.md`
 - Request playbook: `docs/stackobot-animation-request-playbook.md`
 - Handoff templates: `docs/stackobot-animation-tivret-handoff-templates.md`

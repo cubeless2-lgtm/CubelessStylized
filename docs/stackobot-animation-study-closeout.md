@@ -30,7 +30,8 @@ original StackOBot assets unless the user explicitly approves that scope.
 6. Check `docs/stackobot-cpp-api-decision-matrix.md` before any new C++.
 7. Check `docs/stackobot-animation-next-work-backlog.md` only if the route is
    blocked or marked candidate.
-8. Record the result in `docs/work-log.md`.
+8. Verify completion with `docs/stackobot-animation-acceptance-checklist.md`.
+9. Record the result in `docs/work-log.md`.
 
 ## Ready Routes
 
