@@ -70,6 +70,94 @@ non-exception C++, or materially change the intended visual result.
 9. Check dirty packages and never save dirty original maps just to clean up a proof actor.
 10. Update Cubeless docs/work-log, then commit only relevant docs or tooling files.
 
+## Tivret Instruction Templates
+
+Use one of these blocks as the visible `티브렛에게 전달할 지시` starting point before
+asset work. Replace bracketed fields and keep the target sample-only unless the user
+explicitly approved original asset mutation.
+
+### Post Process ModifyBone
+
+```text
+티브렛에게 전달할 지시
+
+StackOBot 원본 애셋은 수정하지 않는다. Bot의 [bone/chain]에 [rotation/translation/scale]
+late adjustment를 샘플 전용 Post Process AnimBP로 만든다. 타깃은
+`/Game/_MCP_Sample/AnimStudy/[SampleName]` 아래에 둔다.
+
+Use route:
+1. `ensure_postprocess_anim_demo_variant`로 샘플 AnimBP와 샘플 SkeletalMesh를 만들거나 재사용한다.
+2. 샘플 SkeletalMesh의 Post Process AnimBlueprint가 생성된 클래스인지 확인한다.
+3. 정적 ModifyBone 검증이면 SIE 없이 editor-world transient actor를 사용한다.
+4. `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process, prefer_pie_world=false)`로 같은 인스턴스 pre/post를 검증한다.
+5. 원본 StackOBot 애셋, 원본 맵, 원본 SkeletalMesh는 저장하지 않는다.
+```
+
+### BlendSpace Sample Variant
+
+```text
+티브렛에게 전달할 지시
+
+StackOBot 원본 BlendSpace는 수정하지 않는다. `[SourceBlendSpace]`를 기준으로
+`/Game/_MCP_Sample/AnimStudy/[SampleBlendSpace]` 샘플 변형을 만들고,
+[axis/sample coordinate/compatible animation] 변경만 적용한다.
+
+Use route:
+1. StackOBot editor가 `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP` 플러그인 복사본을 쓰는지 확인한다.
+2. `ensure_blendspace_sample_variant`로 샘플 BlendSpace를 만들거나 재사용한다.
+3. 명시된 축 범위와 샘플 좌표만 바꾸고, skeleton/animation compatibility 실패 시 중단한다.
+4. `sample_blendspace_runtime_pose_grid`로 입력 변화가 실제 pose delta를 만드는지 검증한다.
+5. 결과에는 `original_assets_modified=false`, 저장된 샘플 경로, pose-grid 핵심 delta를 포함한다.
+```
+
+### Control Rig Forced Driver
+
+```text
+티브렛에게 전달할 지시
+
+원본 `ABP_Bot`은 직접 수정하지 않는다. Control Rig 또는 IK 요청은 기존
+`CR_Bot_Correction` 경로를 먼저 읽고, gameplay gate가 비활성일 경우 샘플 forced-driver
+AnimBP로 검증한다.
+
+Use route:
+1. `inspect_anim_graph_protected_topology`로 ControlRig 노드가 root-connected인지 확인한다.
+2. 필요한 curve/input gate를 `controlrig_direct_gate_probe` 결과와 비교한다.
+3. `ensure_controlrig_forced_driver_animbp`로 `_MCP_Sample` forced-driver 샘플을 만들거나 재사용한다.
+4. `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)`로 ControlRig input/output 같은 인스턴스 delta를 검증한다.
+5. 원본 AnimBP와 원본 맵은 저장하지 않는다.
+```
+
+### Physics Or Secondary Motion
+
+```text
+티브렛에게 전달할 지시
+
+secondary motion 요청은 먼저 기존 Baddy RigidBody 또는 Bot Trail 샘플 경로를 사용한다.
+원본 AnimBP의 disconnected Trail 노드를 바로 활성화하지 않는다.
+
+Use route:
+1. RigidBody면 `ABP_Baddy` 증거 경로를 우선 사용하고, Trail이면 `_MCP_Sample` Bot Trail 샘플을 사용한다.
+2. `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)`로 editor node와 runtime node 매핑을 확인한다.
+3. `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)`로 같은 인스턴스 input/output을 캡처한다.
+4. physics성 움직임이면 SIE/PIE proof를 우선하고, static editor tick만으로 완료 판정하지 않는다.
+5. 원본 애셋 저장 없이 dirty package 상태를 보고한다.
+```
+
+### State Machine Or Runtime Driver
+
+```text
+티브렛에게 전달할 지시
+
+idle/walk/run/jump/hover 같은 main AnimBP 요청은 먼저 authoring보다 runtime driver를 읽는다.
+원본 `ABP_Bot` graph 편집은 사용자가 명시적으로 승인하기 전까지 하지 않는다.
+
+Use route:
+1. `inspect_anim_state_machine_transitions`로 관련 state/transition/gate를 확인한다.
+2. `inspect_anim_instance_runtime_state`로 현재 state, weights, transition progress를 읽는다.
+3. `sample_anim_state_machine_runtime_response`로 `[driver cases]`가 의도한 state sequence를 만드는지 검증한다.
+4. 기존 graph와 변수로 해결 가능한지 판단하고, graph authoring이 필요하면 별도 샘플/툴링 계획으로 분리한다.
+```
+
 ## Known Safe Routes
 
 ### Post Process ModifyBone

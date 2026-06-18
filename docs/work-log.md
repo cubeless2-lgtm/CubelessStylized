@@ -8479,3 +8479,9 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - `D:/Git/unreal-mcp-cubeless` is clean and already contains the Python wrapper/docs for the command. `D:/Git/CubelessStylized/Plugins/UnrealMCP` is an older command surface and should not be treated as equivalent to the StackOBot plugin copy.
 - Documented the sync boundary in `docs/stackobot-animation-execution-map.md` and `docs/stackobot-animation-request-playbook.md`: future StackOBot animation requests should use the StackOBot editor/plugin bridge unless another plugin copy is intentionally synced and build-verified.
 - No Unreal assets, sample assets, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request instruction templates
+
+- Added reusable `티브렛에게 전달할 지시` templates to `docs/stackobot-animation-request-playbook.md` for Post Process ModifyBone, BlendSpace sample variants, ControlRig forced-driver proofs, physics/secondary motion, and state-machine/runtime-driver requests.
+- The templates preserve the default sample-only rule, call out the StackOBot-local UnrealMCP plugin requirement for BlendSpace authoring, and map each request class to the expected verification command.
+- No Unreal assets, sample assets, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
