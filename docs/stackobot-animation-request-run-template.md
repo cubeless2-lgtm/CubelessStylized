@@ -47,6 +47,23 @@ ask_user_first:
 | Bridge | `127.0.0.1:55557` |
 | Active plugin copy | `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP` |
 
+## Preflight Checklist
+
+Fill this before any editor state mutation, transient actor setup, or sample
+asset authoring.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| StackOBot project path exists | | |
+| Primary bridge `127.0.0.1:55557` reachable | | |
+| Active StackOBot plugin copy confirmed | | |
+| Required command exposed by current plugin copy | | |
+| Command-surface sync needed before C++? | | |
+| Pre-existing dirty packages captured | | |
+| Sample target under `/Game/_MCP_Sample/AnimStudy` | | |
+| `allow_non_sample=false` for authoring commands | | |
+| Evidence target under `Saved/MCP/AnimStudy` | | |
+
 ## Tivret Handoff
 
 Paste the visible handoff block selected from

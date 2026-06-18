@@ -8737,3 +8737,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Updated `Tools/Unreal/check_stackobot_animation_docs.py` so those new example sections and route tokens are covered by the local documentation audit.
 - Purpose: future no-sample animation requests can be compiled across all major learned routes before Tivret touches assets, including proof-only and C++/API-candidate boundaries.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation preflight checklist
+
+- Added a `Preflight Checklist` to `docs/stackobot-animation-quickstart.md` covering the StackOBot project path, primary `127.0.0.1:55557` bridge, active StackOBot UnrealMCP plugin copy, command-surface sync boundary, pre-existing dirty packages, sample root, `allow_non_sample=false`, and evidence root.
+- Added a matching per-request `Preflight Checklist` table to `docs/stackobot-animation-request-run-template.md` so future concrete requests can record the same checks before editor or sample work.
+- Updated `Tools/Unreal/check_stackobot_animation_docs.py` to require the new preflight sections and critical safety tokens.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

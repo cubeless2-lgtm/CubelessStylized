@@ -62,6 +62,7 @@ REQUIRED_SECTIONS = {
     ],
     "docs/stackobot-animation-quickstart.md": [
         "## Start Here",
+        "## Preflight Checklist",
         "## Route Shortcuts",
         "## Do Not Do First",
         "## Main References",
@@ -71,6 +72,7 @@ REQUIRED_SECTIONS = {
         "## Compiled Intent",
         "## Assumptions",
         "## Safety Scope",
+        "## Preflight Checklist",
         "## Tivret Handoff",
         "## Execution Log",
         "## Acceptance Checklist",
@@ -107,8 +109,12 @@ REQUIRED_SECTIONS = {
 
 REQUIRED_TOKENS = {
     "docs/stackobot-animation-quickstart.md": [
+        "D:/Git/SampleProject/StackOBot",
         "127.0.0.1:55557",
+        "D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP",
         "/Game/_MCP_Sample/AnimStudy",
+        "allow_non_sample=false",
+        "command-surface sync issue",
         "티브렛에게 전달할 지시",
         "Do not edit original StackOBot assets",
         "Do not add C++ unless",
@@ -130,6 +136,10 @@ REQUIRED_TOKENS = {
         "Original StackOBot assets modified?",
         "Original maps saved?",
         "Sample root",
+        "Primary bridge `127.0.0.1:55557` reachable",
+        "Required command exposed by current plugin copy",
+        "Pre-existing dirty packages captured",
+        "`allow_non_sample=false` for authoring commands",
         "C++/API decision recorded",
     ],
     "docs/stackobot-animation-acceptance-checklist.md": [

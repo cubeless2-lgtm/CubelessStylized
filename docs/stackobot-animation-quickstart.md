@@ -19,6 +19,23 @@ Use this as the first page for future StackOBot animation requests.
    `docs/stackobot-animation-authoring-templates.md`.
 8. Record results in `docs/work-log.md` and commit only relevant docs/tooling.
 
+## Preflight Checklist
+
+Before Tivret touches editor state or creates sample evidence, confirm these
+items and record the result in the request run note:
+
+- StackOBot project path exists at `D:/Git/SampleProject/StackOBot`.
+- Primary UnrealMCP bridge is reachable on `127.0.0.1:55557`.
+- Active StackOBot plugin copy is
+  `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Required animation-study command is exposed by that plugin copy; if not,
+  treat it as a command-surface sync issue before adding C++.
+- Pre-existing dirty packages are captured before transient actor setup.
+- First authoring target stays under `/Game/_MCP_Sample/AnimStudy` and
+  authoring commands keep `allow_non_sample=false`.
+- Evidence output target is
+  `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
+
 ## Route Shortcuts
 
 | User asks for | Route | First proof |
