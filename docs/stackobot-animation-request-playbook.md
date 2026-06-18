@@ -48,7 +48,7 @@ non-exception C++, or materially change the intended visual result.
 | "make the head turn/look/tilt after animation" | Post Process AnimBP | `ensure_postprocess_anim_demo_variant` | no-SIE or SIE PoseWatch on ModifyBone |
 | "make antenna wobble/follow/lag" | Post Process AnimBP physics | `ensure_anim_graph_trail_demo` or ModifyBone sample | PoseWatch on Trail/ModifyBone |
 | "make idle/walk/run/jump/hover transition" | Main AnimBP state machine | inspect first; sample graph only if tooling exists | `inspect_anim_state_machine_transitions`, runtime state response |
-| "change speed/lean response" | BlendSpace | inspect source sample map; sample grid | `sample_blendspace_runtime_pose_grid` |
+| "change speed/lean response" | BlendSpace | inspect source sample map; sample grid; record requested remap | `sample_blendspace_runtime_pose_grid` |
 | "upper body action over movement" | Slot/layered blend | inspect slot/cached pose/branch filters | all-input PoseWatch on LayeredBoneBlend |
 | "foot placement/IK interaction" | ControlRig | forced-driver sample if gameplay gate is inactive | direct ControlRig probe plus AnimGraph PoseWatch |
 | "physics jiggle/secondary body motion" | RigidBody/Trail | use Baddy RigidBody or Bot Trail sample | compiled mapping plus PoseWatch |
@@ -109,11 +109,20 @@ ControlRig pre/post with output link `42` and input `Source` link `45`.
 
 ### BlendSpace
 
-Best current route for axis-driven animation:
+Best current route for axis-driven animation audits:
 
 1. Inspect the source pose map and authored sample coordinates.
 2. Use `sample_blendspace_runtime_pose_grid`.
 3. Interpret deltas as controlled tooling evidence, not exact match to older async SIE artifacts.
+
+Current limitation:
+
+- The existing MCP surface can inspect and runtime-sample BlendSpaces, but it cannot
+  safely duplicate a BlendSpace and edit authored sample coordinates yet.
+- Requests such as "make run lean stronger", "move the walk/run transition speed",
+  or "spread jump BlendSpace samples" should stay as sample-only design plus runtime
+  baseline evidence until a dedicated authoring command exists.
+- Do not mutate the original StackOBot BlendSpaces as a workaround.
 
 ### Physics
 
@@ -151,12 +160,21 @@ Escalate to UnrealMCP C++ when:
 - Generic `execute_python` would need unsafe map switching, SIE setup, or protected pin edits.
 - The requested proof needs reusable same-instance runtime instrumentation.
 - A repeated manual setup pattern can be made safer as a native command.
+- A BlendSpace request needs a reusable sample-only variant with copied source asset,
+  validated axis/sample edits, and immediate runtime pose-grid verification.
 
 Do not escalate when:
 
 - Existing commands already cover the request.
 - A sample-only asset can be created and verified with current commands.
 - The only missing work is documentation or artifact summarization.
+
+Current candidate:
+
+- `ensure_blendspace_sample_variant`: duplicate or reuse a source BlendSpace under
+  `/Game/_MCP_Sample/AnimStudy`, apply explicit axis/sample-coordinate edits,
+  refuse original asset mutation by default, validate skeleton/animation compatibility,
+  save only the sample target, and then run or request `sample_blendspace_runtime_pose_grid`.
 
 ## Failure Handling
 
@@ -183,4 +201,3 @@ When finishing a requested animation part, report:
 - Artifact paths.
 - Dirty package result.
 - Residual risk or blocked route, if any.
-

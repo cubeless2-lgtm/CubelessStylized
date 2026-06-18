@@ -2,6 +2,15 @@
 
 Durable local fallback for project memory when Notion capture is unavailable.
 
+## 2026-06-18 - StackOBot BlendSpace authoring gap audit
+
+- Audited the current UnrealMCP BlendSpace tooling for future requests such as speed/lean response changes.
+- Confirmed the existing reusable route is `sample_blendspace_runtime_pose_grid`, which is read-only runtime sampling through a transient `SkeletalMeshActor` and `UAnimSingleNodeInstance`.
+- Confirmed there is no current command to duplicate a BlendSpace under `/Game/_MCP_Sample/AnimStudy` and safely edit authored axis ranges or sample coordinates.
+- Updated the StackOBot animation playbook, authoring patterns, and execution map so BlendSpace requests are handled as baseline/sample-grid evidence plus a C++/API candidate until an authoring command exists.
+- Recorded candidate API `ensure_blendspace_sample_variant`: sample-only duplicate/reuse, explicit axis/sample-coordinate edits, original-asset mutation refusal by default, skeleton/animation compatibility validation, sample-target save, and immediate `sample_blendspace_runtime_pose_grid` verification.
+- No Unreal assets, StackOBot source assets, or sibling `unreal-mcp-cubeless` files were modified in this audit.
+
 ## 2026-06-12 - PCG production validation steps 1-3 branch pass
 
 ### Summary
