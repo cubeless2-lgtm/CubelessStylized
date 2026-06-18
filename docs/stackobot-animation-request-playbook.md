@@ -177,6 +177,10 @@ Implemented route:
   `/Game/_MCP_Sample/AnimStudy`, apply explicit axis/sample-coordinate edits,
   refuse original asset mutation by default, validate skeleton/animation compatibility,
   save only the sample target, and then run or request `sample_blendspace_runtime_pose_grid`.
+- Command-surface check: for StackOBot work, confirm the active editor is using
+  `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`. The Cubeless plugin copy can lag behind
+  the StackOBot-local study command surface, so do not assume `ensure_blendspace_sample_variant`
+  exists outside the StackOBot bridge until that plugin copy is synced and build-verified.
 
 ## Failure Handling
 

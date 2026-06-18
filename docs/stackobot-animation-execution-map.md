@@ -445,6 +445,13 @@ Implemented APIs to keep available for future audits:
 17. `sample_blendspace_runtime_pose_grid` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `BS_Bot_WalkRunLean` plus `BS_Bot_RunIdleJump` in PIE/SIE. It uses a transient `SkeletalMeshActor`, fixed sample time, bounded forced ticks, and cleanup-only runtime sampling. Current artifacts are `StackOBot_BlendSpaceRuntimePoseGridMCP_*`.
 18. `ensure_blendspace_sample_variant` - implemented in the StackOBot UnrealMCP plugin and sibling Python wrapper, build-verified with `UnrealEditor Win64 Development -Project=StackOBot.uproject`, and live-smoked against `BS_Bot_WalkRunLean`. It created `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy`, edited lean samples to `1.25/-1.25`, saved the target, reported `original_assets_modified=false`, and was followed by `sample_blendspace_runtime_pose_grid(require_pie_world=false)` with `valid_pose_count=3` and `input_changed_pose=true`.
 
+### StackOBot UnrealMCP plugin sync boundary
+
+- The active StackOBot animation-study command surface lives in `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`. That sample project is not a git repo, so command availability must be confirmed against that plugin copy before relying on it.
+- `D:/Git/CubelessStylized/Plugins/UnrealMCP` is not currently equivalent to the StackOBot plugin copy. Its `UnrealMCPBlueprintNodeCommands.cpp` is an older command surface and does not include the latest StackOBot animation-study helpers such as `ensure_blendspace_sample_variant`.
+- Do not narrow-paste `ensure_blendspace_sample_variant` into the older Cubeless plugin as a quick fix; it depends on helper code from the newer animation-study command surface. Treat any Cubeless-side reuse as a deliberate plugin sync/port task with build verification.
+- For future StackOBot animation requests, use the StackOBot editor plus StackOBot-local UnrealMCP plugin bridge unless the UnrealMCP plugin has been intentionally synced and verified in another project.
+
 Remaining C++/UnrealMCP candidates if reusable tooling is explicitly resumed:
 
 1. expand same-instance AnimGraph pre/post capture only if a new unusual node class falls outside the smoked RigidBody/Trail/Post Process ModifyBone/LayeredBoneBlend/ControlRig paths.

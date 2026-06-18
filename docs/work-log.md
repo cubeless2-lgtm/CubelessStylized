@@ -8472,3 +8472,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Linked the playbook from `docs/stackobot-animbp-authoring-patterns.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animation-study.md`.
 - No Unreal assets, `_MCP_Sample` assets, or C++ files were modified in this pass.
 - Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot UnrealMCP plugin sync boundary
+
+- Follow-up persistence check confirmed `D:/Git/SampleProject/StackOBot` is not a git repo and the live-smoked `ensure_blendspace_sample_variant` C++ implementation currently exists only in the StackOBot-local UnrealMCP plugin copy.
+- `D:/Git/unreal-mcp-cubeless` is clean and already contains the Python wrapper/docs for the command. `D:/Git/CubelessStylized/Plugins/UnrealMCP` is an older command surface and should not be treated as equivalent to the StackOBot plugin copy.
+- Documented the sync boundary in `docs/stackobot-animation-execution-map.md` and `docs/stackobot-animation-request-playbook.md`: future StackOBot animation requests should use the StackOBot editor/plugin bridge unless another plugin copy is intentionally synced and build-verified.
+- No Unreal assets, sample assets, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
