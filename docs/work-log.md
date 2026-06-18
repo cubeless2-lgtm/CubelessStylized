@@ -8991,3 +8991,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now validates that each `docs/stackobot-animation-request-run-examples.md` dry-run example maps its `route` field to the expected `runtime_layer` tokens for Post Process AnimBP, main AnimBP BlendSpace, Trail/physics-style nodes, Slot/LayeredBlend, metadata-only reads, ControlRig, state-machine, RigidBody, and compiled node contribution proof.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_runtime_layers=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request example timing-type audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v32`.
+- The checker now validates that each `docs/stackobot-animation-request-run-examples.md` dry-run example maps its `route` field to the expected `timing_type` tokens for late additive rotation, BlendSpace axis response, secondary motion, overlay action, metadata timing, ControlRig late correction, state transition timing, animation physics response, and instrumentation-only proof.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_timing_types=0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

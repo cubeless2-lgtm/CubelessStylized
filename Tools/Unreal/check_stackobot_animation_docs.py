@@ -6,8 +6,9 @@ required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters,
 request-run route and acceptance-focus coverage, and sample-path guards are
 present, request-run routes map to the expected handoff templates and
-first/verification commands, runtime layer, C++/API status, expected evidence,
-sample target scope, plus route-specific acceptance focus and approval boundaries, and acceptance
+first/verification commands, timing type, runtime layer, C++/API status,
+expected evidence, sample target scope, plus route-specific acceptance focus
+and approval boundaries, and acceptance
 universal/route/evidence/reporting fields plus escalation triggers are
 preserved. It also confirms the sibling/sample workspace paths used by the
 workflow still exist on this machine.
@@ -617,6 +618,18 @@ REQUEST_EXAMPLE_ROUTE_FIRST_COMMAND_RULES = {
     "state-machine runtime-driver proof": ["inspect_anim_state_machine_transitions"],
     "Baddy RigidBody": ["inspect_anim_graph_node_settings"],
     "node resolver plus same-instance pre/post proof": ["inspect_anim_graph_protected_topology", "compiled mapping"],
+}
+
+REQUEST_EXAMPLE_ROUTE_TIMING_TYPE_RULES = {
+    "Post Process ModifyBone": ["static late additive rotation"],
+    "BlendSpace sample variant": ["continuous BlendSpace axis response"],
+    "Bot Trail sample": ["secondary motion", "follow-through"],
+    "UpperBody Slot and LayeredBlend": ["overlay action", "locomotion"],
+    "protected metadata boundary": ["notify", "curve", "sync marker", "Montage metadata"],
+    "ControlRig gate probe": ["late correction", "runtime inputs", "curves"],
+    "state-machine runtime-driver proof": ["state duration", "transition condition"],
+    "Baddy RigidBody": ["animation physics response"],
+    "node resolver plus same-instance pre/post proof": ["instrumentation only"],
 }
 
 REQUEST_EXAMPLE_ROUTE_RUNTIME_LAYER_RULES = {
@@ -1343,6 +1356,54 @@ def _request_example_route_first_command_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _request_example_route_timing_type_entries() -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for record in _request_example_records():
+        fields = record["fields"]
+        route = fields.get("route", "")
+        timing_type = fields.get("timing_type", "")
+        matched_tokens = [
+            token
+            for token in REQUEST_EXAMPLE_ROUTE_TIMING_TYPE_RULES
+            if token in route
+        ]
+        if not matched_tokens:
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "timing_type": timing_type,
+                    "expected_tokens": [],
+                    "missing_tokens": [],
+                    "matches": False,
+                    "known_route": False,
+                }
+            )
+            continue
+
+        for route_token in matched_tokens:
+            expected_tokens = REQUEST_EXAMPLE_ROUTE_TIMING_TYPE_RULES[route_token]
+            missing_tokens = [
+                token for token in expected_tokens if token not in timing_type
+            ]
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "route_token": route_token,
+                    "timing_type": timing_type,
+                    "expected_tokens": expected_tokens,
+                    "missing_tokens": missing_tokens,
+                    "matches": not missing_tokens,
+                    "known_route": True,
+                }
+            )
+
+    return entries
+
+
 def _request_example_route_runtime_layer_entries() -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for record in _request_example_records():
@@ -2026,6 +2087,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for entry in request_example_route_first_commands
         if not entry["known_route"] or not entry["matches"]
     ]
+    request_example_route_timing_types = _request_example_route_timing_type_entries()
+    mismatched_request_example_route_timing_types = [
+        entry
+        for entry in request_example_route_timing_types
+        if not entry["known_route"] or not entry["matches"]
+    ]
     request_example_route_runtime_layers = _request_example_route_runtime_layer_entries()
     mismatched_request_example_route_runtime_layers = [
         entry
@@ -2134,6 +2201,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_request_example_route_coverage
         and not mismatched_request_example_route_handoffs
         and not mismatched_request_example_route_first_commands
+        and not mismatched_request_example_route_timing_types
         and not mismatched_request_example_route_runtime_layers
         and not mismatched_request_example_route_cxx_statuses
         and not mismatched_request_example_route_expected_evidence
@@ -2157,7 +2225,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v31",
+        "schema": "stackobot_animation_docs_link_audit_v32",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2174,6 +2242,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
         "mismatched_request_example_route_handoff_count": len(mismatched_request_example_route_handoffs),
         "mismatched_request_example_route_first_command_count": len(mismatched_request_example_route_first_commands),
+        "mismatched_request_example_route_timing_type_count": len(mismatched_request_example_route_timing_types),
         "mismatched_request_example_route_runtime_layer_count": len(mismatched_request_example_route_runtime_layers),
         "mismatched_request_example_route_cxx_status_count": len(mismatched_request_example_route_cxx_statuses),
         "mismatched_request_example_route_expected_evidence_count": len(mismatched_request_example_route_expected_evidence),
@@ -2213,6 +2282,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_handoffs": mismatched_request_example_route_handoffs,
         "request_example_route_first_commands": request_example_route_first_commands,
         "mismatched_request_example_route_first_commands": mismatched_request_example_route_first_commands,
+        "request_example_route_timing_types": request_example_route_timing_types,
+        "mismatched_request_example_route_timing_types": mismatched_request_example_route_timing_types,
         "request_example_route_runtime_layers": request_example_route_runtime_layers,
         "mismatched_request_example_route_runtime_layers": mismatched_request_example_route_runtime_layers,
         "request_example_route_cxx_statuses": request_example_route_cxx_statuses,
@@ -2280,6 +2351,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
             f"mismatched_request_example_route_handoffs={report['mismatched_request_example_route_handoff_count']} "
             f"mismatched_request_example_first_commands={report['mismatched_request_example_route_first_command_count']} "
+            f"mismatched_request_example_timing_types={report['mismatched_request_example_route_timing_type_count']} "
             f"mismatched_request_example_runtime_layers={report['mismatched_request_example_route_runtime_layer_count']} "
             f"mismatched_request_example_cxx_status={report['mismatched_request_example_route_cxx_status_count']} "
             f"mismatched_request_example_expected_evidence={report['mismatched_request_example_route_expected_evidence_count']} "
@@ -2316,6 +2388,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_request_example_route_coverage",
             "mismatched_request_example_route_handoffs",
             "mismatched_request_example_route_first_commands",
+            "mismatched_request_example_route_timing_types",
             "mismatched_request_example_route_runtime_layers",
             "mismatched_request_example_route_cxx_statuses",
             "mismatched_request_example_route_expected_evidence",
