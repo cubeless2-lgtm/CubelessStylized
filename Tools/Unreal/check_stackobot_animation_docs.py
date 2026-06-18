@@ -72,6 +72,19 @@ REQUIRED_SECTIONS = {
         "## Do Not Do First",
         "## Main References",
     ],
+    "docs/stackobot-animation-request-playbook.md": [
+        "## Default Rule",
+        "## Intake",
+        "## Classification Matrix",
+        "## Execution Protocol",
+        "## Tivret Instruction Templates",
+        "## Dry-Run Request Scenarios",
+        "## Known Safe Routes",
+        "## Approval Gates",
+        "## C++/API Escalation",
+        "## Failure Handling",
+        "## Delivery Shape",
+    ],
     "docs/stackobot-animation-request-run-template.md": [
         "## Request",
         "## Compiled Intent",
@@ -133,6 +146,21 @@ REQUIRED_SECTIONS = {
         "## Verification For Any New C++ API",
         "## Timing Decision",
     ],
+    "docs/stackobot-physics-request-grammar.md": [
+        "## Route Matrix",
+        "## Decision Rules",
+        "## Known Evidence",
+        "## Safe Command Patterns",
+        "## C++/API Parking Lot",
+        "## Final Response Checklist",
+    ],
+    "docs/stackobot-sample-asset-manifest.md": [
+        "## Asset Groups",
+        "## Package Manifest",
+        "## Regeneration Routes",
+        "## Evidence Root",
+        "## Safety Notes",
+    ],
 }
 
 REQUIRED_TOKENS = {
@@ -166,6 +194,12 @@ REQUIRED_TOKENS = {
         "allow_non_sample=false",
         "C++/API Escalation",
         "Do not broad-probe Montage",
+        "/Game/_MCP_Sample/AnimStudy",
+        "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+        "Do not edit original StackOBot assets",
+        "Update Cubeless docs/work-log, then commit only relevant docs or tooling files.",
+        "Generic `execute_python` would need unsafe map switching",
+        "resolve_anim_posewatch_target_actor",
     ],
     "docs/stackobot-animation-tivret-handoff-templates.md": [
         "티브렛에게 전달할 지시",
@@ -217,6 +251,28 @@ REQUIRED_TOKENS = {
         "Covered, Do Not Rebuild",
         "Immediate Implementation Triggers",
         "sample-root guard",
+    ],
+    "docs/stackobot-physics-request-grammar.md": [
+        "original StackOBot assets stay read-only",
+        "/Game/_MCP_Sample/AnimStudy",
+        "ensure_anim_graph_trail_demo",
+        "set_anim_graph_rigidbody_settings",
+        "allow_non_sample",
+        "ensure_anim_graph_rigidbody_demo_variant",
+        "inspect_physics_asset_constraints_guarded",
+        "Final Response Checklist",
+    ],
+    "docs/stackobot-sample-asset-manifest.md": [
+        "D:/Git/SampleProject/StackOBot/Content/_MCP_Sample/AnimStudy",
+        "The StackOBot sample project is not a git repository.",
+        "Do not stage them in `CubelessStylized`",
+        "/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study",
+        "/Game/_MCP_Sample/AnimStudy/ABP_Bot_Trail_Study",
+        "/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ForcedDriver_Study",
+        "/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study",
+        "/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanTemplateRehearsal",
+        "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+        "command-surface sync issue",
     ],
     "docs/stackobot-animation-request-run-examples.md": [
         "They are not execution",
@@ -545,7 +601,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v5",
+        "schema": "stackobot_animation_docs_link_audit_v6",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,

@@ -8802,3 +8802,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The audit now preserves the main Tivret handoff routes, final report fields, sample-only root, route commands, Montage crash boundary, and C++/API escalation guard.
 - Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with no missing sections or tokens.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot playbook, physics, and manifest audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v6`.
+- The checker now validates required sections for the request playbook, physics request grammar, and sample asset manifest.
+- Added safety tokens for sample-only roots, evidence roots, original-asset read-only rules, physics route commands, parked C++/API candidates, and sample manifest regeneration boundaries.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with no missing sections or tokens.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
