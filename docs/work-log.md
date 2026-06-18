@@ -8921,3 +8921,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now validates that `docs/stackobot-animation-request-run-examples.md` covers the main dry-run route set: Post Process, BlendSpace, Trail, UpperBody/LayeredBlend, protected metadata, ControlRig, state-machine runtime-driver, Baddy RigidBody, and node contribution proof.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_request_example_routes=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request example acceptance focus audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v22`.
+- The checker now validates that each `docs/stackobot-animation-request-run-examples.md` dry-run example keeps an `Acceptance focus` block with at least three checklist bullets.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_acceptance_focus_blocks=0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

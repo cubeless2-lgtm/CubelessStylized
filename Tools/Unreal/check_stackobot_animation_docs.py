@@ -4,10 +4,10 @@ This local/read-only check validates that StackOBot study docs point to existing
 relative docs, required study documents still exist, the doc index covers the
 required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters,
-request-run route coverage, and sample-path guards are present, and acceptance
-universal/route/evidence/reporting fields plus escalation triggers are
-preserved. It also confirms the sibling/sample workspace paths used by the
-workflow still exist on this machine.
+request-run route and acceptance-focus coverage, and sample-path guards are
+present, and acceptance universal/route/evidence/reporting fields plus
+escalation triggers are preserved. It also confirms the sibling/sample
+workspace paths used by the workflow still exist on this machine.
 It does not call Unreal, does not touch assets, and does not require the editor
 bridge to be online.
 """
@@ -580,6 +580,8 @@ REQUEST_EXAMPLE_ROUTE_COVERAGE = {
     "node_contribution_proof": "node resolver plus same-instance pre/post proof",
 }
 
+REQUEST_EXAMPLE_MIN_ACCEPTANCE_FOCUS_BULLETS = 3
+
 REQUEST_RUN_TEMPLATE_FIELD_GROUPS = {
     "request": [
         "user_request:",
@@ -988,6 +990,7 @@ def _request_example_records() -> list[dict[str, Any]]:
             {
                 "path": path_text,
                 "example": match.group(0).strip(),
+                "section_text": section_text,
                 "fields": fields,
             }
         )
@@ -1098,6 +1101,43 @@ def _request_example_route_coverage_entries() -> list[dict[str, Any]]:
         }
         for route_key, token in REQUEST_EXAMPLE_ROUTE_COVERAGE.items()
     ]
+
+
+def _request_example_acceptance_focus_entries() -> list[dict[str, Any]]:
+    records = _request_example_records()
+    entries: list[dict[str, Any]] = []
+
+    for record in records:
+        section_text = str(record.get("section_text", ""))
+        focus_index = section_text.find("Acceptance focus:")
+        focus_text = section_text[focus_index:] if focus_index >= 0 else ""
+        bullet_count = len(re.findall(r"(?m)^- ", focus_text))
+        entries.append(
+            {
+                "path": record["path"],
+                "example": record["example"],
+                "check": "acceptance_focus_block",
+                "exists": focus_index >= 0,
+                "bullet_count": bullet_count,
+                "minimum_bullet_count": REQUEST_EXAMPLE_MIN_ACCEPTANCE_FOCUS_BULLETS,
+                "has_minimum_bullets": bullet_count >= REQUEST_EXAMPLE_MIN_ACCEPTANCE_FOCUS_BULLETS,
+            }
+        )
+
+    if not records:
+        entries.append(
+            {
+                "path": "docs/stackobot-animation-request-run-examples.md",
+                "example": "",
+                "check": "acceptance_focus_block",
+                "exists": False,
+                "bullet_count": 0,
+                "minimum_bullet_count": REQUEST_EXAMPLE_MIN_ACCEPTANCE_FOCUS_BULLETS,
+                "has_minimum_bullets": False,
+            }
+        )
+
+    return entries
 
 
 def _request_run_template_field_entries() -> list[dict[str, Any]]:
@@ -1441,6 +1481,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_request_example_route_coverage = [
         entry for entry in request_example_route_coverage if not entry["exists"]
     ]
+    request_example_acceptance_focus = _request_example_acceptance_focus_entries()
+    missing_request_example_acceptance_focus = [
+        entry
+        for entry in request_example_acceptance_focus
+        if not entry["exists"] or not entry["has_minimum_bullets"]
+    ]
     request_run_template_fields = _request_run_template_field_entries()
     missing_request_run_template_fields = [
         entry for entry in request_run_template_fields if not entry["exists"]
@@ -1505,6 +1551,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_example_fields
         and not unsafe_request_examples
         and not missing_request_example_route_coverage
+        and not missing_request_example_acceptance_focus
         and not missing_request_run_template_fields
         and not missing_acceptance_final_report_fields
         and not missing_acceptance_universal_pass_fields
@@ -1520,7 +1567,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v21",
+        "schema": "stackobot_animation_docs_link_audit_v22",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -1535,6 +1582,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_example_field_count": len(missing_example_fields),
         "unsafe_request_example_count": len(unsafe_request_examples),
         "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
+        "missing_request_example_acceptance_focus_count": len(missing_request_example_acceptance_focus),
         "missing_request_run_template_field_count": len(missing_request_run_template_fields),
         "missing_acceptance_final_report_field_count": len(missing_acceptance_final_report_fields),
         "missing_acceptance_universal_pass_field_count": len(missing_acceptance_universal_pass_fields),
@@ -1562,6 +1610,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "unsafe_request_examples": unsafe_request_examples,
         "request_example_route_coverage": request_example_route_coverage,
         "missing_request_example_route_coverage": missing_request_example_route_coverage,
+        "request_example_acceptance_focus": request_example_acceptance_focus,
+        "missing_request_example_acceptance_focus": missing_request_example_acceptance_focus,
         "request_run_template_fields": request_run_template_fields,
         "missing_request_run_template_fields": missing_request_run_template_fields,
         "acceptance_final_report_fields": acceptance_final_report_fields,
@@ -1611,6 +1661,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_example_fields={report['missing_example_field_count']} "
             f"unsafe_request_examples={report['unsafe_request_example_count']} "
             f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
+            f"missing_acceptance_focus_blocks={report['missing_request_example_acceptance_focus_count']} "
             f"missing_template_fields={report['missing_request_run_template_field_count']} "
             f"missing_acceptance_report_fields={report['missing_acceptance_final_report_field_count']} "
             f"missing_acceptance_universal_fields={report['missing_acceptance_universal_pass_field_count']} "
@@ -1637,6 +1688,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_example_fields",
             "unsafe_request_examples",
             "missing_request_example_route_coverage",
+            "missing_request_example_acceptance_focus",
             "missing_request_run_template_fields",
             "missing_acceptance_final_report_fields",
             "missing_acceptance_universal_pass_fields",
