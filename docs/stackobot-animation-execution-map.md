@@ -117,6 +117,7 @@ Compiled sample variants under `/Game/_MCP_Sample/AnimStudy`:
 | --- | --- | --- | --- |
 | `ABP_Bot_PostProcess_Study_HeadPitch` | `head` | `Pitch=6` | AnimBP compile passed; matching duplicated mesh and actor linked. |
 | `ABP_Bot_PostProcess_Study_AntennaRoll` | `antenna_04_l` | `Roll=12` | AnimBP compile passed; matching duplicated mesh and actor linked. |
+| `ABP_Bot_PostProcess_Study_HeadYawAuthoringPattern` | `head` | `Yaw=8` | Sample-only authoring smoke passed compile/save/load and dirty-package verification; runtime PoseWatch is deferred after a generic `execute_python` SIE setup crash. |
 
 Artifact: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSummary.md`.
 
@@ -124,6 +125,7 @@ Runtime note:
 
 - The existing base Post Process sample has SIE proof for `head` roll propagation.
 - The `HeadPitch` and `AntennaRoll` variants now have live same-instance PoseWatch sampling through `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)`.
+- The `HeadYawAuthoringPattern` variant proves the current authoring recipe can create a new sample-only Post Process Modify Bone asset pair without touching originals. Its runtime PoseWatch still needs a safer actor/SIE setup route than the failed generic `execute_python` setup attempt.
 - PoseWatch artifacts: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_Summary.json` and `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_raw.json`.
 
 Impact map artifact: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.md`.

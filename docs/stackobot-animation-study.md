@@ -178,6 +178,16 @@ Variant verification:
 - Dirty content package count after setup was `0`.
 - Runtime SIE same-instance PoseWatch sampling is now complete for both variants through `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)`.
 
+Additional authoring-pattern smoke:
+
+- Created sample-only `HeadYawAuthoringPattern` through `ensure_postprocess_anim_demo_variant`.
+- Target AnimBP: `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadYawAuthoringPattern`.
+- Target SkeletalMesh: `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study_HeadYawAuthoringPattern`.
+- Modify Bone settings: `Bone=head`, additive bone-space rotation `Pitch=0`, `Yaw=8`, `Roll=0`.
+- The command created both target assets, compiled the AnimBP successfully, saved the AnimBP and SkeletalMesh, assigned the SkeletalMesh Post Process AnimBlueprint to `ABP_Bot_PostProcess_Study_HeadYawAuthoringPattern_C`, and reported `original_assets_modified=false`.
+- A follow-up editor restart loaded both assets and confirmed `dirty_package_count=0`.
+- Runtime PoseWatch was deferred: the first SIE setup attempt through generic `execute_python` crashed the hidden editor with `EXCEPTION_INT_DIVIDE_BY_ZERO` before the PoseWatch command could run. Treat this as an unsafe SIE setup route issue, not as a failure of the saved sample assets.
+
 Variant impact map:
 
 | Purpose | Path |

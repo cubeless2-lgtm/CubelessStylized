@@ -196,12 +196,17 @@ Useful StackOBot evidence:
 - Study variants prove parent and leaf behavior:
   - `HeadPitch` rotates `head` by about `6.0 deg` and moves antenna leaves by about `8.6 cm`.
   - `AntennaRoll` rotates only `antenna_04_l` by about `12.0 deg`.
+- `HeadYawAuthoringPattern` proves the current sample-only authoring route can create a new Post Process Modify Bone variant with `head` yaw `8.0 deg`, compile/save it, assign the duplicated SkeletalMesh Post Process AnimBlueprint, reload it, and end with `dirty_package_count=0`.
 
 Preferred verification:
 
 - `ensure_postprocess_anim_demo_variant`.
 - `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)`.
 - Static single-pose isolation when phase drift between separate AnimInstances would confuse the result.
+
+Current caveat:
+
+- Runtime PoseWatch for `HeadYawAuthoringPattern` is not complete yet. The first generic `execute_python` SIE actor setup crashed the hidden editor with `EXCEPTION_INT_DIVIDE_BY_ZERO`, so future runtime proof should use a narrower native or already-smoked setup route rather than repeating that Python setup script.
 
 ### 6. Physics And Secondary Motion Pattern
 
@@ -283,4 +288,3 @@ Do not treat an authored animation change as complete until the relevant checks 
 - For SIE proof actors, create or identify the editor-world actor before starting SIE if the command needs to match the PIE duplicate by label.
 - Treat `editor_is_playing`, `refresh_bone_transforms`, and similar Python wrapper methods as version-dependent; failed helper calls should not be confused with final command failures.
 - Keep `_MCP_Sample` learning assets disposable and gitignored unless the user explicitly asks to version a specific sample asset.
-

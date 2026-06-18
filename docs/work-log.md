@@ -8426,3 +8426,16 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Captured the current C++/API escalation policy: use existing MCP/editor asset routes first; keep broader same-instance node support as a future candidate only when a new unusual node class falls outside the smoked paths.
 - Linked the guide from `docs/stackobot-animation-study.md` and `docs/stackobot-animation-execution-map.md`.
 - No Unreal assets, sample assets, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot HeadYaw Post Process authoring smoke
+
+- Created the sample-only Post Process AnimBP variant `HeadYawAuthoringPattern` in `D:/Git/SampleProject/StackOBot` using existing UnrealMCP command `ensure_postprocess_anim_demo_variant`; no new C++ was added.
+- Created and saved target assets:
+  - `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadYawAuthoringPattern`
+  - `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study_HeadYawAuthoringPattern`
+- The Modify Bone chain targets `head` with additive bone-space rotation `Pitch=0`, `Yaw=8`, `Roll=0`.
+- Command result reported `success=true`, target AnimBP and SkeletalMesh created, AnimBP compile success, both assets saved, duplicated SkeletalMesh Post Process AnimBlueprint assigned to `ABP_Bot_PostProcess_Study_HeadYawAuthoringPattern_C`, and `original_assets_modified=false`.
+- Follow-up editor restart and asset-load check confirmed the AnimBP and SkeletalMesh load, the SkeletalMesh references the expected Post Process AnimBlueprint class, and `dirty_package_count=0`.
+- Runtime PoseWatch was attempted next but did not complete. The generic `execute_python` SIE actor setup crashed the hidden editor with `EXCEPTION_INT_DIVIDE_BY_ZERO`; latest crash folder was `Saved/Crashes/UECC-Windows-67DAE7C64400945D5537EAB0830A5CA0_0000`.
+- Treat the crash as an unsafe SIE setup route issue. The saved sample assets remain valid by compile/save/load checks, but same-instance runtime PoseWatch for this specific `HeadYawAuthoringPattern` variant remains pending.
+- The hidden editor was relaunched for verification, then stopped externally. A leftover `CrashReportClientEditor` process was also stopped. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
