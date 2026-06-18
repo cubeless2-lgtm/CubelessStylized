@@ -8491,3 +8491,9 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added a candidate API parking lot to `docs/stackobot-animation-request-playbook.md` and expanded the remaining C++/UnrealMCP candidate list in `docs/stackobot-animation-execution-map.md`.
 - Current status: no additional C++ is needed immediately. Future API work is gated by concrete requests that current commands cannot express, such as safe state-machine sample authoring, new layered slot overlay samples, broader Post Process physics variants, repeated PoseWatch target setup failures, or protected notify/curve data.
 - No Unreal assets, sample assets, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request dry-run scenarios
+
+- Added dry-run request scenarios to `docs/stackobot-animation-request-playbook.md` so future requests can be mapped quickly to a classification, starting `티브렛에게 전달할 지시` template, first proof command, and C++/API status.
+- Covered representative requests for Post Process head adjustment, BlendSpace lean editing, ControlRig interaction response, antenna secondary motion, hover/state-machine behavior, upper-body overlay, and node-causality instrumentation.
+- No Unreal assets, sample assets, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

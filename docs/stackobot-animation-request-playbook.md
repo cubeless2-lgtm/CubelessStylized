@@ -158,6 +158,21 @@ Use route:
 4. 기존 graph와 변수로 해결 가능한지 판단하고, graph authoring이 필요하면 별도 샘플/툴링 계획으로 분리한다.
 ```
 
+## Dry-Run Request Scenarios
+
+Use this table as the rehearsal check before touching assets. If a new request does
+not fit one of these rows, classify it first and add the missing route before authoring.
+
+| Example request | Classification | Starting template | First proof | C++/API status |
+| --- | --- | --- | --- | --- |
+| "Bot head should look 10 degrees to the right after the main animation." | Post Process static ModifyBone on `head` | Post Process ModifyBone | `ensure_postprocess_anim_demo_variant`, then no-SIE `sample_anim_node_pre_post_runtime_pose(anim_instance_source=post_process)` | Covered by existing commands |
+| "Make run lean wider on left/right." | BlendSpace sample coordinate/range edit | BlendSpace Sample Variant | `ensure_blendspace_sample_variant`, then `sample_blendspace_runtime_pose_grid` | Covered, but requires StackOBot-local UnrealMCP plugin copy |
+| "Make the feet react to an interaction point." | ControlRig late correction with gameplay gates | Control Rig Forced Driver | `inspect_anim_graph_protected_topology`, `controlrig_direct_gate_probe`, forced-driver PoseWatch | Covered by existing commands |
+| "Make the antenna lag or trail behind movement." | Post Process physics or secondary motion | Physics Or Secondary Motion | Existing Bot Trail sample, compiled mapping, PoseWatch capture; prefer SIE/PIE for physics motion | Covered for current Trail sample; new physics parameter authoring remains candidate API |
+| "Make hover transition stay longer or respond to a variable." | Main AnimBP state-machine/runtime-driver behavior | State Machine Or Runtime Driver | `inspect_anim_state_machine_transitions`, `inspect_anim_instance_runtime_state`, `sample_anim_state_machine_runtime_response` | Inspect/probe covered; new state/transition authoring remains candidate API |
+| "Play an upper-body action while locomotion continues." | Slot, cached pose, LayeredBoneBlend overlay | Control/overlay route from authoring patterns | Slot/cached-pose inventory, then `sample_anim_node_pre_post_runtime_pose(input_pose_mode=all)` | Existing overlay proof covered; new overlay authoring remains candidate API |
+| "Which node caused the pose change?" | Instrumentation only | No asset-authoring template | `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` or compiled mapping first | Covered by existing commands unless node class is unusual |
+
 ## Known Safe Routes
 
 ### Post Process ModifyBone
