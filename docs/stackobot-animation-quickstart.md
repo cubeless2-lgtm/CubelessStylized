@@ -24,6 +24,8 @@ Use this as the first page for future StackOBot animation requests.
 Before Tivret touches editor state or creates sample evidence, confirm these
 items and record the result in the request run note:
 
+- Local read-only preflight passes:
+  `python Tools/Unreal/check_stackobot_animation_preflight.py --summary`
 - StackOBot project path exists at `D:/Git/SampleProject/StackOBot`.
 - Primary UnrealMCP bridge is reachable on `127.0.0.1:55557`.
 - Active StackOBot plugin copy is
@@ -35,6 +37,8 @@ items and record the result in the request run note:
   authoring commands keep `allow_non_sample=false`.
 - Evidence output target is
   `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
+
+Use `--require-bridge` when this is the final gate before live editor work.
 
 ## Route Shortcuts
 

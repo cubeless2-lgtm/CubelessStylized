@@ -51,6 +51,18 @@ the first useful page for each situation.
 
 ## Local Checks
 
+Run this before a concrete StackOBot editor/sample request:
+
+```powershell
+python Tools/Unreal/check_stackobot_animation_preflight.py --summary
+```
+
+Use the stricter bridge gate immediately before live editor work:
+
+```powershell
+python Tools/Unreal/check_stackobot_animation_preflight.py --summary --require-bridge
+```
+
 Run this after editing StackOBot animation docs:
 
 ```powershell

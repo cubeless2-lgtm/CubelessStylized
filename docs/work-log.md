@@ -8744,3 +8744,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added a matching per-request `Preflight Checklist` table to `docs/stackobot-animation-request-run-template.md` so future concrete requests can record the same checks before editor or sample work.
 - Updated `Tools/Unreal/check_stackobot_animation_docs.py` to require the new preflight sections and critical safety tokens.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation local preflight tool
+
+- Added `Tools/Unreal/check_stackobot_animation_preflight.py`, a local/read-only preflight checker for StackOBot animation requests.
+- The tool checks the StackOBot project path, `.mcp.json` `unrealMCP` route, `uv` availability, sibling `unreal-mcp-cubeless` Python/docs paths, StackOBot-local UnrealMCP plugin command exposure, sample/evidence roots, and bridge socket reachability on `127.0.0.1:55557`.
+- Updated `docs/stackobot-animation-quickstart.md` and `docs/stackobot-animation-doc-index.md` with the preflight commands, including `--require-bridge` for the final live-editor gate.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_preflight.py --summary` passed static checks; `--require-bridge` failed because the StackOBot bridge was not reachable, so live editor work is not ready until the editor bridge is started.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

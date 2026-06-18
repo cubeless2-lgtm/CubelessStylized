@@ -109,6 +109,8 @@ REQUIRED_SECTIONS = {
 
 REQUIRED_TOKENS = {
     "docs/stackobot-animation-quickstart.md": [
+        "check_stackobot_animation_preflight.py --summary",
+        "--require-bridge",
         "D:/Git/SampleProject/StackOBot",
         "127.0.0.1:55557",
         "D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP",
@@ -122,6 +124,8 @@ REQUIRED_TOKENS = {
     "docs/stackobot-animation-doc-index.md": [
         "Original StackOBot assets stay read-only",
         "Sample assets go under `/Game/_MCP_Sample/AnimStudy`",
+        "check_stackobot_animation_preflight.py --summary",
+        "check_stackobot_animation_preflight.py --summary --require-bridge",
         "Do not broad-probe Montage internals",
         "Do not add new C++",
     ],
