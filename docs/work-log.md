@@ -8497,3 +8497,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added dry-run request scenarios to `docs/stackobot-animation-request-playbook.md` so future requests can be mapped quickly to a classification, starting `티브렛에게 전달할 지시` template, first proof command, and C++/API status.
 - Covered representative requests for Post Process head adjustment, BlendSpace lean editing, ControlRig interaction response, antenna secondary motion, hover/state-machine behavior, upper-body overlay, and node-causality instrumentation.
 - No Unreal assets, sample assets, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot MCP command syntax sheet
+
+- Added `docs/stackobot-animation-mcp-command-syntax.md` as a compact command syntax sheet for StackOBot animation work.
+- The sheet condenses the sibling UnrealMCP tool docs into StackOBot-specific minimum params, safe defaults, common asset paths, JSON examples, and result checklist for Post Process ModifyBone, BlendSpace variants, ControlRig forced-driver probes, state-machine runtime response, Trail/secondary motion, and PoseWatch contribution proof.
+- Linked the syntax sheet from `docs/stackobot-animation-request-playbook.md` and `docs/stackobot-animbp-authoring-patterns.md`.
+- No Unreal assets, sample assets, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

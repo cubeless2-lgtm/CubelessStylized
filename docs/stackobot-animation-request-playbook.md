@@ -9,6 +9,7 @@ Related docs:
 - `docs/stackobot-animbp-authoring-patterns.md`
 - `docs/stackobot-animation-execution-map.md`
 - `docs/stackobot-animation-study.md`
+- `docs/stackobot-animation-mcp-command-syntax.md`
 
 ## Default Rule
 

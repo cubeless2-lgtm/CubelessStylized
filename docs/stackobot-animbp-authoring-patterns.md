@@ -7,6 +7,9 @@ the sample project from scratch.
 For step-by-step execution on a concrete user request, use:
 `docs/stackobot-animation-request-playbook.md`.
 
+For compact MCP command parameter syntax, use:
+`docs/stackobot-animation-mcp-command-syntax.md`.
+
 Scope:
 
 - Reference project: `D:/Git/SampleProject/StackOBot`.
