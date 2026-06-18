@@ -9027,3 +9027,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Linked the matrix from `docs/stackobot-animation-doc-index.md` and `docs/stackobot-animation-request-playbook.md`.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `docs=21`, `missing_refs=0`, and all request example mismatch counts at `0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot C++ API candidate shortlist refresh
+
+- Updated `docs/stackobot-cpp-api-decision-matrix.md` with a current candidate shortlist tied to the route matrix.
+- The shortlist keeps C++ parked for Notify/Curve/SyncMarker/Montage protected metadata, state-machine graph authoring, UpperBody overlay source/branch authoring, deeper PhysicsAsset inspection, unsupported node resolver support, and repeated AnimInstance/target actor resolution failure.
+- Added `extend_anim_node_runtime_mapping` as a parked candidate and expanded implementation triggers for unsupported node mapping and PhysicsAsset limits/constraints.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_refs=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP C++ files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

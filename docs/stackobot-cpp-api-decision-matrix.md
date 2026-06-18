@@ -7,6 +7,7 @@ runtime probes, and live read commands first.
 Related docs:
 
 - `docs/stackobot-animation-quickstart.md`
+- `docs/stackobot-animation-route-matrix.md`
 - `docs/stackobot-animation-request-playbook.md`
 - `docs/stackobot-request-compiler-drills.md`
 - `docs/stackobot-physics-request-grammar.md`
@@ -39,6 +40,18 @@ decision still has to be tied to a concrete blocked request.
 | State-machine read/runtime response | `inspect_anim_state_machine_transitions`, `inspect_anim_instance_runtime_state`, `sample_anim_state_machine_runtime_response` | Covered for read/probe |
 | General node contribution proof | `sample_anim_node_pre_post_runtime_pose` when node mapping succeeds | Covered for smoked node classes |
 
+## Current Candidate Shortlist
+
+Keep this as the latest "consider C++ only if blocked" list:
+
+| Candidate area | Concrete trigger | Current decision |
+| --- | --- | --- |
+| Notify, curve, sync marker, or Montage metadata | Safe animation inventory and AssetRegistry-level scan cannot answer a concrete metadata request. | Candidate guarded native API; highest crash-risk boundary. |
+| State-machine graph authoring | Runtime-driver proof is insufficient and the user needs a new state, sequence player, BlendSpace player, or transition rule. | Candidate `ensure_state_machine_sample_variant`. |
+| UpperBody overlay source or branch authoring | Existing Slot/LayeredBlend route is proven but no compatible visible action source or overlay branch exists. | Candidate `ensure_layered_slot_overlay_sample`. |
+| Deeper PhysicsAsset inspection | A request depends on bodies, constraints, limits, or solver details beyond exposed AnimBP node settings. | Candidate read-only guarded inspector first. |
+| Unsupported node resolver or repeated AnimInstance resolution failure | Node contribution proof cannot map the requested node class, or repeated proof attempts fail because actor/component/PIE instance selection is fragile. | Candidate resolver extension or guarded target actor resolver. |
+
 ## Candidate Matrix
 
 | Candidate | Implement when | Do first | Current status |
@@ -50,6 +63,7 @@ decision still has to be tied to a concrete blocked request.
 | `inspect_physics_asset_constraints_guarded` | A user request depends on PhysicsAsset bodies/constraints, limits, or solver details beyond exposed counts/settings. | Read current PhysicsAsset summary and decide if AnimBP physics is enough. | Parked |
 | `inspect_or_author_anim_notifies_curves` | A user request needs sequence notifies, sync markers, curves, or Montage internals. | Use safe asset inventory and AssetRegistry-level Montage scan; do not broad-probe Montage Python. | Highest-risk parked candidate |
 | `resolve_anim_posewatch_target_actor` | Repeated verification attempts fail because actor/component/PIE duplicated instance resolution is the fragile part. | Try documented transient actor setup and component-level Post Process override first. | Parked |
+| `extend_anim_node_runtime_mapping` | A node contribution request targets an unsupported AnimGraph node class or editor/runtime node identity cannot be mapped with existing compiled mapping. | Try `inspect_anim_graph_protected_topology`, compiled mapping, and same-instance PoseWatch first. | Parked |
 | Broader Trail parameter editor | A future request needs relaxation curves, rotation limits, planar/stretch limits, debug display, or fake velocity cases beyond current command inputs. | Use current `ensure_anim_graph_trail_demo` and isolated temp FakeVelocity evidence first. | Parked |
 | `inspect_blueprint_graph_call_topology` | A future request depends on exact Blueprint call flow for interaction/action playback and Python graph traversal times out. | Use AssetRegistry references, variable/function inventory, and existing runtime route proof first. | Parked |
 
@@ -67,6 +81,11 @@ Start C++ implementation only if the active request matches one of these:
    not enough.
 5. "The proof keeps failing because the target actor/AnimInstance cannot be
    resolved" across repeated attempts.
+6. "Prove this specific node changed the pose" where the node class is
+   unsupported or editor/runtime node identity cannot be mapped after the
+   documented topology and compiled mapping reads.
+7. "Inspect the physics asset limits/constraints" where exposed RigidBody node
+   settings and sample pose deltas are insufficient.
 
 If the request is only "make it stronger", "make it lean more", "turn head",
 "antenna lag", or "show which node changed the pose", do not start new C++.
