@@ -423,13 +423,13 @@ Implemented APIs to keep available for future audits:
 12. `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody. It maps editor node GUID `81E779C34D36CC52F0125F91BF52BAF3` to live compiled property `AnimGraphNode_RigidBody` / `/Script/AnimGraphRuntime.AnimNode_RigidBody` with pointer parity against `FindDebugAnimNode`, and now reports runtime pose-link topology such as `ComponentPose -> AnimGraphNode_LocalToComponentSpace`.
 13. `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody plus `ABP_Bot_Trail_Study` Post Process Trail. It uses transient debug-data PoseWatches to capture selected output and first input pose links in the same runtime AnimInstance. RigidBody artifacts are `StackOBot_PoseWatchPrePost_*`; Trail artifacts are `StackOBot_TrailPoseWatchPrePost_*`.
 14. `ensure_anim_graph_trail_demo` - implemented, build-verified, and StackOBot live-smoked; it creates/reuses safe `_MCP_Sample` Trail Post Process AnimBP chains and refuses original asset mutation by default.
+15. `inspect_anim_graph_protected_topology` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Bot` ControlRig topology. Current artifacts are `StackOBot_AnimGraphProtectedTopology_ControlRig_*`.
 
 Remaining C++/UnrealMCP candidates if reusable tooling is explicitly resumed:
 
-1. `inspect_anim_graph_protected_topology`
-2. optional reusable `sample_blendspace_runtime_pose_grid` command; the current StackOBot study already has `StackOBot_BlendSpace_SIEPoseGrid.*`.
-3. optional reusable `ensure_postprocess_anim_demo_variant` command; the current fixtures and PoseWatch captures are already complete for `HeadPitch` and `AntennaRoll`.
-4. expand same-instance AnimGraph pre/post capture beyond the smoked RigidBody/Trail/Post Process ModifyBone paths, especially multi-input/custom node cases
+1. optional reusable `sample_blendspace_runtime_pose_grid` command; the current StackOBot study already has `StackOBot_BlendSpace_SIEPoseGrid.*`.
+2. optional reusable `ensure_postprocess_anim_demo_variant` command; the current fixtures and PoseWatch captures are already complete for `HeadPitch` and `AntennaRoll`.
+3. expand same-instance AnimGraph pre/post capture beyond the smoked RigidBody/Trail/Post Process ModifyBone paths, especially multi-input/custom node cases
 
 Implemented `sample_skeletal_bones_in_sie` detail:
 

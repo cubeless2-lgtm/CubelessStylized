@@ -716,7 +716,7 @@ API follow-up status:
 | --- | --- | --- |
 | `sample_anim_node_pre_post_runtime_pose` | Implemented, with follow-up expansion | `compiled_graph_mapping`, `active_component_tick_delta`, `isolated_temp_components`, and `pose_watch_capture` are implemented. Same-instance PoseWatch capture is live-smoked for `ABP_Baddy` RigidBody, `ABP_Bot_Trail_Study`, and Post Process ModifyBone variants. Use `anim_instance_source=post_process` when the selected node lives in the component's Post Process AnimBP. Remaining expansion is broader multi-input/custom-node coverage. |
 | `ensure_anim_graph_trail_demo` | Implemented | Creates safe `_MCP_Sample` Trail Post Process AnimBP chains and refuses original asset mutation by default. Current Trail learning evidence already uses this path. |
-| `inspect_anim_graph_protected_topology` | Optional future candidate | Existing `inspect_anim_graph_node_settings` covers much of this, but a topology-focused response would make graph-edit planning safer. |
+| `inspect_anim_graph_protected_topology` | Implemented | Build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Bot` ControlRig topology. It returned one `AnimGraphNode_ControlRig_0`, two pose links, `read_only=true`, and `asset_modified=false`. Current artifacts are `StackOBot_AnimGraphProtectedTopology_ControlRig_*`. |
 | `sample_blendspace_runtime_pose_grid` | Optional future candidate | Current StackOBot BlendSpace learning evidence is already complete through `StackOBot_BlendSpace_SIEPoseGrid.*`; a named MCP command is only needed if this must become reusable tooling. |
 | `ensure_postprocess_anim_demo_variant` | Optional future candidate | Current `HeadPitch` and `AntennaRoll` fixtures plus same-instance PoseWatch captures are complete; a named ensure command is only needed if more Post Process variants should be generated repeatedly. |
 | `inspect_anim_state_machine_transitions` | Implemented | Build-verified and StackOBot live-smoked on bridge port `55558`; `StackOBot_StateMachine_TransitionMCPInspect.*` is the current source/target and rule-summary artifact. |
@@ -737,6 +737,7 @@ Priority recommendation:
 11. Completed for meaningful `ABP_Bot` transition drivers: `GroundSpeed`, `IsInAir?`, `MovementInput?`, and `IsHovering` were set on a transient runtime `ABP_Bot_C` instance and produced the expected ground, jump/fall, landing, and jetpack state sequences.
 12. Completed for Blueprint call topology: `inspect_blueprint_graph_call_topology` proved the current `BP_Bot` interact path and found no direct montage/dynamic-slot playback call in the smoked `BP_Bot` event/function topology.
 13. Completed for Trail Controller active sample authoring: `ensure_anim_graph_trail_demo` now creates/reuses safe `_MCP_Sample` Trail Post Process AnimBP chains and refuses original asset mutation by default.
+14. Completed for protected AnimGraph topology: `inspect_anim_graph_protected_topology` now returns AnimGraph nodes, pins, pose pins, and normalized pose links without saving assets.
 
 ## Trail No-C++ Active Sample Feasibility
 
@@ -802,7 +803,7 @@ Learning interpretation:
 
 - `ABP_Bot` is the better sample for cached poses, layered upper-body montage slots, final inactive-pose switching, and Control Rig input gates.
 - `ABP_Baddy` is the better sample for a clean physics node placement: local pose becomes component-space, passes through `RigidBody`, then returns to local pose before the root path.
-- Transition condition internals remain a protected-topology gap for a future MCP command; state playback assets and main pose chains are readable now.
+- Protected AnimGraph node/pin/link topology is now covered by `inspect_anim_graph_protected_topology`; runtime branch firing and sample pose values still require PIE/SIE probes.
 
 ## AnimBP Transition Graph Inventory
 
@@ -837,7 +838,7 @@ Current decision:
 - Use `StackOBot_StateMachine_TransitionMCPInspect.*` as the current source of truth for transition source/target states and rule summaries.
 - Do not use the older Python-only deep probe to infer transition source/target names; it is now only the record of why the C++ MCP path was needed.
 - Runtime active state names, state weights, transition progress, relevant animation timing, and forced-variable response are covered by the runtime AnimInstance API work.
-- Keep deeper protected graph expansion under `inspect_anim_graph_protected_topology` as a separate future candidate only if full pin/link-level condition graphs become necessary.
+- Use `inspect_anim_graph_protected_topology` when static AnimGraph node/pin/link topology is needed; use runtime AnimInstance or PoseWatch commands when the question is whether a branch actually fired or what pose a node produced.
 
 ## AnimInstance Runtime State Probe
 

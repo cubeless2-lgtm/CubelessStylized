@@ -8326,3 +8326,17 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Updated the StackOBot study docs to separate completed learning results from optional future reusable C++/UnrealMCP commands.
 - Optional future candidates retained: `inspect_anim_graph_protected_topology`, reusable `sample_blendspace_runtime_pose_grid`, reusable `ensure_postprocess_anim_demo_variant`, and broader same-instance AnimGraph pre/post capture for multi-input/custom node classes.
 - Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot inspect_anim_graph_protected_topology API
+
+- Implemented the read-only UnrealMCP command `inspect_anim_graph_protected_topology` in sibling `D:/Git/unreal-mcp-cubeless`.
+- The command returns static AnimGraph editor topology: nodes, pins, pose-pin summaries, normalized pose/component-pose links, optional reflected `FAnimNode_*` settings, truncation flags, and read-only metadata.
+- Updated the Python wrapper and `Docs/Tools/node_tools.md`, then synced the plugin C++ source into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP` for smoke validation.
+- Build verification passed for both `MCPGameProjectEditor Win64 Development -NoHotReload` and `StackOBotEditor Win64 Development -NoHotReload`.
+- Live smoke against `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot` with `node_type=ControlRig` succeeded: `read_only=true`, `asset_modified=false`, one `AnimGraphNode_ControlRig_0`, two pose links, one input pose pin, one output pose pin, and `ControlRigClass=/Game/StackOBot/Characters/Bot/Rig/CR_Bot_Correction.CR_Bot_Correction_C`.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimGraphProtectedTopology_ControlRig_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimGraphProtectedTopology_ControlRig_Summary.json`
+- Post-smoke dirty check through `ExecuteFile` reported empty dirty content/map package lists, and the validation editor was closed without saving.
+- The latest StackOBot log contains a `LogPython: Error` from an earlier failed direct-socket dirty-check attempt using the wrong single-statement Python mode. The follow-up `ExecuteFile` dirty check succeeded, so treat that log error as a validation-script attempt error, not an asset mutation or topology-command failure.
+- Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
