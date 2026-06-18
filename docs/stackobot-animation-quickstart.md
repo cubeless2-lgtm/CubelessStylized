@@ -49,6 +49,7 @@ Use this as the first page for future StackOBot animation requests.
 - Acceptance checklist: `docs/stackobot-animation-acceptance-checklist.md`
 - Request compiler: `docs/stackobot-request-compiler-drills.md`
 - Request run template: `docs/stackobot-animation-request-run-template.md`
+- Request run examples: `docs/stackobot-animation-request-run-examples.md`
 - Request playbook: `docs/stackobot-animation-request-playbook.md`
 - Handoff templates: `docs/stackobot-animation-tivret-handoff-templates.md`
 - Authoring templates: `docs/stackobot-animation-authoring-templates.md`

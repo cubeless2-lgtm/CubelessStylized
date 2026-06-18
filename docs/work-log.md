@@ -8694,3 +8694,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Linked the template from the doc index, quickstart, and request playbook.
 - Checker result: `python Tools/Unreal/check_stackobot_animation_docs.py` passed with `doc_count=19`, `reference_count=125`, `missing_reference_count=0`, and `missing_external_path_count=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation request run examples
+
+- Added `docs/stackobot-animation-request-run-examples.md` with dry-run filled records for Bot head yaw, wider run lean, antenna lag, upper-body route proof, and notify/Montage metadata boundary requests.
+- Linked the examples from the doc index and quickstart.
+- Checker result: `python Tools/Unreal/check_stackobot_animation_docs.py` passed with `doc_count=20`, `reference_count=128`, `missing_reference_count=0`, and `missing_external_path_count=0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
