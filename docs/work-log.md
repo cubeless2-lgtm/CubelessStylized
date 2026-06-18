@@ -7344,3 +7344,32 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Verification passed: `uv run python -m py_compile tools\pcg_tools.py unreal_mcp_server.py scripts\analysis\mcp_tool_parity_audit.py`.
 - Parity audit still has no missing Python/C++ routes; overall status remains fail only because of pre-existing duplicate C++ routes and duplicate Python `take_screenshot` tool findings.
 - Pre-push review fix: tightened `pcg_actor_smoke_test` graph matching so `dry_run=False` only operates on exact normalized graph package matches, removing the previous substring fallback.
+
+## 2026-06-18 PCG Reference Priority Decision
+
+- User decision: PCGStudy is the primary source for PCG authoring grammar, reusable structure, source-independent rebuild strategy, tag/exclusion contracts, and MCP graph generation workflow.
+- Electric Dreams remains a reference source for visual direction, spatial composition, road-flow feel, and ecosystem/landscape arrangement, but should not be the primary implementation grammar unless explicitly requested.
+- Default future PCG requests should therefore use PCGStudy as the structural base and Electric Dreams as optional art/space reference.
+- Default future PCG deliverable shape: create a Blueprint Actor with a child PCGComponent, expose tunable PCG controls as BP variables, and keep BP variable names exactly matched to the PCG Actor Property parameter names.
+
+## 2026-06-18 PCG Graph Description Crash Guard
+
+- Crash cause: `/Game/Cubeless/PCG/ProductionCandidates/Graphs/PCG_Cubeless_EcosystemCandidate_SplineEcosystemFalloff` had an overlong localized PCG graph description. UE 5.7 AssetRegistry dependency scanning converted the `INVTEXT(...)` value into an `FName` over the 1023-character limit and asserted.
+- Fix applied: shortened the saved graph description, moved stale `Intermediate/CachedAssetRegistry_0.bin` to `Saved/CrashFixBackup/AssetRegistryCache`, and added `Tools/Unreal/fix_pcg_graph_description_crash.py` plus `Tools/Unreal/sanitize_pcg_asset_descriptions.py`.
+- Prevention: `Tools/Unreal/validate_pcg_roadside_ecosystem_falloff.py` now clamps authored graph descriptions; sibling `../unreal-mcp-cubeless/Python/tools/pcg_tools.py` now sanitizes long descriptions before PCG graph save and skips unsafe dependency scans instead of risking a crash.
+- Verification: targeted commandlet save plus dependency scan completed with `Success - 0 error(s)`; PCG description safety scan reported `404` PCG graphs, `0` risky offenders, and no `FName max length` or critical crash recurrence.
+
+## 2026-06-18 Review Image Alpha Hook
+
+- User decision: when Codex shows a requested QA image/screenshot in chat, compares screenshots, or uses an image for visual inspection, the review/display copy must be fully opaque with alpha `255`.
+- Added `Tools/Image/ensure_review_image_opaque_alpha.py` to rewrite review-display images to RGBA with alpha extrema `[255, 255]`, while keeping source textures/masks with intentional alpha out of scope.
+- Integrated the hook into `Tools/Unreal/run_pcg_bookmark_visual_qa.py` so captured QA screenshots are alpha-fixed before hashing/reporting, and `capture_qa_pass` now requires `review_images_have_alpha_255`.
+- Applied the hook to the latest PCG screenshot: original alpha extrema were `[0, 255]`; review display copy `Saved/MCP_PCG/LandscapeCircleSplineEcosystem_Demo_Wide_review_opaque.png` verified as `[255, 255]`.
+
+## 2026-06-18 Landscape Spline Ecosystem PCG Correction
+
+- User correction: the spline ecosystem PCG must be a Landscape-sampler PCG, not a local-grid or spline-ribbon projection demo.
+- Rewrote `/Game/Cubeless/PCG/ProductionCandidates/Graphs/PCG_Cubeless_EcosystemCandidate_SplineEcosystemFalloff` to use `Get Landscape` feeding a `PCGSurfaceSamplerSettings` node labeled `LANDSCAPE SAMPLER bounded by closed spline`, with a closed self-spline interior surface as the sampler `Bounding Shape`.
+- Reinstanced level actor `MCP_PCG_Landscape_CircleSplineEcosystem_Demo`, restored it to an 8-point closed spline, and regenerated in `/Game/Cubeless/Map/LVL_Cubeless_PCG_Ecosystem_Field`.
+- Verification passed: generated `478` instances total (`304` grass, `78` fern/grass-clump, `65` rock, `31` tree); `220/220` sampled instances were inside the spline polygon, `220/220` hit Landscape, and `0` samples had Z error over `90cm`.
+- Review screenshot: `Saved/MCP_PCG/LandscapeSplineLandscapeSampler_Ecosystem_Topdown_review_opaque.png`, verified with alpha extrema `[255, 255]`.

@@ -6,12 +6,16 @@ Learn the PCG authoring grammar from `/Game/Cubeless/PCG/PCGStudy` so new PCG sy
 
 PCGStudy is the reference textbook. It should not become the runtime or recreation dependency. For test recreations, use replacement assets under `/Game/DreamscapeSeries`.
 
+Default priority: use PCGStudy as the primary PCG authoring grammar and system-design reference. Use Electric Dreams as a visual, spatial, road-flow, and ecosystem composition reference only unless the user explicitly asks for an Electric Dreams-style implementation.
+
 ## Safety Rules
 
 - Treat `/Game/Cubeless/PCG/PCGStudy` as read-only analysis input.
 - Do not use PCGStudy meshes, materials, Blueprints, maps, or saved point data as required sources for new work.
 - Use `/Game/DreamscapeSeries` as the replacement mesh pool for recreation tests.
 - Create validation drafts under `/Game/_MCP_Temp` first.
+- Default PCG deliverable shape is a Blueprint Actor that owns a child PCGComponent. The BP is the user-facing authoring surface; the PCG graph lives under that actor/component, not as a bare graph-only deliverable.
+- Expose user-tunable PCG parameters as BP variables by default, and keep BP variable names exactly matched to the PCG Actor Property parameter names. Example: BP variable `DungeonRoomCount` should be read by PCG as `DungeonRoomCount`, not an alias or differently cased name.
 - Avoid Python map switching. Use native safe level commands if a map open is ever required.
 - Save only after a recreated graph compiles and behaves as intended.
 

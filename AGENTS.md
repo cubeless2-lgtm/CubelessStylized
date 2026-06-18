@@ -47,6 +47,12 @@
 - Only the standalone `이에타` shortcut / `ieta_status` command should open the Ieta Slate window by default.
 - Unreal Editor startup is the only automatic exception: the UnrealMCP plugin may show a brief `ieta_status` Slate sequence, speak in Ieta voice while the connection progress bar advances, then show the connection result and latest editor log error status. On success it closes after about 3 seconds; on failure it stays open.
 
+## Review Image Alpha Hook
+
+- When the user requests visual inspection, asks to see a screenshot/image in chat, or when Codex compares screenshots/images for QA, run the review-display alpha hook before presenting or judging the image: `Tools/Image/ensure_review_image_opaque_alpha.py`, or the integrated hook in `Tools/Unreal/run_pcg_bookmark_visual_qa.py`.
+- The user-facing review/display copy must be fully opaque. If the file has an alpha channel, every alpha value must be `255`; if it lacks alpha, the display copy may stay RGB or be converted to RGBA with alpha `255`.
+- Do not use this hook on deliverable source textures, masks, clouds, decals, UI cutouts, or packed data images where non-opaque alpha is intentional. Those assets still follow the separate alpha-preservation rule.
+
 ## Invocation Shortcut
 
 - When the user sends `이에타` as a standalone call, first check the Unreal MCP connection state and report it briefly before continuing.

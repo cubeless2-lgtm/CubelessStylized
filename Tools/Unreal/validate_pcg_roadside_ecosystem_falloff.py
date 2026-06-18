@@ -98,6 +98,7 @@ ENABLE_EXTERNAL_ROAD_VALIDATION = False
 DYNAMIC_MESH_ATTR = "DynamicMeshPath"
 DYNAMIC_MATERIAL_SLOT0_ATTR = "DynamicMaterialSlot0"
 ROAD_CLEARANCE_DISTANCE_ATTR = "RoadClearanceDistance"
+MAX_ASSET_DESCRIPTION_CHARS = 240
 
 GRASS_MESH = (
     "/Game/DreamscapeSeries/DreamscapeMountains/Meshes/Foliage/Grass/"
@@ -974,6 +975,13 @@ def _configure_by_attribute_spawner(node, use_material_override=False):
         pass
 
 
+def _safe_asset_description(text):
+    value = str(text or "").strip()
+    if len(value) <= MAX_ASSET_DESCRIPTION_CHARS:
+        return value
+    return value[: MAX_ASSET_DESCRIPTION_CHARS - 3].rstrip() + "..."
+
+
 def _node_summary(node):
     try:
         settings_class = node.get_settings().get_class().get_name()
@@ -1184,25 +1192,11 @@ def _create_or_update_graph():
     )
 
     try:
-        graph.description = (
-            "Production-candidate spline ecosystem graph. It creates a local "
-            "candidate grid around the actor and computes each point's "
-            "distance back to the tagged source spline. This keeps open "
-            "two-point and multi-point splines useful for forest/guide/fence/"
-            "road intent while producing a filled ecosystem band without the "
-            "UE 5.7 Duplicate Point relative-rotation crash path. "
-            "EcosystemGridExtents controls candidate volume bounds, "
-            "EcosystemGridCellSize controls candidate spacing, "
-            "EcosystemWidthCm controls the falloff width, and per-category "
-            "spawn ratios scale probability after the spline-distance "
-            "gradient. Spawn meshes/materials are still read from BP actor "
-            "properties. Grass uses a loose self-prune pass to prevent nearly "
-            "identical clumps while still allowing visual overlap; tree and "
-            "rock candidates are merged and hard-pruned before spawning so "
-            "large props do not overlap each other. When "
-            "EnableExternalRoadClearance is true, a separate tagged external "
-            "spline can cut a road/guide corridor without making this graph "
-            "road-specific."
+        graph.description = _safe_asset_description(
+            "Production candidate spline ecosystem graph. Local candidate grid "
+            "fills the tagged source spline area and uses distance falloff for "
+            "grass, trees, and rocks. Meshes/materials come from BP actor "
+            "properties; optional road-clearance spline can cut a corridor."
         )
         graph.get_input_node().set_node_position(-1800, 0)
         graph.get_output_node().set_node_position(2860, 520)
