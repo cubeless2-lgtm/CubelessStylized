@@ -160,11 +160,17 @@ Useful StackOBot evidence:
 - Base pose is `LocomotionPose`.
 - Overlay pose is `CashedPose_UpperBody`.
 - `LayeredBoneBlend` uses branch filters around `pelvis`, `thigh_r`, and `thigh_l` to exclude leg branches.
+- Request-template proof artifacts:
+  `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_LayeredBlendTemplateRehearsal_Topology_Summary.json`
+  and `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_LayeredBlendTemplateRehearsal_PoseWatch_Summary.json`.
+- The PIE rehearsal captured both `BasePose` and `BlendPoses[0]` in the same runtime AnimInstance with `runtime_graph_prepost=true` and `same_instance_prepost=true`.
+- If no montage or action clip is played, near-zero pose deltas are normal; treat that case as route/instrumentation proof, not as visual overlay proof.
 
 Preferred verification:
 
 - `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, input_pose_mode=all)`.
 - Confirm `BasePose` and `BlendPoses[0]` against the same post-node output.
+- Use the existing `UpperBody` route first. Add or request a new slot/layered-blend authoring command only when a future request needs a new overlay branch rather than the existing StackOBot route.
 
 ### 4. Control Rig Pattern
 
