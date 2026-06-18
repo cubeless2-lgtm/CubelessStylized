@@ -101,6 +101,52 @@ REQUIRED_SECTIONS = {
     ],
 }
 
+REQUIRED_TOKENS = {
+    "docs/stackobot-animation-quickstart.md": [
+        "127.0.0.1:55557",
+        "/Game/_MCP_Sample/AnimStudy",
+        "티브렛에게 전달할 지시",
+        "Do not edit original StackOBot assets",
+        "Do not add C++ unless",
+    ],
+    "docs/stackobot-animation-doc-index.md": [
+        "Original StackOBot assets stay read-only",
+        "Sample assets go under `/Game/_MCP_Sample/AnimStudy`",
+        "Do not broad-probe Montage internals",
+        "Do not add new C++",
+    ],
+    "docs/stackobot-animation-request-playbook.md": [
+        "Start sample-only unless",
+        "티브렛에게 전달할 지시",
+        "allow_non_sample=false",
+        "C++/API Escalation",
+        "Do not broad-probe Montage",
+    ],
+    "docs/stackobot-animation-request-run-template.md": [
+        "Original StackOBot assets modified?",
+        "Original maps saved?",
+        "Sample root",
+        "C++/API decision recorded",
+    ],
+    "docs/stackobot-animation-acceptance-checklist.md": [
+        "Do not mark the task complete when the only evidence is that an asset exists.",
+        "Same-instance pre/post",
+        "Stop before final delivery and mark C++/API as `candidate`",
+    ],
+    "docs/stackobot-cpp-api-decision-matrix.md": [
+        "Current timing: do not implement more C++ yet.",
+        "Covered, Do Not Rebuild",
+        "Immediate Implementation Triggers",
+        "sample-root guard",
+    ],
+    "docs/stackobot-animation-request-run-examples.md": [
+        "They are not execution",
+        "do not reactivate the disconnected original `ABP_Bot` Trail node",
+        "do not broad-probe Montage internals",
+        "AnimMontage.h:770",
+    ],
+}
+
 
 def _project_relative(path: Path) -> str:
     try:
@@ -176,6 +222,22 @@ def _required_section_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _required_token_entries() -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for path_text, tokens in REQUIRED_TOKENS.items():
+        path = PROJECT_ROOT / path_text
+        text = _read_text(path) if path.exists() else ""
+        for token in tokens:
+            entries.append(
+                {
+                    "path": path_text,
+                    "token": token,
+                    "exists": token in text,
+                }
+            )
+    return entries
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     started_at = time.monotonic()
     docs = sorted(DOCS_ROOT.glob(args.glob))
@@ -187,15 +249,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_required_docs = [entry for entry in required_docs if not entry["exists"]]
     required_sections = _required_section_entries()
     missing_required_sections = [entry for entry in required_sections if not entry["exists"]]
+    required_tokens = _required_token_entries()
+    missing_required_tokens = [entry for entry in required_tokens if not entry["exists"]]
     pass_value = (
         not missing_references
         and not missing_external_paths
         and not missing_required_docs
         and not missing_required_sections
+        and not missing_required_tokens
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v2",
+        "schema": "stackobot_animation_docs_link_audit_v3",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -205,12 +270,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_external_path_count": len(missing_external_paths),
         "missing_required_doc_count": len(missing_required_docs),
         "missing_required_section_count": len(missing_required_sections),
+        "missing_required_token_count": len(missing_required_tokens),
         "pass": pass_value,
         "docs": [_project_relative(path) for path in docs],
         "missing_references": missing_references,
         "external_paths": external_paths,
         "missing_required_docs": missing_required_docs,
         "missing_required_sections": missing_required_sections,
+        "missing_required_tokens": missing_required_tokens,
     }
 
     if args.write_report:

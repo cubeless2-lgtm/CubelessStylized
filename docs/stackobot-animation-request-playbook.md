@@ -35,6 +35,10 @@ Default target paths:
 Do not edit original StackOBot assets for a first pass. Use original assets as
 reference inputs and duplicate or create safe sample variants.
 
+For authoring commands, keep `allow_non_sample=false` unless original asset
+mutation is explicitly approved. Do not broad-probe Montage internals with
+generic Python.
+
 ## Intake
 
 For every request, extract these fields before doing asset work:

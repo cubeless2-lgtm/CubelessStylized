@@ -8708,3 +8708,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now also validates required StackOBot animation study docs and required core sections for the doc index, quickstart, run template, run examples, acceptance checklist, and C++ API decision matrix.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py` passed with `doc_count=20`, `reference_count=128`, `missing_reference_count=0`, `missing_external_path_count=0`, `missing_required_doc_count=0`, and `missing_required_section_count=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation docs checker safety-token validation
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v3`.
+- Added required safety-token checks for bridge port, `_MCP_Sample`, visible Tivret handoff text, original asset mutation boundaries, `allow_non_sample=false`, Montage broad-probe avoidance, C++ timing, and request-run template acceptance fields.
+- Reinforced `docs/stackobot-animation-request-playbook.md` with explicit `allow_non_sample=false` and Montage broad-probe safety text.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py` passed with `doc_count=20`, `reference_count=128`, `missing_reference_count=0`, `missing_external_path_count=0`, `missing_required_doc_count=0`, `missing_required_section_count=0`, and `missing_required_token_count=0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

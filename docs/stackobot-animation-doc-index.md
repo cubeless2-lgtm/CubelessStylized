@@ -59,8 +59,8 @@ python Tools/Unreal/check_stackobot_animation_docs.py --write-report
 
 The check is local/read-only. It validates relative `docs/*.md` references in
 `docs/stackobot*.md`, confirms required StackOBot docs and template sections are
-present, and confirms the sibling StackOBot/UnrealMCP paths used by the workflow
-still exist.
+present, confirms critical safety tokens are still present, and confirms the
+sibling StackOBot/UnrealMCP paths used by the workflow still exist.
 
 ## Safe Defaults
 
