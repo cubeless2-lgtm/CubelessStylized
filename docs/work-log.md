@@ -8795,3 +8795,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now requires JSON examples for the learned StackOBot animation commands and verifies authoring examples keep `allow_non_sample=false`.
 - Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with `invalid_command_json=0`, `missing_command_examples=0`, and `unsafe_authoring_examples=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot handoff and authoring template audit
+
+- Updated `Tools/Unreal/check_stackobot_animation_docs.py` so `docs/stackobot-animation-tivret-handoff-templates.md` and `docs/stackobot-animation-authoring-templates.md` are covered by required section and safety-token checks.
+- The audit now preserves the main Tivret handoff routes, final report fields, sample-only root, route commands, Montage crash boundary, and C++/API escalation guard.
+- Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with no missing sections or tokens.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
