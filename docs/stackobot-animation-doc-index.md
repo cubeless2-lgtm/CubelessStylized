@@ -21,6 +21,7 @@ the first useful page for each situation.
 | Execute a request from intake through delivery | `docs/stackobot-animation-request-playbook.md` |
 | Keep a per-request execution record | `docs/stackobot-animation-request-run-template.md` |
 | See filled dry-run request records | `docs/stackobot-animation-request-run-examples.md` |
+| Compare route fields before filling a request record | `docs/stackobot-animation-route-matrix.md` |
 | Choose route-specific authoring and proof pattern | `docs/stackobot-animation-authoring-templates.md` |
 | Show the visible instruction before Tivret performs asset/editor work | `docs/stackobot-animation-tivret-handoff-templates.md` |
 | Find exact MCP command parameters and common asset paths | `docs/stackobot-animation-mcp-command-syntax.md` |

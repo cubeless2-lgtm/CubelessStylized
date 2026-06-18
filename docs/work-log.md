@@ -9019,3 +9019,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The JSON schema remains `stackobot_animation_docs_link_audit_v34`; this was an internal maintenance change to reduce duplicated route-field scan logic without changing audit semantics.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with all existing request example mismatch counts at `0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot route matrix documentation
+
+- Added `docs/stackobot-animation-route-matrix.md` as a compact route-to-field matrix for request compilation.
+- The matrix summarizes route classification, sample target, first command, verification command, expected evidence, C++/API status, and approval boundary for the nine covered StackOBot animation routes.
+- Linked the matrix from `docs/stackobot-animation-doc-index.md` and `docs/stackobot-animation-request-playbook.md`.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `docs=21`, `missing_refs=0`, and all request example mismatch counts at `0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

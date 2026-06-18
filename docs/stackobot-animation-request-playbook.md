@@ -10,6 +10,7 @@ Related docs:
 - `docs/stackobot-animation-next-work-backlog.md`
 - `docs/stackobot-animation-acceptance-checklist.md`
 - `docs/stackobot-animation-quickstart.md`
+- `docs/stackobot-animation-route-matrix.md`
 - `docs/stackobot-animation-request-run-template.md`
 - `docs/stackobot-animation-authoring-templates.md`
 - `docs/stackobot-request-compiler-drills.md`
