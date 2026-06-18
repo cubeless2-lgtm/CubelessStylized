@@ -5,9 +5,10 @@ relative docs, required study documents still exist, the doc index covers the
 required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters,
 request-run route and acceptance-focus coverage, and sample-path guards are
-present, and acceptance universal/route/evidence/reporting fields plus
-escalation triggers are preserved. It also confirms the sibling/sample
-workspace paths used by the workflow still exist on this machine.
+present, request-run routes map to the expected handoff templates, and acceptance
+universal/route/evidence/reporting fields plus escalation triggers are
+preserved. It also confirms the sibling/sample workspace paths used by the
+workflow still exist on this machine.
 It does not call Unreal, does not touch assets, and does not require the editor
 bridge to be online.
 """
@@ -580,6 +581,18 @@ REQUEST_EXAMPLE_ROUTE_COVERAGE = {
     "node_contribution_proof": "node resolver plus same-instance pre/post proof",
 }
 
+REQUEST_EXAMPLE_ROUTE_HANDOFF_RULES = {
+    "Post Process ModifyBone": "Post Process ModifyBone",
+    "BlendSpace sample variant": "BlendSpace Sample Variant",
+    "Bot Trail sample": "Trail Or Secondary Motion",
+    "UpperBody Slot and LayeredBlend": "UpperBody Slot And LayeredBlend",
+    "protected metadata boundary": "Notify, Curve, Sync Marker, Or Montage Internals",
+    "ControlRig gate probe": "ControlRig Late Correction",
+    "state-machine runtime-driver proof": "State Machine Or Runtime Driver",
+    "Baddy RigidBody": "Trail Or Secondary Motion",
+    "node resolver plus same-instance pre/post proof": "no authoring handoff",
+}
+
 REQUEST_EXAMPLE_MIN_ACCEPTANCE_FOCUS_BULLETS = 3
 
 REQUEST_RUN_TEMPLATE_FIELD_GROUPS = {
@@ -1103,6 +1116,49 @@ def _request_example_route_coverage_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _request_example_route_handoff_entries() -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for record in _request_example_records():
+        fields = record["fields"]
+        route = fields.get("route", "")
+        handoff_template = fields.get("handoff_template", "")
+        matched_tokens = [
+            token
+            for token in REQUEST_EXAMPLE_ROUTE_HANDOFF_RULES
+            if token in route
+        ]
+        if not matched_tokens:
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "handoff_template": handoff_template,
+                    "expected_handoff": "",
+                    "matches": False,
+                    "known_route": False,
+                }
+            )
+            continue
+
+        for route_token in matched_tokens:
+            expected_handoff = REQUEST_EXAMPLE_ROUTE_HANDOFF_RULES[route_token]
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "route_token": route_token,
+                    "handoff_template": handoff_template,
+                    "expected_handoff": expected_handoff,
+                    "matches": handoff_template.startswith(expected_handoff),
+                    "known_route": True,
+                }
+            )
+
+    return entries
+
+
 def _request_example_acceptance_focus_entries() -> list[dict[str, Any]]:
     records = _request_example_records()
     entries: list[dict[str, Any]] = []
@@ -1481,6 +1537,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_request_example_route_coverage = [
         entry for entry in request_example_route_coverage if not entry["exists"]
     ]
+    request_example_route_handoffs = _request_example_route_handoff_entries()
+    mismatched_request_example_route_handoffs = [
+        entry
+        for entry in request_example_route_handoffs
+        if not entry["known_route"] or not entry["matches"]
+    ]
     request_example_acceptance_focus = _request_example_acceptance_focus_entries()
     missing_request_example_acceptance_focus = [
         entry
@@ -1551,6 +1613,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_example_fields
         and not unsafe_request_examples
         and not missing_request_example_route_coverage
+        and not mismatched_request_example_route_handoffs
         and not missing_request_example_acceptance_focus
         and not missing_request_run_template_fields
         and not missing_acceptance_final_report_fields
@@ -1567,7 +1630,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v22",
+        "schema": "stackobot_animation_docs_link_audit_v23",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -1582,6 +1645,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_example_field_count": len(missing_example_fields),
         "unsafe_request_example_count": len(unsafe_request_examples),
         "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
+        "mismatched_request_example_route_handoff_count": len(mismatched_request_example_route_handoffs),
         "missing_request_example_acceptance_focus_count": len(missing_request_example_acceptance_focus),
         "missing_request_run_template_field_count": len(missing_request_run_template_fields),
         "missing_acceptance_final_report_field_count": len(missing_acceptance_final_report_fields),
@@ -1610,6 +1674,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "unsafe_request_examples": unsafe_request_examples,
         "request_example_route_coverage": request_example_route_coverage,
         "missing_request_example_route_coverage": missing_request_example_route_coverage,
+        "request_example_route_handoffs": request_example_route_handoffs,
+        "mismatched_request_example_route_handoffs": mismatched_request_example_route_handoffs,
         "request_example_acceptance_focus": request_example_acceptance_focus,
         "missing_request_example_acceptance_focus": missing_request_example_acceptance_focus,
         "request_run_template_fields": request_run_template_fields,
@@ -1661,6 +1727,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_example_fields={report['missing_example_field_count']} "
             f"unsafe_request_examples={report['unsafe_request_example_count']} "
             f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
+            f"mismatched_request_example_route_handoffs={report['mismatched_request_example_route_handoff_count']} "
             f"missing_acceptance_focus_blocks={report['missing_request_example_acceptance_focus_count']} "
             f"missing_template_fields={report['missing_request_run_template_field_count']} "
             f"missing_acceptance_report_fields={report['missing_acceptance_final_report_field_count']} "
@@ -1688,6 +1755,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_example_fields",
             "unsafe_request_examples",
             "missing_request_example_route_coverage",
+            "mismatched_request_example_route_handoffs",
             "missing_request_example_acceptance_focus",
             "missing_request_run_template_fields",
             "missing_acceptance_final_report_fields",
