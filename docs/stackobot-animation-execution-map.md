@@ -121,6 +121,7 @@ Compiled sample variants under `/Game/_MCP_Sample/AnimStudy`:
 | `ABP_Bot_PostProcess_Study_HeadPitch` | `head` | `Pitch=6` | AnimBP compile passed; matching duplicated mesh and actor linked. |
 | `ABP_Bot_PostProcess_Study_AntennaRoll` | `antenna_04_l` | `Roll=12` | AnimBP compile passed; matching duplicated mesh and actor linked. |
 | `ABP_Bot_PostProcess_Study_HeadYawAuthoringPattern` | `head` | `Yaw=8` | Sample-only authoring smoke passed compile/save/load and no-SIE editor-world same-instance PoseWatch verification. |
+| `ABP_Bot_PostProcess_Study_HeadYawPlus5Study` | `head` | `Yaw=5` | Sample-only request-template rehearsal passed dry-run, compile/save, editor-world no-SIE same-instance PoseWatch, and transient actor cleanup. |
 
 Artifact: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSummary.md`.
 
@@ -129,8 +130,10 @@ Runtime note:
 - The existing base Post Process sample has SIE proof for `head` roll propagation.
 - The `HeadPitch` and `AntennaRoll` variants now have live same-instance PoseWatch sampling through `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)`.
 - The `HeadYawAuthoringPattern` variant proves the current authoring recipe can create a new sample-only Post Process Modify Bone asset pair without touching originals, then verify it through the existing C++ PoseWatch command without starting SIE.
+- The `HeadYawPlus5Study` variant is the first request-template rehearsal using the documented `티브렛에게 전달할 지시` route. It created only `_MCP_Sample` targets and verified the same Post Process ModifyBone node in editor-world without SIE.
 - PoseWatch artifacts: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_Summary.json` and `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_raw.json`.
 - HeadYaw PoseWatch artifacts: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_HeadYawAuthoringPatternPoseWatchPrePost_Summary.json` and `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_HeadYawAuthoringPatternPoseWatchPrePost_raw.json`.
+- HeadYawPlus5 artifacts: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessHeadYawPlus5Ensure_raw.json`, `StackOBot_PostProcessHeadYawPlus5PoseWatch_raw.json`, `StackOBot_PostProcessHeadYawPlus5PoseWatch_Summary.json`, `StackOBot_PostProcessHeadYawPlus5_Setup.json`, and `StackOBot_PostProcessHeadYawPlus5_Cleanup.json`.
 
 Impact map artifact: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.md`.
 
@@ -139,6 +142,7 @@ Impact summary:
 - `HeadPitch` affects `head` directly by about `6.0 deg`, and inherited child motion moves antenna leaf bones about `8.6 cm`.
 - `AntennaRoll` affects only `antenna_04_l`, about `12.0 deg`; parent/sibling bones stay within floating-point noise.
 - `HeadYawAuthoringPattern` affects `head` directly by about `8.0 deg`, and inherited child motion moves antenna leaf bones about `11.74 cm`; pelvis and neck stay within floating-point noise.
+- `HeadYawPlus5Study` affects `head` directly by about `5.0 deg`, moves `antenna_04_l` about `7.339 cm` and `antenna_04_r` about `7.345 cm`, while pelvis and neck remain at floating-point noise.
 
 ## Baddy RigidBody Source vs Runtime Split
 
