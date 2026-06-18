@@ -176,3 +176,139 @@ Acceptance focus:
 - do not guess protected notify, curve, or sync-marker data;
 - if safe inventory is insufficient, stop and park the guarded API candidate;
 - mention the known `AnimMontage.h:770` crash boundary.
+
+## Example 6: ControlRig Foot Interaction
+
+```text
+user_request:
+Make the Bot foot reach an interaction point.
+
+target_character: Bot
+target_body_area: foot IK / interaction reach
+timing_type: late correction gated by runtime inputs and curves
+runtime_layer: ControlRig inside the main AnimBP
+route: ControlRig gate probe, then forced-driver sample if gameplay gates are inactive
+sample_target:
+/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ForcedDriver_Study
+first_read_or_authoring_command:
+inspect_anim_graph_protected_topology, then controlrig_direct_gate_probe
+verification_command:
+sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)
+expected_evidence:
+ControlRig is root-connected, required gates are identified, and same-instance pre/post delta appears in the forced-driver sample
+handoff_template:
+ControlRig Late Correction
+cxx_api_status:
+not needed unless the requested gate or pin cannot be driven by existing commands
+ask_user_first:
+false for sample proof, true before editing original ABP_Bot or CR_Bot_Correction
+```
+
+Acceptance focus:
+
+- direct ControlRig solve is not the same as compiled AnimGraph proof;
+- gate names and input values must come from topology/probe results, not guesses;
+- gameplay-gated behavior should use the forced-driver sample when transient play does not activate the route;
+- original ControlRig and original AnimBP remain read-only.
+
+## Example 7: Hover Transition Timing
+
+```text
+user_request:
+Make hover stay longer before returning to walk.
+
+target_character: Bot
+target_body_area: locomotion state-machine behavior
+timing_type: state duration or transition condition
+runtime_layer: main AnimBP state machine
+route: state-machine runtime-driver proof before graph authoring
+sample_target:
+none for first pass; future sample graph only if runtime-driver proof is insufficient
+first_read_or_authoring_command:
+inspect_anim_state_machine_transitions
+verification_command:
+sample_anim_state_machine_runtime_response
+expected_evidence:
+explicit driver cases show current state, transition progress, state weight, and restored runtime properties
+handoff_template:
+State Machine Or Runtime Driver
+cxx_api_status:
+candidate only if a new state, sequence player, or transition rule must be authored
+ask_user_first:
+false for read/runtime proof, true before original graph mutation or new authoring API
+```
+
+Acceptance focus:
+
+- do not claim a new hover rule was authored from runtime-driver evidence alone;
+- runtime properties must be restored after each case;
+- the sampled world and AnimInstance must be reported;
+- graph authoring stays parked until the concrete request proves runtime-driver proof is not enough.
+
+## Example 8: Baddy Soft Stalk
+
+```text
+user_request:
+Make the Baddy stalk feel softer and more delayed.
+
+target_character: Baddy
+target_body_area: stalk / body secondary motion
+timing_type: animation physics response
+runtime_layer: RigidBody node in the AnimBP
+route: existing Baddy RigidBody read or sample tuning
+sample_target:
+/Game/_MCP_Sample/AnimStudy/[BaddyRigidBodySampleName] if tuning is needed
+first_read_or_authoring_command:
+inspect_anim_graph_node_settings
+verification_command:
+sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping), then pose_watch_capture if runtime proof is needed
+expected_evidence:
+RigidBody settings, mapped runtime node, and source-vs-output or pre/post pose deltas for the stalk chain
+handoff_template:
+Trail Or Secondary Motion
+cxx_api_status:
+not needed for narrow setting reads or sample tuning; candidate for deeper PhysicsAsset inspection
+ask_user_first:
+false for sample/read proof, true before original physics asset or AnimBP mutation
+```
+
+Acceptance focus:
+
+- separate animation-physics behavior from world physics or collision requests;
+- do not infer body or constraint limits that were not safely inspected;
+- same-instance proof is preferred before reporting the effect as complete;
+- original Baddy assets remain untouched unless explicitly approved.
+
+## Example 9: Node Contribution Proof
+
+```text
+user_request:
+Prove which node changed this pose.
+
+target_character: Bot or Baddy, depending on the selected graph
+target_body_area: target node output and affected bones
+timing_type: instrumentation only
+runtime_layer: compiled AnimGraph node contribution
+route: node resolver plus same-instance pre/post proof
+sample_target:
+none unless a controlled sample actor is needed for runtime proof
+first_read_or_authoring_command:
+inspect_anim_graph_protected_topology or compiled mapping for the suspected node
+verification_command:
+sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)
+expected_evidence:
+target node selection, runtime/editor node mapping when needed, input/output links, sampled bone deltas, and same-instance confirmation
+handoff_template:
+no authoring handoff unless the proof needs a sample actor setup
+cxx_api_status:
+not needed unless the node class is unsupported or actor/AnimInstance resolution repeatedly fails
+ask_user_first:
+false while the work is read-only instrumentation
+```
+
+Acceptance focus:
+
+- do not start by editing assets;
+- identify the suspected node before interpreting pose deltas;
+- use compiled mapping when editor node identity and runtime node identity could diverge;
+- if node selection is ambiguous, report ambiguity instead of over-claiming causality.

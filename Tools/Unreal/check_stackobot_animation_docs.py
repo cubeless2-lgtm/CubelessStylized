@@ -83,6 +83,10 @@ REQUIRED_SECTIONS = {
         "## Example 3: Antenna Lag",
         "## Example 4: Upper Body While Moving",
         "## Example 5: Notify Or Montage Timing",
+        "## Example 6: ControlRig Foot Interaction",
+        "## Example 7: Hover Transition Timing",
+        "## Example 8: Baddy Soft Stalk",
+        "## Example 9: Node Contribution Proof",
     ],
     "docs/stackobot-animation-acceptance-checklist.md": [
         "## Universal Pass Gate",
@@ -144,6 +148,10 @@ REQUIRED_TOKENS = {
         "do not reactivate the disconnected original `ABP_Bot` Trail node",
         "do not broad-probe Montage internals",
         "AnimMontage.h:770",
+        "controlrig_direct_gate_probe",
+        "sample_anim_state_machine_runtime_response",
+        "Baddy RigidBody",
+        "same-instance confirmation",
     ],
 }
 

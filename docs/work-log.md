@@ -8730,3 +8730,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Reason: recent StackOBot documentation checker commits staged Python containing non-ASCII safety tokens, which could make the pre-commit hook print a non-fatal `cp949` reader-thread decode exception during commit output handling.
 - Smoke result: `python -m py_compile Tools/GitHooks/check_unreal_python_uv_safety.py` passed, `python Tools/GitHooks/check_unreal_python_uv_safety.py` passed, and direct `run_git(["show", "HEAD:Tools/Unreal/check_stackobot_animation_docs.py"])` read succeeded.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request-run example coverage
+
+- Expanded `docs/stackobot-animation-request-run-examples.md` with dry-run examples for ControlRig foot interaction, hover/state-machine timing, Baddy RigidBody softness, and node contribution proof.
+- Updated `Tools/Unreal/check_stackobot_animation_docs.py` so those new example sections and route tokens are covered by the local documentation audit.
+- Purpose: future no-sample animation requests can be compiled across all major learned routes before Tivret touches assets, including proof-only and C++/API-candidate boundaries.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
