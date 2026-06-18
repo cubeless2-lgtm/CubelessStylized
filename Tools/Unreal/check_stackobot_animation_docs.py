@@ -1,10 +1,11 @@
 """Audit StackOBot animation study documentation references and structure.
 
 This local/read-only check validates that StackOBot study docs point to existing
-relative docs, required study documents still exist, key template sections and
-request-run example fields are present, and the sibling/sample workspace paths
-used by the workflow still exist on this machine. It does not call Unreal, does
-not touch assets, and does not require the editor bridge to be online.
+relative docs, required study documents still exist, key template sections,
+request-run example fields, and MCP command syntax examples are present, and the
+sibling/sample workspace paths used by the workflow still exist on this machine.
+It does not call Unreal, does not touch assets, and does not require the editor
+bridge to be online.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_DocAudit" / "StackOBotAnimationDocsL
 RELATIVE_DOC_RE = re.compile(r"(?<![A-Za-z0-9_:/.-])docs/[A-Za-z0-9._/-]+\.md")
 EXAMPLE_SECTION_RE = re.compile(r"^## Example (?P<number>\d+): (?P<title>.+)$", re.MULTILINE)
 TEXT_FENCE_RE = re.compile(r"```text\n(?P<body>.*?)\n```", re.DOTALL)
+JSON_FENCE_RE = re.compile(r"```json\n(?P<body>.*?)\n```", re.DOTALL)
 EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
 
@@ -191,6 +193,28 @@ REQUEST_EXAMPLE_REQUIRED_FIELDS = [
     "ask_user_first",
 ]
 
+COMMAND_SYNTAX_REQUIRED_JSON_COMMANDS = [
+    "ensure_postprocess_anim_demo_variant",
+    "sample_anim_node_pre_post_runtime_pose",
+    "ensure_blendspace_sample_variant",
+    "sample_blendspace_runtime_pose_grid",
+    "ensure_controlrig_forced_driver_animbp",
+    "controlrig_direct_gate_probe",
+    "inspect_anim_state_machine_transitions",
+    "sample_anim_state_machine_runtime_response",
+    "ensure_anim_graph_trail_demo",
+    "inspect_anim_graph_node_settings",
+    "set_anim_graph_rigidbody_settings",
+]
+
+COMMAND_SYNTAX_AUTHORING_COMMANDS = [
+    "ensure_postprocess_anim_demo_variant",
+    "ensure_blendspace_sample_variant",
+    "ensure_controlrig_forced_driver_animbp",
+    "ensure_anim_graph_trail_demo",
+    "set_anim_graph_rigidbody_settings",
+]
+
 
 def _project_relative(path: Path) -> str:
     try:
@@ -336,6 +360,94 @@ def _request_example_field_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _command_syntax_json_blocks() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-mcp-command-syntax.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    entries: list[dict[str, Any]] = []
+
+    for index, match in enumerate(JSON_FENCE_RE.finditer(text), start=1):
+        body = match.group("body")
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError as exc:
+            entries.append(
+                {
+                    "path": path_text,
+                    "block_index": index,
+                    "parse_success": False,
+                    "command": "",
+                    "error": str(exc),
+                }
+            )
+            continue
+
+        entries.append(
+            {
+                "path": path_text,
+                "block_index": index,
+                "parse_success": True,
+                "command": str(payload.get("command", "")),
+                "params": payload.get("params", {}),
+            }
+        )
+
+    return entries
+
+
+def _command_syntax_command_entries(json_blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    commands = {
+        str(block.get("command", ""))
+        for block in json_blocks
+        if block.get("parse_success") and block.get("command")
+    }
+    return [
+        {
+            "path": "docs/stackobot-animation-mcp-command-syntax.md",
+            "command": command,
+            "exists": command in commands,
+        }
+        for command in COMMAND_SYNTAX_REQUIRED_JSON_COMMANDS
+    ]
+
+
+def _command_syntax_authoring_safety_entries(json_blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for command in COMMAND_SYNTAX_AUTHORING_COMMANDS:
+        matching_blocks = [
+            block
+            for block in json_blocks
+            if block.get("parse_success") and block.get("command") == command
+        ]
+        if not matching_blocks:
+            entries.append(
+                {
+                    "path": "docs/stackobot-animation-mcp-command-syntax.md",
+                    "command": command,
+                    "block_index": None,
+                    "field": "allow_non_sample",
+                    "exists": False,
+                    "safe_value": False,
+                }
+            )
+            continue
+
+        for block in matching_blocks:
+            params = block.get("params") if isinstance(block.get("params"), dict) else {}
+            value = params.get("allow_non_sample")
+            entries.append(
+                {
+                    "path": "docs/stackobot-animation-mcp-command-syntax.md",
+                    "command": command,
+                    "block_index": block.get("block_index"),
+                    "field": "allow_non_sample",
+                    "exists": "allow_non_sample" in params,
+                    "safe_value": value is False,
+                }
+            )
+    return entries
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     started_at = time.monotonic()
     docs = sorted(DOCS_ROOT.glob(args.glob))
@@ -353,6 +465,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_example_fields = [
         entry for entry in example_fields if not entry["exists"] or not entry["has_value"]
     ]
+    command_syntax_json_blocks = _command_syntax_json_blocks()
+    invalid_command_syntax_json = [
+        entry for entry in command_syntax_json_blocks if not entry["parse_success"]
+    ]
+    command_syntax_commands = _command_syntax_command_entries(command_syntax_json_blocks)
+    missing_command_syntax_commands = [
+        entry for entry in command_syntax_commands if not entry["exists"]
+    ]
+    command_syntax_authoring_safety = _command_syntax_authoring_safety_entries(command_syntax_json_blocks)
+    unsafe_command_syntax_authoring = [
+        entry
+        for entry in command_syntax_authoring_safety
+        if not entry["exists"] or not entry["safe_value"]
+    ]
     pass_value = (
         not missing_references
         and not missing_external_paths
@@ -360,10 +486,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_required_sections
         and not missing_required_tokens
         and not missing_example_fields
+        and not invalid_command_syntax_json
+        and not missing_command_syntax_commands
+        and not unsafe_command_syntax_authoring
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v4",
+        "schema": "stackobot_animation_docs_link_audit_v5",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -375,6 +504,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_required_section_count": len(missing_required_sections),
         "missing_required_token_count": len(missing_required_tokens),
         "missing_example_field_count": len(missing_example_fields),
+        "invalid_command_syntax_json_count": len(invalid_command_syntax_json),
+        "missing_command_syntax_command_count": len(missing_command_syntax_commands),
+        "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
         "pass": pass_value,
         "docs": [_project_relative(path) for path in docs],
         "missing_references": missing_references,
@@ -384,6 +516,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_required_tokens": missing_required_tokens,
         "example_fields": example_fields,
         "missing_example_fields": missing_example_fields,
+        "command_syntax_json_blocks": command_syntax_json_blocks,
+        "invalid_command_syntax_json": invalid_command_syntax_json,
+        "command_syntax_commands": command_syntax_commands,
+        "missing_command_syntax_commands": missing_command_syntax_commands,
+        "command_syntax_authoring_safety": command_syntax_authoring_safety,
+        "unsafe_command_syntax_authoring": unsafe_command_syntax_authoring,
     }
 
     if args.write_report:
@@ -405,7 +543,10 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_required_docs={report['missing_required_doc_count']} "
             f"missing_required_sections={report['missing_required_section_count']} "
             f"missing_required_tokens={report['missing_required_token_count']} "
-            f"missing_example_fields={report['missing_example_field_count']}"
+            f"missing_example_fields={report['missing_example_field_count']} "
+            f"invalid_command_json={report['invalid_command_syntax_json_count']} "
+            f"missing_command_examples={report['missing_command_syntax_command_count']} "
+            f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']}"
         ),
     ]
     if report.get("report_path"):
@@ -417,6 +558,9 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_required_sections",
             "missing_required_tokens",
             "missing_example_fields",
+            "invalid_command_syntax_json",
+            "missing_command_syntax_commands",
+            "unsafe_command_syntax_authoring",
         ]:
             entries = report.get(key) or []
             if entries:

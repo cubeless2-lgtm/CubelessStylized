@@ -8788,3 +8788,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Also hardened `Tools/Unreal/run_stackobot_animation_local_checks.py` console output to use UTF-8 with replacement fallback on Windows, so captured checker output cannot fail on `cp949` console encoding.
 - Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with `missing_example_fields=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot command syntax JSON audit
+
+- Updated `Tools/Unreal/check_stackobot_animation_docs.py` to parse JSON code fences in `docs/stackobot-animation-mcp-command-syntax.md`.
+- The checker now requires JSON examples for the learned StackOBot animation commands and verifies authoring examples keep `allow_non_sample=false`.
+- Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with `invalid_command_json=0`, `missing_command_examples=0`, and `unsafe_authoring_examples=0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
