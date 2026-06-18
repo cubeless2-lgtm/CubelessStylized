@@ -164,6 +164,18 @@ REQUIRED_SECTIONS = {
         "## Completion Contract",
         "## C++/API Escalation Gate",
     ],
+    "docs/stackobot-animation-mcp-command-syntax.md": [
+        "## Command Quick Map",
+        "## Common StackOBot Asset Paths",
+        "## Authoring Syntax",
+        "### Post Process ModifyBone sample",
+        "### BlendSpace sample variant",
+        "### ControlRig forced-driver sample",
+        "### State-machine runtime response",
+        "### Trail or secondary motion sample",
+        "### RigidBody settings and sample tuning",
+        "## Result Checklist",
+    ],
     "docs/stackobot-cpp-api-decision-matrix.md": [
         "## Current Rule",
         "## Covered, Do Not Rebuild",
@@ -298,6 +310,21 @@ REQUIRED_TOKENS = {
         "Do not reactivate the disconnected original Bot Trail node directly.",
         "AnimMontage.h:770",
         "Do not add C++ just because a request is complex.",
+    ],
+    "docs/stackobot-animation-mcp-command-syntax.md": [
+        "D:/Git/unreal-mcp-cubeless/Python/tools/node_tools.py",
+        "D:/Git/unreal-mcp-cubeless/Docs/Tools/node_tools.md",
+        "Start under `/Game/_MCP_Sample/AnimStudy` unless original asset mutation was explicitly approved.",
+        "Keep `allow_non_sample=false` for authoring commands.",
+        "D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP",
+        "Commands here do not open maps. Do not use generic Python map switching as setup.",
+        "/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot",
+        "/Game/StackOBot/Characters/Bot/Mesh/SKM_Bot.SKM_Bot",
+        "/Game/_MCP_Sample/AnimStudy",
+        "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+        "original_assets_modified=false",
+        "sampled_world_type",
+        "Dirty package status after transient actor work.",
     ],
     "docs/stackobot-animation-request-run-template.md": [
         "Original StackOBot assets modified?",
@@ -669,7 +696,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v7",
+        "schema": "stackobot_animation_docs_link_audit_v8",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
