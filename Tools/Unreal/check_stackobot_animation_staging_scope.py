@@ -25,6 +25,7 @@ ALLOWED_EXACT = {
     "Tools/Unreal/check_stackobot_animation_docs.py",
     "Tools/Unreal/check_stackobot_animation_preflight.py",
     "Tools/Unreal/check_stackobot_animation_staging_scope.py",
+    "Tools/Unreal/run_stackobot_animation_local_checks.py",
 }
 
 ALLOWED_PREFIXES = (

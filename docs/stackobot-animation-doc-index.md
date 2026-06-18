@@ -51,6 +51,12 @@ the first useful page for each situation.
 
 ## Local Checks
 
+Run this for the normal local closeout:
+
+```powershell
+python Tools/Unreal/run_stackobot_animation_local_checks.py --summary
+```
+
 Run this before a concrete StackOBot editor/sample request:
 
 ```powershell

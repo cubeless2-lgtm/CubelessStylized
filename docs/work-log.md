@@ -8766,3 +8766,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker allows staged `docs/stackobot*`, StackOBot animation checker/preflight/staging tools, and `docs/work-log.md`, while blocking unrelated `Content/`, PCG docs, PCG V2 Python, and generated output paths.
 - Updated `docs/stackobot-animation-quickstart.md`, `docs/stackobot-animation-doc-index.md`, and `Tools/Unreal/check_stackobot_animation_docs.py` so the staging-scope command is part of the documented local check flow.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation local checks runner
+
+- Added `Tools/Unreal/run_stackobot_animation_local_checks.py`, a local/read-only closeout runner that compiles the StackOBot animation checker scripts and runs the docs audit, static preflight, and staging-scope checks in one command.
+- Updated `Tools/Unreal/check_stackobot_animation_staging_scope.py` so the new runner is allowed in StackOBot animation study commits.
+- Updated `docs/stackobot-animation-quickstart.md`, `docs/stackobot-animation-doc-index.md`, and `Tools/Unreal/check_stackobot_animation_docs.py` so routine closeout can use `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

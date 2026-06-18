@@ -109,8 +109,7 @@ REQUIRED_SECTIONS = {
 
 REQUIRED_TOKENS = {
     "docs/stackobot-animation-quickstart.md": [
-        "check_stackobot_animation_preflight.py --summary",
-        "check_stackobot_animation_staging_scope.py --summary",
+        "run_stackobot_animation_local_checks.py --summary",
         "--require-bridge",
         "D:/Git/SampleProject/StackOBot",
         "127.0.0.1:55557",
@@ -125,6 +124,7 @@ REQUIRED_TOKENS = {
     "docs/stackobot-animation-doc-index.md": [
         "Original StackOBot assets stay read-only",
         "Sample assets go under `/Game/_MCP_Sample/AnimStudy`",
+        "run_stackobot_animation_local_checks.py --summary",
         "check_stackobot_animation_preflight.py --summary",
         "check_stackobot_animation_preflight.py --summary --require-bridge",
         "check_stackobot_animation_staging_scope.py --summary",

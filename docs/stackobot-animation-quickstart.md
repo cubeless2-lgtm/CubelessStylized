@@ -19,7 +19,7 @@ Use this as the first page for future StackOBot animation requests.
    `docs/stackobot-animation-authoring-templates.md`.
 8. Record results in `docs/work-log.md`.
 9. Before committing, run
-   `python Tools/Unreal/check_stackobot_animation_staging_scope.py --summary`
+   `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary`
    and commit only relevant docs/tooling.
 
 ## Preflight Checklist
@@ -28,7 +28,7 @@ Before Tivret touches editor state or creates sample evidence, confirm these
 items and record the result in the request run note:
 
 - Local read-only preflight passes:
-  `python Tools/Unreal/check_stackobot_animation_preflight.py --summary`
+  `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary`
 - StackOBot project path exists at `D:/Git/SampleProject/StackOBot`.
 - Primary UnrealMCP bridge is reachable on `127.0.0.1:55557`.
 - Active StackOBot plugin copy is
