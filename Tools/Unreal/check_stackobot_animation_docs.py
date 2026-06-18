@@ -288,6 +288,38 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     return report
 
 
+def _format_summary(report: dict[str, Any]) -> str:
+    status = "PASS" if report["pass"] else "FAIL"
+    lines = [
+        f"StackOBot animation docs check: {status}",
+        (
+            f"schema={report['schema']} docs={report['doc_count']} refs={report['reference_count']} "
+            f"missing_refs={report['missing_reference_count']} "
+            f"missing_external={report['missing_external_path_count']} "
+            f"missing_required_docs={report['missing_required_doc_count']} "
+            f"missing_required_sections={report['missing_required_section_count']} "
+            f"missing_required_tokens={report['missing_required_token_count']}"
+        ),
+    ]
+    if report.get("report_path"):
+        lines.append(f"report={report['report_path']}")
+    if not report["pass"]:
+        for key in [
+            "missing_references",
+            "missing_required_docs",
+            "missing_required_sections",
+            "missing_required_tokens",
+        ]:
+            entries = report.get(key) or []
+            if entries:
+                lines.append(f"{key}:")
+                for entry in entries[:10]:
+                    lines.append(f"  - {entry}")
+                if len(entries) > 10:
+                    lines.append(f"  ... {len(entries) - 10} more")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -300,10 +332,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Write JSON report under Saved/MCP_DocAudit.",
     )
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="Print a concise pass/fail summary instead of the full JSON report.",
+    )
     args = parser.parse_args(argv)
 
     report = run(args)
-    print(json.dumps(report, indent=2, ensure_ascii=False))
+    if args.summary:
+        print(_format_summary(report))
+    else:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
     return 0 if report["pass"] else 1
 
 

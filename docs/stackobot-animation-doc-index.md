@@ -54,6 +54,12 @@ the first useful page for each situation.
 Run this after editing StackOBot animation docs:
 
 ```powershell
+python Tools/Unreal/check_stackobot_animation_docs.py --summary
+```
+
+Write the full JSON report when an audit artifact is useful:
+
+```powershell
 python Tools/Unreal/check_stackobot_animation_docs.py --write-report
 ```
 

@@ -8716,3 +8716,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Reinforced `docs/stackobot-animation-request-playbook.md` with explicit `allow_non_sample=false` and Montage broad-probe safety text.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py` passed with `doc_count=20`, `reference_count=128`, `missing_reference_count=0`, `missing_external_path_count=0`, `missing_required_doc_count=0`, `missing_required_section_count=0`, and `missing_required_token_count=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation docs checker summary output
+
+- Added `--summary` to `Tools/Unreal/check_stackobot_animation_docs.py` for concise pass/fail output while keeping full JSON as the default.
+- Updated `docs/stackobot-animation-doc-index.md` to show `--summary` for routine checks and `--write-report` for audit artifacts.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `doc_count=20`, `reference_count=128`, and all missing counts at `0`; `--summary --write-report` also wrote `Saved/MCP_DocAudit/StackOBotAnimationDocsLinkAudit.json`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
