@@ -6,7 +6,8 @@ required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters,
 request-run route and acceptance-focus coverage, and sample-path guards are
 present, request-run routes map to the expected handoff templates and
-first/verification commands, C++/API status, plus expected evidence, and acceptance
+first/verification commands, C++/API status, expected evidence, plus
+route-specific acceptance focus, and acceptance
 universal/route/evidence/reporting fields plus escalation triggers are
 preserved. It also confirms the sibling/sample workspace paths used by the
 workflow still exist on this machine.
@@ -643,6 +644,18 @@ REQUEST_EXAMPLE_ROUTE_EXPECTED_EVIDENCE_RULES = {
 }
 
 REQUEST_EXAMPLE_MIN_ACCEPTANCE_FOCUS_BULLETS = 3
+
+REQUEST_EXAMPLE_ROUTE_ACCEPTANCE_FOCUS_RULES = {
+    "Post Process ModifyBone": ["sample Post Process AnimBP", "PoseWatch samples", "original `ABP_Bot`"],
+    "BlendSpace sample variant": ["original `BS_Bot_WalkRunLean`", "edited sample coordinates", "pose grid compares"],
+    "Bot Trail sample": ["disconnected original `ABP_Bot` Trail node", "component-level Post Process override", "SIE/PIE"],
+    "UpperBody Slot and LayeredBlend": ["near-zero pose delta", "visible action proof", "explicit approval"],
+    "protected metadata boundary": ["broad-probe Montage internals", "guarded API candidate", "AnimMontage.h:770"],
+    "ControlRig gate probe": ["direct ControlRig solve", "gate names", "forced-driver sample"],
+    "state-machine runtime-driver proof": ["runtime properties must be restored", "sampled world and AnimInstance", "graph authoring stays parked"],
+    "Baddy RigidBody": ["animation-physics behavior", "same-instance proof", "original Baddy assets"],
+    "node resolver plus same-instance pre/post proof": ["do not start by editing assets", "suspected node", "compiled mapping", "report ambiguity"],
+}
 
 REQUEST_RUN_TEMPLATE_FIELD_GROUPS = {
     "request": [
@@ -1385,21 +1398,25 @@ def _request_example_route_expected_evidence_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _request_example_acceptance_focus_text(record: dict[str, Any]) -> str:
+    section_text = str(record.get("section_text", ""))
+    focus_index = section_text.find("Acceptance focus:")
+    return section_text[focus_index:] if focus_index >= 0 else ""
+
+
 def _request_example_acceptance_focus_entries() -> list[dict[str, Any]]:
     records = _request_example_records()
     entries: list[dict[str, Any]] = []
 
     for record in records:
-        section_text = str(record.get("section_text", ""))
-        focus_index = section_text.find("Acceptance focus:")
-        focus_text = section_text[focus_index:] if focus_index >= 0 else ""
+        focus_text = _request_example_acceptance_focus_text(record)
         bullet_count = len(re.findall(r"(?m)^- ", focus_text))
         entries.append(
             {
                 "path": record["path"],
                 "example": record["example"],
                 "check": "acceptance_focus_block",
-                "exists": focus_index >= 0,
+                "exists": bool(focus_text),
                 "bullet_count": bullet_count,
                 "minimum_bullet_count": REQUEST_EXAMPLE_MIN_ACCEPTANCE_FOCUS_BULLETS,
                 "has_minimum_bullets": bullet_count >= REQUEST_EXAMPLE_MIN_ACCEPTANCE_FOCUS_BULLETS,
@@ -1418,6 +1435,54 @@ def _request_example_acceptance_focus_entries() -> list[dict[str, Any]]:
                 "has_minimum_bullets": False,
             }
         )
+
+    return entries
+
+
+def _request_example_route_acceptance_focus_entries() -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for record in _request_example_records():
+        fields = record["fields"]
+        route = fields.get("route", "")
+        acceptance_focus = _request_example_acceptance_focus_text(record)
+        matched_tokens = [
+            token
+            for token in REQUEST_EXAMPLE_ROUTE_ACCEPTANCE_FOCUS_RULES
+            if token in route
+        ]
+        if not matched_tokens:
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "acceptance_focus": acceptance_focus,
+                    "expected_tokens": [],
+                    "missing_tokens": [],
+                    "matches": False,
+                    "known_route": False,
+                }
+            )
+            continue
+
+        for route_token in matched_tokens:
+            expected_tokens = REQUEST_EXAMPLE_ROUTE_ACCEPTANCE_FOCUS_RULES[route_token]
+            missing_tokens = [
+                token for token in expected_tokens if token not in acceptance_focus
+            ]
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "route_token": route_token,
+                    "acceptance_focus": acceptance_focus,
+                    "expected_tokens": expected_tokens,
+                    "missing_tokens": missing_tokens,
+                    "matches": not missing_tokens,
+                    "known_route": True,
+                }
+            )
 
     return entries
 
@@ -1799,6 +1864,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for entry in request_example_acceptance_focus
         if not entry["exists"] or not entry["has_minimum_bullets"]
     ]
+    request_example_route_acceptance_focus = _request_example_route_acceptance_focus_entries()
+    mismatched_request_example_route_acceptance_focus = [
+        entry
+        for entry in request_example_route_acceptance_focus
+        if not entry["known_route"] or not entry["matches"]
+    ]
     request_run_template_fields = _request_run_template_field_entries()
     missing_request_run_template_fields = [
         entry for entry in request_run_template_fields if not entry["exists"]
@@ -1869,6 +1940,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_request_example_route_expected_evidence
         and not mismatched_request_example_route_verifications
         and not missing_request_example_acceptance_focus
+        and not mismatched_request_example_route_acceptance_focus
         and not missing_request_run_template_fields
         and not missing_acceptance_final_report_fields
         and not missing_acceptance_universal_pass_fields
@@ -1884,7 +1956,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v27",
+        "schema": "stackobot_animation_docs_link_audit_v28",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -1905,6 +1977,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_expected_evidence_count": len(mismatched_request_example_route_expected_evidence),
         "mismatched_request_example_route_verification_count": len(mismatched_request_example_route_verifications),
         "missing_request_example_acceptance_focus_count": len(missing_request_example_acceptance_focus),
+        "mismatched_request_example_route_acceptance_focus_count": len(mismatched_request_example_route_acceptance_focus),
         "missing_request_run_template_field_count": len(missing_request_run_template_fields),
         "missing_acceptance_final_report_field_count": len(missing_acceptance_final_report_fields),
         "missing_acceptance_universal_pass_field_count": len(missing_acceptance_universal_pass_fields),
@@ -1944,6 +2017,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_verifications": mismatched_request_example_route_verifications,
         "request_example_acceptance_focus": request_example_acceptance_focus,
         "missing_request_example_acceptance_focus": missing_request_example_acceptance_focus,
+        "request_example_route_acceptance_focus": request_example_route_acceptance_focus,
+        "mismatched_request_example_route_acceptance_focus": mismatched_request_example_route_acceptance_focus,
         "request_run_template_fields": request_run_template_fields,
         "missing_request_run_template_fields": missing_request_run_template_fields,
         "acceptance_final_report_fields": acceptance_final_report_fields,
@@ -1999,6 +2074,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_request_example_expected_evidence={report['mismatched_request_example_route_expected_evidence_count']} "
             f"mismatched_request_example_verification_commands={report['mismatched_request_example_route_verification_count']} "
             f"missing_acceptance_focus_blocks={report['missing_request_example_acceptance_focus_count']} "
+            f"mismatched_acceptance_focus_tokens={report['mismatched_request_example_route_acceptance_focus_count']} "
             f"missing_template_fields={report['missing_request_run_template_field_count']} "
             f"missing_acceptance_report_fields={report['missing_acceptance_final_report_field_count']} "
             f"missing_acceptance_universal_fields={report['missing_acceptance_universal_pass_field_count']} "
@@ -2031,6 +2107,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_request_example_route_expected_evidence",
             "mismatched_request_example_route_verifications",
             "missing_request_example_acceptance_focus",
+            "mismatched_request_example_route_acceptance_focus",
             "missing_request_run_template_fields",
             "missing_acceptance_final_report_fields",
             "missing_acceptance_universal_pass_fields",
