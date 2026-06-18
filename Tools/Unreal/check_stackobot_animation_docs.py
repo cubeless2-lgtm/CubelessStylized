@@ -6,8 +6,8 @@ required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters,
 request-run route and acceptance-focus coverage, and sample-path guards are
 present, request-run routes map to the expected handoff templates and
-first/verification commands, C++/API status, expected evidence, plus
-route-specific acceptance focus and approval boundaries, and acceptance
+first/verification commands, C++/API status, expected evidence, sample target
+scope, plus route-specific acceptance focus and approval boundaries, and acceptance
 universal/route/evidence/reporting fields plus escalation triggers are
 preserved. It also confirms the sibling/sample workspace paths used by the
 workflow still exist on this machine.
@@ -641,6 +641,18 @@ REQUEST_EXAMPLE_ROUTE_EXPECTED_EVIDENCE_RULES = {
     "state-machine runtime-driver proof": ["current state", "transition progress", "restored runtime properties"],
     "Baddy RigidBody": ["RigidBody settings", "mapped runtime node", "pose deltas"],
     "node resolver plus same-instance pre/post proof": ["target node selection", "input/output links", "same-instance confirmation"],
+}
+
+REQUEST_EXAMPLE_ROUTE_SAMPLE_TARGET_RULES = {
+    "Post Process ModifyBone": ["/Game/_MCP_Sample/AnimStudy/", "ABP_Bot_PostProcess_Study_HeadYawRight5"],
+    "BlendSpace sample variant": ["/Game/_MCP_Sample/AnimStudy/", "BS_Bot_WalkRunLean_LeanWideRequest"],
+    "Bot Trail sample": ["/Game/_MCP_Sample/AnimStudy/", "ABP_Bot_Trail_Study"],
+    "UpperBody Slot and LayeredBlend": ["none for route proof", "future sample overlay"],
+    "protected metadata boundary": ["none until", "guarded native API"],
+    "ControlRig gate probe": ["/Game/_MCP_Sample/AnimStudy/", "ABP_Bot_ControlRig_ForcedDriver_Study"],
+    "state-machine runtime-driver proof": ["none for first pass", "future sample graph"],
+    "Baddy RigidBody": ["/Game/_MCP_Sample/AnimStudy/", "[BaddyRigidBodySampleName] if tuning is needed"],
+    "node resolver plus same-instance pre/post proof": ["none unless", "controlled sample actor"],
 }
 
 REQUEST_EXAMPLE_MIN_ACCEPTANCE_FOCUS_BULLETS = 3
@@ -1410,6 +1422,54 @@ def _request_example_route_expected_evidence_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _request_example_route_sample_target_entries() -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for record in _request_example_records():
+        fields = record["fields"]
+        route = fields.get("route", "")
+        sample_target = fields.get("sample_target", "")
+        matched_tokens = [
+            token
+            for token in REQUEST_EXAMPLE_ROUTE_SAMPLE_TARGET_RULES
+            if token in route
+        ]
+        if not matched_tokens:
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "sample_target": sample_target,
+                    "expected_tokens": [],
+                    "missing_tokens": [],
+                    "matches": False,
+                    "known_route": False,
+                }
+            )
+            continue
+
+        for route_token in matched_tokens:
+            expected_tokens = REQUEST_EXAMPLE_ROUTE_SAMPLE_TARGET_RULES[route_token]
+            missing_tokens = [
+                token for token in expected_tokens if token not in sample_target
+            ]
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "route_token": route_token,
+                    "sample_target": sample_target,
+                    "expected_tokens": expected_tokens,
+                    "missing_tokens": missing_tokens,
+                    "matches": not missing_tokens,
+                    "known_route": True,
+                }
+            )
+
+    return entries
+
+
 def _request_example_route_ask_user_first_entries() -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for record in _request_example_records():
@@ -1918,6 +1978,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for entry in request_example_route_expected_evidence
         if not entry["known_route"] or not entry["matches"]
     ]
+    request_example_route_sample_targets = _request_example_route_sample_target_entries()
+    mismatched_request_example_route_sample_targets = [
+        entry
+        for entry in request_example_route_sample_targets
+        if not entry["known_route"] or not entry["matches"]
+    ]
     request_example_route_ask_user_first = _request_example_route_ask_user_first_entries()
     mismatched_request_example_route_ask_user_first = [
         entry
@@ -2004,6 +2070,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_request_example_route_first_commands
         and not mismatched_request_example_route_cxx_statuses
         and not mismatched_request_example_route_expected_evidence
+        and not mismatched_request_example_route_sample_targets
         and not mismatched_request_example_route_ask_user_first
         and not mismatched_request_example_route_verifications
         and not missing_request_example_acceptance_focus
@@ -2023,7 +2090,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v29",
+        "schema": "stackobot_animation_docs_link_audit_v30",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2042,6 +2109,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_first_command_count": len(mismatched_request_example_route_first_commands),
         "mismatched_request_example_route_cxx_status_count": len(mismatched_request_example_route_cxx_statuses),
         "mismatched_request_example_route_expected_evidence_count": len(mismatched_request_example_route_expected_evidence),
+        "mismatched_request_example_route_sample_target_count": len(mismatched_request_example_route_sample_targets),
         "mismatched_request_example_route_ask_user_first_count": len(mismatched_request_example_route_ask_user_first),
         "mismatched_request_example_route_verification_count": len(mismatched_request_example_route_verifications),
         "missing_request_example_acceptance_focus_count": len(missing_request_example_acceptance_focus),
@@ -2081,6 +2149,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_cxx_statuses": mismatched_request_example_route_cxx_statuses,
         "request_example_route_expected_evidence": request_example_route_expected_evidence,
         "mismatched_request_example_route_expected_evidence": mismatched_request_example_route_expected_evidence,
+        "request_example_route_sample_targets": request_example_route_sample_targets,
+        "mismatched_request_example_route_sample_targets": mismatched_request_example_route_sample_targets,
         "request_example_route_ask_user_first": request_example_route_ask_user_first,
         "mismatched_request_example_route_ask_user_first": mismatched_request_example_route_ask_user_first,
         "request_example_route_verifications": request_example_route_verifications,
@@ -2142,6 +2212,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_request_example_first_commands={report['mismatched_request_example_route_first_command_count']} "
             f"mismatched_request_example_cxx_status={report['mismatched_request_example_route_cxx_status_count']} "
             f"mismatched_request_example_expected_evidence={report['mismatched_request_example_route_expected_evidence_count']} "
+            f"mismatched_request_example_sample_targets={report['mismatched_request_example_route_sample_target_count']} "
             f"mismatched_request_example_ask_user_first={report['mismatched_request_example_route_ask_user_first_count']} "
             f"mismatched_request_example_verification_commands={report['mismatched_request_example_route_verification_count']} "
             f"missing_acceptance_focus_blocks={report['missing_request_example_acceptance_focus_count']} "
@@ -2176,6 +2247,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_request_example_route_first_commands",
             "mismatched_request_example_route_cxx_statuses",
             "mismatched_request_example_route_expected_evidence",
+            "mismatched_request_example_route_sample_targets",
             "mismatched_request_example_route_ask_user_first",
             "mismatched_request_example_route_verifications",
             "missing_request_example_acceptance_focus",
