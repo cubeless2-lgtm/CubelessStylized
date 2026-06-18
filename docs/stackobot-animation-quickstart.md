@@ -17,7 +17,10 @@ Use this as the first page for future StackOBot animation requests.
    `docs/stackobot-animation-mcp-command-syntax.md`.
 7. Verify with the route-specific gate from
    `docs/stackobot-animation-authoring-templates.md`.
-8. Record results in `docs/work-log.md` and commit only relevant docs/tooling.
+8. Record results in `docs/work-log.md`.
+9. Before committing, run
+   `python Tools/Unreal/check_stackobot_animation_staging_scope.py --summary`
+   and commit only relevant docs/tooling.
 
 ## Preflight Checklist
 

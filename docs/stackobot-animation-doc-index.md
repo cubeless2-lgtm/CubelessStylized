@@ -69,6 +69,12 @@ Run this after editing StackOBot animation docs:
 python Tools/Unreal/check_stackobot_animation_docs.py --summary
 ```
 
+Run this before committing StackOBot animation docs/tooling:
+
+```powershell
+python Tools/Unreal/check_stackobot_animation_staging_scope.py --summary
+```
+
 Write the full JSON report when an audit artifact is useful:
 
 ```powershell

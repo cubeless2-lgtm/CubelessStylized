@@ -8759,3 +8759,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Reason: the implementation wrapper, sibling docs, and StackOBot-local plugin bridge already exposed the command, but the server summary string was missing it and the new StackOBot preflight checker correctly reported a reference-surface warning.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_preflight.py --summary` now passes static checks without command-surface warnings; bridge remains not reachable until StackOBot Editor is running.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation staging scope checker
+
+- Added `Tools/Unreal/check_stackobot_animation_staging_scope.py`, a local/read-only Git index checker for StackOBot animation study commits.
+- The checker allows staged `docs/stackobot*`, StackOBot animation checker/preflight/staging tools, and `docs/work-log.md`, while blocking unrelated `Content/`, PCG docs, PCG V2 Python, and generated output paths.
+- Updated `docs/stackobot-animation-quickstart.md`, `docs/stackobot-animation-doc-index.md`, and `Tools/Unreal/check_stackobot_animation_docs.py` so the staging-scope command is part of the documented local check flow.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
