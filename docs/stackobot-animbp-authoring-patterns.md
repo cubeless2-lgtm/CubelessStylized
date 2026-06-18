@@ -139,6 +139,8 @@ Current tooling status:
   only the target asset.
 - `sample_blendspace_runtime_pose_grid` remains the runtime evidence command.
 - Smoke asset: `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy`.
+- Request-template proof asset:
+  `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanTemplateRehearsal`.
 
 ### 3. Slot And Layered Blend Pattern
 

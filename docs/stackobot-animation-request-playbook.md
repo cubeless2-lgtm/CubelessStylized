@@ -230,6 +230,10 @@ Current route:
   `A_Bot_Run_LeanRight` to `Lean=-1.25`; Unreal expanded the Lean axis to
   `-1.5..1.5`, saved the sample BlendSpace, and the runtime pose-grid fallback
   reported `input_changed_pose=true`.
+- `LeanTemplateRehearsal` repeated the request-template route with
+  `Lean=1.30/-1.30`; `sample_blendspace_runtime_pose_grid(require_pie_world=false)`
+  reported `valid_pose_count=3`, `input_changed_pose=true`, and max delta
+  `5.046 cm`.
 - Do not mutate the original StackOBot BlendSpaces as a workaround.
 
 ### Physics

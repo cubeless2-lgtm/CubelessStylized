@@ -205,6 +205,16 @@ Result:
   `LeanWideStudy` created `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy`,
   widened left/right lean samples to `1.25/-1.25`, saved the target asset, and
   editor-world pose-grid fallback returned `input_changed_pose=true`.
+- The request-template rehearsal for "make run lean wider left/right" was repeated under
+  `StackOBot_BlendSpaceTemplateRehearsal_*`. It created
+  `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanTemplateRehearsal`,
+  expanded the sample Lean axis to `-1.5..1.5`, moved `A_Bot_Run_LeanLeft`
+  to `Lean=1.30`, moved `A_Bot_Run_LeanRight` to `Lean=-1.30`, saved only the
+  sample target, and reported `original_assets_modified=false`. Follow-up
+  `sample_blendspace_runtime_pose_grid(require_pie_world=false)` returned
+  `success=true`, `runtime_only=true`, `asset_modified=false`, `valid_pose_count=3`,
+  `input_changed_pose=true`, and max delta `5.046 cm` from the
+  `run_lean_left_wide` input.
 
 ## Transition Inventory Status
 
