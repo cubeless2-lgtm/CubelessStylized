@@ -3,9 +3,9 @@
 This local/read-only check validates that StackOBot study docs point to existing
 relative docs, required study documents still exist, the doc index covers the
 required document set, key template sections, request-run example fields, MCP
-command syntax examples, command parameters, and sample-path guards are present,
-and the sibling/sample workspace paths used by the workflow still exist on this
-machine.
+command quick-map entries, command syntax examples, command parameters, and
+sample-path guards are present, and the sibling/sample workspace paths used by
+the workflow still exist on this machine.
 It does not call Unreal, does not touch assets, and does not require the editor
 bridge to be online.
 """
@@ -612,6 +612,22 @@ REQUEST_RUN_TEMPLATE_FIELD_GROUPS = {
     ],
 }
 
+COMMAND_SYNTAX_REQUIRED_QUICK_MAP_COMMANDS = [
+    "inspect_anim_graph_protected_topology",
+    "inspect_anim_state_machine_transitions",
+    "inspect_anim_instance_runtime_state",
+    "sample_anim_state_machine_runtime_response",
+    "sample_anim_node_pre_post_runtime_pose",
+    "sample_blendspace_runtime_pose_grid",
+    "ensure_blendspace_sample_variant",
+    "ensure_postprocess_anim_demo_variant",
+    "controlrig_direct_gate_probe",
+    "ensure_controlrig_forced_driver_animbp",
+    "ensure_anim_graph_trail_demo",
+    "inspect_anim_graph_node_settings",
+    "set_anim_graph_rigidbody_settings",
+]
+
 COMMAND_SYNTAX_REQUIRED_JSON_COMMANDS = [
     "ensure_postprocess_anim_demo_variant",
     "sample_anim_node_pre_post_runtime_pose",
@@ -821,6 +837,17 @@ def _required_token_entries() -> list[dict[str, Any]]:
                 }
             )
     return entries
+
+
+def _markdown_heading_section(text: str, heading: str) -> str:
+    match = re.search(rf"^{re.escape(heading)}\s*$", text, re.MULTILINE)
+    if not match:
+        return ""
+    section_start = match.end()
+    next_heading = re.search(r"^##\s+", text[section_start:], re.MULTILINE)
+    if not next_heading:
+        return text[section_start:]
+    return text[section_start : section_start + next_heading.start()]
 
 
 def _parse_example_fields(block: str) -> dict[str, str]:
@@ -1059,6 +1086,22 @@ def _command_syntax_command_entries(json_blocks: list[dict[str, Any]]) -> list[d
     ]
 
 
+def _command_quick_map_command_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-mcp-command-syntax.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Command Quick Map")
+    return [
+        {
+            "path": path_text,
+            "section": "## Command Quick Map",
+            "command": command,
+            "exists": f"`{command}`" in section,
+        }
+        for command in COMMAND_SYNTAX_REQUIRED_QUICK_MAP_COMMANDS
+    ]
+
+
 def _command_syntax_authoring_safety_entries(json_blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for command in COMMAND_SYNTAX_AUTHORING_COMMANDS:
@@ -1239,6 +1282,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_command_syntax_commands = [
         entry for entry in command_syntax_commands if not entry["exists"]
     ]
+    command_quick_map_commands = _command_quick_map_command_entries()
+    missing_command_quick_map_commands = [
+        entry for entry in command_quick_map_commands if not entry["exists"]
+    ]
     command_syntax_authoring_safety = _command_syntax_authoring_safety_entries(command_syntax_json_blocks)
     unsafe_command_syntax_authoring = [
         entry
@@ -1269,13 +1316,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_request_run_template_fields
         and not invalid_command_syntax_json
         and not missing_command_syntax_commands
+        and not missing_command_quick_map_commands
         and not unsafe_command_syntax_authoring
         and not missing_command_syntax_required_params
         and not unsafe_command_syntax_sample_paths
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v14",
+        "schema": "stackobot_animation_docs_link_audit_v15",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -1292,6 +1340,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_request_run_template_field_count": len(missing_request_run_template_fields),
         "invalid_command_syntax_json_count": len(invalid_command_syntax_json),
         "missing_command_syntax_command_count": len(missing_command_syntax_commands),
+        "missing_command_quick_map_command_count": len(missing_command_quick_map_commands),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
         "missing_command_syntax_required_param_count": len(missing_command_syntax_required_params),
         "unsafe_command_syntax_sample_path_count": len(unsafe_command_syntax_sample_paths),
@@ -1314,6 +1363,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "invalid_command_syntax_json": invalid_command_syntax_json,
         "command_syntax_commands": command_syntax_commands,
         "missing_command_syntax_commands": missing_command_syntax_commands,
+        "command_quick_map_commands": command_quick_map_commands,
+        "missing_command_quick_map_commands": missing_command_quick_map_commands,
         "command_syntax_authoring_safety": command_syntax_authoring_safety,
         "unsafe_command_syntax_authoring": unsafe_command_syntax_authoring,
         "command_syntax_required_params": command_syntax_required_params,
@@ -1347,6 +1398,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_template_fields={report['missing_request_run_template_field_count']} "
             f"invalid_command_json={report['invalid_command_syntax_json_count']} "
             f"missing_command_examples={report['missing_command_syntax_command_count']} "
+            f"missing_quick_map_commands={report['missing_command_quick_map_command_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
             f"missing_command_params={report['missing_command_syntax_required_param_count']} "
             f"unsafe_command_paths={report['unsafe_command_syntax_sample_path_count']}"
@@ -1366,6 +1418,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_request_run_template_fields",
             "invalid_command_syntax_json",
             "missing_command_syntax_commands",
+            "missing_command_quick_map_commands",
             "unsafe_command_syntax_authoring",
             "missing_command_syntax_required_params",
             "unsafe_command_syntax_sample_paths",
