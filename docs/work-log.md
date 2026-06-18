@@ -7292,3 +7292,55 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Kept required structural modules in the default output: `cell` floor/corridor modules, `wall`, `door`, `ceiling`, `column`, `stair`, and `locked_door_seal`.
 - Verification passed: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --use-bp-controller --no-build --allow-seed-suite-warning --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 1` completed in `88.219` seconds with the current BP-authored `DungeonRoomCount=8`, `32` native components, `486` instances, screenshot QA pass, and final gate pass.
 - Verification passed: `CubelessDungeonV2_PCGSpawnerContract.json` now reports `486` output points, `0` exact duplicate groups, and `0` same-location groups. Excluded counts were `connector_detail=18`, `corridor_detail=27`, `detail_mesh=18`, `marker=9`, and `room_variant_detail=8`.
+
+## 2026-06-18 PCGStudy Source-Independent Analysis Start
+
+- Started read-only analysis of `/Game/Cubeless/PCG/PCGStudy` with the goal of learning a source-independent PCG authoring grammar, not reusing the original study assets directly.
+- Asset inventory found `260` assets under PCGStudy: `103` PCGGraph, `89` Blueprint, `22` PCGGraphInstance, `11` PCGDataAsset, `11` World, `9` Texture2D, `5` StaticMesh, `4` MaterialInstanceConstant, `3` UserDefinedEnum, `2` UserDefinedStruct, and `1` Material.
+- Full PCG graph scan covered `125` PCGGraph/PCGGraphInstance assets. Dominant node families were Subgraph, GetActorProperty, Branch, NamedReroute, AttributeFilter, Merge, MetadataMaths, StaticMeshSpawner, Difference, SelfPruning, BoundsModifier, TransformPoints, Projection, SplineSampler, and GetSpline.
+- The working model is now `Actor Tag / BP parameter contract -> subgraph utility selection -> mask/filter/exclusion -> transform/projection -> spawner`. Important tag contracts include `cliff`, `priority 0..4`, `herbicide_*`, `road500`, `del`, `inner`, and `outer`.
+- Upper-level templates such as `PCG_Base_01`, `PCG_Base_Road`, `PCG_Splinegreass`, and `PCG_waterside` depend heavily on reusable `SG_*` utility graphs. Road graphs still reference old `/Game/EL/...` decal assets, so those must be treated as design references only and replaced in future recreations.
+- PCGDataAsset entries under `PL` and `Temp` are saved point collections. For source-independent recreation, prefer rebuilding points procedurally instead of relying on these stored source data assets.
+- For future recreation tests, do not use PCGStudy meshes/materials/BPs as the generation source. Use `/Game/DreamscapeSeries` as the replacement asset pool: `SM_Conifer_*` for trees, grass/fern/flower meshes for ground vegetation, `SM_Rock_*` and `SM_Cliff_*` for rock/cliff, ruin meshes for path/structure pieces, and wood/branch/trunk meshes for debris.
+- Added `docs/pcgstudy-source-independent-authoring.md` as the first reusable manual draft. It captures the source-independent grammar, tag contracts, point attributes, Dreamscape replacement pool, representative forest/road/spline grass/waterside/cliff recipes, utility subgraph priorities, and a minimal validation plan.
+
+## 2026-06-18 PCGStudy Source-Independent Rebuild Sample
+
+- Created disposable MCP validation graph `/Game/_MCP_Temp/PCGStudy_RebuildTest/Graphs/PCG_RebuildTest_SplineGrass_Min`.
+- The graph combines a self-spline sampler, `herbicide_all_mesh` tagged actor mask, `PCGDifferenceSettings` subtraction, randomized transform, and Dreamscape-only static mesh spawning.
+- Dreamscape replacement meshes used: `SM_Grass_Medium01`, `SM_Fern_01`, and `SM_Rock_01`.
+- Validation passed: node chain is connected left-to-right, spawner mesh entries persisted, and AssetRegistry dependencies are only `/Script/PCG` plus the three Dreamscape meshes.
+- Forbidden dependency check passed with no `/Game/Cubeless/PCG/PCGStudy` dependencies.
+- Removed the temporary API probe graph from `_MCP_Temp`; only the validation graph remains. `_MCP_Temp` remains disposable and should not be staged unless a specific generated asset is intentionally promoted.
+- Remaining next step before promotion: actor-level generation smoke test with a spline owner actor and a tagged herbicide mask actor.
+- Added a separate C++/API follow-up list to `docs/pcgstudy-source-independent-authoring.md`. No mandatory C++ change is required now; recommended follow-ups are graph-from-spec creation, PCG graph contract audit, source-independence validation, actor-level smoke testing, PCG node readback helpers, static mesh spawner setter helpers, and an explicit permanent-library promotion command.
+
+## 2026-06-18 PCGStudy UnrealMCP PCG API Tools
+
+- Implemented the first three PCG API follow-ups in sibling `../unreal-mcp-cubeless` as Python FastMCP tools, not C++: `create_pcg_graph_from_spec`, `audit_pcg_graph_contract`, and `validate_pcg_source_independence`.
+- `create_pcg_graph_from_spec` accepts a JSON-style graph spec with asset path, nodes, settings, static mesh spawner entries, edges, and forbidden dependency prefixes. It guards non-temp overwrites unless explicitly allowed.
+- `audit_pcg_graph_contract` reads PCG graph node titles/classes, pins, edge endpoints, static mesh spawner selectors, actor selectors, dependencies, and forbidden dependency hits.
+- `validate_pcg_source_independence` defaults to forbidding `/Game/Cubeless/PCG/PCGStudy` and allows `/Script/PCG` plus `/Game/DreamscapeSeries` as expected replacement roots.
+- Verification passed: `uv run python -m py_compile tools\pcg_tools.py unreal_mcp_server.py scripts\analysis\mcp_tool_parity_audit.py`.
+- Verification passed: direct FastMCP function registration/call created `/Game/_MCP_Temp/PCGStudy_APITest/PCG_APITest_FromSpec`, then audit reported `3` nodes, `3` edges, dependencies only `/Script/PCG` and Dreamscape grass mesh, and no PCGStudy forbidden dependency hits.
+- Parity audit has no missing Python/C++ routes after the change; its status remains fail only because of pre-existing duplicate C++ routes and duplicate Python `take_screenshot` tool findings.
+
+## 2026-06-18 PCGStudy UnrealMCP PCG API Tools Phase 2
+
+- Added three more Python FastMCP PCG helpers in sibling `../unreal-mcp-cubeless`: `set_pcg_static_mesh_spawner_entries`, `promote_pcg_temp_graph`, and `pcg_actor_smoke_test`.
+- `set_pcg_static_mesh_spawner_entries` replaces weighted Static Mesh Spawner entries on a target PCG graph node, reducing the fragile direct mutation of `mesh_selector_parameters`.
+- `promote_pcg_temp_graph` is dry-run by default, refuses non-temp sources unless explicitly allowed, refuses `_MCP_Temp` targets, and runs source-independence validation before promotion.
+- `pcg_actor_smoke_test` is dry-run by default and does not create actors or switch maps. It audits the graph and reports matching current-level PCG components; with `dry_run=False`, it only runs cleanup/generate on existing matching components.
+- Verification passed: `uv run python -m py_compile tools\pcg_tools.py unreal_mcp_server.py scripts\analysis\mcp_tool_parity_audit.py`.
+- Verification passed: direct FastMCP calls updated the APITest graph spawner to `SM_Grass_Medium01` and `SM_Fern_01`, ran `promote_pcg_temp_graph` dry-run to `/Game/Cubeless/PCG/Rebuilt/PCG_APITest_FromSpec`, and ran `pcg_actor_smoke_test` dry-run with no current-level matching components and no level mutation.
+- Parity audit still has no missing Python/C++ routes. Overall status remains fail only because of pre-existing duplicate C++ routes and duplicate Python `take_screenshot` tool findings.
+
+## 2026-06-18 PCGStudy UnrealMCP PCG API Tools Phase 3
+
+- Extended `set_pcg_static_mesh_spawner_entries` so it supports both weighted mesh entries and `selector_type="by_attribute"`.
+- Verified the PCGStudy-compatible attribute selector contract: `attribute_name="Meshes"` and `material_override_attributes=["Override Materials"]`.
+- Added `read_pcg_node_contract` as a focused PCG node readback helper for node title, settings class, position, pins, spawner selector state, and actor selector state.
+- Verification passed: direct FastMCP call switched the APITest spawner to `PCGMeshSelectorByAttribute`, read it back with `read_pcg_node_contract`, confirmed `Meshes` and `Override Materials`, then restored the APITest graph to the weighted Dreamscape sample.
+- Verification passed: `uv run python -m py_compile tools\pcg_tools.py unreal_mcp_server.py scripts\analysis\mcp_tool_parity_audit.py`.
+- Parity audit still has no missing Python/C++ routes; overall status remains fail only because of pre-existing duplicate C++ routes and duplicate Python `take_screenshot` tool findings.
+- Pre-push review fix: tightened `pcg_actor_smoke_test` graph matching so `dry_run=False` only operates on exact normalized graph package matches, removing the previous substring fallback.
