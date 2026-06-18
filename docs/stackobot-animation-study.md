@@ -539,7 +539,7 @@ Remaining state-machine gap:
 5. Physics final runtime pass
    - Baddy RigidBody variants, source-vs-runtime split, Bot Trail runtime comparison, physics evidence synthesis, compiled node mapping preflight, and isolated RigidBody/Trail source-vs-output sampling are enough for the current learning baseline.
    - `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)` now covers RigidBody/Trail-style source-bypass vs post-node comparisons with temp assets.
-   - `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` now covers editor-node GUID to live compiled `FAnimNode_*` address mapping.
+   - `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` now covers editor-node GUID to live compiled `FAnimNode_*` address mapping and runtime `FPoseLink` / `FComponentSpacePoseLink` link inventory.
    - True same-instance compiled AnimGraph node input/output pose tapping remains future API work, not a manual map-edit task.
 
 ## Bot Slot and Layered Blend Inventory
@@ -1150,6 +1150,8 @@ Artifacts:
 | Physics synthesis CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.csv` |
 | Compiled node mapping summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_Summary.json` |
 | Compiled node mapping raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_raw.json` |
+| Compiled pose-link mapping summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_Summary.json` |
+| Compiled pose-link mapping raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_raw.json` |
 
 Current evidence:
 
@@ -1164,6 +1166,7 @@ Interpretation:
 - Baddy RigidBody currently has a magnitude-level source-vs-runtime comparison.
 - Bot Trail currently has a runtime raw-vs-trail component comparison.
 - `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` now proves the `ABP_Baddy` RigidBody editor node maps to the live compiled `FAnimNode_RigidBody` instance in PIE: `same_anim_instance_node_mapping=true`, `runtime_node_instance_mapped=true`, `find_debug_anim_node_mapped=true`, and `pointer_match=true`.
+- The mapping response now includes runtime pose-link inventory. For the RigidBody smoke, `ComponentPose` resolves to `AnimGraphNode_LocalToComponentSpace` with `LinkID=11`, `SourceLinkID=1`, and `linked_pointer_match=true`.
 - This is the runtime-node address preflight needed for future node-stack instrumentation, but it does not sample node input/output poses.
 - Exact physics contribution still needs a future runtime mode that samples immediately before and after a selected compiled AnimGraph node in one runtime tick.
 

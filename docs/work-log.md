@@ -8241,3 +8241,24 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_Summary.json`
 - Cleanup ended SIE and reported dirty content package count `0`; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor spawning, so the smoke editor was closed without saving.
 - Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 UnrealMCP compiled AnimGraph pose-link preflight
+
+- Extended `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` in sibling `D:/Git/unreal-mcp-cubeless` to report `runtime_pose_links`.
+- The new `runtime_pose_links` response reflects `FPoseLink` / `FComponentSpacePoseLink` fields from the live compiled `FAnimNode_*` struct and reports field path, `LinkID`, `SourceLinkID`, linked compiled property, linked visual node, cached linked-node pointer, and `linked_pointer_match`.
+- This is still a read-only instrumentation preflight. It proves runtime graph linkage around the selected node, but it does not evaluate or capture node input/output pose data.
+- Updated `Python/tools/node_tools.py`, `Docs/Tools/node_tools.md`, and `Docs/Analysis/StackOBot/sample_anim_node_pre_post_runtime_pose_design.md`.
+- Synced the changed `UnrealMCPBlueprintNodeCommands.cpp` into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `git diff --check`
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development`
+  - `StackOBotEditor Win64 Development`
+  - Live StackOBot bridge smoke on `127.0.0.1:55557`
+- Live smoke used a transient `MCP_CompiledPoseLinks_Smoke_Baddy` actor with `SKM_Baddy` and original `ABP_Baddy_C` in PIE. Original StackOBot assets were not saved.
+- The `ABP_Baddy` RigidBody runtime pose-link result found one link: `ComponentPose` had `LinkID=11`, `SourceLinkID=1`, linked property `AnimGraphNode_LocalToComponentSpace`, linked struct `/Script/Engine.AnimNode_ConvertLocalToComponentSpace`, linked visual node `AnimGraphNode_LocalToComponentSpace_0`, and `linked_pointer_match=true`.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_Summary.json`
+- Cleanup ended SIE and reported dirty content package count `0`; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor spawning, so the smoke editor was closed without saving.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.

@@ -341,6 +341,8 @@ Physics synthesis artifacts:
 | Synthesis CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.csv` |
 | Compiled node mapping summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_Summary.json` |
 | Compiled node mapping raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_raw.json` |
+| Compiled pose-link mapping summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_Summary.json` |
+| Compiled pose-link mapping raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_raw.json` |
 
 Execution-map conclusion:
 
@@ -348,6 +350,7 @@ Execution-map conclusion:
 - Bot Trail has active runtime evidence when the proof component explicitly overrides its Post Process AnimBP, plus isolated source-bypass vs post-node evidence through the `_MCP_Temp` sampler.
 - Both are sufficient for the current animation-learning baseline.
 - `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` now proves the selected `ABP_Baddy` RigidBody editor node maps to the live compiled `FAnimNode_RigidBody` instance in PIE: `same_anim_instance_node_mapping=true`, `runtime_node_instance_mapped=true`, `find_debug_anim_node_mapped=true`, and `pointer_match=true`.
+- The same mode now reports runtime pose-link topology from the live node struct. The RigidBody smoke found `ComponentPose -> AnimGraphNode_LocalToComponentSpace` with `LinkID=11`, `SourceLinkID=1`, and `linked_pointer_match=true`.
 - This is a same-instance runtime-node address preflight only. It still reports `runtime_graph_prepost=false` and `same_instance_prepost=false`; true input/output pose tapping around the compiled node remains future work.
 - RigidBody/Trail isolated source-vs-output subtraction is covered by `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)`.
 
@@ -412,7 +415,7 @@ Implemented APIs to keep available for future audits:
 9. `set_anim_instance_runtime_property_for_probe` - implemented, build-verified, synced into StackOBot, and live-smoked against a transient `ABP_Bot_C` runtime instance; current artifacts are `StackOBot_AnimRuntimePropertyMCPSet.*`.
 10. `sample_anim_state_machine_runtime_response` - implemented, build-verified, synced into StackOBot, and live-smoked with restored runtime property cases plus active transition metric capture; current artifacts include `StackOBot_AnimStateMachineRuntimeResponseMCPProbe.*` and `StackOBot_AnimStateRuntimeMetrics_*`.
 11. `inspect_blueprint_graph_call_topology` - implemented, build-verified, synced into StackOBot, and live-smoked against `BP_Bot` plus `BPC_InteractionHandler`; current artifacts are `StackOBot_BlueprintCallTopology_*`.
-12. `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody. It maps editor node GUID `81E779C34D36CC52F0125F91BF52BAF3` to live compiled property `AnimGraphNode_RigidBody` / `/Script/AnimGraphRuntime.AnimNode_RigidBody` with pointer parity against `FindDebugAnimNode`.
+12. `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody. It maps editor node GUID `81E779C34D36CC52F0125F91BF52BAF3` to live compiled property `AnimGraphNode_RigidBody` / `/Script/AnimGraphRuntime.AnimNode_RigidBody` with pointer parity against `FindDebugAnimNode`, and now reports runtime pose-link topology such as `ComponentPose -> AnimGraphNode_LocalToComponentSpace`.
 
 Remaining candidates until C++/UnrealMCP implementation is explicitly resumed:
 
