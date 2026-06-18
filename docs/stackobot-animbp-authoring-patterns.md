@@ -7,6 +7,9 @@ the sample project from scratch.
 For step-by-step execution on a concrete user request, use:
 `docs/stackobot-animation-request-playbook.md`.
 
+For the shortest request-to-route authoring templates, use:
+`docs/stackobot-animation-authoring-templates.md`.
+
 For compact MCP command parameter syntax, use:
 `docs/stackobot-animation-mcp-command-syntax.md`.
 

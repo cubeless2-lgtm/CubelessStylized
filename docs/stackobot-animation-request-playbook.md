@@ -6,6 +6,7 @@ execution protocol.
 
 Related docs:
 
+- `docs/stackobot-animation-authoring-templates.md`
 - `docs/stackobot-animbp-authoring-patterns.md`
 - `docs/stackobot-animation-execution-map.md`
 - `docs/stackobot-animation-study.md`

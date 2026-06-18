@@ -8596,3 +8596,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - C++/API candidate updated: `inspect_or_author_anim_notifies_curves` should cover sequence notify/sync-marker/curve reads or authoring, and any Montage internals, only for a concrete request. It must be native/guarded and avoid broad reflection loops.
 - Latest log caveat: `StackOBot.log` now includes the expected `AnimMontage.h:770` assertion from this boundary test, plus the earlier startup `LogAutomationTest: Error: Condition failed` lines. No StackOBot editor process remained afterward.
 - Updated `docs/stackobot-animation-execution-map.md`, `docs/stackobot-animation-request-playbook.md`, `docs/stackobot-animbp-inventory.md`, and this work log. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation authoring templates
+
+- Added `docs/stackobot-animation-authoring-templates.md` as the compact first-routing sheet for future requests that ask for a specific animation behavior without providing a sample.
+- The new sheet maps user intent to the current safe authoring route, first command, verification gate, and C++/API status for Post Process ModifyBone, BlendSpace variants, state-machine/runtime drivers, ControlRig, UpperBody Slot/LayeredBlend, secondary motion, and notify/curve/sync-marker/Montage internals.
+- Captured the completion contract for future work: classification, exact sample paths, evidence artifacts, runtime result summary, cleanup state, and explicit C++/API decision.
+- Linked the new template sheet from the request playbook, authoring patterns guide, and command syntax sheet.
+- No Unreal assets, sample assets, editor sessions, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
