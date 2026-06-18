@@ -1,0 +1,115 @@
+# StackOBot Animation Request Run Template
+
+Copy this template when executing a concrete StackOBot animation request. Keep it
+as the per-request working record until the final result is accepted.
+
+## Request
+
+```text
+user_request:
+date:
+operator:
+```
+
+## Compiled Intent
+
+Use `docs/stackobot-request-compiler-drills.md` before filling this section.
+
+```text
+target_character:
+target_body_area:
+timing_type:
+runtime_layer:
+route:
+sample_target:
+first_read_or_authoring_command:
+verification_command:
+expected_evidence:
+handoff_template:
+cxx_api_status:
+ask_user_first:
+```
+
+## Assumptions
+
+- Reversible assumption:
+- User approval already granted:
+- Approval still required:
+
+## Safety Scope
+
+| Check | Value |
+| --- | --- |
+| Original StackOBot assets modified? | `false` |
+| Original maps saved? | `false` |
+| Sample root | `/Game/_MCP_Sample/AnimStudy` |
+| Evidence root | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy` |
+| Bridge | `127.0.0.1:55557` |
+| Active plugin copy | `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP` |
+
+## Tivret Handoff
+
+Paste the visible handoff block selected from
+`docs/stackobot-animation-tivret-handoff-templates.md`.
+
+```text
+Tivret handoff:
+```
+
+## Execution Log
+
+| Step | Command or action | Result | Artifact |
+| --- | --- | --- | --- |
+| 1 | Bridge/preflight | | |
+| 2 | Static read/topology | | |
+| 3 | Sample authoring or reuse | | |
+| 4 | Compile/save | | |
+| 5 | Runtime proof | | |
+| 6 | Dirty package check | | |
+| 7 | Cleanup | | |
+
+## Acceptance Checklist
+
+Use `docs/stackobot-animation-acceptance-checklist.md`.
+
+| Gate | Pass? | Evidence |
+| --- | --- | --- |
+| Route-specific proof | | |
+| Runtime evidence strength is sufficient | | |
+| Original mutation status reported | | |
+| Errors/warnings reported | | |
+| Dirty packages reported | | |
+| Cleanup completed | | |
+| C++/API decision recorded | | |
+
+## Final Report Draft
+
+```text
+route:
+assets_created_or_reused:
+original_assets_modified:
+runtime_world:
+main_command_results:
+pose_or_state_evidence:
+errors:
+warnings:
+dirty_packages:
+cleanup:
+cxx_api_needed:
+artifact_paths:
+residual_risk:
+```
+
+## Work-Log Entry Draft
+
+```markdown
+## YYYY-MM-DD StackOBot [request title]
+
+- Request:
+- Route:
+- Assets/evidence:
+- Verification:
+- C++/API decision:
+- Dirty packages/cleanup:
+- Residual risk:
+```

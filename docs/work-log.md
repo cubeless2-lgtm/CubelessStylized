@@ -8686,3 +8686,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --write-report` passed with `doc_count=18`, `reference_count=117`, `missing_reference_count=0`, and `missing_external_path_count=0`.
 - Linked the checker from `docs/stackobot-animation-doc-index.md`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation request run template
+
+- Added `docs/stackobot-animation-request-run-template.md` as the per-request execution record for future StackOBot animation work.
+- The template captures compiled intent, assumptions, safety scope, visible Tivret handoff, execution log, acceptance gates, final report draft, and work-log draft.
+- Linked the template from the doc index, quickstart, and request playbook.
+- Checker result: `python Tools/Unreal/check_stackobot_animation_docs.py` passed with `doc_count=19`, `reference_count=125`, `missing_reference_count=0`, and `missing_external_path_count=0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

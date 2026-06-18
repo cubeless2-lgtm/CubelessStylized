@@ -8,14 +8,16 @@ Use this as the first page for future StackOBot animation requests.
    `127.0.0.1:55557`.
 2. Compile the user's natural-language request with
    `docs/stackobot-request-compiler-drills.md`.
-3. Show the filled `티브렛에게 전달할 지시` block from
+3. For any request that touches editor state or creates sample evidence, copy
+   `docs/stackobot-animation-request-run-template.md`.
+4. Show the filled `티브렛에게 전달할 지시` block from
    `docs/stackobot-animation-tivret-handoff-templates.md`.
-4. Keep the first pass sample-only under `/Game/_MCP_Sample/AnimStudy`.
-5. Run the narrowest read or authoring command from
+5. Keep the first pass sample-only under `/Game/_MCP_Sample/AnimStudy`.
+6. Run the narrowest read or authoring command from
    `docs/stackobot-animation-mcp-command-syntax.md`.
-6. Verify with the route-specific gate from
+7. Verify with the route-specific gate from
    `docs/stackobot-animation-authoring-templates.md`.
-7. Record results in `docs/work-log.md` and commit only relevant docs/tooling.
+8. Record results in `docs/work-log.md` and commit only relevant docs/tooling.
 
 ## Route Shortcuts
 
@@ -46,6 +48,7 @@ Use this as the first page for future StackOBot animation requests.
 - Next-work backlog: `docs/stackobot-animation-next-work-backlog.md`
 - Acceptance checklist: `docs/stackobot-animation-acceptance-checklist.md`
 - Request compiler: `docs/stackobot-request-compiler-drills.md`
+- Request run template: `docs/stackobot-animation-request-run-template.md`
 - Request playbook: `docs/stackobot-animation-request-playbook.md`
 - Handoff templates: `docs/stackobot-animation-tivret-handoff-templates.md`
 - Authoring templates: `docs/stackobot-animation-authoring-templates.md`

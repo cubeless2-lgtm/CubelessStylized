@@ -19,6 +19,7 @@ the first useful page for each situation.
 | --- | --- |
 | Convert user wording into route, assumptions, first command, verification, and C++ status | `docs/stackobot-request-compiler-drills.md` |
 | Execute a request from intake through delivery | `docs/stackobot-animation-request-playbook.md` |
+| Keep a per-request execution record | `docs/stackobot-animation-request-run-template.md` |
 | Choose route-specific authoring and proof pattern | `docs/stackobot-animation-authoring-templates.md` |
 | Show the visible instruction before Tivret performs asset/editor work | `docs/stackobot-animation-tivret-handoff-templates.md` |
 | Find exact MCP command parameters and common asset paths | `docs/stackobot-animation-mcp-command-syntax.md` |
@@ -39,11 +40,13 @@ the first useful page for each situation.
 
 1. Open quickstart.
 2. Compile the request.
-3. Pick the route and visible handoff.
-4. Run sample-only unless original mutation is approved.
-5. Verify against the acceptance checklist.
-6. Check the C++ matrix only if the safe route is blocked.
-7. Record results in `docs/work-log.md`.
+3. Copy the request run template if the work will touch editor state or create
+   sample evidence.
+4. Pick the route and visible handoff.
+5. Run sample-only unless original mutation is approved.
+6. Verify against the acceptance checklist.
+7. Check the C++ matrix only if the safe route is blocked.
+8. Record results in `docs/work-log.md`.
 
 ## Local Checks
 

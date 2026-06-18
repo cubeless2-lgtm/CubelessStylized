@@ -10,6 +10,7 @@ Related docs:
 - `docs/stackobot-animation-next-work-backlog.md`
 - `docs/stackobot-animation-acceptance-checklist.md`
 - `docs/stackobot-animation-quickstart.md`
+- `docs/stackobot-animation-request-run-template.md`
 - `docs/stackobot-animation-authoring-templates.md`
 - `docs/stackobot-request-compiler-drills.md`
 - `docs/stackobot-animation-tivret-handoff-templates.md`
@@ -71,19 +72,21 @@ non-exception C++, or materially change the intended visual result.
 ## Execution Protocol
 
 1. Classify the request with the matrix above.
-2. State the target route in a `티브렛에게 전달할 지시` block before asset work.
-3. Confirm the target is sample-only unless the user approved original asset edits.
-4. Run static topology or existing evidence first.
-5. Create or modify the sample using the narrowest existing MCP command.
-6. Compile/save sample assets only when the route is an authoring command.
-7. Verify runtime behavior with the cheapest reliable proof:
+2. Copy `docs/stackobot-animation-request-run-template.md` for requests that
+   touch editor state or create sample evidence.
+3. State the target route in a `티브렛에게 전달할 지시` block before asset work.
+4. Confirm the target is sample-only unless the user approved original asset edits.
+5. Run static topology or existing evidence first.
+6. Create or modify the sample using the narrowest existing MCP command.
+7. Compile/save sample assets only when the route is an authoring command.
+8. Verify runtime behavior with the cheapest reliable proof:
    - Post Process static ModifyBone: editor-world no-SIE PoseWatch is acceptable.
    - Physics, state machine, BlendSpace, gameplay-driven gates: prefer SIE/PIE.
    - Multi-input blend: use all-input PoseWatch.
-8. Write artifacts under `Saved/MCP/AnimStudy`.
-9. Check the pass criteria in `docs/stackobot-animation-acceptance-checklist.md`.
-10. Check dirty packages and never save dirty original maps just to clean up a proof actor.
-11. Update Cubeless docs/work-log, then commit only relevant docs or tooling files.
+9. Write artifacts under `Saved/MCP/AnimStudy`.
+10. Check the pass criteria in `docs/stackobot-animation-acceptance-checklist.md`.
+11. Check dirty packages and never save dirty original maps just to clean up a proof actor.
+12. Update Cubeless docs/work-log, then commit only relevant docs or tooling files.
 
 ## Tivret Instruction Templates
 
