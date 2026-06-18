@@ -9005,3 +9005,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now validates that each `docs/stackobot-animation-request-run-examples.md` dry-run example maps its `route` field to the expected `target_character` tokens for Bot-only routes, the Baddy RigidBody route, and Bot/Baddy shared metadata or node-contribution proof routes.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_target_characters=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request example target-body-area audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v34`.
+- The checker now validates that each `docs/stackobot-animation-request-run-examples.md` dry-run example maps its `route` field to the expected `target_body_area` tokens for head, locomotion body response, antenna chain, upper body, animation source metadata, foot IK, state-machine behavior, Baddy stalk secondary motion, and node-output proof.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_target_body_areas=0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

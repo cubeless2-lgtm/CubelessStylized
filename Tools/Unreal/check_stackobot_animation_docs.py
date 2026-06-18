@@ -6,7 +6,7 @@ required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters,
 request-run route and acceptance-focus coverage, and sample-path guards are
 present, request-run routes map to the expected handoff templates and
-first/verification commands, target character, timing type, runtime layer,
+first/verification commands, target character/body area, timing type, runtime layer,
 C++/API status, expected evidence, sample target scope, plus route-specific
 acceptance focus and approval boundaries, and acceptance
 universal/route/evidence/reporting fields plus escalation triggers are
@@ -630,6 +630,18 @@ REQUEST_EXAMPLE_ROUTE_TARGET_CHARACTER_RULES = {
     "state-machine runtime-driver proof": ["Bot"],
     "Baddy RigidBody": ["Baddy"],
     "node resolver plus same-instance pre/post proof": ["Bot or Baddy", "depending on the selected graph"],
+}
+
+REQUEST_EXAMPLE_ROUTE_TARGET_BODY_AREA_RULES = {
+    "Post Process ModifyBone": ["head"],
+    "BlendSpace sample variant": ["locomotion body response"],
+    "Bot Trail sample": ["antenna_04_l chain", "mirrored only if requested"],
+    "UpperBody Slot and LayeredBlend": ["upper body"],
+    "protected metadata boundary": ["animation source metadata"],
+    "ControlRig gate probe": ["foot IK", "interaction reach"],
+    "state-machine runtime-driver proof": ["locomotion state-machine behavior"],
+    "Baddy RigidBody": ["stalk", "body secondary motion"],
+    "node resolver plus same-instance pre/post proof": ["target node output", "affected bones"],
 }
 
 REQUEST_EXAMPLE_ROUTE_TIMING_TYPE_RULES = {
@@ -1416,6 +1428,54 @@ def _request_example_route_target_character_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _request_example_route_target_body_area_entries() -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for record in _request_example_records():
+        fields = record["fields"]
+        route = fields.get("route", "")
+        target_body_area = fields.get("target_body_area", "")
+        matched_tokens = [
+            token
+            for token in REQUEST_EXAMPLE_ROUTE_TARGET_BODY_AREA_RULES
+            if token in route
+        ]
+        if not matched_tokens:
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "target_body_area": target_body_area,
+                    "expected_tokens": [],
+                    "missing_tokens": [],
+                    "matches": False,
+                    "known_route": False,
+                }
+            )
+            continue
+
+        for route_token in matched_tokens:
+            expected_tokens = REQUEST_EXAMPLE_ROUTE_TARGET_BODY_AREA_RULES[route_token]
+            missing_tokens = [
+                token for token in expected_tokens if token not in target_body_area
+            ]
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "route_token": route_token,
+                    "target_body_area": target_body_area,
+                    "expected_tokens": expected_tokens,
+                    "missing_tokens": missing_tokens,
+                    "matches": not missing_tokens,
+                    "known_route": True,
+                }
+            )
+
+    return entries
+
+
 def _request_example_route_timing_type_entries() -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for record in _request_example_records():
@@ -2153,6 +2213,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for entry in request_example_route_target_characters
         if not entry["known_route"] or not entry["matches"]
     ]
+    request_example_route_target_body_areas = _request_example_route_target_body_area_entries()
+    mismatched_request_example_route_target_body_areas = [
+        entry
+        for entry in request_example_route_target_body_areas
+        if not entry["known_route"] or not entry["matches"]
+    ]
     request_example_route_timing_types = _request_example_route_timing_type_entries()
     mismatched_request_example_route_timing_types = [
         entry
@@ -2268,6 +2334,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_request_example_route_handoffs
         and not mismatched_request_example_route_first_commands
         and not mismatched_request_example_route_target_characters
+        and not mismatched_request_example_route_target_body_areas
         and not mismatched_request_example_route_timing_types
         and not mismatched_request_example_route_runtime_layers
         and not mismatched_request_example_route_cxx_statuses
@@ -2292,7 +2359,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v33",
+        "schema": "stackobot_animation_docs_link_audit_v34",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2310,6 +2377,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_handoff_count": len(mismatched_request_example_route_handoffs),
         "mismatched_request_example_route_first_command_count": len(mismatched_request_example_route_first_commands),
         "mismatched_request_example_route_target_character_count": len(mismatched_request_example_route_target_characters),
+        "mismatched_request_example_route_target_body_area_count": len(mismatched_request_example_route_target_body_areas),
         "mismatched_request_example_route_timing_type_count": len(mismatched_request_example_route_timing_types),
         "mismatched_request_example_route_runtime_layer_count": len(mismatched_request_example_route_runtime_layers),
         "mismatched_request_example_route_cxx_status_count": len(mismatched_request_example_route_cxx_statuses),
@@ -2352,6 +2420,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_first_commands": mismatched_request_example_route_first_commands,
         "request_example_route_target_characters": request_example_route_target_characters,
         "mismatched_request_example_route_target_characters": mismatched_request_example_route_target_characters,
+        "request_example_route_target_body_areas": request_example_route_target_body_areas,
+        "mismatched_request_example_route_target_body_areas": mismatched_request_example_route_target_body_areas,
         "request_example_route_timing_types": request_example_route_timing_types,
         "mismatched_request_example_route_timing_types": mismatched_request_example_route_timing_types,
         "request_example_route_runtime_layers": request_example_route_runtime_layers,
@@ -2422,6 +2492,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_request_example_route_handoffs={report['mismatched_request_example_route_handoff_count']} "
             f"mismatched_request_example_first_commands={report['mismatched_request_example_route_first_command_count']} "
             f"mismatched_request_example_target_characters={report['mismatched_request_example_route_target_character_count']} "
+            f"mismatched_request_example_target_body_areas={report['mismatched_request_example_route_target_body_area_count']} "
             f"mismatched_request_example_timing_types={report['mismatched_request_example_route_timing_type_count']} "
             f"mismatched_request_example_runtime_layers={report['mismatched_request_example_route_runtime_layer_count']} "
             f"mismatched_request_example_cxx_status={report['mismatched_request_example_route_cxx_status_count']} "
@@ -2460,6 +2531,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_request_example_route_handoffs",
             "mismatched_request_example_route_first_commands",
             "mismatched_request_example_route_target_characters",
+            "mismatched_request_example_route_target_body_areas",
             "mismatched_request_example_route_timing_types",
             "mismatched_request_example_route_runtime_layers",
             "mismatched_request_example_route_cxx_statuses",
