@@ -8090,3 +8090,13 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
   - `MCPGameProjectEditor Win64 Development -NoHotReload`
   - `StackOBotEditor Win64 Development -NoHotReload`
+
+## 2026-06-18 StackOBot next API design: anim node pre/post pose
+
+- Added a sibling `D:/Git/unreal-mcp-cubeless` design note for the future `sample_anim_node_pre_post_runtime_pose` command:
+  - `Docs/Analysis/StackOBot/sample_anim_node_pre_post_runtime_pose_design.md`
+- Decision: do not start with true same-instance compiled AnimGraph node instrumentation. Split the work into a conservative MVP and a later instrumentation mode.
+- MVP scope: read-only target node resolver first, then an isolated `_MCP_Temp` source-vs-output sampler that explicitly reports `runtime_graph_prepost=false` and `same_instance_prepost=false`.
+- Later scope: true compiled graph node instrumentation may report `runtime_graph_prepost=true` only after the UE 5.7 pose-tap/proxy safety questions are resolved.
+- Safety boundary: no original StackOBot asset mutation, no generic Python map loading, generated probe assets only under `/Game/_MCP_Temp/AnimNodePrePost`, and ambiguous node selection must fail with candidates.
+- Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
