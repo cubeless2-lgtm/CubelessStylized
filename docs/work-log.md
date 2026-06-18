@@ -8665,3 +8665,9 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added `docs/stackobot-animation-acceptance-checklist.md` as the pass/fail gate before reporting a StackOBot animation task as complete.
 - Captured universal report fields, route-specific pass criteria, evidence strength levels, escalation conditions, and the final user report checklist.
 - Linked the checklist from the quickstart, closeout, request playbook, and authoring templates. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation doc index
+
+- Added `docs/stackobot-animation-doc-index.md` as the navigation page for the StackOBot animation study docs.
+- Grouped the docs into start-here pages, request execution pages, route deep dives, default workflow, and safe defaults.
+- Linked the index from the quickstart and closeout so future requests can route quickly without reopening every study note. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

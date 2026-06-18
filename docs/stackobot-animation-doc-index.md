@@ -1,0 +1,56 @@
+# StackOBot Animation Doc Index
+
+Use this index when the StackOBot animation docs feel too broad. It points to
+the first useful page for each situation.
+
+## Start Here
+
+| Situation | Open first | Why |
+| --- | --- | --- |
+| A new concrete animation request arrives | `docs/stackobot-animation-quickstart.md` | Short operating path from request to proof. |
+| Need to know whether the study is ready | `docs/stackobot-animation-study-closeout.md` | Readiness gate, covered routes, residual risks. |
+| Need to decide if work is finished | `docs/stackobot-animation-acceptance-checklist.md` | Pass/fail criteria and evidence strength. |
+| Need to know what remains | `docs/stackobot-animation-next-work-backlog.md` | Trigger-based future work; no speculative C++. |
+| Need to decide C++/API timing | `docs/stackobot-cpp-api-decision-matrix.md` | Covered routes and implementation triggers. |
+
+## Request Execution Pages
+
+| Purpose | Document |
+| --- | --- |
+| Convert user wording into route, assumptions, first command, verification, and C++ status | `docs/stackobot-request-compiler-drills.md` |
+| Execute a request from intake through delivery | `docs/stackobot-animation-request-playbook.md` |
+| Choose route-specific authoring and proof pattern | `docs/stackobot-animation-authoring-templates.md` |
+| Show the visible instruction before Tivret performs asset/editor work | `docs/stackobot-animation-tivret-handoff-templates.md` |
+| Find exact MCP command parameters and common asset paths | `docs/stackobot-animation-mcp-command-syntax.md` |
+
+## Route Deep Dives
+
+| Topic | Document |
+| --- | --- |
+| AnimBP system map, runtime flow, evidence history, deferred API list | `docs/stackobot-animation-execution-map.md` |
+| Original AnimBP inventory and system observations | `docs/stackobot-animbp-inventory.md` |
+| Authoring patterns proven through sample rehearsals | `docs/stackobot-animbp-authoring-patterns.md` |
+| Earlier broad study notes and evidence references | `docs/stackobot-animation-study.md` |
+| Animation-side physics request grammar | `docs/stackobot-physics-request-grammar.md` |
+| Local `_MCP_Sample/AnimStudy` package manifest | `docs/stackobot-sample-asset-manifest.md` |
+| Latest live read-only bridge/node validation | `docs/stackobot-live-read-drill-2026-06-19.md` |
+
+## Default Workflow
+
+1. Open quickstart.
+2. Compile the request.
+3. Pick the route and visible handoff.
+4. Run sample-only unless original mutation is approved.
+5. Verify against the acceptance checklist.
+6. Check the C++ matrix only if the safe route is blocked.
+7. Record results in `docs/work-log.md`.
+
+## Safe Defaults
+
+- Original StackOBot assets stay read-only for the first pass.
+- Sample assets go under `/Game/_MCP_Sample/AnimStudy`.
+- Evidence goes under `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
+- Use the StackOBot-local UnrealMCP plugin copy for StackOBot animation-study
+  commands: `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Do not broad-probe Montage internals with generic Python.
+- Do not add new C++ until a concrete request hits a documented trigger.

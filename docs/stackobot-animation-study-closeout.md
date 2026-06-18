@@ -21,17 +21,19 @@ original StackOBot assets unless the user explicitly approves that scope.
 
 ## First Page Order
 
-1. Start with `docs/stackobot-animation-quickstart.md`.
-2. Compile the request through `docs/stackobot-request-compiler-drills.md`.
-3. Pick the route from `docs/stackobot-animation-authoring-templates.md`.
-4. Show the matching handoff from
+1. If the document path is unclear, open
+   `docs/stackobot-animation-doc-index.md`.
+2. Start with `docs/stackobot-animation-quickstart.md`.
+3. Compile the request through `docs/stackobot-request-compiler-drills.md`.
+4. Pick the route from `docs/stackobot-animation-authoring-templates.md`.
+5. Show the matching handoff from
    `docs/stackobot-animation-tivret-handoff-templates.md`.
-5. Use command syntax from `docs/stackobot-animation-mcp-command-syntax.md`.
-6. Check `docs/stackobot-cpp-api-decision-matrix.md` before any new C++.
-7. Check `docs/stackobot-animation-next-work-backlog.md` only if the route is
+6. Use command syntax from `docs/stackobot-animation-mcp-command-syntax.md`.
+7. Check `docs/stackobot-cpp-api-decision-matrix.md` before any new C++.
+8. Check `docs/stackobot-animation-next-work-backlog.md` only if the route is
    blocked or marked candidate.
-8. Verify completion with `docs/stackobot-animation-acceptance-checklist.md`.
-9. Record the result in `docs/work-log.md`.
+9. Verify completion with `docs/stackobot-animation-acceptance-checklist.md`.
+10. Record the result in `docs/work-log.md`.
 
 ## Ready Routes
 

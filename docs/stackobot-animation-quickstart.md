@@ -41,6 +41,7 @@ Use this as the first page for future StackOBot animation requests.
 
 ## Main References
 
+- Doc index: `docs/stackobot-animation-doc-index.md`
 - Closeout/readiness: `docs/stackobot-animation-study-closeout.md`
 - Next-work backlog: `docs/stackobot-animation-next-work-backlog.md`
 - Acceptance checklist: `docs/stackobot-animation-acceptance-checklist.md`
