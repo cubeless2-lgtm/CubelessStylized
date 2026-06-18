@@ -120,16 +120,15 @@ Artifact: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProc
 Runtime note:
 
 - The existing base Post Process sample has SIE proof for `head` roll propagation.
-- The new variants are asset-level compiled samples only; runtime sampling was skipped to avoid map dirtying/switching after the prior world-reference cleanup crash.
-- A future `sample_postprocess_pre_post_pose` API should capture pre/post pose deltas without creating persistent map actors.
+- The `HeadPitch` and `AntennaRoll` variants now have live same-instance PoseWatch sampling through `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)`.
+- PoseWatch artifacts: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_Summary.json` and `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_raw.json`.
 
 Impact map artifact: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.md`.
 
 Impact summary:
 
-- `HeadPitch` should affect `head` and antenna ends, matching the existing base `head` roll SIE propagation proof.
-- `AntennaRoll` should affect `antenna_04_l` only; ControlRig hierarchy reports it as a leaf under `antenna_03_l`.
-- Exact runtime deltas are not claimed for these variants yet.
+- `HeadPitch` affects `head` directly by about `6.0 deg`, and inherited child motion moves antenna leaf bones about `8.6 cm`.
+- `AntennaRoll` affects only `antenna_04_l`, about `12.0 deg`; parent/sibling bones stay within floating-point noise.
 
 ## Baddy RigidBody Source vs Runtime Split
 
@@ -369,6 +368,8 @@ Post Process comparison artifacts:
 | Static comparison chart | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.svg` |
 | Pre/post isolation Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.md` |
 | Pre/post isolation JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.json` |
+| PoseWatch same-instance pre/post summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_Summary.json` |
+| PoseWatch same-instance pre/post raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_raw.json` |
 
 Interpretation:
 
@@ -376,6 +377,7 @@ Interpretation:
 - `HeadPitch` rotates `head` by about `5.99 deg`; descendant antenna leaf sockets move about `8.6 cm`.
 - `AntennaRoll` rotates only `antenna_04_l` by `12.0 deg roll`; sibling/right antenna and head remain unchanged within floating-point noise.
 - Pre/post static isolation is now expressed as `main-only A_Bot_Idle at time 0.0 -> Post Process variant output`.
+- Live same-instance PoseWatch capture now confirms the same Post Process node-level result in PIE: both variants report `runtime_graph_prepost=true`, `same_instance_prepost=true`, output link `3`, and input link `2`.
 - Runtime proof actors should set Post Process AnimBP through component override, not only through mesh defaults.
 
 ## Sampling Checklist
@@ -399,7 +401,7 @@ Use this checklist when adding or validating another animation experiment.
 | Done | Slot and LayeredBoneBlend | Inventory complete for `UpperBody`, `CashedPose_UpperBody`, branch filters, filename/class montage evidence, AssetRegistry-level interaction references, and read-only Blueprint call topology. | `BP_Bot` topology shows interact/grab component flow, not a direct montage/dynamic-slot playback call. |
 | Done/Runtime metrics | State-machine transitions | No-C++ transition topology probing is complete; live current-state reading, state weights, transition progress, relevant anim timing, runtime property setting, per-case state resampling, and meaningful `ABP_Bot` driver sequences are captured. | Full K2 call topology still needs follow-up API work. |
 | Done/Runtime pending | Control Rig pre/post | Direct-gate MCP probe, sample ModifyCurve curve-forcing, sample ControlRig input-default forcing, combined forced-driver sample assembly, and direct transient ControlRig pre/post solve probe are complete. | True compiled AnimGraph-internal source-vs-post subtraction still needs `sample_anim_node_pre_post_runtime_pose` or equivalent instrumentation. |
-| Done | Post Process pre/post | Static single-input-pose pre/post isolation is complete for the two variants. | `sample_postprocess_pre_post_pose` is only needed for live same-frame component runtime sampling. |
+| Done/PoseWatch | Post Process pre/post | Static single-input-pose pre/post isolation and live same-instance PoseWatch capture are complete for the two variants. | Use `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)` for comparable Post Process node checks. |
 | Done/PoseWatch + isolated + mapping | Physics pre/post | Evidence synthesis complete for learning baseline; RigidBody/Trail isolated source-vs-output sampling is implemented and live-smoked; compiled runtime-node mapping and pose-link preflight are implemented and live-smoked; `ABP_Baddy` RigidBody and `ABP_Bot_Trail_Study` Post Process Trail same-instance PoseWatch pre/post capture are implemented and live-smoked. | Broader multi-input/custom node classes may still need lower-level taps. |
 
 ## Deferred API Work
@@ -425,8 +427,7 @@ Remaining candidates until C++/UnrealMCP implementation is explicitly resumed:
 1. `inspect_anim_graph_protected_topology`
 2. `sample_blendspace_runtime_pose_grid`
 3. `ensure_postprocess_anim_demo_variant`
-4. `sample_postprocess_pre_post_pose`
-5. expand same-instance AnimGraph pre/post capture beyond the smoked RigidBody/Trail paths, especially multi-input/custom node cases
+4. expand same-instance AnimGraph pre/post capture beyond the smoked RigidBody/Trail/Post Process ModifyBone paths, especially multi-input/custom node cases
 
 Implemented `sample_skeletal_bones_in_sie` detail:
 

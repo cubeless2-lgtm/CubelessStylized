@@ -8301,3 +8301,19 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_Summary.json`
 - Cleanup ended SIE, removed the transient actor after a follow-up cleanup check, and reported dirty content package count `0`; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor work, so the smoke editor was closed without saving.
 - Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Post Process Modify Bone PoseWatch pre/post
+
+- Continued the Post Process AnimBP study using the existing `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)` path; no new C++ changes were required.
+- Live StackOBot bridge smoke ran on `127.0.0.1:55557` with transient SIE actors only. Original StackOBot assets were not saved.
+- Smoked variants:
+  - `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadPitch`
+  - `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_AntennaRoll`
+- Both variants resolved `AnimGraphNode_ModifyBone` and captured same-instance pre/post data from their Post Process AnimInstances with `runtime_graph_prepost=true`, `same_instance_prepost=true`, `anim_instance_source=post_process`, output link `3`, input link `2`, `transient_pose_watches=true`, and `debug_object_restored=true`.
+- `HeadPitch` result: `head` rotates about `6.0 deg`; inherited motion moves `antenna_04_l` about `8.589 cm` and `antenna_04_r` about `8.611 cm`, while `pelvis` and `neck_01` stay near floating-point noise.
+- `AntennaRoll` result: `antenna_04_l` rotates about `12.0 deg`; `head`, `neck_01`, `antenna_03_l`, and `antenna_04_r` stay near floating-point noise.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_Summary.json`
+- Cleanup ended SIE, removed the transient proof actors after a follow-up cleanup check, and reported dirty content package count `0`; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor work, so the smoke editor was closed without saving.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.

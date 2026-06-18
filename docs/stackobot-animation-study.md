@@ -173,7 +173,7 @@ Variant verification:
 - Both variant actors use their matching duplicated skeletal mesh and the original main `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot_C`.
 - Original `/Game/StackOBot/Characters/Bot/Mesh/SKM_Bot` still has no Post Process AnimBP assignment.
 - Dirty content package count after setup was `0`.
-- Runtime SIE sampling was skipped for these variants to avoid dirtying/switching the current map after the prior world-reference cleanup crash. Treat these as compiled asset-level variants until a safer `sample_postprocess_pre_post_pose` API exists.
+- Runtime SIE same-instance PoseWatch sampling is now complete for both variants through `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)`.
 
 Variant impact map:
 
@@ -186,9 +186,8 @@ Variant impact map:
 
 Impact interpretation:
 
-- `HeadPitch` is expected to affect `head` and inherit into antenna ends, based on the existing base `head` roll SIE proof where `head`, `antenna_04_l`, and `antenna_04_r` all measured `4.0` degrees while `pelvis` and `neck_01` stayed at `0.0`.
-- `AntennaRoll` targets `antenna_04_l`; the ControlRig hierarchy probe reports `antenna_04_l` has parent `antenna_03_l` and no children, so it is treated as a leaf-bone variant.
-- Current Skeleton Python access exposes `AnimPose` bone names/transforms but not parent indexes, so exact per-variant runtime deltas still belong to future `sample_postprocess_pre_post_pose` work.
+- `HeadPitch` affects `head` directly by about `6.0 deg` and moves descendant antenna leaf bones about `8.6 cm` in live same-instance sampling.
+- `AntennaRoll` targets `antenna_04_l`; live same-instance sampling reports about `12.0 deg` on that leaf while `head`, `neck_01`, `antenna_03_l`, and `antenna_04_r` remain within floating-point noise.
 
 ## ABP_Baddy RigidBody
 
@@ -534,8 +533,8 @@ Remaining state-machine gap:
    - Do not hand-edit protected AnimGraph pins through Python.
    - Compiled AnimGraph-internal source-vs-post-ControlRig subtraction remains future `sample_anim_node_pre_post_runtime_pose` or equivalent instrumentation work.
 4. Post Process final runtime pass
-   - Static pre/post pose isolation is complete for the two variants.
-   - A future `sample_postprocess_pre_post_pose` command is only needed for live component same-frame runtime sampling.
+   - Static pre/post pose isolation and live same-instance PoseWatch capture are complete for the two variants.
+   - A separate `sample_postprocess_pre_post_pose` command is no longer needed for these learning fixtures; use `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)` for comparable Post Process AnimBP node checks.
 5. Physics final runtime pass
    - Baddy RigidBody variants, source-vs-runtime split, Bot Trail runtime comparison, physics evidence synthesis, compiled node mapping preflight, and isolated RigidBody/Trail source-vs-output sampling are enough for the current learning baseline.
    - `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)` now covers RigidBody/Trail-style source-bypass vs post-node comparisons with temp assets.
@@ -1194,6 +1193,8 @@ Artifacts:
 | Pre/post isolation JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.json` |
 | Pre/post isolation CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.csv` |
 | Pre/post isolation chart | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.svg` |
+| PoseWatch same-instance pre/post summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_Summary.json` |
+| PoseWatch same-instance pre/post raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_raw.json` |
 
 Main result:
 
@@ -1204,6 +1205,8 @@ Main result:
 | `HeadPitch` | `antenna_04_r` | About `8.61 cm` location delta from inherited head motion. |
 | `AntennaRoll` | `antenna_04_l` | Exactly `12.0 deg` roll-axis change within floating-point tolerance. |
 | `AntennaRoll` | `head`, `neck`, `antenna_04_r` | No meaningful change. |
+| `HeadPitch` PoseWatch | `head` / antenna leaves | Same-instance Post Process input/output capture passed with output link `3`, input link `2`; `head` rotates about `6.0 deg`, and antenna leaves move about `8.59-8.61 cm`. |
+| `AntennaRoll` PoseWatch | `antenna_04_l` | Same-instance Post Process input/output capture passed with output link `3`, input link `2`; only `antenna_04_l` rotates about `12.0 deg`. |
 
 Interpretation:
 
@@ -1212,5 +1215,6 @@ Interpretation:
 - The pre/post isolation table reclassifies that same static sample as `main-only A_Bot_Idle at time 0.0 -> Post Process variant output`.
 - `HeadPitch` modifies a parent bone, so descendants move.
 - `AntennaRoll` modifies a leaf bone, so only `antenna_04_l` rotates.
+- Live PoseWatch captures used `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)` on transient SIE actors and returned `runtime_graph_prepost=true` / `same_instance_prepost=true` for both variants.
 - Scripted proof actors should explicitly call `set_override_post_process_anim_bp(..., true)` on the component.
-- A live same-frame component sampler remains useful for dynamic runtime proof, but it is no longer required for static Post Process attribution of these variants.
+- A separate `sample_postprocess_pre_post_pose` command is no longer needed for these two learning fixtures.
