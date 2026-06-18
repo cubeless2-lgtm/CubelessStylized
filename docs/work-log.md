@@ -8879,3 +8879,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now validates the `docs/stackobot-animation-mcp-command-syntax.md` Command Quick Map separately from JSON examples, including read-only commands that do not need full JSON snippets.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_quick_map_commands=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot acceptance report field audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v16`.
+- The checker now validates the `docs/stackobot-animation-acceptance-checklist.md` Final User Report Checklist fields for made/inspected work, sample/evidence location, original asset scope, runtime proof metric, C++/API status, and residual risk.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_acceptance_report_fields=0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

@@ -4,8 +4,9 @@ This local/read-only check validates that StackOBot study docs point to existing
 relative docs, required study documents still exist, the doc index covers the
 required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters, and
-sample-path guards are present, and the sibling/sample workspace paths used by
-the workflow still exist on this machine.
+sample-path guards are present, and acceptance reporting fields are preserved.
+It also confirms the sibling/sample workspace paths used by the workflow still
+exist on this machine.
 It does not call Unreal, does not touch assets, and does not require the editor
 bridge to be online.
 """
@@ -612,6 +613,15 @@ REQUEST_RUN_TEMPLATE_FIELD_GROUPS = {
     ],
 }
 
+ACCEPTANCE_FINAL_REPORT_FIELDS = {
+    "made_or_inspected": "what was made or inspected",
+    "sample_or_evidence_location": "where the sample or evidence lives",
+    "original_asset_scope": "whether original StackOBot assets were untouched",
+    "runtime_proof_metric": "the runtime proof result in one or two concrete metrics",
+    "cxx_api_status": "whether C++/API was unnecessary or parked",
+    "residual_risk": "any residual risk that affects the next request",
+}
+
 COMMAND_SYNTAX_REQUIRED_QUICK_MAP_COMMANDS = [
     "inspect_anim_graph_protected_topology",
     "inspect_anim_state_machine_transitions",
@@ -1035,6 +1045,23 @@ def _request_run_template_field_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _acceptance_final_report_field_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-acceptance-checklist.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Final User Report Checklist")
+    return [
+        {
+            "path": path_text,
+            "section": "## Final User Report Checklist",
+            "field": field,
+            "token": token,
+            "exists": token in section,
+        }
+        for field, token in ACCEPTANCE_FINAL_REPORT_FIELDS.items()
+    ]
+
+
 def _command_syntax_json_blocks() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-mcp-command-syntax.md"
     path = PROJECT_ROOT / path_text
@@ -1274,6 +1301,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_request_run_template_fields = [
         entry for entry in request_run_template_fields if not entry["exists"]
     ]
+    acceptance_final_report_fields = _acceptance_final_report_field_entries()
+    missing_acceptance_final_report_fields = [
+        entry for entry in acceptance_final_report_fields if not entry["exists"]
+    ]
     command_syntax_json_blocks = _command_syntax_json_blocks()
     invalid_command_syntax_json = [
         entry for entry in command_syntax_json_blocks if not entry["parse_success"]
@@ -1314,6 +1345,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_example_fields
         and not unsafe_request_examples
         and not missing_request_run_template_fields
+        and not missing_acceptance_final_report_fields
         and not invalid_command_syntax_json
         and not missing_command_syntax_commands
         and not missing_command_quick_map_commands
@@ -1323,7 +1355,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v15",
+        "schema": "stackobot_animation_docs_link_audit_v16",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -1338,6 +1370,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_example_field_count": len(missing_example_fields),
         "unsafe_request_example_count": len(unsafe_request_examples),
         "missing_request_run_template_field_count": len(missing_request_run_template_fields),
+        "missing_acceptance_final_report_field_count": len(missing_acceptance_final_report_fields),
         "invalid_command_syntax_json_count": len(invalid_command_syntax_json),
         "missing_command_syntax_command_count": len(missing_command_syntax_commands),
         "missing_command_quick_map_command_count": len(missing_command_quick_map_commands),
@@ -1359,6 +1392,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "unsafe_request_examples": unsafe_request_examples,
         "request_run_template_fields": request_run_template_fields,
         "missing_request_run_template_fields": missing_request_run_template_fields,
+        "acceptance_final_report_fields": acceptance_final_report_fields,
+        "missing_acceptance_final_report_fields": missing_acceptance_final_report_fields,
         "command_syntax_json_blocks": command_syntax_json_blocks,
         "invalid_command_syntax_json": invalid_command_syntax_json,
         "command_syntax_commands": command_syntax_commands,
@@ -1396,6 +1431,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_example_fields={report['missing_example_field_count']} "
             f"unsafe_request_examples={report['unsafe_request_example_count']} "
             f"missing_template_fields={report['missing_request_run_template_field_count']} "
+            f"missing_acceptance_report_fields={report['missing_acceptance_final_report_field_count']} "
             f"invalid_command_json={report['invalid_command_syntax_json_count']} "
             f"missing_command_examples={report['missing_command_syntax_command_count']} "
             f"missing_quick_map_commands={report['missing_command_quick_map_command_count']} "
@@ -1416,6 +1452,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_example_fields",
             "unsafe_request_examples",
             "missing_request_run_template_fields",
+            "missing_acceptance_final_report_fields",
             "invalid_command_syntax_json",
             "missing_command_syntax_commands",
             "missing_command_quick_map_commands",
