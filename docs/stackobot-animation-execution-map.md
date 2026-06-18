@@ -7,6 +7,9 @@ This note summarizes the current learning state for StackOBot animation systems.
 Authoring-pattern guide for future build requests:
 `docs/stackobot-animbp-authoring-patterns.md`.
 
+Request execution playbook:
+`docs/stackobot-animation-request-playbook.md`.
+
 ## Runtime Pose Flow
 
 ```mermaid

@@ -8453,3 +8453,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Cleanup destroyed the transient actor. `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible editor-world spawn/delete, so the hidden editor was stopped externally without saving. A leftover `CrashReportClientEditor` process was also stopped.
 - Latest log caveat: the setup script attempted Python wrapper methods `tick_animation` and `refresh_bone_transforms`, which are not exposed on this wrapper. The final C++ PoseWatch command handled ticking and returned success with empty command errors/warnings.
 - Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot animation request execution playbook
+
+- Added `docs/stackobot-animation-request-playbook.md` as the concrete execution protocol for future user requests such as "make this animation part".
+- The playbook separates intake, request classification, sample-only default target paths, known safe routes, approval gates, C++/API escalation criteria, failure handling, and final delivery shape.
+- Linked the playbook from `docs/stackobot-animbp-authoring-patterns.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animation-study.md`.
+- No Unreal assets, `_MCP_Sample` assets, or C++ files were modified in this pass.
+- Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

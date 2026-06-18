@@ -4,6 +4,9 @@ This guide converts the StackOBot animation study evidence into reusable authori
 Use it when a future request asks to create or modify an animation part without re-reading
 the sample project from scratch.
 
+For step-by-step execution on a concrete user request, use:
+`docs/stackobot-animation-request-playbook.md`.
+
 Scope:
 
 - Reference project: `D:/Git/SampleProject/StackOBot`.
