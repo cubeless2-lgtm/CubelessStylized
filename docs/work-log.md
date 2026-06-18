@@ -8100,3 +8100,17 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Later scope: true compiled graph node instrumentation may report `runtime_graph_prepost=true` only after the UE 5.7 pose-tap/proxy safety questions are resolved.
 - Safety boundary: no original StackOBot asset mutation, no generic Python map loading, generated probe assets only under `/Game/_MCP_Temp/AnimNodePrePost`, and ambiguous node selection must fail with candidates.
 - Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 UnrealMCP Anim node pre/post pose resolver
+
+- Implemented Phase 1 of `sample_anim_node_pre_post_runtime_pose` in sibling `D:/Git/unreal-mcp-cubeless`.
+- Scope is deliberately dry-run only: it resolves exactly one AnimGraph node, reports preferred input/output pose pins, upstream/downstream pose links, reflected settings, requested sample bones/sockets, and feasibility flags for the later isolated sampler.
+- The command rejects `dry_run=false` for now and reports `runtime_graph_prepost=false`, `same_instance_prepost=false`, `original_assets_modified=false`, and `temp_assets_created=false`.
+- Registered the command in the UnrealMCP bridge allow-list, C++ dispatcher/header, Python MCP wrapper, server info text, and `Docs/Tools/node_tools.md`.
+- Synced the changed C++ plugin files into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development -NoHotReload`
+  - `StackOBotEditor Win64 Development -NoHotReload`
+- Live bridge smoke was not run because `127.0.0.1:55557` refused the connection; the next live check requires launching/restarting the StackOBot editor so the rebuilt UnrealMCP DLL is loaded.
+- Original StackOBot assets were not saved or intentionally modified. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
