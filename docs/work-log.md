@@ -7063,3 +7063,145 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Guard validation passed: an unreachable Python `EditorLoadingAndSavingUtils.load_map(...)` call was blocked before execution and the structured message now points users to native `open_editor_level` for existing maps and native `safe_new_preview_map` for temporary preview maps.
 - Root guard validation passed: a dry-run request for `/Game/NotTemp/Map_Should_Block` returned `can_create=false` with `blocked_reasons=["target_outside_required_root"]`.
 - Environment restored: native `open_editor_level` reopened `/Game/DreamscapeSeries/DreamscapeMountains/Maps/ExampleMap` with `loaded=true` and `dirty_package_count_after=0`. Latest editor log showed no new `Fatal error` or `World Memory Leaks`; the only latest map-related `Error` was the expected guard-block validation message.
+
+## 2026-06-18 UltraVolumetrics read-only modularization analysis
+
+- Read-only UnrealMCP and local asset analysis covered `/Game/UltraVolumetrics`; no Unreal assets were saved or modified during the analysis.
+- Asset scope: `232` assets total, with `Core` as the production hub (`152` assets), `Blueprints` as actor/preset/editor entry points (`23` assets), `Demo` as sample content (`56` assets), and `PaintTextures` as one render-target asset.
+- Main material architecture: `M_UltraVolumetricsMaster`, `M_UltraVolumetricsGround`, `M_UltraVolumetricsStamp`, and `M_UltraVolumetricsPT` are `MD_Volume` additive materials. The master assembles modular functions for coordinates, 3D noise/flowmap, distance fields, shape falloff, interaction render targets, godrays, paint masks, shadowing, fading, and emissive output.
+- Main Blueprint architecture: `BP_UltraVolumetricsParent` is the broad runtime hub for fog volume settings, presets, quality, spline behavior, randomization, fading, paint, and interaction. `BP_InteractionController` owns ring/trail/projectile/2D interaction state. `BP_UltraVolumetricsTrail` is the smaller trail-focused component wrapper.
+- Presets are `BP_PresetDataAsset_C` assets with readable fields such as `Noise Pattern`, `Pattern Mixer`, `Shape Type`, `Use Distance Fields`, distance-field height/contrast, opacity, self shadow, noise size/contrast/multiply, panning/rotation, color/emissive, godrays, distortion, and near/far fade. Default presets and DistanceField presets form the likely starting taxonomy.
+- Niagara effects are already function-named systems: `NS_Ring`, `NS_Burst`, `NS_BurstLoop`, `NS_Jump`, `NS_Projectile2d`, `NS_Swing`, `NS_TrailCharacter`, `NS_TrailObjects`, `NS_Vortex`, and `NS_Blocker`, sharing `NMS_Activator`, `NMS_2dCurlNoiseForce`, and `NMPC_UltraVolumetrics`.
+- Recommended modularization direction: keep the original package read-only as a reference, create Cubeless-facing wrapper actors/material instances by feature, split volume fog, ground fog, stamp/projected fog, path-traced variant, paint mask, spline fog, quality trigger, first/third-person fading, interaction controller, and individual Niagara interaction effects into separately placeable modules.
+- Primary risk: `MPC_UltraVolumetrics`, `NMPC_UltraVolumetrics`, `T_RT`, `T_RingRT`, and paint render targets are global/shared state. Feature wrappers should either namespace/duplicate these resources or enforce one active controller per feature group to avoid cross-talk.
+- External reference check: Fab lists Ultra Volumetrics features that match the local package, including local volumetric fog, presets, interactivity, paint/flow maps, path tracing, distance fields, self shadowing, spline fog, distance quality, randomization, panning, near/far fade, and overlap events. Epic volumetric fog docs confirm Volume-domain local controls, particle/volume material cost, and quality/performance caveats.
+- Notion capture was attempted for the operating-document hub, but the Notion connector required reauthentication, so this local work-log entry is the durable project memory fallback.
+
+## 2026-06-18 UltraVolumetrics modular wrapper temp prototype
+
+- Created a disposable wrapper prototype under `/Game/_MCP_Temp/CubelessUltraVolumetricsModular`; original `/Game/UltraVolumetrics` assets were kept as referenced parents and were not modified.
+- Created and saved seven child Blueprint entry points: `BP_CL_UV_CoreVolume_Prototype`, `BP_CL_UV_SplineFog_Prototype`, `BP_CL_UV_GroundFog_Prototype`, `BP_CL_UV_StampFog_Prototype`, `BP_CL_UV_PathTracedVolume_Prototype`, `BP_CL_UV_InteractionController_Prototype`, and `BP_CL_UV_TrailComponent_Prototype`.
+- Created and saved seven Material Instance entry points: `MI_CL_UV_CoreVolume_Prototype`, `MI_CL_UV_GroundFog_Prototype`, `MI_CL_UV_StampFog_Prototype`, `MI_CL_UV_PathTracedVolume_Prototype`, `MI_CL_UV_FogScatteringSurface_Prototype`, `MI_CL_UV_FogScatteringPost_Prototype`, and `MI_CL_UV_InteractionSprite_Prototype`.
+- Verification passed: all seven Blueprint wrappers compiled with `validation_pass=true`, `compile_error_count=0`, `compile_warning_count=0`, saved cleanly, and were not dirty after compile.
+- Verification passed: all seven Material Instance wrappers loaded, had the expected parent material, updated through `MaterialEditingLibrary.update_material_instance`, saved cleanly, and no target packages remained dirty.
+- Dependency check passed for the intended prototype shape: each wrapper depends on exactly one original UltraVolumetrics parent asset and has no target-internal dependency or unrelated `/Game` dependency. This confirms the current temp prototype is a thin feature-entry layer, not a copied/forked package.
+- Next implementation gate: before promoting to production `/Game/Cubeless/VFX/Volumetrics`, decide whether shared global resources (`MPC_UltraVolumetrics`, `NMPC_UltraVolumetrics`, `T_RT`, `T_RingRT`, paint render targets) should remain singleton-controlled or be duplicated/namespaced per feature group.
+
+## 2026-06-18 UltraVolumetrics modular candidate pack expansion
+
+- Expanded the disposable prototype under `/Game/_MCP_Temp/CubelessUltraVolumetricsModular` into a first modular candidate pack with `59` temp assets total; original `/Game/UltraVolumetrics` assets were still kept unmodified.
+- Added `13` feature Material Instance variants covering static/interactive core volume, distance-field core volume, static/interactive/extended ground fog, static/interactive/extended stamp fog, and object/character/blocker interaction sprites.
+- Duplicated `10` feature-named Niagara systems into the temp namespace: blocker, burst, burst loop, jump, projectile 2D, ring, swing, character trail, object trail, and vortex.
+- Duplicated `14` preset data assets into the temp namespace: seven default-style presets and seven distance-field presets, preserving the original preset data shape for later Cubeless-facing categorization.
+- Duplicated `8` shared-resource candidates into the temp namespace: modular MPC, Niagara parameter collection, interaction/ring/paint render targets, RT border texture, distortion RGB texture, and paint mask placeholder texture.
+- Verification passed: asset registry found exactly `59` expected assets with no missing or extra temp-root assets. Class counts were `20` MaterialInstanceConstant, `7` Blueprint, `14` BP_PresetDataAsset_C, `10` NiagaraSystem, `3` Texture2D, `3` TextureRenderTarget2D, `1` MaterialParameterCollection, and `1` NiagaraParameterCollection.
+- Verification passed: all `13` Material Instance variants had the expected parent UltraVolumetrics instance, updated cleanly, saved cleanly, and no temp packages remained dirty.
+- Verification passed: the seven Blueprint wrappers were recompiled after the expansion with `validation_pass=true`, `compile_error_count=0`, `compile_warning_count=0`, saved cleanly, and remained not dirty after compile.
+- Dependency audit result: shared-resource candidates are self-contained at the asset-registry level, but copied Niagara systems still reference original UltraVolumetrics Niagara modules/material instances and copied presets still reference the original `BP_PresetDataAsset` class. This is acceptable for the temp candidate pack, but full production independence requires either remapping duplicated dependencies or intentionally documenting the original package as a required plugin dependency.
+- Next gate: choose between a thin-wrapper production integration that depends on `/Game/UltraVolumetrics` and a deeper fork/remap integration that duplicates Material Functions, Niagara modules, MPC/NMPC, render targets, and preset parent classes into `/Game/Cubeless/VFX/Volumetrics`.
+
+## 2026-06-18 UltraVolumetrics thin-wrapper production promotion
+
+- Ieta decision applied: promote the verified thin-wrapper pack first, keep `/Game/UltraVolumetrics` as an intentional dependency, and delay deep remapping until real scene testing proves a specific conflict or customization need.
+- Promoted the `59` validated temp assets from `/Game/_MCP_Temp/CubelessUltraVolumetricsModular` to `/Game/Cubeless/VFX/Volumetrics`, removing the `_Prototype` suffix from production asset names. The target root was empty before promotion and no collisions occurred.
+- Production class counts: `20` MaterialInstanceConstant, `7` Blueprint, `14` BP_PresetDataAsset_C, `10` NiagaraSystem, `3` Texture2D, `3` TextureRenderTarget2D, `1` MaterialParameterCollection, and `1` NiagaraParameterCollection.
+- Verification passed: all seven production Blueprint wrappers compiled with `validation_pass=true`, `compile_error_count=0`, `compile_warning_count=0`, saved cleanly, and remained not dirty after compile.
+- Verification passed: Material Instance wrappers and variants loaded, updated cleanly, saved cleanly, and the `13` feature variants retained the expected original UltraVolumetrics parents.
+- Dependency audit passed for promotion safety: no production asset references `/Game/_MCP_Temp/CubelessUltraVolumetricsModular`. The intended original dependency remains on `/Game/UltraVolumetrics`, especially for parent Blueprints/materials, Niagara modules/materials, and the preset data asset parent class.
+- Production dirty-package audit passed: no dirty packages remained under `/Game/Cubeless/VFX/Volumetrics` after save.
+- Added `docs/ultra-volumetrics-modularization.md` as the feature usage and dependency guide for the promoted Cubeless wrapper pack.
+
+## 2026-06-18 UltraVolumetrics wrapper smoke map
+
+- Created `/Game/_MCP_Temp/CubelessUltraVolumetricsSmoke/Map_CL_UV_Smoke_20260618_001` through native `safe_new_preview_map`; dry-run and real creation both passed with `dirty_package_count_before=0`, the map saved, and no dirty packages remained.
+- Built a lightweight smoke scene with floor, landmarks, directional light, skylight, `BP_CL_UV_CoreVolume`, `BP_CL_UV_GroundFog`, `BP_CL_UV_StampFog`, and `BP_CL_UV_InteractionController`; the wrapper Blueprints spawned from generated classes successfully and the map saved with no dirty packages.
+- Added two production Niagara systems to the smoke scene as `NiagaraActor` instances: `NS_CL_UV_Ring` and `NS_CL_UV_Burst`. Both loaded, activated, and accepted `advance_simulation(45, 0.033)` without errors.
+- Final smoke-map actor audit found `12` `CL_UV_Smoke*` actors and `dirty_package_count=0`.
+- Review captures were written under `Saved/MCP/UltraVolumetricsSmoke`: overview, ground fog, stamp fog, and Niagara ring/burst views. The raw viewport PNGs had mixed alpha, so `_opaque.png` review copies were generated and sample-verified with `alpha_sample_min=255` and `alpha_sample_max=255`.
+- Visual caveat: the Blueprint wrapper actors and NiagaraActor icons were visible in the editor viewport, but the Niagara ring/burst visual body did not clearly appear even after forced activation and simulation advance. Treat Niagara visual approval as pending PIE or a dedicated Niagara preview-map test; the current smoke only proves production wrapper load/spawn/activation safety.
+- Follow-up Niagara investigation found that `NMS_Activator` reads `NPC.NMPC_UltraVolumetrics.CaptureActive` from original `NMPC_UltraVolumetrics`, whose default is `false`. The editor-world NPC instance was toggled to `CaptureActive=true` and `Strength=1.0`, then `NS_CL_UV_Ring` and `NS_CL_UV_Burst` were reinitialized and advanced again without errors, but the active editor still viewport still showed no clear rendered ring/burst body.
+- After the follow-up, the runtime NPC value was reset to `CaptureActive=false`, temporarily hidden smoke actors were restored, and final dirty package count remained `0`. Decision: defer Niagara visual approval to PIE or a real runtime interaction-controller capture, and do not deep-fork Niagara until that runtime test proves a concrete need.
+- PIE/SIE runtime follow-up: `LevelEditorSubsystem.editor_request_begin_play()` entered PIE/SIE on the smoke map, the PIE world `NMPC_UltraVolumetrics` instance was set to `CaptureActive=true` and `Strength=1.0`, and `NS_CL_UV_Ring` plus `NS_CL_UV_Burst` were found as PIE-world `NiagaraActor` instances, reinitialized, activated, and advanced successfully. The viewport still did not show a clear ring/burst body, so the interpretation changed from "standalone visible Niagara pending" to "these are interaction data/mask writer participants whose output must be judged through the fog volume/render-target response driven by `BP_CL_UV_InteractionController`." PIE/SIE stopped cleanly and final dirty package count stayed `0`.
+
+## 2026-06-18 UltraVolumetrics interaction-controller follow-up
+
+- Inspected `BP_InteractionController` internals through asset strings and Unreal reflection. Key pieces are `InitializeCapture`, `DrawRing`, `ClearRenderTarget2D`, `DrawMaterialToRenderTarget`, `T_RT`, `T_RingRT`, `M_DrawRing`, `RingTimeline`, `Interaction2dTimeline`, and ten projectile timelines.
+- Confirmed `DrawRing` is callable through Unreal reflection with `controller.call_method("DrawRing", (), {"texture": Texture2D, "radius": Float, "location": Vector})`; the call succeeds and starts `RingTimeline`.
+- Confirmed current production interactive material variants still read the original UltraVolumetrics `T_RT` through the `RT-trail` texture parameter, so the thin-wrapper `BP_CL_UV_InteractionController` remains compatible with the current interactive material wrappers.
+- Found that direct numeric RT validation is unreliable for `RTF_R16F` in this UE Python path: transient and asset R16F render targets read back as red `1.0` even after clear values of `0.0`, `0.25`, and `0.75`. Future validation should use viewport/fog response, exported RT inspection, or a separate RGBA16F diagnostic path.
+- Found the initial smoke map was using `NoInteraction` runtime fog material instances, so `DrawRing` could run without visible fog response. Switched the smoke fog components to `MI_CL_UV_CoreVolume_Interactive`, `MI_CL_UV_GroundFog_Interactive`, and `MI_CL_UV_StampFog_Interactive` for the next smoke pass.
+- Editor-world `InitializeCapture` plus `DrawRing` on the interactive variants still produced only render-noise-level viewport differences, which is not enough for visual approval because the controller is designed around runtime BeginPlay/tick behavior.
+- PIE validation exposed the next concrete setup blocker: `BP_InteractionController` repeatedly logs runtime errors in `TrailGraph` because `GetPlayerPawn` returns `None` in the smoke map. Next smoke pass should add a minimal pawn/player start or configure the controller to use a fixed capture location instead of following the player.
+- Unreal Editor exited during PIE screenshot capture through UnrealMCP `capture_viewport_bookmark_screenshot`. Latest log shows `EXCEPTION_ACCESS_VIOLATION` in `UnrealMCPEditorCommands.cpp` `CaptureActiveEditorViewportToPng()`. The crash appears to be a tooling capture issue, not a production UltraVolumetrics asset failure.
+
+## 2026-06-18 UnrealMCP PIE viewport-capture guard
+
+- Added a small UnrealMCP plugin guard in both the active project plugin copy and the sibling `../unreal-mcp-cubeless` plugin copy: active-viewport screenshot commands now return a structured error while PIE/SIE is active instead of invalidating or reading the active viewport.
+- Guarded commands: `capture_viewport_bookmark_screenshot` and legacy `take_screenshot`.
+- Build verification passed for the active project after closing the crash reporter process that still held `UnrealEditor-UnrealMCP.dll`: `Build.bat StylizedCubelessEditor Win64 Development -Project=C:/Git/CubelessStylized/StylizedCubeless.uproject -WaitMutex -NoHotReload` succeeded.
+- Live guard validation passed after editor restart: `capture_viewport_bookmark_screenshot` still captured successfully outside PIE, and during PIE it returned the structured error `capture_viewport_bookmark_screenshot is disabled during PIE/SIE; stop PIE before capturing the active editor viewport` instead of crashing.
+
+## 2026-06-18 UltraVolumetrics Pawn-enabled interaction smoke
+
+- Added `CL_UV_Smoke_TestPawn` as a `DefaultPawn` with `AutoPossessPlayer=Player0` and `CL_UV_Smoke_PlayerStart` to `/Game/_MCP_Temp/CubelessUltraVolumetricsSmoke/Map_CL_UV_Smoke_20260618_001`; the map saved cleanly with no dirty packages.
+- Verified the correct PIE world after reopening the smoke map through native `open_editor_level`: `/Game/_MCP_Temp/CubelessUltraVolumetricsSmoke/UEDPIE_0_Map_CL_UV_Smoke_20260618_001`.
+- Verified `GetPlayerPawn(0)` resolves to `DefaultPawn_0` in the PIE smoke world, with `PlayerController_0` present. The previous `CallFunc_GetPlayerPawn_ReturnValue == None` error count stayed at `0` during this smoke pass.
+- Confirmed `BP_CL_UV_InteractionController` functions can run in the PIE smoke world: `InitializeCapture` and `DrawRing` both returned successfully, and `RingTimeline` entered playing state.
+- New finding: the parent UltraVolumetrics Blueprint runtime recreates fog component dynamic material instances from its default/no-interaction settings during PIE BeginPlay. The editor-world material assignment to interactive variants does not survive runtime initialization on its own.
+- Runtime-forced PIE material replacement to `MI_CL_UV_CoreVolume_Interactive`, `MI_CL_UV_GroundFog_Interactive`, and `MI_CL_UV_StampFog_Interactive` succeeds, then `DrawRing` plus `RingTimeline` can be driven. Production interaction authoring needs a wrapper/default-property path that selects interactive materials before or during the parent runtime initialization, not only a component material override.
+- Directly calling `InitializeCapture` during PIE after the controller has already initialized can log a new Blueprint runtime error: `Thumb` is `None` on the `Destroy Component` node inside `InitializeCapture`. Treat `InitializeCapture` as setup/BeginPlay logic and avoid repeatedly invoking it as the normal interaction trigger.
+
+## 2026-06-18 UltraVolumetrics interaction authoring switch verification
+
+- Found the durable parent-Blueprint switch for interactive runtime material selection: the fog actor property `Allow Interaction?`.
+- Set `Allow Interaction?=true` on `CL_UV_Smoke_CoreVolume`, `CL_UV_Smoke_GroundFog`, and `CL_UV_Smoke_StampFog` in `/Game/_MCP_Temp/CubelessUltraVolumetricsSmoke/Map_CL_UV_Smoke_20260618_001`; the map saved with dirty package count `0`.
+- Verified a fresh PIE/SIE run from the smoke map: core, ground, and stamp fog all kept interactive runtime MIDs instead of `NoInteraction` MIDs, and each fog actor's `InteractionControllerRef` auto-wired to `CL_UV_Smoke_InteractionController`.
+- Verified the normal interaction trigger without repeatedly calling setup: `T_CL_UV_RTBorder` loaded through `unreal.load_asset`, `DrawRing(texture, radius=1200, location=(0,0,120))` returned successfully, `RingTimeline` entered `playing=True`, then advanced to its 10-second end state.
+- Log review after this pass showed only the two earlier stale `Thumb == None` PIE errors from the previous repeated `InitializeCapture` experiment; no new `CallFunc_GetPlayerPawn_ReturnValue == None`, `Thumb == None`, crash, assertion, fatal, or Python error was added by the final `Allow Interaction?` plus `DrawRing` pass.
+- Final editor state after stopping PIE/SIE: current map returned to `/Game/_MCP_Temp/CubelessUltraVolumetricsSmoke/Map_CL_UV_Smoke_20260618_001`, PIE world count `0`, dirty package count `0`.
+
+## 2026-06-18 UltraVolumetrics ready-to-place module pass
+
+- Added `12` ready-to-place child Blueprint modules under `/Game/Cubeless/VFX/Volumetrics/Blueprints/Modules`, keeping the original seven Cubeless wrapper Blueprints as neutral parent assets.
+- Created actor modules: `BP_CL_UV_Module_Core_Static`, `BP_CL_UV_Module_Core_Interactive`, `BP_CL_UV_Module_Core_DistanceStatic`, `BP_CL_UV_Module_Core_DistanceInteractive`, `BP_CL_UV_Module_Ground_Static`, `BP_CL_UV_Module_Ground_Interactive`, `BP_CL_UV_Module_Stamp_Static`, `BP_CL_UV_Module_Stamp_Interactive`, `BP_CL_UV_Module_Spline_Static`, `BP_CL_UV_Module_Spline_Interactive`, `BP_CL_UV_Module_PathTraced`, and `BP_CL_UV_Module_InteractionController`.
+- The module defaults use safe parent Blueprint authoring inputs rather than forcing runtime dynamic material slots: interactive modules set `Allow Interaction?=true`, static modules set it `false`, and Core/Spline modules set Cubeless preset copies such as `PDA_CL_UV_DefaultLayered`, `PDA_CL_UV_DefaultOrganic`, `PDA_CL_UV_DefaultSmall`, `PDA_CL_UV_DistanceFieldThick`, and `PDA_CL_UV_DistanceFieldAlien`.
+- Important implementation finding: the parent Blueprint `Material` property is a runtime `MaterialInstanceDynamic` slot, not a safe authoring slot for `MaterialInstanceConstant` assets. Do not use it to bake Cubeless MI defaults into module CDOs.
+- Removed the attempted `BP_CL_UV_Module_TrailComponent` module because it did not spawn as a normal actor in the placeability smoke. Trail work remains routed through `BP_CL_UV_TrailComponent` plus `NS_CL_UV_TrailCharacter` or `NS_CL_UV_TrailObjects` until a separate attachment/workflow pass is needed.
+- Final verification passed: all `12` modules compiled through `BlueprintEditorLibrary.compile_blueprint`, saved cleanly, matched expected `Allow Interaction?` and `Preset` CDO defaults, spawned temporarily in the smoke map with `spawn_actor_from_object`, were destroyed after inspection, and left dirty package count `0`.
+- Production asset count under `/Game/Cubeless/VFX/Volumetrics` is now `71`: `19` Blueprint, `20` MaterialInstanceConstant, `14` BP_PresetDataAsset_C, `10` NiagaraSystem, `3` Texture2D, `3` TextureRenderTarget2D, `1` MaterialParameterCollection, and `1` NiagaraParameterCollection.
+
+## 2026-06-18 UltraVolumetrics isolated module runtime validation
+
+- First checked the ready modules inside the existing smoke map and found a useful wiring caveat: when both `CL_UV_Smoke_InteractionController` and `CL_UV_ModuleRuntime_InteractionController` existed in the same level, newly placed interactive module fog actors auto-wired to the older `CL_UV_Smoke_InteractionController`, not the newly placed module controller.
+- Decision: document and enforce one active interaction controller per overlapping feature group unless a deeper fork gives Cubeless explicit controller ownership. This is an UltraVolumetrics runtime auto-wiring behavior, not a module asset compile failure.
+- Created a separate disposable validation map at `/Game/_MCP_Temp/CubelessUltraVolumetricsModuleRuntime/Map_CL_UV_ModuleRuntime_20260618_001` through native `safe_new_preview_map` after a dry run passed. The map contains a simple floor, lights, a pawn/player start, one `BP_CL_UV_Module_InteractionController`, four interactive modules, and four static comparison modules.
+- PIE/SIE isolated validation passed: `CL_UV_ModuleIso_Core_Interactive`, `Ground_Interactive`, `Stamp_Interactive`, and `Spline_Interactive` all kept `Allow Interaction?=true`, created non-`NoInteraction` runtime `MaterialInstanceDynamic` materials, and auto-wired `InteractionControllerRef` to the single `CL_UV_ModuleIso_InteractionController`.
+- Static comparison validation passed: `CL_UV_ModuleIso_Core_Static`, `Ground_Static`, `Stamp_Static`, and `Spline_Static` kept `Allow Interaction?=false`, created `NoInteraction` runtime MIDs, and kept `InteractionControllerRef=None`.
+- Trigger validation passed: `T_CL_UV_RTBorder` loaded through `unreal.load_asset`, `DrawRing(texture, radius=900, location=(0,250,120))` was called on `CL_UV_ModuleIso_InteractionController`, `RingTimeline` entered `playing=True`, then advanced to its 10-second end state.
+- Cleanup/final state: PIE/SIE stopped cleanly, editor returned to the isolated `_MCP_Temp` validation map, PIE world count was `0`, and dirty package count was `0`. Latest log review showed only stale errors from earlier failed authoring attempts; no new `Thumb == None`, `CallFunc_GetPlayerPawn_ReturnValue == None`, crash, assertion, fatal, or Python error came from the isolated module validation pass.
+
+## 2026-06-18 UltraVolumetrics ready-to-place Niagara FX actor pass
+
+- Added `10` ready-to-place Niagara Actor child Blueprints under `/Game/Cubeless/VFX/Volumetrics/Blueprints/FX`, one for each Cubeless-facing Niagara system.
+- Created FX actors: `BP_CL_UV_FX_Blocker`, `BP_CL_UV_FX_Burst`, `BP_CL_UV_FX_BurstLoop`, `BP_CL_UV_FX_Jump`, `BP_CL_UV_FX_Projectile2d`, `BP_CL_UV_FX_Ring`, `BP_CL_UV_FX_Swing`, `BP_CL_UV_FX_TrailCharacter`, `BP_CL_UV_FX_TrailObjects`, and `BP_CL_UV_FX_Vortex`.
+- Each FX Blueprint inherits from `NiagaraActor`; its default `NiagaraComponent` is bound to the matching `NS_CL_UV_*` system, `auto_activate=true`, and `DestroyOnSystemFinish=false`.
+- Verification passed: all `10` FX Blueprints compiled through `BlueprintEditorLibrary.compile_blueprint`, saved cleanly, and CDO validation confirmed the expected Niagara system binding.
+- Spawn smoke passed in `/Game/_MCP_Temp/CubelessUltraVolumetricsModuleRuntime/Map_CL_UV_ModuleRuntime_20260618_001`: all `10` FX actors spawned through `spawn_actor_from_object`, exposed a NiagaraComponent with the expected system, accepted `activate(true)`, `reinitialize_system()`, and `advance_simulation(30, 0.033)`, then were destroyed after inspection.
+- Final dirty package count after FX spawn cleanup was `0`.
+- Production asset count under `/Game/Cubeless/VFX/Volumetrics` is now `81`: `29` Blueprint, `20` MaterialInstanceConstant, `14` BP_PresetDataAsset_C, `10` NiagaraSystem, `3` Texture2D, `3` TextureRenderTarget2D, `1` MaterialParameterCollection, and `1` NiagaraParameterCollection.
+
+## 2026-06-18 UltraVolumetrics production QA audit
+
+- Final asset-registry audit passed for `/Game/Cubeless/VFX/Volumetrics`: `81` assets total, with folder counts `Blueprints=29`, `Materials=20`, `Niagara=10`, `Presets=14`, and `SharedResources=8`.
+- Class counts matched the intended pack: `29` Blueprint, `20` MaterialInstanceConstant, `14` BP_PresetDataAsset_C, `10` NiagaraSystem, `3` Texture2D, `3` TextureRenderTarget2D, `1` MaterialParameterCollection, and `1` NiagaraParameterCollection.
+- Dependency audit passed: all `81` production assets loaded, no production asset had a forward dependency on `/Game/_MCP_Temp`, and no redirectors existed under the production root.
+- Blueprint QA passed: all `29` Blueprints compiled through `BlueprintEditorLibrary.compile_blueprint` and saved cleanly. The `10` module Blueprints that own `Allow Interaction?`/`Preset` defaults still matched expected CDO values, and the `10` FX actor Blueprints still retained their expected Niagara system binding with `auto_activate=true`.
+- Material/preset/shared-resource audit passed: all `20` Material Instance wrappers still parent to original `/Game/UltraVolumetrics` materials or material instances as intended for the thin-wrapper phase; `14` presets and `8` shared-resource candidates loaded; final dirty package count was `0`.
+
+## 2026-06-18 UltraVolumetrics commit-readiness split
+
+- Main `CubelessStylized` commit scope should include the new production content root `Content/Cubeless/VFX/Volumetrics`, `docs/ultra-volumetrics-modularization.md`, and this `docs/work-log.md` update.
+- Active project submodule scope is separate: `Plugins/UnrealMCP/Source/UnrealMCP/Private/Commands/UnrealMCPEditorCommands.cpp` contains only the PIE/SIE screenshot guard for `capture_viewport_bookmark_screenshot` and `take_screenshot`.
+- Sibling workspace scope is also separate: `C:/Git/unreal-mcp-cubeless/MCPGameProject/Plugins/UnrealMCP/Source/UnrealMCP/Private/Commands/UnrealMCPEditorCommands.cpp` contains the same PIE/SIE screenshot guard.
+- Do not stage `_MCP_Temp` validation maps or package outputs. `_MCP_Temp` remained gitignored during this pass.
+- `git diff --check` passed in the main repository. The two UnrealMCP workspaces reported only LF-to-CRLF warnings for the touched C++ file.
