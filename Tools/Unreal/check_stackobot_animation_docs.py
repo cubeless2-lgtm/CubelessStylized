@@ -3,10 +3,11 @@
 This local/read-only check validates that StackOBot study docs point to existing
 relative docs, required study documents still exist, the doc index covers the
 required document set, key template sections, request-run example fields, MCP
-command quick-map entries, command syntax examples, command parameters, and
-sample-path guards are present, and acceptance universal/route/evidence/reporting
-fields plus escalation triggers are preserved. It also confirms the
-sibling/sample workspace paths used by the workflow still exist on this machine.
+command quick-map entries, command syntax examples, command parameters,
+request-run route coverage, and sample-path guards are present, and acceptance
+universal/route/evidence/reporting fields plus escalation triggers are
+preserved. It also confirms the sibling/sample workspace paths used by the
+workflow still exist on this machine.
 It does not call Unreal, does not touch assets, and does not require the editor
 bridge to be online.
 """
@@ -567,6 +568,18 @@ REQUEST_EXAMPLE_VERIFICATION_KEYWORDS = [
     "none for protected internals",
 ]
 
+REQUEST_EXAMPLE_ROUTE_COVERAGE = {
+    "post_process_modifybone": "Post Process ModifyBone",
+    "blendspace_sample_variant": "BlendSpace sample variant",
+    "trail_secondary_motion": "Bot Trail sample",
+    "upperbody_layeredblend": "UpperBody Slot and LayeredBlend",
+    "protected_metadata": "protected metadata boundary",
+    "controlrig_late_correction": "ControlRig gate probe",
+    "state_machine_runtime_driver": "state-machine runtime-driver proof",
+    "rigidbody_physics": "Baddy RigidBody",
+    "node_contribution_proof": "node resolver plus same-instance pre/post proof",
+}
+
 REQUEST_RUN_TEMPLATE_FIELD_GROUPS = {
     "request": [
         "user_request:",
@@ -1070,6 +1083,23 @@ def _request_example_safety_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _request_example_route_coverage_entries() -> list[dict[str, Any]]:
+    records = _request_example_records()
+    routes = [
+        str(record["fields"].get("route", ""))
+        for record in records
+    ]
+    return [
+        {
+            "path": "docs/stackobot-animation-request-run-examples.md",
+            "route_key": route_key,
+            "token": token,
+            "exists": any(token in route for route in routes),
+        }
+        for route_key, token in REQUEST_EXAMPLE_ROUTE_COVERAGE.items()
+    ]
+
+
 def _request_run_template_field_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-request-run-template.md"
     path = PROJECT_ROOT / path_text
@@ -1407,6 +1437,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     unsafe_request_examples = [
         entry for entry in request_example_safety if not entry["safe"]
     ]
+    request_example_route_coverage = _request_example_route_coverage_entries()
+    missing_request_example_route_coverage = [
+        entry for entry in request_example_route_coverage if not entry["exists"]
+    ]
     request_run_template_fields = _request_run_template_field_entries()
     missing_request_run_template_fields = [
         entry for entry in request_run_template_fields if not entry["exists"]
@@ -1470,6 +1504,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_required_tokens
         and not missing_example_fields
         and not unsafe_request_examples
+        and not missing_request_example_route_coverage
         and not missing_request_run_template_fields
         and not missing_acceptance_final_report_fields
         and not missing_acceptance_universal_pass_fields
@@ -1485,7 +1520,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v20",
+        "schema": "stackobot_animation_docs_link_audit_v21",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -1499,6 +1534,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_required_token_count": len(missing_required_tokens),
         "missing_example_field_count": len(missing_example_fields),
         "unsafe_request_example_count": len(unsafe_request_examples),
+        "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
         "missing_request_run_template_field_count": len(missing_request_run_template_fields),
         "missing_acceptance_final_report_field_count": len(missing_acceptance_final_report_fields),
         "missing_acceptance_universal_pass_field_count": len(missing_acceptance_universal_pass_fields),
@@ -1524,6 +1560,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_example_fields": missing_example_fields,
         "request_example_safety": request_example_safety,
         "unsafe_request_examples": unsafe_request_examples,
+        "request_example_route_coverage": request_example_route_coverage,
+        "missing_request_example_route_coverage": missing_request_example_route_coverage,
         "request_run_template_fields": request_run_template_fields,
         "missing_request_run_template_fields": missing_request_run_template_fields,
         "acceptance_final_report_fields": acceptance_final_report_fields,
@@ -1572,6 +1610,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_required_tokens={report['missing_required_token_count']} "
             f"missing_example_fields={report['missing_example_field_count']} "
             f"unsafe_request_examples={report['unsafe_request_example_count']} "
+            f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
             f"missing_template_fields={report['missing_request_run_template_field_count']} "
             f"missing_acceptance_report_fields={report['missing_acceptance_final_report_field_count']} "
             f"missing_acceptance_universal_fields={report['missing_acceptance_universal_pass_field_count']} "
@@ -1597,6 +1636,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_required_tokens",
             "missing_example_fields",
             "unsafe_request_examples",
+            "missing_request_example_route_coverage",
             "missing_request_run_template_fields",
             "missing_acceptance_final_report_fields",
             "missing_acceptance_universal_pass_fields",

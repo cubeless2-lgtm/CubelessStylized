@@ -8914,3 +8914,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now validates the `docs/stackobot-animation-acceptance-checklist.md` When To Stop And Escalate triggers for blocked authoring, blocked route-specific proof, protected metadata, repeated actor/AnimInstance resolution failure, missing source/overlay samples, visual-complexity non-escalation, and safe-route-blocked escalation.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_acceptance_escalation_triggers=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request example route coverage audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v21`.
+- The checker now validates that `docs/stackobot-animation-request-run-examples.md` covers the main dry-run route set: Post Process, BlendSpace, Trail, UpperBody/LayeredBlend, protected metadata, ControlRig, state-machine runtime-driver, Baddy RigidBody, and node contribution proof.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_request_example_routes=0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
