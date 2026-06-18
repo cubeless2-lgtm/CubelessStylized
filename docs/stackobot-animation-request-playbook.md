@@ -239,6 +239,8 @@ Best current route for secondary motion:
 1. Prefer existing Baddy RigidBody or Bot Trail samples.
 2. Use compiled mapping to prove the live node maps to the selected editor node.
 3. Use PoseWatch capture for exact same-instance input/output proof.
+4. For Bot Trail proof actors, set `set_override_post_process_anim_bp(ABP_Bot_Trail_Study_C, true)` on the component, start SIE, poll for a live PIE AnimInstance, then call PoseWatch with `anim_instance_source=post_process`.
+5. Split cleanup into `editor_end_play` first and actor deletion second; do not send a combined cleanup payload that deletes actors while SIE is still active.
 
 ## Approval Gates
 

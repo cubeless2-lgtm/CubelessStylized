@@ -335,6 +335,7 @@ Runtime interpretation:
 - Strongest measured Trail-vs-raw distance was `antenna_04_l`, about `2.945 cm`.
 - The response increases toward the antenna leaf, which matches the expected Trail Controller direction.
 - Temporary SIE/editor proof actors were removed. The current map package stayed dirty from reversible temp actor spawning; close the editor without saving to discard it rather than saving over `/Game/StackOBot/Maps/Lvl_Empty`.
+- The request-template rehearsal for "make the antenna lag/trail behind movement" was repeated under `StackOBot_TrailTemplateRehearsal_*`. `ensure_anim_graph_trail_demo` reused the existing connected sample chain without touching original assets, then SIE PoseWatch with explicit component-level Post Process override returned `success=true`, `sampled_world_type=PIE`, `anim_instance_source=post_process`, `runtime_graph_prepost=true`, `same_instance_prepost=true`, output link `4`, input `ComponentPose` link `1`, `errors=[]`, and `warnings=[]`. The strongest same-instance response was `antenna_04_l=0.133 cm / 28.033 deg`; `head` and `antenna_04_r` stayed at near-zero noise.
 
 Isolated Trail source-vs-output sampler artifacts:
 

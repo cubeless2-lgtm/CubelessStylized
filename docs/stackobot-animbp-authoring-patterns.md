@@ -250,6 +250,7 @@ Useful StackOBot evidence:
 - `ABP_Baddy` RigidBody is active and has same-instance PoseWatch evidence.
 - Original `ABP_Bot` Trail node is disconnected and uses `VB VBHead`, which is not a valid clean skeleton-chain target for the sample.
 - Active Bot Trail study uses `antenna_04_l` and requires explicit Post Process override for reliable scripted proof.
+- The `StackOBot_TrailTemplateRehearsal_*` proof confirmed the reusable request route: `SKM_Bot_Trail_Study`, main `ABP_Bot_C`, explicit `ABP_Bot_Trail_Study_C` component override, SIE, then `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)`.
 
 Preferred verification:
 
