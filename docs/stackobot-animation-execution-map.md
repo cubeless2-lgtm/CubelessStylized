@@ -387,7 +387,7 @@ Use this checklist when adding or validating another animation experiment.
 
 | Priority | Topic | Next useful action | Dependency |
 | ---: | --- | --- | --- |
-| Done | Slot and LayeredBoneBlend | Inventory complete for `UpperBody`, `CashedPose_UpperBody`, branch filters, filename/class montage evidence, and AssetRegistry-level interaction references. | Exact Blueprint call topology still needs a future read-only graph API. |
+| Done | Slot and LayeredBoneBlend | Inventory complete for `UpperBody`, `CashedPose_UpperBody`, branch filters, filename/class montage evidence, AssetRegistry-level interaction references, and read-only Blueprint call topology. | `BP_Bot` topology shows interact/grab component flow, not a direct montage/dynamic-slot playback call. |
 | Done/Runtime metrics | State-machine transitions | No-C++ transition topology probing is complete; live current-state reading, state weights, transition progress, relevant anim timing, runtime property setting, per-case state resampling, and meaningful `ABP_Bot` driver sequences are captured. | Full K2 call topology still needs follow-up API work. |
 | Done/Runtime pending | Control Rig pre/post | Direct-gate MCP probe, sample ModifyCurve curve-forcing, sample ControlRig input-default forcing, combined forced-driver sample assembly, and direct transient ControlRig pre/post solve probe are complete. | True compiled AnimGraph-internal source-vs-post subtraction still needs `sample_anim_node_pre_post_runtime_pose` or equivalent instrumentation. |
 | Done | Post Process pre/post | Static single-input-pose pre/post isolation is complete for the two variants. | `sample_postprocess_pre_post_pose` is only needed for live same-frame component runtime sampling. |
@@ -407,6 +407,7 @@ Implemented APIs to keep available for future audits:
 8. `inspect_anim_instance_runtime_state` - implemented, build-verified, synced into StackOBot, and live-smoked in PIE/SIE against a transient `SKM_Bot` actor using `ABP_Bot_C`; it now reports state weights, optional relevant animation timing, and transition progress. Current artifacts include `StackOBot_AnimInstanceRuntimeState_MCPInspect.*` and `StackOBot_AnimStateRuntimeMetrics_*`.
 9. `set_anim_instance_runtime_property_for_probe` - implemented, build-verified, synced into StackOBot, and live-smoked against a transient `ABP_Bot_C` runtime instance; current artifacts are `StackOBot_AnimRuntimePropertyMCPSet.*`.
 10. `sample_anim_state_machine_runtime_response` - implemented, build-verified, synced into StackOBot, and live-smoked with restored runtime property cases plus active transition metric capture; current artifacts include `StackOBot_AnimStateMachineRuntimeResponseMCPProbe.*` and `StackOBot_AnimStateRuntimeMetrics_*`.
+11. `inspect_blueprint_graph_call_topology` - implemented, build-verified, synced into StackOBot, and live-smoked against `BP_Bot` plus `BPC_InteractionHandler`; current artifacts are `StackOBot_BlueprintCallTopology_*`.
 
 Remaining candidates until C++/UnrealMCP implementation is explicitly resumed:
 
@@ -414,8 +415,7 @@ Remaining candidates until C++/UnrealMCP implementation is explicitly resumed:
 2. `sample_blendspace_runtime_pose_grid`
 3. `ensure_postprocess_anim_demo_variant`
 4. `sample_postprocess_pre_post_pose`
-5. `inspect_blueprint_graph_call_topology`
-6. true same-instance compiled AnimGraph instrumentation mode for `sample_anim_node_pre_post_runtime_pose`
+5. true same-instance compiled AnimGraph instrumentation mode for `sample_anim_node_pre_post_runtime_pose`
 
 Implemented `sample_skeletal_bones_in_sie` detail:
 
@@ -461,5 +461,7 @@ Implemented `sample_controlrig_pre_post_runtime_pose` detail:
 `inspect_blueprint_graph_call_topology` detail:
 
 - Scope: read-only inspection of selected Blueprint assets such as `BP_Bot` and `BPC_InteractionHandler`.
-- Outputs should include function/event nodes, relevant calls such as montage or slot playback, object/asset references, pin links, and protected-node blockers.
-- This is needed because the AssetRegistry pass proves broad dependencies but does not prove the exact interact/button animation trigger path.
+- Inputs: Blueprint path/name, optional graph selector, optional graph/name/node/reference filters, and bounded graph/node/link/reference limits.
+- Outputs: graph nodes, classified K2 node kinds, function/variable/event member references, Enhanced Input action references, object/asset/class paths, and normalized pin links.
+- StackOBot smoke result: `BP_Bot` `Interact` references resolved to `BPI_TouchInterface.Interact`, `Potential Interact`, and the grab-init/clear/update path; `Montage` references returned zero nodes in the smoked `BP_Bot` topology.
+- Limitation: this is static Blueprint topology only. It does not prove runtime branch execution; combine it with PIE/SIE runtime probes when execution evidence is required.

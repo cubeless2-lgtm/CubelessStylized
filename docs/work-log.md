@@ -8200,3 +8200,23 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_Cleanup.json`
 - Cleanup ended SIE and reported dirty content package count `0`; `/Game/StackOBot/Maps/Lvl_Empty` was dirty from transient actor/SIE work and the editor was closed without saving.
 - Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 UnrealMCP Blueprint call topology
+
+- Implemented read-only `inspect_blueprint_graph_call_topology` in sibling `D:/Git/unreal-mcp-cubeless` and exposed it through the Python MCP wrapper and `Docs/Tools/node_tools.md`.
+- The command reports Blueprint graphs, classified K2 node kinds, function/variable/event member references, Enhanced Input action references, object/class/asset reference paths, and normalized pin links with bounded graph/node/link/reference limits.
+- Synced the changed `UnrealMCPBlueprintNodeCommands.cpp`, `UnrealMCPBridge.cpp`, and `UnrealMCPBlueprintNodeCommands.h` into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `git diff --check`
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development -NoHotReload`
+  - `StackOBotEditor Win64 Development -NoHotReload`
+  - Live StackOBot bridge smoke on `127.0.0.1:55557`
+- Live smoke inspected `BP_Bot` and `BPC_InteractionHandler` without modifying or saving original StackOBot assets.
+- `BP_Bot` topology showed `IA_Grab`, `BPI_TouchInterface.Interact`, `Potential Interact`, and grab init/clear/update links. `reference_contains=Montage` returned zero nodes in the smoked `BP_Bot` topology.
+- `BPC_InteractionHandler` topology showed `Trigger` / `UnTrigger`, `Trigger Complete` / `Trigger Reverse`, and objective update flow.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_Summary.json`
+- Dirty content package count and dirty map package count were both `0` before closing the editor without saving.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.

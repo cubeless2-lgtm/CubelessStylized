@@ -17,6 +17,8 @@ Source artifacts:
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_Profile.json`
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_ProfileMetrics.csv`
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_Profile.md`
+- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_Summary.json`
+- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_raw.json`
 
 ## ABP_Bot
 
@@ -100,7 +102,7 @@ Slot interpretation:
 - The thigh exclusions protect leg branches from the button/interact overlay.
 - Filename and AssetRegistry class scans found no Bot montage-like asset candidate; the only loaded `AnimMontage` found was `/Game/StackOBot/Characters/Blobling/Anim/AM_Baddy_Death.AM_Baddy_Death`.
 - `IA_Interact` is referenced by `/Game/StackOBot/Input/IMC_ThirdPersonControls`, but `BP_Bot` dependencies did not include `IA_Interact` or a Bot montage asset.
-- The graph comment is still the current evidence for the interact-press-button montage intent; exact Blueprint call topology remains a future read-only API task.
+- The graph comment is no longer the only evidence for the interact path. `inspect_blueprint_graph_call_topology` now shows `BP_Bot` routes the touch-interface `Interact` event through `Potential Interact` and grab component logic, with no direct `Montage` reference found in the smoked event/function topology.
 
 ## ABP_Baddy
 
@@ -437,7 +439,7 @@ Main result:
 2. Physics pre/post: evidence synthesis is complete for the learning baseline; isolated source-bypass vs post-node RigidBody/Trail subtraction is covered by `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)`, while true same-instance compiled graph instrumentation remains future work.
 3. Post Process pre/post: static single-input-pose isolation is complete; `sample_postprocess_pre_post_pose` is only needed for live same-frame runtime sampling.
 4. State-machine transitions: no-C++ topology probing is complete; `inspect_anim_state_machine_transitions` is implemented, build-verified, and StackOBot live-smoked on bridge port `55558`. Live current-state reading, state weights, transition progress, relevant animation timing, and runtime property case resampling are now covered by MCP APIs. Meaningful `ABP_Bot` driver cases are captured for `GroundSpeed`, `IsInAir?`, `MovementInput?`, and `IsHovering`.
-5. Blueprint call topology: AssetRegistry-level interaction reference probing is complete, but exact interact/button call nodes need a future read-only Blueprint graph topology API.
+5. Blueprint call topology: AssetRegistry-level interaction reference probing and exact read-only call topology are complete for `BP_Bot` and `BPC_InteractionHandler`. `BP_Bot` exposes `IA_Grab`, `BPI_TouchInterface.Interact`, `Potential Interact`, and grab init/clear/update links; no direct montage/dynamic-slot playback call was found in the smoked topology.
 
 ## Read Limitations
 
@@ -448,5 +450,5 @@ Main result:
 - Use the SIE BlendSpace pose grid for current engine interpolation evidence; `sample_skeletal_bones_in_sie` is now available for the reusable live component bone/socket read step, while SIE startup/tick orchestration still remains external.
 - Use `controlrig_direct_gate_probe` for repeatable direct-rig gate checks, `ensure_anim_graph_modify_curve_demo` for sample-only `IKBlend_l` / `IK_blend_interact` curve forcing, `set_anim_graph_controlrig_input_defaults` for sample-only `ShouldDoIKTrace` / `InteractionWorldLocation` input-default forcing, `ensure_controlrig_forced_driver_animbp` for the combined sample forced-driver AnimBP, `sample_controlrig_pre_post_runtime_pose` for direct transient same-instance ControlRig pre/post solve deltas, `sample_skeletal_bones_in_sie` for live PIE/SIE component bone/socket reads, `inspect_anim_instance_runtime_state` for live AnimInstance state-machine current-state reads, and the runtime property/response commands for case scaffolding. Use future compiled AnimGraph node-stack instrumentation for exact source-vs-output subtraction; the current synthesis only compares existing source, direct-rig, sample curve-forcing, sample input-default forcing, forced-driver graph assembly, direct-transient pre/post solve, SIE probe, runtime-state inspector, and runtime-property response artifacts.
 - Use a future AnimGraph node pre/post runtime-pose command for exact RigidBody/Trail source-vs-output subtraction; the current physics synthesis only combines existing source-vs-runtime and raw-vs-trail evidence.
-- Use a future Blueprint graph call-topology command to prove the exact interact/button animation trigger path; AssetRegistry dependencies alone are not enough.
+- Use `inspect_blueprint_graph_call_topology` to prove exact static Blueprint call/reference/link topology. Current StackOBot artifacts are `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_Summary.json` and `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_raw.json`.
 - This inventory did not modify or save original StackOBot assets.

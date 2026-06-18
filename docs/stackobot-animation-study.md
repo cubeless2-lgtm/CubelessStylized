@@ -441,7 +441,7 @@ compile_and_validate_blueprint(save=false)
 - Control Rig direct-gate, forced curve setup, ControlRig input-default forcing, forced-driver AnimBP assembly, and direct transient pre/post solve probing are complete. `controlrig_direct_gate_probe`, `ensure_anim_graph_modify_curve_demo`, `set_anim_graph_controlrig_input_defaults`, `ensure_controlrig_forced_driver_animbp`, and `sample_controlrig_pre_post_runtime_pose` are implemented, build-verified, and StackOBot live-smoked on bridge port `55558`; exact compiled AnimGraph-internal ControlRig source-vs-post attribution remains deferred to future instrumentation.
 - Trail active sampling is complete for the safe antenna-chain study sample. Use `ABP_Bot_Trail_Study` with explicit component-level Post Process override for broad runtime comparisons; use `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)` for isolated source-bypass vs post-node Trail deltas.
 - BlendSpace source maps and SIE pose grids are complete. Use the SIE grid as the runtime-style result and keep the non-SIE single-node probe as an API-gap record.
-- Slot/LayeredBoneBlend inventory and AssetRegistry-level interaction reference probing are complete. Exact Blueprint graph call topology for the interact/button trigger remains deferred to a future read-only graph-topology API.
+- Slot/LayeredBoneBlend inventory, AssetRegistry-level interaction reference probing, and read-only Blueprint graph call-topology probing are complete. `inspect_blueprint_graph_call_topology` is implemented, build-verified, synced into StackOBot, and live-smoked against `BP_Bot` plus `BPC_InteractionHandler`.
 - State-machine transition topology is complete for source/target states and rule-graph topology. The read-only `inspect_anim_state_machine_transitions` UnrealMCP API is implemented, build-verified, and live-smoked against StackOBot on alternate bridge port `55558`; `inspect_anim_instance_runtime_state`, `set_anim_instance_runtime_property_for_probe`, and `sample_anim_state_machine_runtime_response` now cover live PIE/SIE current state reading, state weights, transition progress, relevant anim timing, and runtime property case resampling. Meaningful `ABP_Bot` transition-driving data is captured for `GroundSpeed`, `IsInAir?`, `MovementInput?`, and `IsHovering`.
 
 ## ABP_Bot Runtime Driver Matrix
@@ -451,6 +451,8 @@ Runtime matrix artifact:
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_RuntimeDriverMatrix.md`
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_Summary.json`
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_raw.json`
+- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_Summary.json`
+- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_raw.json`
 
 Driver variables found from transition topology:
 
@@ -480,6 +482,13 @@ Runtime metric smoke:
 - After eight more `1/60s` ticks, transition progress was `elapsed_time=0.1500`, `elapsed_fraction=0.75`, with `Idle weight=0.15625` and `Walk/Run weight=0.84375`.
 - The `IsInAir?=true` zero-duration transition guard case completed with no errors; inactive zero-crossfade transitions report `elapsed_fraction=0`.
 
+Blueprint call-topology smoke:
+
+- `inspect_blueprint_graph_call_topology` returned `read_only=true` static topology for `BP_Bot` and `BPC_InteractionHandler`.
+- `BP_Bot` `reference_contains=Interact` found four nodes: two `Set Potential Interact` nodes in `Grab_Check`, one `Potential Interact` getter in `EventGraph`, and the `Interact` event from `BPI_TouchInterface`.
+- `BP_Bot` `reference_contains=Montage` found zero nodes. A broader event-graph overview found `IA_Grab`, grab init/clear/update calls, sounds/camera shake, and input setup, but no direct montage or dynamic-slot playback call.
+- `BPC_InteractionHandler` topology showed `Trigger` / `UnTrigger` events, `Trigger Complete` / `Trigger Reverse` delegate calls, and objective update flow; it does not expose a Bot montage trigger.
+
 Automatic transition rules seen in topology and runtime sequence behavior:
 
 - `Jump -> Fall`
@@ -489,7 +498,7 @@ Automatic transition rules seen in topology and runtime sequence behavior:
 
 Remaining state-machine gap:
 
-- Full `EventGraph`/`CalcLean` K2 call topology still needs a future read-only C++ API because Python graph-subobject traversal was not reliable in this UE 5.7 setup.
+- Full `EventGraph`/`CalcLean` K2 call topology can now be queried through `inspect_blueprint_graph_call_topology`, but the current StackOBot smoke focused on the interact/button path rather than a complete AnimBP EventGraph audit.
 - The remaining exact pre/post attribution tasks are true same-instance compiled graph instrumentation for Control Rig and physics. Post Process static pre/post is complete, and RigidBody/Trail isolated source-vs-output sampling is now covered.
 
 ## Remaining Study Backlog
@@ -497,8 +506,9 @@ Remaining state-machine gap:
 1. Slot and LayeredBoneBlend pass
    - Completed the `UpperBody` slot, cached `CashedPose_UpperBody`, and pelvis/thigh branch filter inventory.
    - Completed the AssetRegistry-level interaction reference probe.
+   - Completed the read-only Blueprint call-topology probe for `BP_Bot` and `BPC_InteractionHandler`.
    - Bot montage-like filename candidates were not found; the only loaded AnimMontage asset found by class scan is Baddy death.
-   - Exact Blueprint node/call topology for the interact/button overlay remains a future read-only API task.
+   - `BP_Bot` has no direct `Montage` graph reference in the smoked event/function topology. The interact path resolves to `BPI_TouchInterface.Interact`, `Potential Interact`, and the grab-init/clear/update component path rather than a dynamic slot or montage playback path.
 2. State machine transition pass
    - Completed the deep no-C++ transition topology probe.
    - Keep current transition graph inventory and deep probe as read-only evidence.
@@ -708,7 +718,7 @@ Remaining candidates:
 | `ensure_anim_graph_trail_demo` | Create a `_MCP_Sample` AnimBP with an active Trail Controller path. | Needed to compare the currently disconnected original Trail node against a real connected Trail chain. |
 | `inspect_anim_graph_protected_topology` | Return protected graph nodes, pins, and links in a stable read-only format. | Existing `inspect_anim_graph_node_settings` covers much of this, but a topology-focused response would make graph-edit planning safer. |
 | `inspect_anim_state_machine_transitions` | Read source state, target state, and transition condition topology for AnimBP state machines. | Implemented, build-verified, and StackOBot live-smoked on bridge port `55558`; `StackOBot_StateMachine_TransitionMCPInspect.*` is the current source/target and rule-summary artifact. |
-| `inspect_blueprint_graph_call_topology` | Read Blueprint graph nodes, function calls, asset references, and pin links for selected non-AnimBlueprints. | Needed to prove whether `BP_Bot`/`BPC_InteractionHandler` actually call an interact/button montage or dynamic slot playback path. |
+| `inspect_blueprint_graph_call_topology` | Read Blueprint graph nodes, function calls, asset references, and pin links for selected Blueprint assets. | Implemented in UnrealMCP, build-verified in both editor targets, synced into StackOBot, and StackOBot live-smoked against `BP_Bot` plus `BPC_InteractionHandler`. Current artifacts are `StackOBot_BlueprintCallTopology_*`. |
 
 Priority recommendation:
 
@@ -724,7 +734,7 @@ Priority recommendation:
 10. Completed for runtime property set and response scaffolding: `set_anim_instance_runtime_property_for_probe` and `sample_anim_state_machine_runtime_response` were run against StackOBot through the primary bridge port with restored `bUseMultiThreadedAnimationUpdate` cases.
 11. Completed for meaningful `ABP_Bot` transition drivers: `GroundSpeed`, `IsInAir?`, `MovementInput?`, and `IsHovering` were set on a transient runtime `ABP_Bot_C` instance and produced the expected ground, jump/fall, landing, and jetpack state sequences.
 11. Identify real `ABP_Bot` transition-driving runtime values or drive movement/velocity through gameplay components before attempting a meaningful state-change matrix.
-12. Implement `inspect_blueprint_graph_call_topology` if the interact/button trigger path must be proven beyond AssetRegistry dependencies.
+12. Completed for Blueprint call topology: `inspect_blueprint_graph_call_topology` proved the current `BP_Bot` interact path and found no direct montage/dynamic-slot playback call in the smoked `BP_Bot` event/function topology.
 13. Implement `ensure_anim_graph_trail_demo` when returning to the Trail Controller active sample.
 
 ## Trail No-C++ Active Sample Feasibility
