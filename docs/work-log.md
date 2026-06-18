@@ -8436,6 +8436,20 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The Modify Bone chain targets `head` with additive bone-space rotation `Pitch=0`, `Yaw=8`, `Roll=0`.
 - Command result reported `success=true`, target AnimBP and SkeletalMesh created, AnimBP compile success, both assets saved, duplicated SkeletalMesh Post Process AnimBlueprint assigned to `ABP_Bot_PostProcess_Study_HeadYawAuthoringPattern_C`, and `original_assets_modified=false`.
 - Follow-up editor restart and asset-load check confirmed the AnimBP and SkeletalMesh load, the SkeletalMesh references the expected Post Process AnimBlueprint class, and `dirty_package_count=0`.
-- Runtime PoseWatch was attempted next but did not complete. The generic `execute_python` SIE actor setup crashed the hidden editor with `EXCEPTION_INT_DIVIDE_BY_ZERO`; latest crash folder was `Saved/Crashes/UECC-Windows-67DAE7C64400945D5537EAB0830A5CA0_0000`.
-- Treat the crash as an unsafe SIE setup route issue. The saved sample assets remain valid by compile/save/load checks, but same-instance runtime PoseWatch for this specific `HeadYawAuthoringPattern` variant remains pending.
+- Runtime PoseWatch initially did not complete because the generic `execute_python` SIE actor setup crashed the hidden editor with `EXCEPTION_INT_DIVIDE_BY_ZERO`; latest crash folder was `Saved/Crashes/UECC-Windows-67DAE7C64400945D5537EAB0830A5CA0_0000`.
+- Treat that crash as an unsafe SIE setup route issue. The saved sample assets remained valid by compile/save/load checks and were later verified through a no-SIE editor-world PoseWatch route.
 - The hidden editor was relaunched for verification, then stopped externally. A leftover `CrashReportClientEditor` process was also stopped. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot HeadYaw Post Process no-SIE PoseWatch proof
+
+- Completed same-instance runtime PoseWatch for `HeadYawAuthoringPattern` without adding C++ and without starting SIE.
+- Setup route: editor-world transient `SkeletalMeshActor`, sample mesh `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study_HeadYawAuthoringPattern`, main `ABP_Bot_C`, explicit component-level Post Process override to `ABP_Bot_PostProcess_Study_HeadYawAuthoringPattern_C`, then `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process, prefer_pie_world=false)`.
+- PoseWatch result: `success=true`, `sampled_world_type=Editor`, `is_play_session_active=false`, `runtime_graph_prepost=true`, `same_instance_prepost=true`, `same_anim_instance_node_mapping=true`, `runtime_node_instance_mapped=true`, `find_debug_anim_node_mapped=true`, `transient_pose_watches=true`, `debug_object_restored=true`, and `original_assets_modified=false`.
+- Runtime links resolved as ModifyBone output link `3` and input `ComponentPose` link `2` in the same `ABP_Bot_PostProcess_Study_HeadYawAuthoringPattern_C` Post Process instance.
+- Deltas: `head` rotates about `8.0 deg`; `antenna_04_l` moves about `11.737 cm` and rotates about `8.0 deg`; `antenna_04_r` moves about `11.746 cm` and rotates about `8.0 deg`; `pelvis` and `neck_01` remain at floating-point noise.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_HeadYawAuthoringPatternPoseWatchPrePost_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_HeadYawAuthoringPatternPoseWatchPrePost_Summary.json`
+- Cleanup destroyed the transient actor. `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible editor-world spawn/delete, so the hidden editor was stopped externally without saving. A leftover `CrashReportClientEditor` process was also stopped.
+- Latest log caveat: the setup script attempted Python wrapper methods `tick_animation` and `refresh_bone_transforms`, which are not exposed on this wrapper. The final C++ PoseWatch command handled ticking and returned success with empty command errors/warnings.
+- Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

@@ -197,6 +197,7 @@ Useful StackOBot evidence:
   - `HeadPitch` rotates `head` by about `6.0 deg` and moves antenna leaves by about `8.6 cm`.
   - `AntennaRoll` rotates only `antenna_04_l` by about `12.0 deg`.
 - `HeadYawAuthoringPattern` proves the current sample-only authoring route can create a new Post Process Modify Bone variant with `head` yaw `8.0 deg`, compile/save it, assign the duplicated SkeletalMesh Post Process AnimBlueprint, reload it, and end with `dirty_package_count=0`.
+- The same variant now has no-SIE editor-world PoseWatch proof: `head` rotates about `8.0 deg`, antenna leaf bones move about `11.74 cm`, and non-descendant bones remain at floating-point noise.
 
 Preferred verification:
 
@@ -206,7 +207,8 @@ Preferred verification:
 
 Current caveat:
 
-- Runtime PoseWatch for `HeadYawAuthoringPattern` is not complete yet. The first generic `execute_python` SIE actor setup crashed the hidden editor with `EXCEPTION_INT_DIVIDE_BY_ZERO`, so future runtime proof should use a narrower native or already-smoked setup route rather than repeating that Python setup script.
+- Do not repeat the failed generic `execute_python` SIE actor setup; it crashed the hidden editor with `EXCEPTION_INT_DIVIDE_BY_ZERO`.
+- For static Post Process ModifyBone proofs like `HeadYawAuthoringPattern`, the safer route is editor-world transient actor setup without SIE, then `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process, prefer_pie_world=false)`.
 
 ### 6. Physics And Secondary Motion Pattern
 

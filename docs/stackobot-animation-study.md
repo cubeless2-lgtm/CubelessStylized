@@ -186,7 +186,13 @@ Additional authoring-pattern smoke:
 - Modify Bone settings: `Bone=head`, additive bone-space rotation `Pitch=0`, `Yaw=8`, `Roll=0`.
 - The command created both target assets, compiled the AnimBP successfully, saved the AnimBP and SkeletalMesh, assigned the SkeletalMesh Post Process AnimBlueprint to `ABP_Bot_PostProcess_Study_HeadYawAuthoringPattern_C`, and reported `original_assets_modified=false`.
 - A follow-up editor restart loaded both assets and confirmed `dirty_package_count=0`.
-- Runtime PoseWatch was deferred: the first SIE setup attempt through generic `execute_python` crashed the hidden editor with `EXCEPTION_INT_DIVIDE_BY_ZERO` before the PoseWatch command could run. Treat this as an unsafe SIE setup route issue, not as a failure of the saved sample assets.
+- Runtime PoseWatch is now complete through a safer no-SIE editor-world transient actor route. The first generic `execute_python` SIE setup attempt crashed the hidden editor with `EXCEPTION_INT_DIVIDE_BY_ZERO`, so that route remains unsafe, but it was not needed for this Post Process proof.
+- `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process, prefer_pie_world=false)` resolved the ModifyBone output link `3` and input `ComponentPose` link `2` in the same `ABP_Bot_PostProcess_Study_HeadYawAuthoringPattern_C` Post Process instance.
+- Result: `runtime_graph_prepost=true`, `same_instance_prepost=true`, `same_anim_instance_node_mapping=true`, `runtime_node_instance_mapped=true`, `find_debug_anim_node_mapped=true`, `transient_pose_watches=true`, `debug_object_restored=true`, and `original_assets_modified=false`.
+- Deltas: `head` rotates about `8.0 deg`; descendant `antenna_04_l` moves about `11.737 cm` and rotates about `8.0 deg`; `antenna_04_r` moves about `11.746 cm` and rotates about `8.0 deg`; `pelvis` and `neck_01` stay at floating-point noise.
+- Artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_HeadYawAuthoringPatternPoseWatchPrePost_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_HeadYawAuthoringPatternPoseWatchPrePost_Summary.json`
 
 Variant impact map:
 
@@ -1236,6 +1242,7 @@ Main result:
 | `AntennaRoll` | `head`, `neck`, `antenna_04_r` | No meaningful change. |
 | `HeadPitch` PoseWatch | `head` / antenna leaves | Same-instance Post Process input/output capture passed with output link `3`, input link `2`; `head` rotates about `6.0 deg`, and antenna leaves move about `8.59-8.61 cm`. |
 | `AntennaRoll` PoseWatch | `antenna_04_l` | Same-instance Post Process input/output capture passed with output link `3`, input link `2`; only `antenna_04_l` rotates about `12.0 deg`. |
+| `HeadYawAuthoringPattern` PoseWatch | `head` / antenna leaves | Same-instance Post Process input/output capture passed in editor-world no-SIE mode with output link `3`, input link `2`; `head` rotates about `8.0 deg`, and antenna leaves move about `11.74 cm`. |
 
 Interpretation:
 
@@ -1245,5 +1252,6 @@ Interpretation:
 - `HeadPitch` modifies a parent bone, so descendants move.
 - `AntennaRoll` modifies a leaf bone, so only `antenna_04_l` rotates.
 - Live PoseWatch captures used `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)` on transient SIE actors and returned `runtime_graph_prepost=true` / `same_instance_prepost=true` for both variants.
+- The `HeadYawAuthoringPattern` capture proves the same Post Process ModifyBone parent-bone behavior without SIE by using an editor-world transient actor, `prefer_pie_world=false`, and the existing C++ PoseWatch tick path. This is the safer route for static Post Process ModifyBone authoring proofs.
 - Scripted proof actors should explicitly call `set_override_post_process_anim_bp(..., true)` on the component.
 - A separate `sample_postprocess_pre_post_pose` command is no longer needed for these two learning fixtures.
