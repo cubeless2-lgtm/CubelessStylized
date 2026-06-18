@@ -8752,3 +8752,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Updated `docs/stackobot-animation-quickstart.md` and `docs/stackobot-animation-doc-index.md` with the preflight commands, including `--require-bridge` for the final live-editor gate.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_preflight.py --summary` passed static checks; `--require-bridge` failed because the StackOBot bridge was not reachable, so live editor work is not ready until the editor bridge is started.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot command-surface summary sync
+
+- Updated sibling `D:/Git/unreal-mcp-cubeless/Python/unreal_mcp_server.py` so the MCP info/help summary includes `ensure_postprocess_anim_demo_variant`.
+- Reason: the implementation wrapper, sibling docs, and StackOBot-local plugin bridge already exposed the command, but the server summary string was missing it and the new StackOBot preflight checker correctly reported a reference-surface warning.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_preflight.py --summary` now passes static checks without command-surface warnings; bridge remains not reachable until StackOBot Editor is running.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
