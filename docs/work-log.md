@@ -8485,3 +8485,9 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added reusable `티브렛에게 전달할 지시` templates to `docs/stackobot-animation-request-playbook.md` for Post Process ModifyBone, BlendSpace sample variants, ControlRig forced-driver proofs, physics/secondary motion, and state-machine/runtime-driver requests.
 - The templates preserve the default sample-only rule, call out the StackOBot-local UnrealMCP plugin requirement for BlendSpace authoring, and map each request class to the expected verification command.
 - No Unreal assets, sample assets, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot C++ API candidate parking lot
+
+- Added a candidate API parking lot to `docs/stackobot-animation-request-playbook.md` and expanded the remaining C++/UnrealMCP candidate list in `docs/stackobot-animation-execution-map.md`.
+- Current status: no additional C++ is needed immediately. Future API work is gated by concrete requests that current commands cannot express, such as safe state-machine sample authoring, new layered slot overlay samples, broader Post Process physics variants, repeated PoseWatch target setup failures, or protected notify/curve data.
+- No Unreal assets, sample assets, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

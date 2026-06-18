@@ -454,7 +454,12 @@ Implemented APIs to keep available for future audits:
 
 Remaining C++/UnrealMCP candidates if reusable tooling is explicitly resumed:
 
-1. expand same-instance AnimGraph pre/post capture only if a new unusual node class falls outside the smoked RigidBody/Trail/Post Process ModifyBone/LayeredBoneBlend/ControlRig paths.
+1. Expand same-instance AnimGraph pre/post capture only if a new unusual node class falls outside the smoked RigidBody/Trail/Post Process ModifyBone/LayeredBoneBlend/ControlRig paths.
+2. Add `ensure_state_machine_sample_variant` only if runtime property-driver proofs are not enough and a future request needs a safe duplicated AnimBP with new state/transition authoring.
+3. Add `ensure_layered_slot_overlay_sample` only if a future request needs a new overlay branch rather than the existing `UpperBody` slot/cached-pose/LayeredBoneBlend route.
+4. Add `ensure_postprocess_physics_variant` only if the existing Bot Trail and Baddy RigidBody samples cannot express the requested secondary-motion behavior.
+5. Add a target actor resolver only if repeated PoseWatch proof setup fails because of transient actor, component override, PIE duplicate matching, or editor-world fallback issues.
+6. Add notify/curve read-authoring support only when a concrete request depends on sequence notifies, sync markers, or protected curve data.
 
 Implemented `sample_skeletal_bones_in_sie` detail:
 

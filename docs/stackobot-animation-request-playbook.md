@@ -259,6 +259,16 @@ Do not escalate when:
 - A sample-only asset can be created and verified with current commands.
 - The only missing work is documentation or artifact summarization.
 
+Candidate API parking lot:
+
+| Candidate | Use only when | Prefer existing route first |
+| --- | --- | --- |
+| `ensure_state_machine_sample_variant` | A future request needs a new state, sequence player, or transition rule that cannot be represented by runtime property-driver tests. | `inspect_anim_state_machine_transitions`, `inspect_anim_instance_runtime_state`, `sample_anim_state_machine_runtime_response` |
+| `ensure_layered_slot_overlay_sample` | A future request needs a new slot/layered-blend overlay sample rather than inspecting the existing `UpperBody` route. | Slot/cached-pose inventory and `sample_anim_node_pre_post_runtime_pose(input_pose_mode=all)` |
+| `ensure_postprocess_physics_variant` | A future request needs authored Trail/RigidBody-like secondary motion parameters outside the existing Bot Trail and Baddy RigidBody samples. | `ensure_anim_graph_trail_demo`, compiled mapping, PoseWatch capture |
+| `resolve_anim_posewatch_target_actor` | Repeated proof requests keep failing because transient actor setup, component override, PIE duplicate matching, or editor-world fallback is inconsistent. | Existing editor-world setup for static Post Process, existing SIE/PIE actor setup for gameplay/physics |
+| `inspect_or_author_anim_notifies_curves` | A request depends on sequence notifies, sync markers, or curve authoring that remains protected through current Python reads. | Current sequence inventory and ControlRig curve-gate probes |
+
 Implemented route:
 
 - `ensure_blendspace_sample_variant`: duplicate or reuse a source BlendSpace under
