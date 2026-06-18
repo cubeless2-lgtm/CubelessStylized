@@ -2,8 +2,9 @@
 
 This local/read-only check validates that StackOBot study docs point to existing
 relative docs, required study documents still exist, key template sections,
-request-run example fields, and MCP command syntax examples are present, and the
-sibling/sample workspace paths used by the workflow still exist on this machine.
+request-run example fields, MCP command syntax examples, command parameters, and
+sample-path guards are present, and the sibling/sample workspace paths used by
+the workflow still exist on this machine.
 It does not call Unreal, does not touch assets, and does not require the editor
 bridge to be online.
 """
@@ -22,6 +23,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DOCS_ROOT = PROJECT_ROOT / "docs"
 REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_DocAudit" / "StackOBotAnimationDocsLinkAudit.json"
+SAMPLE_ANIM_STUDY_ROOT = "/Game/_MCP_Sample/AnimStudy"
 
 RELATIVE_DOC_RE = re.compile(r"(?<![A-Za-z0-9_:/.-])docs/[A-Za-z0-9._/-]+\.md")
 EXAMPLE_SECTION_RE = re.compile(r"^## Example (?P<number>\d+): (?P<title>.+)$", re.MULTILINE)
@@ -556,6 +558,89 @@ COMMAND_SYNTAX_AUTHORING_COMMANDS = [
     "set_anim_graph_rigidbody_settings",
 ]
 
+COMMAND_SYNTAX_REQUIRED_PARAM_SPECS: dict[str, list[str | tuple[str, ...]]] = {
+    "ensure_postprocess_anim_demo_variant": [
+        "source_blueprint_name",
+        "source_skeletal_mesh",
+        "variant_name",
+        "target_blueprint_name",
+        "target_skeletal_mesh",
+        "bone_name",
+        "rotation",
+        "allow_non_sample",
+    ],
+    "sample_anim_node_pre_post_runtime_pose": [
+        "blueprint_name",
+        "node_type",
+        "mode",
+        "anim_instance_source",
+        "sample_bones",
+    ],
+    "ensure_blendspace_sample_variant": [
+        "source_blendspace",
+        "variant_name",
+        "sample_edits",
+        "allow_non_sample",
+    ],
+    "sample_blendspace_runtime_pose_grid": [
+        "skeletal_mesh",
+        "blendspaces",
+        "sample_bones",
+    ],
+    "ensure_controlrig_forced_driver_animbp": [
+        "blueprint_name",
+        "graph_name",
+        "graph_type",
+        "control_rig_class",
+        "allow_non_sample",
+    ],
+    "controlrig_direct_gate_probe": [
+        ("control_rig_path", "control_rig_class"),
+        "sample_elements",
+        "cases",
+    ],
+    "inspect_anim_state_machine_transitions": [
+        "blueprint_name",
+        "state_machine_name",
+    ],
+    "sample_anim_state_machine_runtime_response": [
+        ("actor_label", "actor_name", "actor_filter"),
+        "state_machine_name",
+        "cases",
+    ],
+    "ensure_anim_graph_trail_demo": [
+        "blueprint_name",
+        "trail_bone",
+        "base_joint",
+        "allow_non_sample",
+    ],
+    "inspect_anim_graph_node_settings": [
+        "blueprint_name",
+        "node_type",
+    ],
+    "set_anim_graph_rigidbody_settings": [
+        "blueprint_name",
+        "allow_non_sample",
+    ],
+}
+
+COMMAND_SYNTAX_SAMPLE_PATH_FIELDS = {
+    "ensure_postprocess_anim_demo_variant": [
+        "source_blueprint_name",
+        "target_blueprint_name",
+        "target_skeletal_mesh",
+    ],
+    "ensure_controlrig_forced_driver_animbp": [
+        "blueprint_name",
+    ],
+    "ensure_anim_graph_trail_demo": [
+        "blueprint_name",
+    ],
+    "set_anim_graph_rigidbody_settings": [
+        "blueprint_name",
+    ],
+}
+
 
 def _project_relative(path: Path) -> str:
     try:
@@ -789,6 +874,112 @@ def _command_syntax_authoring_safety_entries(json_blocks: list[dict[str, Any]]) 
     return entries
 
 
+def _param_has_value(params: dict[str, Any], field: str) -> bool:
+    if field not in params:
+        return False
+    value = params[field]
+    return value not in ("", None, [], {})
+
+
+def _param_spec_label(spec: str | tuple[str, ...]) -> str:
+    if isinstance(spec, tuple):
+        return " or ".join(spec)
+    return spec
+
+
+def _param_spec_satisfied(params: dict[str, Any], spec: str | tuple[str, ...]) -> tuple[bool, str]:
+    if isinstance(spec, tuple):
+        matched = [field for field in spec if _param_has_value(params, field)]
+        return bool(matched), matched[0] if matched else ""
+    return _param_has_value(params, spec), spec if _param_has_value(params, spec) else ""
+
+
+def _command_syntax_required_param_entries(json_blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for command, param_specs in COMMAND_SYNTAX_REQUIRED_PARAM_SPECS.items():
+        matching_blocks = [
+            block
+            for block in json_blocks
+            if block.get("parse_success") and block.get("command") == command
+        ]
+        if not matching_blocks:
+            for spec in param_specs:
+                entries.append(
+                    {
+                        "path": "docs/stackobot-animation-mcp-command-syntax.md",
+                        "command": command,
+                        "block_index": None,
+                        "param": _param_spec_label(spec),
+                        "exists": False,
+                        "has_value": False,
+                        "matched_param": "",
+                    }
+                )
+            continue
+
+        for block in matching_blocks:
+            params = block.get("params") if isinstance(block.get("params"), dict) else {}
+            for spec in param_specs:
+                satisfied, matched_param = _param_spec_satisfied(params, spec)
+                entries.append(
+                    {
+                        "path": "docs/stackobot-animation-mcp-command-syntax.md",
+                        "command": command,
+                        "block_index": block.get("block_index"),
+                        "param": _param_spec_label(spec),
+                        "exists": satisfied,
+                        "has_value": satisfied,
+                        "matched_param": matched_param,
+                    }
+                )
+    return entries
+
+
+def _is_safe_sample_path(value: Any) -> bool:
+    return isinstance(value, str) and value.startswith(SAMPLE_ANIM_STUDY_ROOT)
+
+
+def _command_syntax_sample_path_entries(json_blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for command, fields in COMMAND_SYNTAX_SAMPLE_PATH_FIELDS.items():
+        matching_blocks = [
+            block
+            for block in json_blocks
+            if block.get("parse_success") and block.get("command") == command
+        ]
+        if not matching_blocks:
+            for field in fields:
+                entries.append(
+                    {
+                        "path": "docs/stackobot-animation-mcp-command-syntax.md",
+                        "command": command,
+                        "block_index": None,
+                        "field": field,
+                        "exists": False,
+                        "safe_value": False,
+                        "value": "",
+                    }
+                )
+            continue
+
+        for block in matching_blocks:
+            params = block.get("params") if isinstance(block.get("params"), dict) else {}
+            for field in fields:
+                value = params.get(field)
+                entries.append(
+                    {
+                        "path": "docs/stackobot-animation-mcp-command-syntax.md",
+                        "command": command,
+                        "block_index": block.get("block_index"),
+                        "field": field,
+                        "exists": field in params,
+                        "safe_value": _is_safe_sample_path(value),
+                        "value": value if isinstance(value, str) else "",
+                    }
+                )
+    return entries
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     started_at = time.monotonic()
     docs = sorted(DOCS_ROOT.glob(args.glob))
@@ -820,6 +1011,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for entry in command_syntax_authoring_safety
         if not entry["exists"] or not entry["safe_value"]
     ]
+    command_syntax_required_params = _command_syntax_required_param_entries(command_syntax_json_blocks)
+    missing_command_syntax_required_params = [
+        entry
+        for entry in command_syntax_required_params
+        if not entry["exists"] or not entry["has_value"]
+    ]
+    command_syntax_sample_paths = _command_syntax_sample_path_entries(command_syntax_json_blocks)
+    unsafe_command_syntax_sample_paths = [
+        entry
+        for entry in command_syntax_sample_paths
+        if not entry["exists"] or not entry["safe_value"]
+    ]
     pass_value = (
         not missing_references
         and not missing_external_paths
@@ -830,10 +1033,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not invalid_command_syntax_json
         and not missing_command_syntax_commands
         and not unsafe_command_syntax_authoring
+        and not missing_command_syntax_required_params
+        and not unsafe_command_syntax_sample_paths
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v10",
+        "schema": "stackobot_animation_docs_link_audit_v11",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -848,6 +1053,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "invalid_command_syntax_json_count": len(invalid_command_syntax_json),
         "missing_command_syntax_command_count": len(missing_command_syntax_commands),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
+        "missing_command_syntax_required_param_count": len(missing_command_syntax_required_params),
+        "unsafe_command_syntax_sample_path_count": len(unsafe_command_syntax_sample_paths),
         "pass": pass_value,
         "docs": [_project_relative(path) for path in docs],
         "missing_references": missing_references,
@@ -863,6 +1070,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_command_syntax_commands": missing_command_syntax_commands,
         "command_syntax_authoring_safety": command_syntax_authoring_safety,
         "unsafe_command_syntax_authoring": unsafe_command_syntax_authoring,
+        "command_syntax_required_params": command_syntax_required_params,
+        "missing_command_syntax_required_params": missing_command_syntax_required_params,
+        "command_syntax_sample_paths": command_syntax_sample_paths,
+        "unsafe_command_syntax_sample_paths": unsafe_command_syntax_sample_paths,
     }
 
     if args.write_report:
@@ -887,7 +1098,9 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_example_fields={report['missing_example_field_count']} "
             f"invalid_command_json={report['invalid_command_syntax_json_count']} "
             f"missing_command_examples={report['missing_command_syntax_command_count']} "
-            f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']}"
+            f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
+            f"missing_command_params={report['missing_command_syntax_required_param_count']} "
+            f"unsafe_command_paths={report['unsafe_command_syntax_sample_path_count']}"
         ),
     ]
     if report.get("report_path"):
@@ -902,6 +1115,8 @@ def _format_summary(report: dict[str, Any]) -> str:
             "invalid_command_syntax_json",
             "missing_command_syntax_commands",
             "unsafe_command_syntax_authoring",
+            "missing_command_syntax_required_params",
+            "unsafe_command_syntax_sample_paths",
         ]:
             entries = report.get(key) or []
             if entries:
