@@ -8671,3 +8671,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added `docs/stackobot-animation-doc-index.md` as the navigation page for the StackOBot animation study docs.
 - Grouped the docs into start-here pages, request execution pages, route deep dives, default workflow, and safe defaults.
 - Linked the index from the quickstart and closeout so future requests can route quickly without reopening every study note. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation docs link audit
+
+- Audited relative `docs/*.md` references across the StackOBot documentation set with a stricter case-sensitive relative-path matcher.
+- Result: `117` relative document references checked, `0` missing.
+- Confirmed sibling references still exist at `D:/Git/unreal-mcp-cubeless/Python/tools/node_tools.py`, `D:/Git/unreal-mcp-cubeless/Docs/Tools/node_tools.md`, and `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
