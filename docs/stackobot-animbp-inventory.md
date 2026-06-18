@@ -384,6 +384,9 @@ Notes:
 - Editor tick and SIE using only mesh-level Post Process defaults produced no measurable Trail-vs-raw difference on transient proof actors.
 - SIE with explicit component-level `set_override_post_process_anim_bp(ABP_Bot_Trail_Study_C, true)` produced measurable Trail output.
 - Strongest measured Trail-vs-raw distance was `antenna_04_l` at about `2.945 cm`; the response grows toward the antenna leaf.
+- `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)` now provides isolated source-bypass vs post-node Trail evidence through disposable `_MCP_Temp` assets.
+- The static no-FakeVelocity case stayed at noise level, about `0.000005 cm`; the controlled temp duplicate with `FakeVelocity=(0,0,80)` produced a strongest `antenna_04_l` delta of about `21.948 cm` translation and `34.072 deg` rotation.
+- Trail isolated sampler artifacts were written to `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostTrailIsolatedTempSmoke_*`.
 - Temporary proof actors were removed, but `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible temp actor spawning. Discard by closing the editor without saving.
 
 ## Physics Pre/Post Evidence Synthesis
@@ -397,9 +400,9 @@ Offline artifacts:
 Main result:
 
 - Baddy RigidBody is proven through SIE runtime variants plus authored source-clip magnitude baselines.
-- Bot Trail is proven through SIE raw-vs-trail component comparison when the Trail component explicitly overrides its Post Process AnimBP.
-- Current evidence is enough for the learning baseline, but it is not same-frame node-internal subtraction.
-- Exact source-vs-post-RigidBody/Trail attribution remains blocked until `sample_anim_node_pre_post_runtime_pose` exists.
+- Bot Trail is proven through SIE raw-vs-trail component comparison when the Trail component explicitly overrides its Post Process AnimBP, plus isolated source-bypass vs post-node sampling.
+- Current evidence is enough for the learning baseline. It is still not true same-instance compiled node-internal instrumentation.
+- Exact isolated source-vs-output RigidBody/Trail attribution is covered by `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)`; true same-instance compiled graph instrumentation remains future scope.
 
 ## Bot Post Process Static Pose Comparison
 
@@ -425,8 +428,8 @@ Main result:
 
 ## Remaining Study Backlog
 
-1. Control Rig pre/post: direct-gate MCP probing, sample ModifyCurve curve forcing, sample ControlRig input-default forcing, combined forced-driver sample assembly, direct transient ControlRig pre/post solve sampling, and reusable SIE bone/socket component sampling are complete; exact compiled AnimGraph source-vs-post subtraction still needs `sample_anim_node_pre_post_runtime_pose` or equivalent instrumentation.
-2. Physics pre/post: evidence synthesis is complete for the learning baseline; exact same-frame source-vs-post-RigidBody/Trail subtraction remains future `sample_anim_node_pre_post_runtime_pose` work.
+1. Control Rig pre/post: direct-gate MCP probing, sample ModifyCurve curve forcing, sample ControlRig input-default forcing, combined forced-driver sample assembly, direct transient ControlRig pre/post solve sampling, and reusable SIE bone/socket component sampling are complete; exact compiled AnimGraph source-vs-post subtraction still needs future instrumentation.
+2. Physics pre/post: evidence synthesis is complete for the learning baseline; isolated source-bypass vs post-node RigidBody/Trail subtraction is covered by `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)`, while true same-instance compiled graph instrumentation remains future work.
 3. Post Process pre/post: static single-input-pose isolation is complete; `sample_postprocess_pre_post_pose` is only needed for live same-frame runtime sampling.
 4. State-machine transitions: no-C++ topology probing is complete; `inspect_anim_state_machine_transitions` is implemented, build-verified, and StackOBot live-smoked on bridge port `55558`. Live current-state reading plus runtime property case resampling are now covered by MCP APIs. Meaningful `ABP_Bot` driver cases are captured for `GroundSpeed`, `IsInAir?`, `MovementInput?`, and `IsHovering`; transition weights/blend progress still need follow-up work.
 5. Blueprint call topology: AssetRegistry-level interaction reference probing is complete, but exact interact/button call nodes need a future read-only Blueprint graph topology API.

@@ -312,6 +312,24 @@ Runtime interpretation:
 - The response increases toward the antenna leaf, which matches the expected Trail Controller direction.
 - Temporary SIE/editor proof actors were removed. The current map package stayed dirty from reversible temp actor spawning; close the editor without saving to discard it rather than saving over `/Game/StackOBot/Maps/Lvl_Empty`.
 
+Isolated Trail source-vs-output sampler artifacts:
+
+| Purpose | Path |
+| --- | --- |
+| Isolated Trail raw JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostTrailIsolatedTempSmoke_raw.json` |
+| Isolated Trail summary JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostTrailIsolatedTempSmoke_Summary.json` |
+| FakeVelocity matrix JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostTrailIsolatedTempSmoke_FakeVelocityMatrix.json` |
+| Temp cleanup check JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailIsolatedTempPostCheck.json` |
+
+Isolated sampler interpretation:
+
+- The no-FakeVelocity sample produced only floating-point noise, about `0.000005 cm`, because the Trail chain was static.
+- A disposable `_MCP_Temp` duplicate of `ABP_Bot_Trail_Study` with `FakeVelocity=(0,0,80)` produced clear source-bypass vs post-node output.
+- The strongest isolated Trail delta was `antenna_04_l`, about `21.948 cm` translation and `34.072 deg` rotation.
+- Left antenna deltas increased toward the leaf (`antenna_02_l -> antenna_03_l -> antenna_04_l`), while `head` and `antenna_04_r` stayed at near-zero translation.
+- The run cleaned all temp actors/assets and ended with `0` dirty content packages, `0` dirty map packages, and `0` assets under `/Game/_MCP_Temp/AnimNodePrePost`.
+- This is isolated source-vs-output evidence. It still reports `runtime_graph_prepost=false` and `same_instance_prepost=false`, so true same-instance compiled AnimGraph instrumentation remains future scope.
+
 ## Physics Pre/Post Evidence Synthesis
 
 Physics synthesis artifacts:
@@ -325,9 +343,9 @@ Physics synthesis artifacts:
 Execution-map conclusion:
 
 - Baddy RigidBody has active runtime evidence from SIE variants plus authored source-clip magnitude baselines.
-- Bot Trail has active runtime evidence only when the proof component explicitly overrides its Post Process AnimBP.
+- Bot Trail has active runtime evidence when the proof component explicitly overrides its Post Process AnimBP, plus isolated source-bypass vs post-node evidence through the `_MCP_Temp` sampler.
 - Both are sufficient for the current animation-learning baseline.
-- Exact same-frame source-vs-post-RigidBody/Trail subtraction is still blocked without `sample_anim_node_pre_post_runtime_pose`.
+- Exact same-instance compiled graph instrumentation is still future work, but RigidBody/Trail isolated source-vs-output subtraction is now covered by `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)`.
 
 ## Post Process Runtime/Static Comparison
 

@@ -438,8 +438,8 @@ compile_and_validate_blueprint(save=false)
 
 ## Current Next Candidate
 
-- Control Rig direct-gate, forced curve setup, ControlRig input-default forcing, forced-driver AnimBP assembly, and direct transient pre/post solve probing are complete. `controlrig_direct_gate_probe`, `ensure_anim_graph_modify_curve_demo`, `set_anim_graph_controlrig_input_defaults`, `ensure_controlrig_forced_driver_animbp`, and `sample_controlrig_pre_post_runtime_pose` are implemented, build-verified, and StackOBot live-smoked on bridge port `55558`; exact compiled AnimGraph-internal source-vs-post attribution remains deferred to `sample_anim_node_pre_post_runtime_pose` or equivalent instrumentation.
-- Trail active sampling is complete for the safe antenna-chain study sample. Use `ABP_Bot_Trail_Study` with explicit component-level Post Process override for future runtime comparisons.
+- Control Rig direct-gate, forced curve setup, ControlRig input-default forcing, forced-driver AnimBP assembly, and direct transient pre/post solve probing are complete. `controlrig_direct_gate_probe`, `ensure_anim_graph_modify_curve_demo`, `set_anim_graph_controlrig_input_defaults`, `ensure_controlrig_forced_driver_animbp`, and `sample_controlrig_pre_post_runtime_pose` are implemented, build-verified, and StackOBot live-smoked on bridge port `55558`; exact compiled AnimGraph-internal ControlRig source-vs-post attribution remains deferred to future instrumentation.
+- Trail active sampling is complete for the safe antenna-chain study sample. Use `ABP_Bot_Trail_Study` with explicit component-level Post Process override for broad runtime comparisons; use `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)` for isolated source-bypass vs post-node Trail deltas.
 - BlendSpace source maps and SIE pose grids are complete. Use the SIE grid as the runtime-style result and keep the non-SIE single-node probe as an API-gap record.
 - Slot/LayeredBoneBlend inventory and AssetRegistry-level interaction reference probing are complete. Exact Blueprint graph call topology for the interact/button trigger remains deferred to a future read-only graph-topology API.
 - State-machine transition topology is complete for source/target states and rule-graph topology. The read-only `inspect_anim_state_machine_transitions` UnrealMCP API is implemented, build-verified, and live-smoked against StackOBot on alternate bridge port `55558`; `inspect_anim_instance_runtime_state`, `set_anim_instance_runtime_property_for_probe`, and `sample_anim_state_machine_runtime_response` now cover live PIE/SIE current state reading plus runtime property case resampling. Meaningful `ABP_Bot` transition-driving data is now captured for `GroundSpeed`, `IsInAir?`, `MovementInput?`, and `IsHovering`; transition weights still need follow-up work.
@@ -481,7 +481,7 @@ Remaining state-machine gap:
 
 - Transition weights/blend progress are not yet captured.
 - Full `EventGraph`/`CalcLean` K2 call topology still needs a future read-only C++ API because Python graph-subobject traversal was not reliable in this UE 5.7 setup.
-- The remaining exact pre/post attribution tasks are API-dependent for Control Rig and physics. Post Process static pre/post is complete; only live same-frame runtime sampling remains API-dependent.
+- The remaining exact pre/post attribution tasks are true same-instance compiled graph instrumentation for Control Rig and physics. Post Process static pre/post is complete, and RigidBody/Trail isolated source-vs-output sampling is now covered.
 
 ## Remaining Study Backlog
 
@@ -517,9 +517,9 @@ Remaining state-machine gap:
    - Static pre/post pose isolation is complete for the two variants.
    - A future `sample_postprocess_pre_post_pose` command is only needed for live component same-frame runtime sampling.
 5. Physics final runtime pass
-   - Baddy RigidBody variants, source-vs-runtime split, Bot Trail runtime comparison, and physics evidence synthesis are enough for the current learning baseline.
-   - Exact per-frame source-vs-post physics subtraction remains blocked until `sample_anim_node_pre_post_runtime_pose` exists.
-   - Treat that future work as a runtime sampler/API task, not a manual map-edit task.
+   - Baddy RigidBody variants, source-vs-runtime split, Bot Trail runtime comparison, physics evidence synthesis, and isolated RigidBody/Trail source-vs-output sampling are enough for the current learning baseline.
+   - `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)` now covers RigidBody/Trail-style source-bypass vs post-node comparisons with temp assets.
+   - True same-instance compiled AnimGraph node instrumentation remains future API work, not a manual map-edit task.
 
 ## Bot Slot and Layered Blend Inventory
 

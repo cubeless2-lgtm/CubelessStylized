@@ -8155,3 +8155,22 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostIsolatedTempSmoke_raw.json`
   - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostIsolatedTempSmoke_Summary.json`
 - Remaining future scope is true same-instance compiled graph instrumentation. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot Bot Trail isolated source-vs-output smoke
+
+- Continued the Trail validation with `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)` through the StackOBot UnrealMCP bridge on `127.0.0.1:55557`.
+- Original StackOBot assets were not modified or saved. The source sample `/Game/_MCP_Sample/AnimStudy/ABP_Bot_Trail_Study` was kept unchanged; a disposable `_MCP_Temp` duplicate was used for FakeVelocity probing.
+- Dry-run against `/Game/_MCP_Sample/AnimStudy/ABP_Bot_Trail_Study.ABP_Bot_Trail_Study` resolved the Trail node `E6CA339B47B4B75F5CCCB19B09796556`, with `TrailBone=antenna_04_l`, `BaseJoint=head`, `ChainLength=4`, and supported isolated sampler links.
+- The current no-FakeVelocity sample executed successfully but produced only floating-point noise, about `0.000005 cm`, because the Trail chain was static.
+- Created a temporary duplicate `/Game/_MCP_Temp/AnimNodePrePost/ABP_Bot_Trail_Study_FakeVelProbe`, applied FakeVelocity cases through `ensure_anim_graph_trail_demo`, and ran isolated source-bypass vs post-node comparisons.
+- Best controlled case was `FakeVelocity=(0,0,80)`: `antenna_04_l` moved about `21.948 cm` and rotated about `34.072 deg`; `antenna_02_l` and `antenna_03_l` increased toward the leaf, while `head` and `antenna_04_r` stayed near zero translation.
+- Response flags remained correctly labeled: `runtime_graph_prepost=false` and `same_instance_prepost=false`. This proves isolated source-bypass vs post-node output, not true same-instance compiled AnimGraph instrumentation.
+- Saved artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostTrailIsolatedTempSmoke_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostTrailIsolatedTempSmoke_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostTrailIsolatedTempSmoke_FakeVelocityMatrix.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailFakeVelTempAssetPrep.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailFakeVelTempAssetCleanup.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailIsolatedTempPostCheck.json`
+- Cleanup verification passed: the temporary FakeVelocity AnimBP was deleted, `/Game/_MCP_Temp/AnimNodePrePost` had `0` remaining assets, dirty content package count was `0`, and dirty map package count was `0`.
+- Closed the StackOBot editor without saving. Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, `docs/stackobot-animbp-inventory.md`, and sibling design note `D:/Git/unreal-mcp-cubeless/Docs/Analysis/StackOBot/sample_anim_node_pre_post_runtime_pose_design.md`.
