@@ -8826,3 +8826,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added safety tokens for source MCP docs, StackOBot-local plugin copy, sample-only command defaults, no generic Python map switching, common asset paths, result fields, and dirty-package reporting.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with no missing sections, tokens, invalid JSON, or unsafe authoring examples.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot route deep-dive docs audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v9`.
+- Added the remaining route deep-dive docs to required document coverage: `docs/stackobot-animbp-inventory.md`, `docs/stackobot-animbp-authoring-patterns.md`, and `docs/stackobot-animation-study.md`.
+- The checker now validates required sections for the execution map, AnimBP inventory, AnimBP authoring patterns, and live read drill.
+- Added safety/evidence tokens for Post Process assignment boundaries, disconnected original Trail, LayeredBlend route evidence, Montage crash boundary, PoseWatch proof routes, `_MCP_Sample` safety, and C++ escalation limits.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with no missing docs, sections, or tokens.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
