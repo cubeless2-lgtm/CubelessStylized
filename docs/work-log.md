@@ -9049,4 +9049,5 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Direct bridge smoke for `inspect_anim_graph_node_settings` on `/Game/StackOBot/Characters/Blobling/Anim/ABP_Baddy.ABP_Baddy` `AnimGraph` found one `AnimGraphNode_RigidBody` and read `SimulationSpace=ComponentSpace`, `bEnableWorldGeometry=false`, and `Alpha=1`.
 - Direct bridge smoke for `inspect_anim_state_machine_transitions` on `/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot` `AirLocomotion` returned `read_only=true`, `state_machine_count=1`, and `transition_count=12`.
 - Direct bridge smoke for `controlrig_direct_gate_probe` on `/Game/StackOBot/Characters/Bot/Rig/CR_Bot_Correction.CR_Bot_Correction` returned `read_only=true`, `asset_modified=false`, and both baseline and interact-side cases succeeded.
+- Dirty package readback after the smoke returned `dirty_content_count=0` and `dirty_map_count=0`.
 - No original StackOBot assets, sample assets, C++ files, or UnrealMCP plugin files were modified during this live smoke. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

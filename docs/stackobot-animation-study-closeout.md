@@ -50,7 +50,7 @@ original StackOBot assets unless the user explicitly approves that scope.
 
 ## Current Evidence Baseline
 
-Latest live validation:
+Latest broad live validation:
 
 - `docs/stackobot-live-read-drill-2026-06-19.md`
 - bridge `127.0.0.1:55557` was restored for a read-only drill;
@@ -59,6 +59,17 @@ Latest live validation:
 - dirty content and map packages after the read drill were `0`;
 - the hidden StackOBot editor was closed afterward and the bridge port was no
   longer open.
+
+Latest narrow command-surface smoke:
+
+- `docs/work-log.md` entry `2026-06-19 StackOBot live read-only command smoke`;
+- bridge `127.0.0.1:55557` was reachable through the hidden StackOBot editor;
+- `inspect_anim_graph_node_settings` read the Baddy RigidBody node,
+  `inspect_anim_state_machine_transitions` read `AirLocomotion` transitions,
+  and `controlrig_direct_gate_probe` passed baseline/interact-side cases;
+- dirty content packages and dirty map packages after the smoke were `0`;
+- no original assets, sample assets, C++ files, or UnrealMCP plugin files were
+  modified.
 
 Stable local sample inventory:
 
