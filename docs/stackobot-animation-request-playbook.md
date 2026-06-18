@@ -6,6 +6,7 @@ execution protocol.
 
 Related docs:
 
+- `docs/stackobot-animation-quickstart.md`
 - `docs/stackobot-animation-authoring-templates.md`
 - `docs/stackobot-request-compiler-drills.md`
 - `docs/stackobot-animation-tivret-handoff-templates.md`
@@ -14,6 +15,7 @@ Related docs:
 - `docs/stackobot-animation-execution-map.md`
 - `docs/stackobot-animation-study.md`
 - `docs/stackobot-animation-mcp-command-syntax.md`
+- `docs/stackobot-sample-asset-manifest.md`
 
 ## Default Rule
 

@@ -4,6 +4,8 @@ Use this as the short syntax sheet for StackOBot animation requests. The full
 tool source remains in `D:/Git/unreal-mcp-cubeless/Python/tools/node_tools.py`
 and `D:/Git/unreal-mcp-cubeless/Docs/Tools/node_tools.md`.
 
+For the shortest operating guide, start with
+`docs/stackobot-animation-quickstart.md`.
 For request-to-route authoring templates, start with
 `docs/stackobot-animation-authoring-templates.md`.
 For natural-language request compilation drills, use

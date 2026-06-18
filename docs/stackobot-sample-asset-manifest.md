@@ -1,0 +1,100 @@
+# StackOBot Sample Asset Manifest
+
+This manifest records the local learning/sample assets under:
+
+`D:/Git/SampleProject/StackOBot/Content/_MCP_Sample/AnimStudy`
+
+The StackOBot sample project is not a git repository. Treat these assets as local
+learning artifacts. Do not stage them in `CubelessStylized`, and do not modify
+original StackOBot assets unless the user explicitly approves that scope.
+
+## Asset Groups
+
+| Group | Asset count | Purpose |
+| --- | ---: | --- |
+| Bot Post Process AnimBP | 5 | Late ModifyBone samples for head/antenna offsets |
+| Bot Post Process SkeletalMesh | 5 | Duplicated Bot meshes with sample Post Process AnimBP assignment |
+| Bot Trail | 3 | Post Process Trail sample AnimBP, mesh, and actor template |
+| Bot ControlRig | 3 | Forced-driver and input/default samples for `CR_Bot_Correction` |
+| Baddy RigidBody | 10 | RigidBody study AnimBPs, actor templates, duplicated mesh, and PhysicsAsset |
+| BlendSpace | 2 | `BS_Bot_WalkRunLean` lean response sample variants |
+| Other sample actors | 3 | Supporting sample actor templates |
+
+## Package Manifest
+
+Post Process ModifyBone:
+
+- `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study`
+- `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study`
+- `/Game/_MCP_Sample/AnimStudy/BP_Bot_PostProcess_StudyActor`
+- `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadPitch`
+- `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study_HeadPitch`
+- `/Game/_MCP_Sample/AnimStudy/BP_Bot_PostProcess_StudyActor_HeadPitch`
+- `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_AntennaRoll`
+- `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study_AntennaRoll`
+- `/Game/_MCP_Sample/AnimStudy/BP_Bot_PostProcess_StudyActor_AntennaRoll`
+- `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadYawAuthoringPattern`
+- `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study_HeadYawAuthoringPattern`
+- `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadYawPlus5Study`
+- `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study_HeadYawPlus5Study`
+
+Trail secondary motion:
+
+- `/Game/_MCP_Sample/AnimStudy/ABP_Bot_Trail_Study`
+- `/Game/_MCP_Sample/AnimStudy/SKM_Bot_Trail_Study`
+- `/Game/_MCP_Sample/AnimStudy/BP_Bot_Trail_StudyActor`
+
+ControlRig:
+
+- `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ModifyCurve_Study`
+- `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_InputDefaults_Study`
+- `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ForcedDriver_Study`
+
+Baddy RigidBody:
+
+- `/Game/_MCP_Sample/AnimStudy/PA_Baddy_RigidBody_Study`
+- `/Game/_MCP_Sample/AnimStudy/SKM_Baddy_RigidBody_Study`
+- `/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study`
+- `/Game/_MCP_Sample/AnimStudy/BP_Baddy_RigidBody_StudyActor`
+- `/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study_AlphaHalf`
+- `/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study_ForceZ`
+- `/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study_WorldSpace`
+- `/Game/_MCP_Sample/AnimStudy/BP_Baddy_RigidBody_StudyActor_AlphaHalf`
+- `/Game/_MCP_Sample/AnimStudy/BP_Baddy_RigidBody_StudyActor_ForceZ`
+- `/Game/_MCP_Sample/AnimStudy/BP_Baddy_RigidBody_StudyActor_WorldSpace`
+
+BlendSpace:
+
+- `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy`
+- `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanTemplateRehearsal`
+
+## Regeneration Routes
+
+| Asset family | Preferred regeneration route |
+| --- | --- |
+| Post Process ModifyBone | `ensure_postprocess_anim_demo_variant` |
+| Bot Trail | `ensure_anim_graph_trail_demo` |
+| Bot ControlRig forced driver | `ensure_controlrig_forced_driver_animbp` |
+| Baddy RigidBody variants | duplicate study assets, then `set_anim_graph_rigidbody_settings` |
+| BlendSpace variants | `ensure_blendspace_sample_variant` |
+
+## Evidence Root
+
+Primary evidence and runtime artifacts live under:
+
+`D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`
+
+Use the newest `*TemplateRehearsal*`, `*PoseWatch*`, `*RigidBody*`,
+`*Trail*`, `*BlendSpace*`, and `*ControlRig*` files as proof references.
+
+## Safety Notes
+
+- `_MCP_Sample` assets are local study assets. They are not production StackOBot
+  assets.
+- `_MCP_Temp` assets are disposable validation artifacts and should not be used
+  as stable references.
+- If a sample asset is missing, regenerate it with the route above instead of
+  editing original StackOBot assets.
+- If regeneration requires a command that is not exposed in the current tool
+  list, treat it as an UnrealMCP plugin command-surface sync issue before adding
+  new C++.

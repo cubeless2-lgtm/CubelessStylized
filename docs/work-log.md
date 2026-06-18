@@ -8628,3 +8628,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added signal words and drills for Korean/English requests covering Post Process ModifyBone, Trail secondary motion, BlendSpace lean/speed, state-machine runtime response, ControlRig IK, UpperBody Slot/LayeredBlend, Baddy RigidBody, protected montage metadata, and node instrumentation.
 - Linked the compiler drill sheet from the request playbook, authoring templates, command syntax sheet, and execution map.
 - No Unreal assets, sample assets, editor sessions, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot live read drill and quickstart
+
+- Restarted the hidden StackOBot UE_5.7 editor and restored the primary UnrealMCP bridge on `127.0.0.1:55557`.
+- Ran live read-only AnimGraph node settings checks for Post Process ModifyBone, Bot Trail, Baddy RigidBody, ControlRig, UpperBody LayeredBoneBlend, and state-machine nodes. Dirty content/map package counts were `0`.
+- Added `docs/stackobot-live-read-drill-2026-06-19.md` with node ids, key settings, pass status, and the latest log caveat.
+- Added `docs/stackobot-sample-asset-manifest.md` to record `_MCP_Sample/AnimStudy` package groups, package paths, regeneration routes, and safety notes.
+- Added `docs/stackobot-animation-quickstart.md` as the first page for future StackOBot animation requests, linking the compiler, handoff templates, command syntax, physics grammar, manifest, and live read drill.
+- No Unreal assets, sample assets, or C++ files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

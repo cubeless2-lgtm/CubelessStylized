@@ -6,11 +6,13 @@ command, verification gate, and C++/API decision before Tivret touches assets.
 
 Related docs:
 
+- `docs/stackobot-animation-quickstart.md`
 - `docs/stackobot-animation-request-playbook.md`
 - `docs/stackobot-animation-authoring-templates.md`
 - `docs/stackobot-animation-tivret-handoff-templates.md`
 - `docs/stackobot-physics-request-grammar.md`
 - `docs/stackobot-animation-mcp-command-syntax.md`
+- `docs/stackobot-sample-asset-manifest.md`
 
 Default rule: classify first, show the filled `티브렛에게 전달할 지시` block next,
 then execute only the sample-safe route unless original asset mutation was

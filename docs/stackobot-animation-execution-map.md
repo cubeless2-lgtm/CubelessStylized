@@ -7,6 +7,9 @@ This note summarizes the current learning state for StackOBot animation systems.
 Authoring-pattern guide for future build requests:
 `docs/stackobot-animbp-authoring-patterns.md`.
 
+Quickstart:
+`docs/stackobot-animation-quickstart.md`.
+
 Request execution playbook:
 `docs/stackobot-animation-request-playbook.md`.
 
@@ -15,6 +18,9 @@ Request compiler drills:
 
 Physics request grammar:
 `docs/stackobot-physics-request-grammar.md`.
+
+Sample asset manifest:
+`docs/stackobot-sample-asset-manifest.md`.
 
 ## Runtime Pose Flow
 
