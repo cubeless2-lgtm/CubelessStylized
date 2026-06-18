@@ -8283,3 +8283,21 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_Summary.json`
 - Cleanup ended SIE, removed the transient actor, and reported dirty content package count `0`; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor spawning/deletion, so the smoke editor was closed without saving.
 - Updated `docs/stackobot-animation-study.md` and `docs/stackobot-animation-execution-map.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 UnrealMCP Post Process AnimInstance PoseWatch target
+
+- Extended sibling `D:/Git/unreal-mcp-cubeless` `sample_anim_node_pre_post_runtime_pose` runtime target selection with `anim_instance_source`. Default remains `main`; `post_process` selects `USkeletalMeshComponent::GetPostProcessInstance()`.
+- Updated `Python/tools/node_tools.py`, `Python/unreal_mcp_server.py`, `Docs/Tools/node_tools.md`, and `Docs/Analysis/StackOBot/sample_anim_node_pre_post_runtime_pose_design.md`.
+- Synced the changed `UnrealMCPBlueprintNodeCommands.cpp` into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP` for smoke testing.
+- Verification passed:
+  - `MCPGameProjectEditor Win64 Development`
+  - `UnrealEditor Win64 Development -Project=D:/Git/SampleProject/StackOBot/StackOBot.uproject`
+  - Live StackOBot bridge smoke on `127.0.0.1:55557`
+- Live smoke used a transient `MCP_PoseWatch_Trail_Smoke_Bot` actor with main `ABP_Bot_C`, `SKM_Bot_Trail_Study`, and explicit component-level Post Process override to `ABP_Bot_Trail_Study_C` in PIE/SIE. Original StackOBot assets were not saved.
+- The `ABP_Bot_Trail_Study` Trail node `E6CA339B47B4B75F5CCCB19B09796556` captured same-instance pre/post data with `runtime_graph_prepost=true`, `same_instance_prepost=true`, `anim_instance_source=post_process`, output link `4`, input link `1`, `transient_pose_watches=true`, and `debug_object_restored=true`.
+- Strongest sampled Trail same-instance delta was `antenna_04_l`, about `0.110 cm` translation and `28.035 deg` rotation in the smoke frame.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_Summary.json`
+- Cleanup ended SIE, removed the transient actor after a follow-up cleanup check, and reported dirty content package count `0`; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor work, so the smoke editor was closed without saving.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.

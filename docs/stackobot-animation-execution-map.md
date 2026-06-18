@@ -328,7 +328,7 @@ Isolated sampler interpretation:
 - The strongest isolated Trail delta was `antenna_04_l`, about `21.948 cm` translation and `34.072 deg` rotation.
 - Left antenna deltas increased toward the leaf (`antenna_02_l -> antenna_03_l -> antenna_04_l`), while `head` and `antenna_04_r` stayed at near-zero translation.
 - The run cleaned all temp actors/assets and ended with `0` dirty content packages, `0` dirty map packages, and `0` assets under `/Game/_MCP_Temp/AnimNodePrePost`.
-- This is isolated source-vs-output evidence. It still reports `runtime_graph_prepost=false` and `same_instance_prepost=false`, so true same-instance compiled AnimGraph input/output pose tapping remains future scope.
+- This is isolated source-vs-output evidence. It still reports `runtime_graph_prepost=false` and `same_instance_prepost=false`; same-instance Trail attribution is now covered separately by `mode=pose_watch_capture` on the Post Process AnimInstance.
 
 ## Physics Pre/Post Evidence Synthesis
 
@@ -343,16 +343,18 @@ Physics synthesis artifacts:
 | Compiled node mapping raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_raw.json` |
 | Compiled pose-link mapping summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_Summary.json` |
 | Compiled pose-link mapping raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_raw.json` |
+| Trail PoseWatch same-instance pre/post summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_Summary.json` |
+| Trail PoseWatch same-instance pre/post raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_raw.json` |
 
 Execution-map conclusion:
 
 - Baddy RigidBody has active runtime evidence from SIE variants plus authored source-clip magnitude baselines.
-- Bot Trail has active runtime evidence when the proof component explicitly overrides its Post Process AnimBP, plus isolated source-bypass vs post-node evidence through the `_MCP_Temp` sampler.
+- Bot Trail has active runtime evidence when the proof component explicitly overrides its Post Process AnimBP, isolated source-bypass vs post-node evidence through the `_MCP_Temp` sampler, and same-instance PoseWatch input/output capture through `anim_instance_source=post_process`.
 - Both are sufficient for the current animation-learning baseline.
 - `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` now proves the selected `ABP_Baddy` RigidBody editor node maps to the live compiled `FAnimNode_RigidBody` instance in PIE: `same_anim_instance_node_mapping=true`, `runtime_node_instance_mapped=true`, `find_debug_anim_node_mapped=true`, and `pointer_match=true`.
 - The same mode now reports runtime pose-link topology from the live node struct. The RigidBody smoke found `ComponentPose -> AnimGraphNode_LocalToComponentSpace` with `LinkID=11`, `SourceLinkID=1`, and `linked_pointer_match=true`.
-- This is a same-instance runtime-node address preflight only. It still reports `runtime_graph_prepost=false` and `same_instance_prepost=false`; true input/output pose tapping around the compiled node remains future work.
-- RigidBody/Trail isolated source-vs-output subtraction is covered by `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)`.
+- `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` now covers smoked same-instance paths for `ABP_Baddy` RigidBody and `ABP_Bot_Trail_Study` Post Process Trail. The Trail smoke resolved output link `4`, input link `1`, `ABP_Bot_Trail_Study_C`, and `same_instance_prepost=true`.
+- RigidBody/Trail isolated source-vs-output subtraction remains covered by `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)`.
 
 ## Post Process Runtime/Static Comparison
 
@@ -398,7 +400,7 @@ Use this checklist when adding or validating another animation experiment.
 | Done/Runtime metrics | State-machine transitions | No-C++ transition topology probing is complete; live current-state reading, state weights, transition progress, relevant anim timing, runtime property setting, per-case state resampling, and meaningful `ABP_Bot` driver sequences are captured. | Full K2 call topology still needs follow-up API work. |
 | Done/Runtime pending | Control Rig pre/post | Direct-gate MCP probe, sample ModifyCurve curve-forcing, sample ControlRig input-default forcing, combined forced-driver sample assembly, and direct transient ControlRig pre/post solve probe are complete. | True compiled AnimGraph-internal source-vs-post subtraction still needs `sample_anim_node_pre_post_runtime_pose` or equivalent instrumentation. |
 | Done | Post Process pre/post | Static single-input-pose pre/post isolation is complete for the two variants. | `sample_postprocess_pre_post_pose` is only needed for live same-frame component runtime sampling. |
-| Done/PoseWatch + isolated + mapping | Physics pre/post | Evidence synthesis complete for learning baseline; RigidBody/Trail isolated source-vs-output sampling is implemented and live-smoked; compiled runtime-node mapping and pose-link preflight are implemented and live-smoked; `ABP_Baddy` RigidBody same-instance PoseWatch pre/post capture is implemented and live-smoked. | Bot Trail and broader node classes may still need same-instance PoseWatch or lower-level taps. |
+| Done/PoseWatch + isolated + mapping | Physics pre/post | Evidence synthesis complete for learning baseline; RigidBody/Trail isolated source-vs-output sampling is implemented and live-smoked; compiled runtime-node mapping and pose-link preflight are implemented and live-smoked; `ABP_Baddy` RigidBody and `ABP_Bot_Trail_Study` Post Process Trail same-instance PoseWatch pre/post capture are implemented and live-smoked. | Broader multi-input/custom node classes may still need lower-level taps. |
 
 ## Deferred API Work
 
@@ -416,7 +418,7 @@ Implemented APIs to keep available for future audits:
 10. `sample_anim_state_machine_runtime_response` - implemented, build-verified, synced into StackOBot, and live-smoked with restored runtime property cases plus active transition metric capture; current artifacts include `StackOBot_AnimStateMachineRuntimeResponseMCPProbe.*` and `StackOBot_AnimStateRuntimeMetrics_*`.
 11. `inspect_blueprint_graph_call_topology` - implemented, build-verified, synced into StackOBot, and live-smoked against `BP_Bot` plus `BPC_InteractionHandler`; current artifacts are `StackOBot_BlueprintCallTopology_*`.
 12. `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody. It maps editor node GUID `81E779C34D36CC52F0125F91BF52BAF3` to live compiled property `AnimGraphNode_RigidBody` / `/Script/AnimGraphRuntime.AnimNode_RigidBody` with pointer parity against `FindDebugAnimNode`, and now reports runtime pose-link topology such as `ComponentPose -> AnimGraphNode_LocalToComponentSpace`.
-13. `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody. It uses transient debug-data PoseWatches to capture selected output link `1` and input `ComponentPose` link `11` in the same `ABP_Baddy_C` runtime instance, with `runtime_graph_prepost=true`, `same_instance_prepost=true`, `debug_object_restored=true`, and artifacts `StackOBot_PoseWatchPrePost_*`.
+13. `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody plus `ABP_Bot_Trail_Study` Post Process Trail. It uses transient debug-data PoseWatches to capture selected output and first input pose links in the same runtime AnimInstance. RigidBody artifacts are `StackOBot_PoseWatchPrePost_*`; Trail artifacts are `StackOBot_TrailPoseWatchPrePost_*`.
 
 Remaining candidates until C++/UnrealMCP implementation is explicitly resumed:
 
@@ -424,7 +426,7 @@ Remaining candidates until C++/UnrealMCP implementation is explicitly resumed:
 2. `sample_blendspace_runtime_pose_grid`
 3. `ensure_postprocess_anim_demo_variant`
 4. `sample_postprocess_pre_post_pose`
-5. expand same-instance AnimGraph pre/post capture beyond the smoked `ABP_Baddy` RigidBody path, especially Bot Trail and multi-input/custom node cases
+5. expand same-instance AnimGraph pre/post capture beyond the smoked RigidBody/Trail paths, especially multi-input/custom node cases
 
 Implemented `sample_skeletal_bones_in_sie` detail:
 

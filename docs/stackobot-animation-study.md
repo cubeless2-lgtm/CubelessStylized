@@ -715,7 +715,7 @@ Remaining candidates:
 
 | Candidate command | Purpose | Notes |
 | --- | --- | --- |
-| `sample_anim_node_pre_post_runtime_pose` | Sample the same runtime frame immediately before and after a selected compiled AnimGraph node such as ControlRig, RigidBody, or Trail. | `compiled_graph_mapping`, `active_component_tick_delta`, and `isolated_temp_components` are implemented. Remaining work is the true same-instance compiled node input/output pose tap. Inputs should include AnimBP or Post Process AnimBP path, skeletal mesh path, node selector, runtime mode, driver setup, settle ticks, duration/rate, and bones. Outputs should include pre-node pose, post-node pose, per-bone deltas, curve/state values when available, cleanup status, and dirty-package status. |
+| `sample_anim_node_pre_post_runtime_pose` | Sample the same runtime frame immediately before and after a selected compiled AnimGraph node such as ControlRig, RigidBody, or Trail. | `compiled_graph_mapping`, `active_component_tick_delta`, `isolated_temp_components`, and `pose_watch_capture` are implemented. Same-instance PoseWatch capture is live-smoked for `ABP_Baddy` RigidBody and the `ABP_Bot_Trail_Study` Post Process AnimBP Trail node. Use `anim_instance_source=post_process` when the selected node lives in the component's Post Process AnimBP. Remaining expansion is broader multi-input/custom-node coverage. |
 | `ensure_anim_graph_trail_demo` | Create a `_MCP_Sample` AnimBP with an active Trail Controller path. | Needed to compare the currently disconnected original Trail node against a real connected Trail chain. |
 | `inspect_anim_graph_protected_topology` | Return protected graph nodes, pins, and links in a stable read-only format. | Existing `inspect_anim_graph_node_settings` covers much of this, but a topology-focused response would make graph-edit planning safer. |
 | `inspect_anim_state_machine_transitions` | Read source state, target state, and transition condition topology for AnimBP state machines. | Implemented, build-verified, and StackOBot live-smoked on bridge port `55558`; `StackOBot_StateMachine_TransitionMCPInspect.*` is the current source/target and rule-summary artifact. |
@@ -724,7 +724,7 @@ Remaining candidates:
 Priority recommendation:
 
 1. Completed for SIE component bone/socket sampling: `sample_skeletal_bones_in_sie` was run against StackOBot through the primary bridge port and sampled the transient Bot actor from `sampled_world_type=PIE`.
-2. Extend `sample_anim_node_pre_post_runtime_pose` with true compiled AnimGraph-internal ControlRig/RigidBody/Trail input/output pose tapping when exact source-vs-post attribution becomes the next priority.
+2. Extend `sample_anim_node_pre_post_runtime_pose` beyond the smoked RigidBody/Trail PoseWatch paths when multi-input, custom, or ControlRig-in-AnimGraph node attribution becomes the next priority.
 3. Completed for direct transient ControlRig pre/post solve: `sample_controlrig_pre_post_runtime_pose` was run against StackOBot through the alternate bridge port.
 4. Completed for direct ControlRig gate: `controlrig_direct_gate_probe` was run against StackOBot through the alternate bridge port.
 5. Completed for sample curve forcing: `ensure_anim_graph_modify_curve_demo` was run against StackOBot through the alternate bridge port.
@@ -1154,23 +1154,25 @@ Artifacts:
 | Compiled pose-link mapping raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_raw.json` |
 | PoseWatch same-instance pre/post summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_Summary.json` |
 | PoseWatch same-instance pre/post raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_raw.json` |
+| Trail PoseWatch same-instance pre/post summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_Summary.json` |
+| Trail PoseWatch same-instance pre/post raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_raw.json` |
 
 Current evidence:
 
 | System | Current evidence | Strongest observation | Exact pre/post status |
 | --- | --- | --- | --- |
 | Baddy RigidBody | SIE runtime variant comparison, authored source-clip magnitude baseline, compiled node mapping, runtime pose-link mapping, and PoseWatch same-instance capture. | `pose_watch_capture` samples `ComponentPose` input link `11` vs RigidBody output link `1` in the same `ABP_Baddy_C` instance; `R_Stalk_04` delta is about `4.904 cm` / `26.743 deg`, `L_Stalk_04` about `5.546 cm` / `12.181 deg`. | `same_instance_posewatch_prepost_verified` |
-| Bot Trail | SIE raw-vs-trail component comparison with explicit component-level Post Process override. | `antenna_04_l` max Trail-Raw distance is about `2.945 cm` in `SIE_ExplicitPPOverride`. | `blocked_without_runtime_node_prepost_sampler` |
+| Bot Trail | SIE raw-vs-trail component comparison, isolated source-bypass vs post-node sampling, and Post Process AnimBP PoseWatch same-instance capture with `anim_instance_source=post_process`. | `pose_watch_capture` samples Trail input link `1` vs output link `4` in the same `ABP_Bot_Trail_Study_C` Post Process instance; `antenna_04_l` delta is about `0.110 cm` / `28.035 deg` in the smoke frame. | `same_instance_posewatch_prepost_verified_for_sample_postprocess_trail` |
 
 Interpretation:
 
 - The physics systems are proven active under the correct runtime setup.
 - Baddy RigidBody now has exact same-instance PoseWatch input/output evidence for the selected compiled RigidBody node.
-- Bot Trail currently has a runtime raw-vs-trail component comparison.
+- Bot Trail now has exact same-instance PoseWatch input/output evidence for the sample Post Process Trail node, in addition to the earlier runtime raw-vs-trail comparison and isolated source-bypass sampling.
 - `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` now proves the `ABP_Baddy` RigidBody editor node maps to the live compiled `FAnimNode_RigidBody` instance in PIE: `same_anim_instance_node_mapping=true`, `runtime_node_instance_mapped=true`, `find_debug_anim_node_mapped=true`, and `pointer_match=true`.
 - The mapping response now includes runtime pose-link inventory. For the RigidBody smoke, `ComponentPose` resolves to `AnimGraphNode_LocalToComponentSpace` with `LinkID=11`, `SourceLinkID=1`, and `linked_pointer_match=true`.
 - `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` now uses transient debug-data PoseWatches and confirmed `runtime_graph_prepost=true`, `same_instance_prepost=true`, `transient_pose_watches=true`, `debug_object_restored=true`, and `original_assets_modified=false` on `ABP_Baddy`.
-- Exact Bot Trail same-instance attribution remains future work; the RigidBody path is no longer blocked.
+- The same mode now supports `anim_instance_source=post_process`; the Trail smoke resolved `ABP_Bot_Trail_Study_C`, output link `4`, input link `1`, and `same_instance_prepost=true` without modifying original StackOBot assets.
 
 ## Post Process Runtime and Static Pose Comparison
 
