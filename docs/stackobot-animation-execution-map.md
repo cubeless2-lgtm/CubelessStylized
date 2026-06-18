@@ -10,6 +10,9 @@ Authoring-pattern guide for future build requests:
 Request execution playbook:
 `docs/stackobot-animation-request-playbook.md`.
 
+Physics request grammar:
+`docs/stackobot-physics-request-grammar.md`.
+
 ## Runtime Pose Flow
 
 ```mermaid

@@ -8612,3 +8612,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added the expected final report shape from Tivret back to Ieta: route, created/reused assets, original mutation status, runtime world, evidence, errors/warnings, dirty packages, cleanup, C++/API need, and artifact paths.
 - Linked the handoff template library from `docs/stackobot-animation-authoring-templates.md` and `docs/stackobot-animation-request-playbook.md`.
 - No Unreal assets, sample assets, editor sessions, or C++ files were modified in this pass. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot physics request grammar
+
+- Added `docs/stackobot-physics-request-grammar.md` to separate animation-side physics requests into Bot Trail, Baddy RigidBody, source-vs-output proof, new sample graph authoring, PhysicsAsset internals, and world-physics routes.
+- Captured the current safe command patterns for `inspect_anim_graph_node_settings`, `set_anim_graph_rigidbody_settings`, and `ensure_anim_graph_trail_demo`, with the default `allow_non_sample=false` sample-only boundary.
+- Updated the authoring template, request playbook, command syntax sheet, and execution map to link the physics grammar and expose RigidBody read/sample-tuning commands.
+- The StackOBot UnrealMCP bridge was not connected during this pass, so no editor commands, Unreal assets, sample assets, or C++ files were modified. The update is based on existing saved RigidBody/Trail evidence artifacts under `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
+- Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

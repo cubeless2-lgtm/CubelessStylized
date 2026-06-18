@@ -8,6 +8,7 @@ Related docs:
 
 - `docs/stackobot-animation-authoring-templates.md`
 - `docs/stackobot-animation-tivret-handoff-templates.md`
+- `docs/stackobot-physics-request-grammar.md`
 - `docs/stackobot-animbp-authoring-patterns.md`
 - `docs/stackobot-animation-execution-map.md`
 - `docs/stackobot-animation-study.md`
@@ -54,7 +55,7 @@ non-exception C++, or materially change the intended visual result.
 | "change speed/lean response" | BlendSpace | `ensure_blendspace_sample_variant` in `_MCP_Sample`; sample grid | `sample_blendspace_runtime_pose_grid` |
 | "upper body action over movement" | Slot/layered blend | inspect slot/cached pose/branch filters | all-input PoseWatch on LayeredBoneBlend |
 | "foot placement/IK interaction" | ControlRig | forced-driver sample if gameplay gate is inactive | direct ControlRig probe plus AnimGraph PoseWatch |
-| "physics jiggle/secondary body motion" | RigidBody/Trail | use Baddy RigidBody or Bot Trail sample | compiled mapping plus PoseWatch |
+| "physics jiggle/secondary body motion" | RigidBody/Trail | use Baddy RigidBody or Bot Trail sample; see `docs/stackobot-physics-request-grammar.md` | compiled mapping plus PoseWatch |
 | "which node caused this?" | Instrumentation | no asset edit; target node resolver first | `sample_anim_node_pre_post_runtime_pose` |
 
 ## Execution Protocol

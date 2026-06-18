@@ -9,6 +9,7 @@ Related docs:
 
 - `docs/stackobot-animation-request-playbook.md`
 - `docs/stackobot-animation-tivret-handoff-templates.md`
+- `docs/stackobot-physics-request-grammar.md`
 - `docs/stackobot-animbp-authoring-patterns.md`
 - `docs/stackobot-animation-mcp-command-syntax.md`
 - `docs/stackobot-animation-execution-map.md`
@@ -28,7 +29,7 @@ When asset/editor work is needed, show the matching handoff block from
 | Idle/walk/run/jump/landing/hover response to variables | State machine/runtime driver | `inspect_anim_state_machine_transitions`, then `sample_anim_state_machine_runtime_response` | Per-case state and transition metrics | Inspect/probe covered; new state authoring remains candidate |
 | Foot placement or interaction IK | ControlRig late correction | `controlrig_direct_gate_probe`, then `ensure_controlrig_forced_driver_animbp` when gates are inactive | Direct ControlRig probe plus same-instance ControlRig PoseWatch | Covered |
 | Upper-body action over locomotion | Existing `UpperBody` Slot and LayeredBlend route | `StackOBot_SlotLayeredBlend_Inventory.md`, then all-input PoseWatch | `BasePose` and `BlendPoses[0]` same-instance capture | Existing route covered; new overlay authoring remains candidate |
-| Antenna lag, spring, or secondary motion | Trail/RigidBody style Post Process sample | `ensure_anim_graph_trail_demo` or existing Baddy RigidBody evidence | SIE Post Process PoseWatch or isolated source-vs-output | Covered for Bot Trail and Baddy RigidBody; broader physics authoring remains candidate |
+| Antenna lag, spring, or secondary motion | Trail/RigidBody style Post Process sample | `ensure_anim_graph_trail_demo` or existing Baddy RigidBody evidence; see `docs/stackobot-physics-request-grammar.md` | SIE Post Process PoseWatch or isolated source-vs-output | Covered for Bot Trail and Baddy RigidBody; broader physics authoring remains candidate |
 | Notify, sync marker, curve, or Montage internals | Protected animation-source metadata | Existing asset inventory/read probe only | Do not broad-probe Montage internals with Python | Native guarded API only for concrete request |
 
 ## Template Cards

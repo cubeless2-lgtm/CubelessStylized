@@ -31,6 +31,8 @@ Default safety rules:
 | ControlRig gate probe | `controlrig_direct_gate_probe` | `control_rig_path` or `control_rig_class`, optional `cases` | No |
 | ControlRig forced-driver sample | `ensure_controlrig_forced_driver_animbp` | sample `blueprint_name`, optional `curve_values`, `input_defaults` | Yes, sample target only |
 | Trail sample authoring | `ensure_anim_graph_trail_demo` | sample `blueprint_name`, `trail_bone`, `base_joint` | Yes, sample target only |
+| RigidBody settings read | `inspect_anim_graph_node_settings` | `blueprint_name`, `node_type=RigidBody` | No |
+| RigidBody sample tuning | `set_anim_graph_rigidbody_settings` | sample `blueprint_name`, optional `alpha`, `external_force`, `simulation_space` | Yes, sample target only |
 
 ## Common StackOBot Asset Paths
 
@@ -229,6 +231,41 @@ For read-only gate exploration before authoring:
 For node contribution proof, use `sample_anim_node_pre_post_runtime_pose` in
 `compiled_graph_mapping` mode first when the node selector is uncertain, then
 `pose_watch_capture` after the runtime node is mapped.
+
+### RigidBody settings and sample tuning
+
+Read the active Baddy RigidBody node before changing any sample:
+
+```json
+{
+  "command": "inspect_anim_graph_node_settings",
+  "params": {
+    "blueprint_name": "/Game/StackOBot/Characters/Blobling/Anim/ABP_Baddy.ABP_Baddy",
+    "node_type": "RigidBody",
+    "include_pins": true,
+    "max_depth": 3
+  }
+}
+```
+
+Tune only a `_MCP_Sample` RigidBody AnimBP:
+
+```json
+{
+  "command": "set_anim_graph_rigidbody_settings",
+  "params": {
+    "blueprint_name": "/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study_ForceZ.ABP_Baddy_RigidBody_Study_ForceZ",
+    "alpha": "1.0",
+    "external_force": "[0, 0, 350]",
+    "simulation_space": "ComponentSpace",
+    "enable_world_geometry": "false",
+    "allow_non_sample": false
+  }
+}
+```
+
+Use `docs/stackobot-physics-request-grammar.md` to decide whether a request is
+Trail, RigidBody, source-vs-output proof, or world physics.
 
 ## Result Checklist
 
