@@ -45,6 +45,18 @@ the first useful page for each situation.
 6. Check the C++ matrix only if the safe route is blocked.
 7. Record results in `docs/work-log.md`.
 
+## Local Checks
+
+Run this after editing StackOBot animation docs:
+
+```powershell
+python Tools/Unreal/check_stackobot_animation_docs.py --write-report
+```
+
+The check is local/read-only. It validates relative `docs/*.md` references in
+`docs/stackobot*.md` and confirms the sibling StackOBot/UnrealMCP paths used by
+the workflow still exist.
+
 ## Safe Defaults
 
 - Original StackOBot assets stay read-only for the first pass.

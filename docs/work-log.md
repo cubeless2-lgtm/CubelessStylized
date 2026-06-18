@@ -8678,3 +8678,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Result: `117` relative document references checked, `0` missing.
 - Confirmed sibling references still exist at `D:/Git/unreal-mcp-cubeless/Python/tools/node_tools.py`, `D:/Git/unreal-mcp-cubeless/Docs/Tools/node_tools.md`, and `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation docs local checker
+
+- Added `Tools/Unreal/check_stackobot_animation_docs.py` as a reusable local/read-only checker for StackOBot animation docs.
+- The checker scans `docs/stackobot*.md` relative `docs/*.md` references, verifies required sibling paths, and can write `Saved/MCP_DocAudit/StackOBotAnimationDocsLinkAudit.json`.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --write-report` passed with `doc_count=18`, `reference_count=117`, `missing_reference_count=0`, and `missing_external_path_count=0`.
+- Linked the checker from `docs/stackobot-animation-doc-index.md`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
