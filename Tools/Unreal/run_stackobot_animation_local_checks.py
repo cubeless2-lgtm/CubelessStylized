@@ -30,6 +30,12 @@ CHECKER_FILES = [
 ]
 
 
+def _configure_output_encoding() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def _run_command(label: str, command: list[str], cwd: Path = PROJECT_ROOT) -> dict[str, Any]:
     started_at = time.monotonic()
     try:
@@ -149,6 +155,7 @@ def _format_summary(report: dict[str, Any]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _configure_output_encoding()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--require-bridge",

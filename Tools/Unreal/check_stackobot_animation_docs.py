@@ -1,10 +1,10 @@
 """Audit StackOBot animation study documentation references and structure.
 
 This local/read-only check validates that StackOBot study docs point to existing
-relative docs, required study documents still exist, key template sections are
-present, and the sibling/sample workspace paths used by the workflow still exist
-on this machine. It does not call Unreal, does not touch assets, and does not
-require the editor bridge to be online.
+relative docs, required study documents still exist, key template sections and
+request-run example fields are present, and the sibling/sample workspace paths
+used by the workflow still exist on this machine. It does not call Unreal, does
+not touch assets, and does not require the editor bridge to be online.
 """
 
 from __future__ import annotations
@@ -23,6 +23,9 @@ DOCS_ROOT = PROJECT_ROOT / "docs"
 REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_DocAudit" / "StackOBotAnimationDocsLinkAudit.json"
 
 RELATIVE_DOC_RE = re.compile(r"(?<![A-Za-z0-9_:/.-])docs/[A-Za-z0-9._/-]+\.md")
+EXAMPLE_SECTION_RE = re.compile(r"^## Example (?P<number>\d+): (?P<title>.+)$", re.MULTILINE)
+TEXT_FENCE_RE = re.compile(r"```text\n(?P<body>.*?)\n```", re.DOTALL)
+EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
 
 EXPECTED_EXTERNAL_PATHS = [
@@ -172,6 +175,22 @@ REQUIRED_TOKENS = {
     ],
 }
 
+REQUEST_EXAMPLE_REQUIRED_FIELDS = [
+    "user_request",
+    "target_character",
+    "target_body_area",
+    "timing_type",
+    "runtime_layer",
+    "route",
+    "sample_target",
+    "first_read_or_authoring_command",
+    "verification_command",
+    "expected_evidence",
+    "handoff_template",
+    "cxx_api_status",
+    "ask_user_first",
+]
+
 
 def _project_relative(path: Path) -> str:
     try:
@@ -263,6 +282,60 @@ def _required_token_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _parse_example_fields(block: str) -> dict[str, str]:
+    fields: dict[str, list[str]] = {}
+    current_field = ""
+    for line in block.splitlines():
+        match = EXAMPLE_FIELD_RE.match(line)
+        if match and match.group("name") in REQUEST_EXAMPLE_REQUIRED_FIELDS:
+            current_field = match.group("name")
+            fields[current_field] = [match.group("value").strip()]
+        elif current_field:
+            fields[current_field].append(line.strip())
+
+    return {name: "\n".join(parts).strip() for name, parts in fields.items()}
+
+
+def _request_example_field_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-request-run-examples.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    matches = list(EXAMPLE_SECTION_RE.finditer(text))
+    entries: list[dict[str, Any]] = []
+
+    for index, match in enumerate(matches):
+        section_start = match.end()
+        section_end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        section_text = text[section_start:section_end]
+        fence_match = TEXT_FENCE_RE.search(section_text)
+        fields = _parse_example_fields(fence_match.group("body")) if fence_match else {}
+
+        for field in REQUEST_EXAMPLE_REQUIRED_FIELDS:
+            value = fields.get(field, "")
+            entries.append(
+                {
+                    "path": path_text,
+                    "example": match.group(0).strip(),
+                    "field": field,
+                    "exists": field in fields,
+                    "has_value": bool(value),
+                }
+            )
+
+    if not matches:
+        entries.append(
+            {
+                "path": path_text,
+                "example": "",
+                "field": "example_sections",
+                "exists": False,
+                "has_value": False,
+            }
+        )
+
+    return entries
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     started_at = time.monotonic()
     docs = sorted(DOCS_ROOT.glob(args.glob))
@@ -276,16 +349,21 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_required_sections = [entry for entry in required_sections if not entry["exists"]]
     required_tokens = _required_token_entries()
     missing_required_tokens = [entry for entry in required_tokens if not entry["exists"]]
+    example_fields = _request_example_field_entries()
+    missing_example_fields = [
+        entry for entry in example_fields if not entry["exists"] or not entry["has_value"]
+    ]
     pass_value = (
         not missing_references
         and not missing_external_paths
         and not missing_required_docs
         and not missing_required_sections
         and not missing_required_tokens
+        and not missing_example_fields
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v3",
+        "schema": "stackobot_animation_docs_link_audit_v4",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -296,6 +374,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_required_doc_count": len(missing_required_docs),
         "missing_required_section_count": len(missing_required_sections),
         "missing_required_token_count": len(missing_required_tokens),
+        "missing_example_field_count": len(missing_example_fields),
         "pass": pass_value,
         "docs": [_project_relative(path) for path in docs],
         "missing_references": missing_references,
@@ -303,6 +382,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_required_docs": missing_required_docs,
         "missing_required_sections": missing_required_sections,
         "missing_required_tokens": missing_required_tokens,
+        "example_fields": example_fields,
+        "missing_example_fields": missing_example_fields,
     }
 
     if args.write_report:
@@ -323,7 +404,8 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_external={report['missing_external_path_count']} "
             f"missing_required_docs={report['missing_required_doc_count']} "
             f"missing_required_sections={report['missing_required_section_count']} "
-            f"missing_required_tokens={report['missing_required_token_count']}"
+            f"missing_required_tokens={report['missing_required_token_count']} "
+            f"missing_example_fields={report['missing_example_field_count']}"
         ),
     ]
     if report.get("report_path"):
@@ -334,6 +416,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_required_docs",
             "missing_required_sections",
             "missing_required_tokens",
+            "missing_example_fields",
         ]:
             entries = report.get(key) or []
             if entries:
