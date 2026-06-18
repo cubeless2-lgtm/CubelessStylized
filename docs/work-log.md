@@ -8935,3 +8935,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now validates that each `docs/stackobot-animation-request-run-examples.md` dry-run example maps its `route` field to the expected `handoff_template`, including no-authoring handoff for node contribution proof.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_route_handoffs=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request example route verification audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v24`.
+- The checker now validates that each `docs/stackobot-animation-request-run-examples.md` dry-run example maps its `route` field to the expected `verification_command`, including BlendSpace grid proof, state-machine runtime response, protected metadata no-proof wording, and PoseWatch proof routes.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_verification_commands=0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
