@@ -8220,3 +8220,24 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_Summary.json`
 - Dirty content package count and dirty map package count were both `0` before closing the editor without saving.
 - Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 UnrealMCP compiled AnimGraph node mapping preflight
+
+- Added read-only `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` in sibling `D:/Git/unreal-mcp-cubeless`.
+- The new mode maps a selected editor `UAnimGraphNode_Base` GUID through `UAnimBlueprintGeneratedClass::GetNodeIndexFromGuid`, the compiled anim-node `FStructProperty`, and the matched live `UAnimInstance` memory address. It also cross-checks the address through `UAnimGraphNode_Base::FindDebugAnimNode`.
+- This is an instrumentation preflight only. Responses intentionally keep `runtime_graph_prepost=false` and `same_instance_prepost=false`; true compiled node input/output pose tapping remains future work.
+- Updated `Python/tools/node_tools.py`, `Docs/Tools/node_tools.md`, and `Docs/Analysis/StackOBot/sample_anim_node_pre_post_runtime_pose_design.md`.
+- Synced the changed `UnrealMCPBlueprintNodeCommands.cpp` into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `git diff --check`
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development`
+  - `StackOBotEditor Win64 Development`
+  - Live StackOBot bridge smoke on `127.0.0.1:55557`
+- Live smoke used a transient `MCP_CompiledMapping_Smoke_Baddy` actor with `SKM_Baddy` and original `ABP_Baddy_C` in PIE. Original StackOBot assets were not saved.
+- The `ABP_Baddy` RigidBody node `81E779C34D36CC52F0125F91BF52BAF3` mapped to compiled property `AnimGraphNode_RigidBody` / `/Script/AnimGraphRuntime.AnimNode_RigidBody` with `node_index=1`, `same_anim_instance_node_mapping=true`, `runtime_node_instance_mapped=true`, `find_debug_anim_node_mapped=true`, and `pointer_match=true`.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_Summary.json`
+- Cleanup ended SIE and reported dirty content package count `0`; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor spawning, so the smoke editor was closed without saving.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.

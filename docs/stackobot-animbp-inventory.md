@@ -403,13 +403,15 @@ Offline artifacts:
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.md`
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.csv`
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.json`
+- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_Summary.json`
+- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_raw.json`
 
 Main result:
 
 - Baddy RigidBody is proven through SIE runtime variants plus authored source-clip magnitude baselines.
 - Bot Trail is proven through SIE raw-vs-trail component comparison when the Trail component explicitly overrides its Post Process AnimBP, plus isolated source-bypass vs post-node sampling.
-- Current evidence is enough for the learning baseline. It is still not true same-instance compiled node-internal instrumentation.
-- Exact isolated source-vs-output RigidBody/Trail attribution is covered by `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)`; true same-instance compiled graph instrumentation remains future scope.
+- Current evidence is enough for the learning baseline. `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` now proves the `ABP_Baddy` RigidBody editor node maps to the live compiled `FAnimNode_RigidBody` instance in PIE with `pointer_match=true`.
+- Exact isolated source-vs-output RigidBody/Trail attribution is covered by `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)`; true same-instance compiled node input/output pose tapping remains future scope.
 
 ## Bot Post Process Static Pose Comparison
 
@@ -436,7 +438,7 @@ Main result:
 ## Remaining Study Backlog
 
 1. Control Rig pre/post: direct-gate MCP probing, sample ModifyCurve curve forcing, sample ControlRig input-default forcing, combined forced-driver sample assembly, direct transient ControlRig pre/post solve sampling, and reusable SIE bone/socket component sampling are complete; exact compiled AnimGraph source-vs-post subtraction still needs future instrumentation.
-2. Physics pre/post: evidence synthesis is complete for the learning baseline; isolated source-bypass vs post-node RigidBody/Trail subtraction is covered by `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)`, while true same-instance compiled graph instrumentation remains future work.
+2. Physics pre/post: evidence synthesis is complete for the learning baseline; isolated source-bypass vs post-node RigidBody/Trail subtraction is covered by `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)`, and live compiled-node address mapping is covered by `mode=compiled_graph_mapping`. True same-instance compiled node input/output pose tapping remains future work.
 3. Post Process pre/post: static single-input-pose isolation is complete; `sample_postprocess_pre_post_pose` is only needed for live same-frame runtime sampling.
 4. State-machine transitions: no-C++ topology probing is complete; `inspect_anim_state_machine_transitions` is implemented, build-verified, and StackOBot live-smoked on bridge port `55558`. Live current-state reading, state weights, transition progress, relevant animation timing, and runtime property case resampling are now covered by MCP APIs. Meaningful `ABP_Bot` driver cases are captured for `GroundSpeed`, `IsInAir?`, `MovementInput?`, and `IsHovering`.
 5. Blueprint call topology: AssetRegistry-level interaction reference probing and exact read-only call topology are complete for `BP_Bot` and `BPC_InteractionHandler`. `BP_Bot` exposes `IA_Grab`, `BPI_TouchInterface.Interact`, `Potential Interact`, and grab init/clear/update links; no direct montage/dynamic-slot playback call was found in the smoked topology.
@@ -449,6 +451,6 @@ Main result:
 - Use `inspect_anim_instance_runtime_state` for current live PIE/SIE state names, state weights, transition progress, and relevant animation timing; use `set_anim_instance_runtime_property_for_probe` for runtime-only property echo checks; and use `sample_anim_state_machine_runtime_response` for restored property-case snapshots. The real `ABP_Bot` state-change matrix exists at `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_RuntimeDriverMatrix.md`; the remaining state-machine gap is full K2 call topology.
 - Use the SIE BlendSpace pose grid for current engine interpolation evidence; `sample_skeletal_bones_in_sie` is now available for the reusable live component bone/socket read step, while SIE startup/tick orchestration still remains external.
 - Use `controlrig_direct_gate_probe` for repeatable direct-rig gate checks, `ensure_anim_graph_modify_curve_demo` for sample-only `IKBlend_l` / `IK_blend_interact` curve forcing, `set_anim_graph_controlrig_input_defaults` for sample-only `ShouldDoIKTrace` / `InteractionWorldLocation` input-default forcing, `ensure_controlrig_forced_driver_animbp` for the combined sample forced-driver AnimBP, `sample_controlrig_pre_post_runtime_pose` for direct transient same-instance ControlRig pre/post solve deltas, `sample_skeletal_bones_in_sie` for live PIE/SIE component bone/socket reads, `inspect_anim_instance_runtime_state` for live AnimInstance state-machine current-state reads, and the runtime property/response commands for case scaffolding. Use future compiled AnimGraph node-stack instrumentation for exact source-vs-output subtraction; the current synthesis only compares existing source, direct-rig, sample curve-forcing, sample input-default forcing, forced-driver graph assembly, direct-transient pre/post solve, SIE probe, runtime-state inspector, and runtime-property response artifacts.
-- Use a future AnimGraph node pre/post runtime-pose command for exact RigidBody/Trail source-vs-output subtraction; the current physics synthesis only combines existing source-vs-runtime and raw-vs-trail evidence.
+- Use `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` when the next instrumentation step needs to prove that an editor AnimGraph node GUID resolves to a live compiled `FAnimNode_*` instance. Use a future input/output pose-tap mode for exact RigidBody/Trail same-instance source-vs-output subtraction.
 - Use `inspect_blueprint_graph_call_topology` to prove exact static Blueprint call/reference/link topology. Current StackOBot artifacts are `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_Summary.json` and `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_raw.json`.
 - This inventory did not modify or save original StackOBot assets.

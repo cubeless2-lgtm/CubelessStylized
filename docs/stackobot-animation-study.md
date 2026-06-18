@@ -499,7 +499,7 @@ Automatic transition rules seen in topology and runtime sequence behavior:
 Remaining state-machine gap:
 
 - Full `EventGraph`/`CalcLean` K2 call topology can now be queried through `inspect_blueprint_graph_call_topology`, but the current StackOBot smoke focused on the interact/button path rather than a complete AnimBP EventGraph audit.
-- The remaining exact pre/post attribution tasks are true same-instance compiled graph instrumentation for Control Rig and physics. Post Process static pre/post is complete, and RigidBody/Trail isolated source-vs-output sampling is now covered.
+- The remaining exact pre/post attribution tasks are true same-instance compiled graph input/output pose taps for Control Rig and physics. Post Process static pre/post is complete, RigidBody/Trail isolated source-vs-output sampling is covered, and `ABP_Baddy` RigidBody live compiled-node address mapping is now covered.
 
 ## Remaining Study Backlog
 
@@ -537,9 +537,10 @@ Remaining state-machine gap:
    - Static pre/post pose isolation is complete for the two variants.
    - A future `sample_postprocess_pre_post_pose` command is only needed for live component same-frame runtime sampling.
 5. Physics final runtime pass
-   - Baddy RigidBody variants, source-vs-runtime split, Bot Trail runtime comparison, physics evidence synthesis, and isolated RigidBody/Trail source-vs-output sampling are enough for the current learning baseline.
+   - Baddy RigidBody variants, source-vs-runtime split, Bot Trail runtime comparison, physics evidence synthesis, compiled node mapping preflight, and isolated RigidBody/Trail source-vs-output sampling are enough for the current learning baseline.
    - `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)` now covers RigidBody/Trail-style source-bypass vs post-node comparisons with temp assets.
-   - True same-instance compiled AnimGraph node instrumentation remains future API work, not a manual map-edit task.
+   - `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` now covers editor-node GUID to live compiled `FAnimNode_*` address mapping.
+   - True same-instance compiled AnimGraph node input/output pose tapping remains future API work, not a manual map-edit task.
 
 ## Bot Slot and Layered Blend Inventory
 
@@ -714,7 +715,7 @@ Remaining candidates:
 
 | Candidate command | Purpose | Notes |
 | --- | --- | --- |
-| `sample_anim_node_pre_post_runtime_pose` | Sample the same runtime frame immediately before and after a selected compiled AnimGraph node such as ControlRig, RigidBody, or Trail. | Inputs should include AnimBP or Post Process AnimBP path, skeletal mesh path, node selector, runtime mode, driver setup, settle ticks, duration/rate, and bones. Outputs should include pre-node pose, post-node pose, per-bone deltas, curve/state values when available, cleanup status, and dirty-package status. This is the remaining step for true AnimGraph-internal source-vs-post attribution. |
+| `sample_anim_node_pre_post_runtime_pose` | Sample the same runtime frame immediately before and after a selected compiled AnimGraph node such as ControlRig, RigidBody, or Trail. | `compiled_graph_mapping`, `active_component_tick_delta`, and `isolated_temp_components` are implemented. Remaining work is the true same-instance compiled node input/output pose tap. Inputs should include AnimBP or Post Process AnimBP path, skeletal mesh path, node selector, runtime mode, driver setup, settle ticks, duration/rate, and bones. Outputs should include pre-node pose, post-node pose, per-bone deltas, curve/state values when available, cleanup status, and dirty-package status. |
 | `ensure_anim_graph_trail_demo` | Create a `_MCP_Sample` AnimBP with an active Trail Controller path. | Needed to compare the currently disconnected original Trail node against a real connected Trail chain. |
 | `inspect_anim_graph_protected_topology` | Return protected graph nodes, pins, and links in a stable read-only format. | Existing `inspect_anim_graph_node_settings` covers much of this, but a topology-focused response would make graph-edit planning safer. |
 | `inspect_anim_state_machine_transitions` | Read source state, target state, and transition condition topology for AnimBP state machines. | Implemented, build-verified, and StackOBot live-smoked on bridge port `55558`; `StackOBot_StateMachine_TransitionMCPInspect.*` is the current source/target and rule-summary artifact. |
@@ -723,7 +724,7 @@ Remaining candidates:
 Priority recommendation:
 
 1. Completed for SIE component bone/socket sampling: `sample_skeletal_bones_in_sie` was run against StackOBot through the primary bridge port and sampled the transient Bot actor from `sampled_world_type=PIE`.
-2. Implement `sample_anim_node_pre_post_runtime_pose` when true compiled AnimGraph-internal ControlRig/RigidBody/Trail source-vs-post attribution becomes the next priority.
+2. Extend `sample_anim_node_pre_post_runtime_pose` with true compiled AnimGraph-internal ControlRig/RigidBody/Trail input/output pose tapping when exact source-vs-post attribution becomes the next priority.
 3. Completed for direct transient ControlRig pre/post solve: `sample_controlrig_pre_post_runtime_pose` was run against StackOBot through the alternate bridge port.
 4. Completed for direct ControlRig gate: `controlrig_direct_gate_probe` was run against StackOBot through the alternate bridge port.
 5. Completed for sample curve forcing: `ensure_anim_graph_modify_curve_demo` was run against StackOBot through the alternate bridge port.
@@ -1147,6 +1148,8 @@ Artifacts:
 | Physics synthesis Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.md` |
 | Physics synthesis JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.json` |
 | Physics synthesis CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.csv` |
+| Compiled node mapping summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_Summary.json` |
+| Compiled node mapping raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_raw.json` |
 
 Current evidence:
 
@@ -1160,7 +1163,9 @@ Interpretation:
 - The physics systems are proven active under the correct runtime setup, but current evidence is not exact same-frame source-vs-post-node subtraction.
 - Baddy RigidBody currently has a magnitude-level source-vs-runtime comparison.
 - Bot Trail currently has a runtime raw-vs-trail component comparison.
-- Exact physics contribution needs a future `sample_anim_node_pre_post_runtime_pose` command that samples immediately before and after a selected AnimGraph node in one runtime tick.
+- `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` now proves the `ABP_Baddy` RigidBody editor node maps to the live compiled `FAnimNode_RigidBody` instance in PIE: `same_anim_instance_node_mapping=true`, `runtime_node_instance_mapped=true`, `find_debug_anim_node_mapped=true`, and `pointer_match=true`.
+- This is the runtime-node address preflight needed for future node-stack instrumentation, but it does not sample node input/output poses.
+- Exact physics contribution still needs a future runtime mode that samples immediately before and after a selected compiled AnimGraph node in one runtime tick.
 
 ## Post Process Runtime and Static Pose Comparison
 
