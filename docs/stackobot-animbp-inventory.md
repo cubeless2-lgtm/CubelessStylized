@@ -218,6 +218,8 @@ Impact interpretation:
 - Sequence `Notifies` is protected through the current Python property path, so notify names were not expanded in this inventory.
 - Sync markers and curve data were not exposed through the current Python property path.
 - The asset-level timing and BlendSpace sample data are readable and should be used as the current source of truth for state playback study.
+- Direct `AnimSequence.get_anim_pose_at_time` remains safe for source-pose motion profiling, but it does not replace notify, sync-marker, or curve introspection.
+- Do not inspect `AnimMontage` internals with broad Unreal Python reflection in this project. A 2026-06-19 readiness retry against the loaded Baddy death montage asserted in `AnimMontage.h:770`; keep Montage evidence to AssetRegistry/name-level until a guarded native MCP command exists.
 
 ## Sequence Motion Profile
 

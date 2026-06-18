@@ -289,7 +289,7 @@ Candidate API parking lot:
 | `ensure_layered_slot_overlay_sample` | A future request needs a new slot/layered-blend overlay sample rather than inspecting the existing `UpperBody` route. | Slot/cached-pose inventory and `sample_anim_node_pre_post_runtime_pose(input_pose_mode=all)` |
 | `ensure_postprocess_physics_variant` | A future request needs authored Trail/RigidBody-like secondary motion parameters outside the existing Bot Trail and Baddy RigidBody samples. | `ensure_anim_graph_trail_demo`, compiled mapping, PoseWatch capture |
 | `resolve_anim_posewatch_target_actor` | Repeated proof requests keep failing because transient actor setup, component override, PIE duplicate matching, or editor-world fallback is inconsistent. | Existing editor-world setup for static Post Process, existing SIE/PIE actor setup for gameplay/physics |
-| `inspect_or_author_anim_notifies_curves` | A request depends on sequence notifies, sync markers, or curve authoring that remains protected through current Python reads. | Current sequence inventory and ControlRig curve-gate probes |
+| `inspect_or_author_anim_notifies_curves` | A request depends on sequence notifies, sync markers, curve authoring, or Montage internals that remain protected or unsafe through current Python reads. | Current sequence inventory, BlendSpace sample inventory, ControlRig curve-gate probes, and AssetRegistry-level Montage scan |
 
 Implemented route:
 
@@ -307,6 +307,10 @@ Implemented route:
   The request-template rehearsal artifacts are `StackOBot_LayeredBlendTemplateRehearsal_*`.
   This route proves StackOBot's existing overlay wiring; visible action proof still requires
   a montage/action source or a future sample overlay authoring command.
+- Notify/curve/sync-marker requests: start with `StackOBot_AnimationAsset_Inventory.*`,
+  `StackOBot_AnimationAsset_ReadApiProbe.json`, and runtime route evidence. Do not broad-probe
+  `AnimMontage` internals through generic Unreal Python; the 2026-06-19 retry asserted in
+  `AnimMontage.h:770`. Escalate to a guarded native MCP command only for a concrete request.
 
 ## Failure Handling
 

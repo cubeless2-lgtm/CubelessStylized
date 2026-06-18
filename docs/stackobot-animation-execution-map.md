@@ -98,6 +98,11 @@ Read result:
 - The inspected Baddy sequence set contains `2` sequences, totaling about `1.33s`.
 - Root motion is disabled on all inspected sequences.
 - Sequence notify, sync marker, and curve internals are still protected through the current Python read path.
+- Existing safe asset-read artifacts are `StackOBot_AnimationAsset_Inventory.*` and `StackOBot_AnimationAsset_ReadApiProbe.json`.
+- The safe Python path can read timing, skeleton, root-motion flags, BlendSpace samples, BlendSpace notify trigger mode, and source poses through `AnimSequence.get_anim_pose_at_time`.
+- `AnimSequence.Notifies` is protected, `raw_curve_data` and `authored_sync_markers` are not exposed as Python properties, and `AnimSequence.get_data_model` is not available in this StackOBot UE 5.7 Python environment.
+- A 2026-06-19 retry confirmed that broad Python reflection against `AnimMontage` internals is unsafe: probing the only loaded montage, `/Game/StackOBot/Characters/Blobling/Anim/AM_Baddy_Death.AM_Baddy_Death`, hit an `AnimMontage.h:770` assertion through `AnimationBlueprintLibrary` and closed the editor.
+- Do not use generic Python reflection to inspect Montage slot tracks, sections, branching points, or notify data in this project. Keep montage internals at AssetRegistry/name-level until a guarded native MCP command exists.
 
 ## Source Clip Motion Profile
 
@@ -482,7 +487,7 @@ Remaining C++/UnrealMCP candidates if reusable tooling is explicitly resumed:
 3. Add `ensure_layered_slot_overlay_sample` only if a future request needs a new overlay branch rather than the existing `UpperBody` slot/cached-pose/LayeredBoneBlend route.
 4. Add `ensure_postprocess_physics_variant` only if the existing Bot Trail and Baddy RigidBody samples cannot express the requested secondary-motion behavior.
 5. Add a target actor resolver only if repeated PoseWatch proof setup fails because of transient actor, component override, PIE duplicate matching, or editor-world fallback issues.
-6. Add notify/curve read-authoring support only when a concrete request depends on sequence notifies, sync markers, or protected curve data.
+6. Add notify/curve/montage read-authoring support only when a concrete request depends on sequence notifies, sync markers, protected curve data, or montage internals. This should be a guarded native command, not broad Python reflection, because a direct Python montage-internals probe asserted in `AnimMontage.h:770`.
 
 Implemented `sample_skeletal_bones_in_sie` detail:
 
