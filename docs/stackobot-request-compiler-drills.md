@@ -10,6 +10,7 @@ Related docs:
 - `docs/stackobot-animation-request-playbook.md`
 - `docs/stackobot-animation-authoring-templates.md`
 - `docs/stackobot-animation-tivret-handoff-templates.md`
+- `docs/stackobot-cpp-api-decision-matrix.md`
 - `docs/stackobot-physics-request-grammar.md`
 - `docs/stackobot-animation-mcp-command-syntax.md`
 - `docs/stackobot-sample-asset-manifest.md`

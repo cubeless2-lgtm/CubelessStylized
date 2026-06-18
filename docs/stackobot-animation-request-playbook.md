@@ -10,6 +10,7 @@ Related docs:
 - `docs/stackobot-animation-authoring-templates.md`
 - `docs/stackobot-request-compiler-drills.md`
 - `docs/stackobot-animation-tivret-handoff-templates.md`
+- `docs/stackobot-cpp-api-decision-matrix.md`
 - `docs/stackobot-physics-request-grammar.md`
 - `docs/stackobot-animbp-authoring-patterns.md`
 - `docs/stackobot-animation-execution-map.md`

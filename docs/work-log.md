@@ -8637,3 +8637,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added `docs/stackobot-sample-asset-manifest.md` to record `_MCP_Sample/AnimStudy` package groups, package paths, regeneration routes, and safety notes.
 - Added `docs/stackobot-animation-quickstart.md` as the first page for future StackOBot animation requests, linking the compiler, handoff templates, command syntax, physics grammar, manifest, and live read drill.
 - No Unreal assets, sample assets, or C++ files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot C++ API decision matrix
+
+- Added `docs/stackobot-cpp-api-decision-matrix.md` to consolidate the remaining UnrealMCP C++/API candidates and the exact trigger conditions for implementing them.
+- Classified currently covered routes as do-not-rebuild: Post Process ModifyBone, Bot Trail, Baddy RigidBody read/tuning, BlendSpace variants, ControlRig forced-driver, existing UpperBody route proof, state-machine read/runtime response, and current node contribution proof.
+- Parked future candidates until concrete requests require them: state-machine sample authoring, new layered overlay samples, Bot RigidBody graph authoring, physics variant matrix, PhysicsAsset constraint inspection, guarded notify/curve/Montage internals, target actor resolution, broader Trail parameter editing, and Blueprint call topology.
+- Current timing decision remains no new C++ yet, because the 2026-06-19 live read drill confirmed the request compiler still matches live StackOBot nodes. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

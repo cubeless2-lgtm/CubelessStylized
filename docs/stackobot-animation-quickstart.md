@@ -47,6 +47,7 @@ Use this as the first page for future StackOBot animation requests.
 - Authoring templates: `docs/stackobot-animation-authoring-templates.md`
 - Physics grammar: `docs/stackobot-physics-request-grammar.md`
 - Command syntax: `docs/stackobot-animation-mcp-command-syntax.md`
+- C++ API decision matrix: `docs/stackobot-cpp-api-decision-matrix.md`
 - Execution map: `docs/stackobot-animation-execution-map.md`
 - Sample manifest: `docs/stackobot-sample-asset-manifest.md`
 - Latest live read drill: `docs/stackobot-live-read-drill-2026-06-19.md`
