@@ -42,6 +42,7 @@ Use this as the first page for future StackOBot animation requests.
 ## Main References
 
 - Closeout/readiness: `docs/stackobot-animation-study-closeout.md`
+- Next-work backlog: `docs/stackobot-animation-next-work-backlog.md`
 - Request compiler: `docs/stackobot-request-compiler-drills.md`
 - Request playbook: `docs/stackobot-animation-request-playbook.md`
 - Handoff templates: `docs/stackobot-animation-tivret-handoff-templates.md`

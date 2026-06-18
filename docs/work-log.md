@@ -8652,3 +8652,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Restated the current C++ timing: no new C++ before a concrete blocked request; use `docs/stackobot-cpp-api-decision-matrix.md` only when a trigger is hit.
 - Recorded the residual risks: visible upper-body action source is not authored yet, new state/transition graph authoring remains parked, Montage/notify/curve internals need guarded native tooling, and command availability must be checked against the StackOBot-local UnrealMCP plugin copy.
 - Linked the closeout from the quickstart, request playbook, and execution map. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot animation next-work backlog
+
+- Added `docs/stackobot-animation-next-work-backlog.md` to separate immediate sample-first execution from trigger-based future work.
+- Prioritized P0 preflight checks, P1 likely future routes, P2 repeated-tooling candidates, and P3 maintenance tasks.
+- Reconfirmed that no immediate C++ work is scheduled; C++ remains tied to concrete blocked requests such as new state/transition authoring, visible upper-body action source work, guarded Montage/notify/curve support, or Bot RigidBody-style authoring.
+- Linked the backlog from the quickstart, request playbook, and closeout. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

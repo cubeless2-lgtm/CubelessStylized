@@ -28,7 +28,9 @@ original StackOBot assets unless the user explicitly approves that scope.
    `docs/stackobot-animation-tivret-handoff-templates.md`.
 5. Use command syntax from `docs/stackobot-animation-mcp-command-syntax.md`.
 6. Check `docs/stackobot-cpp-api-decision-matrix.md` before any new C++.
-7. Record the result in `docs/work-log.md`.
+7. Check `docs/stackobot-animation-next-work-backlog.md` only if the route is
+   blocked or marked candidate.
+8. Record the result in `docs/work-log.md`.
 
 ## Ready Routes
 
@@ -81,6 +83,9 @@ Keep C++ as a candidate only when the request hits a trigger in
 
 Do not add C++ for ordinary "turn head", "lean more", "antenna lag", "make it
 stronger", or "which node changed the pose" requests.
+
+For the non-immediate backlog, use
+`docs/stackobot-animation-next-work-backlog.md`.
 
 ## Residual Risks
 
