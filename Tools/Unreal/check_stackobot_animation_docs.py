@@ -565,6 +565,52 @@ REQUEST_EXAMPLE_VERIFICATION_KEYWORDS = [
     "none for protected internals",
 ]
 
+REQUEST_RUN_TEMPLATE_FIELD_GROUPS = {
+    "request": [
+        "user_request:",
+        "date:",
+        "operator:",
+    ],
+    "compiled_intent": [
+        "target_character:",
+        "target_body_area:",
+        "timing_type:",
+        "runtime_layer:",
+        "route:",
+        "sample_target:",
+        "first_read_or_authoring_command:",
+        "verification_command:",
+        "expected_evidence:",
+        "handoff_template:",
+        "cxx_api_status:",
+        "ask_user_first:",
+    ],
+    "final_report": [
+        "route:",
+        "assets_created_or_reused:",
+        "original_assets_modified:",
+        "runtime_world:",
+        "main_command_results:",
+        "pose_or_state_evidence:",
+        "errors:",
+        "warnings:",
+        "dirty_packages:",
+        "cleanup:",
+        "cxx_api_needed:",
+        "artifact_paths:",
+        "residual_risk:",
+    ],
+    "work_log": [
+        "- Request:",
+        "- Route:",
+        "- Assets/evidence:",
+        "- Verification:",
+        "- C++/API decision:",
+        "- Dirty packages/cleanup:",
+        "- Residual risk:",
+    ],
+}
+
 COMMAND_SYNTAX_REQUIRED_JSON_COMMANDS = [
     "ensure_postprocess_anim_demo_variant",
     "sample_anim_node_pre_post_runtime_pose",
@@ -927,6 +973,25 @@ def _request_example_safety_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _request_run_template_field_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-request-run-template.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    entries: list[dict[str, Any]] = []
+
+    for group, fields in REQUEST_RUN_TEMPLATE_FIELD_GROUPS.items():
+        for field in fields:
+            entries.append(
+                {
+                    "path": path_text,
+                    "group": group,
+                    "field": field,
+                    "exists": field in text,
+                }
+            )
+    return entries
+
+
 def _command_syntax_json_blocks() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-mcp-command-syntax.md"
     path = PROJECT_ROOT / path_text
@@ -1142,6 +1207,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     unsafe_request_examples = [
         entry for entry in request_example_safety if not entry["safe"]
     ]
+    request_run_template_fields = _request_run_template_field_entries()
+    missing_request_run_template_fields = [
+        entry for entry in request_run_template_fields if not entry["exists"]
+    ]
     command_syntax_json_blocks = _command_syntax_json_blocks()
     invalid_command_syntax_json = [
         entry for entry in command_syntax_json_blocks if not entry["parse_success"]
@@ -1176,6 +1245,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_required_tokens
         and not missing_example_fields
         and not unsafe_request_examples
+        and not missing_request_run_template_fields
         and not invalid_command_syntax_json
         and not missing_command_syntax_commands
         and not unsafe_command_syntax_authoring
@@ -1184,7 +1254,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v12",
+        "schema": "stackobot_animation_docs_link_audit_v13",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -1197,6 +1267,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_required_token_count": len(missing_required_tokens),
         "missing_example_field_count": len(missing_example_fields),
         "unsafe_request_example_count": len(unsafe_request_examples),
+        "missing_request_run_template_field_count": len(missing_request_run_template_fields),
         "invalid_command_syntax_json_count": len(invalid_command_syntax_json),
         "missing_command_syntax_command_count": len(missing_command_syntax_commands),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
@@ -1213,6 +1284,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_example_fields": missing_example_fields,
         "request_example_safety": request_example_safety,
         "unsafe_request_examples": unsafe_request_examples,
+        "request_run_template_fields": request_run_template_fields,
+        "missing_request_run_template_fields": missing_request_run_template_fields,
         "command_syntax_json_blocks": command_syntax_json_blocks,
         "invalid_command_syntax_json": invalid_command_syntax_json,
         "command_syntax_commands": command_syntax_commands,
@@ -1246,6 +1319,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_required_tokens={report['missing_required_token_count']} "
             f"missing_example_fields={report['missing_example_field_count']} "
             f"unsafe_request_examples={report['unsafe_request_example_count']} "
+            f"missing_template_fields={report['missing_request_run_template_field_count']} "
             f"invalid_command_json={report['invalid_command_syntax_json_count']} "
             f"missing_command_examples={report['missing_command_syntax_command_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
@@ -1263,6 +1337,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_required_tokens",
             "missing_example_fields",
             "unsafe_request_examples",
+            "missing_request_run_template_fields",
             "invalid_command_syntax_json",
             "missing_command_syntax_commands",
             "unsafe_command_syntax_authoring",
