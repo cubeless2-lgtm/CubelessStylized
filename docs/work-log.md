@@ -9012,3 +9012,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now validates that each `docs/stackobot-animation-request-run-examples.md` dry-run example maps its `route` field to the expected `target_body_area` tokens for head, locomotion body response, antenna chain, upper body, animation source metadata, foot IK, state-machine behavior, Baddy stalk secondary motion, and node-output proof.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_target_body_areas=0`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request route-checker refactor
+
+- Refactored `Tools/Unreal/check_stackobot_animation_docs.py` so route-specific request example checks share common prefix, any-token, and required-token helpers.
+- The JSON schema remains `stackobot_animation_docs_link_audit_v34`; this was an internal maintenance change to reduce duplicated route-field scan logic without changing audit semantics.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with all existing request example mismatch counts at `0`.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

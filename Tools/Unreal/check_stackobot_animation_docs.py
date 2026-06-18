@@ -1251,25 +1251,29 @@ def _request_example_route_coverage_entries() -> list[dict[str, Any]]:
     ]
 
 
-def _request_example_route_handoff_entries() -> list[dict[str, Any]]:
+def _request_example_route_tokens(route: str, rules: dict[str, Any]) -> list[str]:
+    return [token for token in rules if token in route]
+
+
+def _request_example_route_prefix_entries(
+    rules: dict[str, str],
+    field_name: str,
+    expected_key: str,
+) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for record in _request_example_records():
         fields = record["fields"]
         route = fields.get("route", "")
-        handoff_template = fields.get("handoff_template", "")
-        matched_tokens = [
-            token
-            for token in REQUEST_EXAMPLE_ROUTE_HANDOFF_RULES
-            if token in route
-        ]
+        value = fields.get(field_name, "")
+        matched_tokens = _request_example_route_tokens(route, rules)
         if not matched_tokens:
             entries.append(
                 {
                     "path": record["path"],
                     "example": record["example"],
                     "route": route,
-                    "handoff_template": handoff_template,
-                    "expected_handoff": "",
+                    field_name: value,
+                    expected_key: "",
                     "matches": False,
                     "known_route": False,
                 }
@@ -1277,486 +1281,198 @@ def _request_example_route_handoff_entries() -> list[dict[str, Any]]:
             continue
 
         for route_token in matched_tokens:
-            expected_handoff = REQUEST_EXAMPLE_ROUTE_HANDOFF_RULES[route_token]
+            expected_value = rules[route_token]
             entries.append(
                 {
                     "path": record["path"],
                     "example": record["example"],
                     "route": route,
                     "route_token": route_token,
-                    "handoff_template": handoff_template,
-                    "expected_handoff": expected_handoff,
-                    "matches": handoff_template.startswith(expected_handoff),
+                    field_name: value,
+                    expected_key: expected_value,
+                    "matches": value.startswith(expected_value),
                     "known_route": True,
                 }
             )
 
     return entries
+
+
+def _request_example_route_any_token_entries(
+    rules: dict[str, list[str]],
+    field_name: str,
+    expected_key: str,
+    *,
+    lower_value: bool = False,
+) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for record in _request_example_records():
+        fields = record["fields"]
+        route = fields.get("route", "")
+        value = fields.get(field_name, "")
+        comparison_value = value.lower() if lower_value else value
+        matched_tokens = _request_example_route_tokens(route, rules)
+        if not matched_tokens:
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    field_name: value,
+                    expected_key: [],
+                    "matches": False,
+                    "known_route": False,
+                }
+            )
+            continue
+
+        for route_token in matched_tokens:
+            expected_values = rules[route_token]
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "route_token": route_token,
+                    field_name: value,
+                    expected_key: expected_values,
+                    "matches": _contains_any(comparison_value, set(expected_values)),
+                    "known_route": True,
+                }
+            )
+
+    return entries
+
+
+def _request_example_route_required_token_entries(
+    rules: dict[str, list[str]],
+    field_name: str,
+    *,
+    value_getter: Any = None,
+) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for record in _request_example_records():
+        fields = record["fields"]
+        route = fields.get("route", "")
+        value = value_getter(record) if value_getter else fields.get(field_name, "")
+        matched_tokens = _request_example_route_tokens(route, rules)
+        if not matched_tokens:
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    field_name: value,
+                    "expected_tokens": [],
+                    "missing_tokens": [],
+                    "matches": False,
+                    "known_route": False,
+                }
+            )
+            continue
+
+        for route_token in matched_tokens:
+            expected_tokens = rules[route_token]
+            missing_tokens = [
+                token for token in expected_tokens if token not in value
+            ]
+            entries.append(
+                {
+                    "path": record["path"],
+                    "example": record["example"],
+                    "route": route,
+                    "route_token": route_token,
+                    field_name: value,
+                    "expected_tokens": expected_tokens,
+                    "missing_tokens": missing_tokens,
+                    "matches": not missing_tokens,
+                    "known_route": True,
+                }
+            )
+
+    return entries
+
+
+def _request_example_route_handoff_entries() -> list[dict[str, Any]]:
+    return _request_example_route_prefix_entries(
+        REQUEST_EXAMPLE_ROUTE_HANDOFF_RULES,
+        "handoff_template",
+        "expected_handoff",
+    )
 
 
 def _request_example_route_verification_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for record in _request_example_records():
-        fields = record["fields"]
-        route = fields.get("route", "")
-        verification_command = fields.get("verification_command", "")
-        matched_tokens = [
-            token
-            for token in REQUEST_EXAMPLE_ROUTE_VERIFICATION_RULES
-            if token in route
-        ]
-        if not matched_tokens:
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "verification_command": verification_command,
-                    "expected_verification": [],
-                    "matches": False,
-                    "known_route": False,
-                }
-            )
-            continue
-
-        for route_token in matched_tokens:
-            expected_verification = REQUEST_EXAMPLE_ROUTE_VERIFICATION_RULES[route_token]
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "route_token": route_token,
-                    "verification_command": verification_command,
-                    "expected_verification": expected_verification,
-                    "matches": _contains_any(verification_command, set(expected_verification)),
-                    "known_route": True,
-                }
-            )
-
-    return entries
+    return _request_example_route_any_token_entries(
+        REQUEST_EXAMPLE_ROUTE_VERIFICATION_RULES,
+        "verification_command",
+        "expected_verification",
+    )
 
 
 def _request_example_route_first_command_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for record in _request_example_records():
-        fields = record["fields"]
-        route = fields.get("route", "")
-        first_command = fields.get("first_read_or_authoring_command", "")
-        matched_tokens = [
-            token
-            for token in REQUEST_EXAMPLE_ROUTE_FIRST_COMMAND_RULES
-            if token in route
-        ]
-        if not matched_tokens:
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "first_read_or_authoring_command": first_command,
-                    "expected_first_command": [],
-                    "matches": False,
-                    "known_route": False,
-                }
-            )
-            continue
-
-        for route_token in matched_tokens:
-            expected_first_command = REQUEST_EXAMPLE_ROUTE_FIRST_COMMAND_RULES[route_token]
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "route_token": route_token,
-                    "first_read_or_authoring_command": first_command,
-                    "expected_first_command": expected_first_command,
-                    "matches": _contains_any(first_command, set(expected_first_command)),
-                    "known_route": True,
-                }
-            )
-
-    return entries
+    return _request_example_route_any_token_entries(
+        REQUEST_EXAMPLE_ROUTE_FIRST_COMMAND_RULES,
+        "first_read_or_authoring_command",
+        "expected_first_command",
+    )
 
 
 def _request_example_route_target_character_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for record in _request_example_records():
-        fields = record["fields"]
-        route = fields.get("route", "")
-        target_character = fields.get("target_character", "")
-        matched_tokens = [
-            token
-            for token in REQUEST_EXAMPLE_ROUTE_TARGET_CHARACTER_RULES
-            if token in route
-        ]
-        if not matched_tokens:
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "target_character": target_character,
-                    "expected_tokens": [],
-                    "missing_tokens": [],
-                    "matches": False,
-                    "known_route": False,
-                }
-            )
-            continue
-
-        for route_token in matched_tokens:
-            expected_tokens = REQUEST_EXAMPLE_ROUTE_TARGET_CHARACTER_RULES[route_token]
-            missing_tokens = [
-                token for token in expected_tokens if token not in target_character
-            ]
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "route_token": route_token,
-                    "target_character": target_character,
-                    "expected_tokens": expected_tokens,
-                    "missing_tokens": missing_tokens,
-                    "matches": not missing_tokens,
-                    "known_route": True,
-                }
-            )
-
-    return entries
+    return _request_example_route_required_token_entries(
+        REQUEST_EXAMPLE_ROUTE_TARGET_CHARACTER_RULES,
+        "target_character",
+    )
 
 
 def _request_example_route_target_body_area_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for record in _request_example_records():
-        fields = record["fields"]
-        route = fields.get("route", "")
-        target_body_area = fields.get("target_body_area", "")
-        matched_tokens = [
-            token
-            for token in REQUEST_EXAMPLE_ROUTE_TARGET_BODY_AREA_RULES
-            if token in route
-        ]
-        if not matched_tokens:
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "target_body_area": target_body_area,
-                    "expected_tokens": [],
-                    "missing_tokens": [],
-                    "matches": False,
-                    "known_route": False,
-                }
-            )
-            continue
-
-        for route_token in matched_tokens:
-            expected_tokens = REQUEST_EXAMPLE_ROUTE_TARGET_BODY_AREA_RULES[route_token]
-            missing_tokens = [
-                token for token in expected_tokens if token not in target_body_area
-            ]
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "route_token": route_token,
-                    "target_body_area": target_body_area,
-                    "expected_tokens": expected_tokens,
-                    "missing_tokens": missing_tokens,
-                    "matches": not missing_tokens,
-                    "known_route": True,
-                }
-            )
-
-    return entries
+    return _request_example_route_required_token_entries(
+        REQUEST_EXAMPLE_ROUTE_TARGET_BODY_AREA_RULES,
+        "target_body_area",
+    )
 
 
 def _request_example_route_timing_type_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for record in _request_example_records():
-        fields = record["fields"]
-        route = fields.get("route", "")
-        timing_type = fields.get("timing_type", "")
-        matched_tokens = [
-            token
-            for token in REQUEST_EXAMPLE_ROUTE_TIMING_TYPE_RULES
-            if token in route
-        ]
-        if not matched_tokens:
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "timing_type": timing_type,
-                    "expected_tokens": [],
-                    "missing_tokens": [],
-                    "matches": False,
-                    "known_route": False,
-                }
-            )
-            continue
-
-        for route_token in matched_tokens:
-            expected_tokens = REQUEST_EXAMPLE_ROUTE_TIMING_TYPE_RULES[route_token]
-            missing_tokens = [
-                token for token in expected_tokens if token not in timing_type
-            ]
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "route_token": route_token,
-                    "timing_type": timing_type,
-                    "expected_tokens": expected_tokens,
-                    "missing_tokens": missing_tokens,
-                    "matches": not missing_tokens,
-                    "known_route": True,
-                }
-            )
-
-    return entries
+    return _request_example_route_required_token_entries(
+        REQUEST_EXAMPLE_ROUTE_TIMING_TYPE_RULES,
+        "timing_type",
+    )
 
 
 def _request_example_route_runtime_layer_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for record in _request_example_records():
-        fields = record["fields"]
-        route = fields.get("route", "")
-        runtime_layer = fields.get("runtime_layer", "")
-        matched_tokens = [
-            token
-            for token in REQUEST_EXAMPLE_ROUTE_RUNTIME_LAYER_RULES
-            if token in route
-        ]
-        if not matched_tokens:
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "runtime_layer": runtime_layer,
-                    "expected_tokens": [],
-                    "missing_tokens": [],
-                    "matches": False,
-                    "known_route": False,
-                }
-            )
-            continue
-
-        for route_token in matched_tokens:
-            expected_tokens = REQUEST_EXAMPLE_ROUTE_RUNTIME_LAYER_RULES[route_token]
-            missing_tokens = [
-                token for token in expected_tokens if token not in runtime_layer
-            ]
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "route_token": route_token,
-                    "runtime_layer": runtime_layer,
-                    "expected_tokens": expected_tokens,
-                    "missing_tokens": missing_tokens,
-                    "matches": not missing_tokens,
-                    "known_route": True,
-                }
-            )
-
-    return entries
+    return _request_example_route_required_token_entries(
+        REQUEST_EXAMPLE_ROUTE_RUNTIME_LAYER_RULES,
+        "runtime_layer",
+    )
 
 
 def _request_example_route_cxx_status_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for record in _request_example_records():
-        fields = record["fields"]
-        route = fields.get("route", "")
-        cxx_api_status = fields.get("cxx_api_status", "")
-        matched_tokens = [
-            token
-            for token in REQUEST_EXAMPLE_ROUTE_CXX_STATUS_RULES
-            if token in route
-        ]
-        if not matched_tokens:
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "cxx_api_status": cxx_api_status,
-                    "expected_cxx_status": [],
-                    "matches": False,
-                    "known_route": False,
-                }
-            )
-            continue
-
-        for route_token in matched_tokens:
-            expected_cxx_status = REQUEST_EXAMPLE_ROUTE_CXX_STATUS_RULES[route_token]
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "route_token": route_token,
-                    "cxx_api_status": cxx_api_status,
-                    "expected_cxx_status": expected_cxx_status,
-                    "matches": _contains_any(cxx_api_status.lower(), set(expected_cxx_status)),
-                    "known_route": True,
-                }
-            )
-
-    return entries
+    return _request_example_route_any_token_entries(
+        REQUEST_EXAMPLE_ROUTE_CXX_STATUS_RULES,
+        "cxx_api_status",
+        "expected_cxx_status",
+        lower_value=True,
+    )
 
 
 def _request_example_route_expected_evidence_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for record in _request_example_records():
-        fields = record["fields"]
-        route = fields.get("route", "")
-        expected_evidence = fields.get("expected_evidence", "")
-        matched_tokens = [
-            token
-            for token in REQUEST_EXAMPLE_ROUTE_EXPECTED_EVIDENCE_RULES
-            if token in route
-        ]
-        if not matched_tokens:
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "expected_evidence": expected_evidence,
-                    "expected_tokens": [],
-                    "missing_tokens": [],
-                    "matches": False,
-                    "known_route": False,
-                }
-            )
-            continue
-
-        for route_token in matched_tokens:
-            expected_tokens = REQUEST_EXAMPLE_ROUTE_EXPECTED_EVIDENCE_RULES[route_token]
-            missing_tokens = [
-                token for token in expected_tokens if token not in expected_evidence
-            ]
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "route_token": route_token,
-                    "expected_evidence": expected_evidence,
-                    "expected_tokens": expected_tokens,
-                    "missing_tokens": missing_tokens,
-                    "matches": not missing_tokens,
-                    "known_route": True,
-                }
-            )
-
-    return entries
+    return _request_example_route_required_token_entries(
+        REQUEST_EXAMPLE_ROUTE_EXPECTED_EVIDENCE_RULES,
+        "expected_evidence",
+    )
 
 
 def _request_example_route_sample_target_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for record in _request_example_records():
-        fields = record["fields"]
-        route = fields.get("route", "")
-        sample_target = fields.get("sample_target", "")
-        matched_tokens = [
-            token
-            for token in REQUEST_EXAMPLE_ROUTE_SAMPLE_TARGET_RULES
-            if token in route
-        ]
-        if not matched_tokens:
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "sample_target": sample_target,
-                    "expected_tokens": [],
-                    "missing_tokens": [],
-                    "matches": False,
-                    "known_route": False,
-                }
-            )
-            continue
-
-        for route_token in matched_tokens:
-            expected_tokens = REQUEST_EXAMPLE_ROUTE_SAMPLE_TARGET_RULES[route_token]
-            missing_tokens = [
-                token for token in expected_tokens if token not in sample_target
-            ]
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "route_token": route_token,
-                    "sample_target": sample_target,
-                    "expected_tokens": expected_tokens,
-                    "missing_tokens": missing_tokens,
-                    "matches": not missing_tokens,
-                    "known_route": True,
-                }
-            )
-
-    return entries
+    return _request_example_route_required_token_entries(
+        REQUEST_EXAMPLE_ROUTE_SAMPLE_TARGET_RULES,
+        "sample_target",
+    )
 
 
 def _request_example_route_ask_user_first_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for record in _request_example_records():
-        fields = record["fields"]
-        route = fields.get("route", "")
-        ask_user_first = fields.get("ask_user_first", "")
-        matched_tokens = [
-            token
-            for token in REQUEST_EXAMPLE_ROUTE_ASK_USER_FIRST_RULES
-            if token in route
-        ]
-        if not matched_tokens:
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "ask_user_first": ask_user_first,
-                    "expected_tokens": [],
-                    "missing_tokens": [],
-                    "matches": False,
-                    "known_route": False,
-                }
-            )
-            continue
-
-        for route_token in matched_tokens:
-            expected_tokens = REQUEST_EXAMPLE_ROUTE_ASK_USER_FIRST_RULES[route_token]
-            missing_tokens = [
-                token for token in expected_tokens if token not in ask_user_first
-            ]
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "route_token": route_token,
-                    "ask_user_first": ask_user_first,
-                    "expected_tokens": expected_tokens,
-                    "missing_tokens": missing_tokens,
-                    "matches": not missing_tokens,
-                    "known_route": True,
-                }
-            )
-
-    return entries
+    return _request_example_route_required_token_entries(
+        REQUEST_EXAMPLE_ROUTE_ASK_USER_FIRST_RULES,
+        "ask_user_first",
+    )
 
 
 def _request_example_acceptance_focus_text(record: dict[str, Any]) -> str:
@@ -1801,51 +1517,11 @@ def _request_example_acceptance_focus_entries() -> list[dict[str, Any]]:
 
 
 def _request_example_route_acceptance_focus_entries() -> list[dict[str, Any]]:
-    entries: list[dict[str, Any]] = []
-    for record in _request_example_records():
-        fields = record["fields"]
-        route = fields.get("route", "")
-        acceptance_focus = _request_example_acceptance_focus_text(record)
-        matched_tokens = [
-            token
-            for token in REQUEST_EXAMPLE_ROUTE_ACCEPTANCE_FOCUS_RULES
-            if token in route
-        ]
-        if not matched_tokens:
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "acceptance_focus": acceptance_focus,
-                    "expected_tokens": [],
-                    "missing_tokens": [],
-                    "matches": False,
-                    "known_route": False,
-                }
-            )
-            continue
-
-        for route_token in matched_tokens:
-            expected_tokens = REQUEST_EXAMPLE_ROUTE_ACCEPTANCE_FOCUS_RULES[route_token]
-            missing_tokens = [
-                token for token in expected_tokens if token not in acceptance_focus
-            ]
-            entries.append(
-                {
-                    "path": record["path"],
-                    "example": record["example"],
-                    "route": route,
-                    "route_token": route_token,
-                    "acceptance_focus": acceptance_focus,
-                    "expected_tokens": expected_tokens,
-                    "missing_tokens": missing_tokens,
-                    "matches": not missing_tokens,
-                    "known_route": True,
-                }
-            )
-
-    return entries
+    return _request_example_route_required_token_entries(
+        REQUEST_EXAMPLE_ROUTE_ACCEPTANCE_FOCUS_RULES,
+        "acceptance_focus",
+        value_getter=_request_example_acceptance_focus_text,
+    )
 
 
 def _request_run_template_field_entries() -> list[dict[str, Any]]:
