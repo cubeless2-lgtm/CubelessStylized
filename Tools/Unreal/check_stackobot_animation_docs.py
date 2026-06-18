@@ -4,7 +4,7 @@ This local/read-only check validates that StackOBot study docs point to existing
 relative docs, required study documents still exist, the doc index covers the
 required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters,
-request-run route and acceptance-focus coverage, and sample-path guards are
+request-run route and acceptance-focus coverage, and command/sample-path guards are
 present, request-run routes map to the expected handoff templates and
 first/verification commands, target character/body area, timing type, runtime layer,
 C++/API status, expected evidence, sample target scope, plus route-specific
@@ -950,6 +950,63 @@ COMMAND_SYNTAX_SAMPLE_PATH_FIELDS = {
     ],
 }
 
+COMMAND_SYNTAX_PARAM_VALUE_RULES: dict[str, list[dict[str, Any]]] = {
+    "ensure_postprocess_anim_demo_variant": [
+        {"path": "bone_name", "operator": "equals", "expected": "head"},
+        {"path": "compile", "operator": "equals", "expected": True},
+        {"path": "save", "operator": "equals", "expected": True},
+    ],
+    "sample_anim_node_pre_post_runtime_pose": [
+        {"path": "mode", "operator": "equals", "expected": "pose_watch_capture"},
+        {"path": "anim_instance_source", "operator": "equals", "expected": "post_process"},
+        {"path": "prefer_pie_world", "operator": "equals", "expected": False},
+        {"path": "require_pie_world", "operator": "equals", "expected": False},
+        {"path": "sample_bones", "operator": "contains", "expected": "head"},
+    ],
+    "ensure_blendspace_sample_variant": [
+        {"path": "sample_edits", "operator": "non_empty_list"},
+        {"path": "source_blendspace", "operator": "contains", "expected": "BS_Bot_WalkRunLean"},
+    ],
+    "sample_blendspace_runtime_pose_grid": [
+        {"path": "blendspaces", "operator": "non_empty_list"},
+        {"path": "blendspaces.0.samples", "operator": "non_empty_list"},
+        {"path": "cleanup", "operator": "equals", "expected": True},
+    ],
+    "ensure_controlrig_forced_driver_animbp": [
+        {"path": "graph_name", "operator": "equals", "expected": "AnimGraph"},
+        {"path": "graph_type", "operator": "equals", "expected": "function"},
+        {"path": "curve_values.IKBlend_l", "operator": "equals", "expected": 1.0},
+        {"path": "input_defaults.ShouldDoIKTrace", "operator": "equals", "expected": True},
+    ],
+    "controlrig_direct_gate_probe": [
+        {"path": "sample_elements", "operator": "non_empty_list"},
+        {"path": "cases", "operator": "non_empty_list"},
+        {"path": "cases.0.name", "operator": "equals", "expected": "baseline"},
+    ],
+    "inspect_anim_state_machine_transitions": [
+        {"path": "include_pins", "operator": "equals", "expected": True},
+        {"path": "include_rule_graph_nodes", "operator": "equals", "expected": True},
+    ],
+    "sample_anim_state_machine_runtime_response": [
+        {"path": "cases", "operator": "non_empty_list"},
+        {"path": "restore_after_case", "operator": "equals", "expected": True},
+        {"path": "prefer_pie_world", "operator": "equals", "expected": True},
+        {"path": "require_pie_world", "operator": "equals", "expected": False},
+    ],
+    "ensure_anim_graph_trail_demo": [
+        {"path": "trail_bone", "operator": "equals", "expected": "antenna_04_l"},
+        {"path": "base_joint", "operator": "equals", "expected": "head"},
+    ],
+    "inspect_anim_graph_node_settings": [
+        {"path": "node_type", "operator": "equals", "expected": "RigidBody"},
+        {"path": "include_pins", "operator": "equals", "expected": True},
+    ],
+    "set_anim_graph_rigidbody_settings": [
+        {"path": "simulation_space", "operator": "equals", "expected": "ComponentSpace"},
+        {"path": "enable_world_geometry", "operator": "equals", "expected": "false"},
+    ],
+}
+
 
 def _project_relative(path: Path) -> str:
     try:
@@ -1836,6 +1893,88 @@ def _command_syntax_sample_path_entries(json_blocks: list[dict[str, Any]]) -> li
     return entries
 
 
+def _param_path_value(params: dict[str, Any], path: str) -> tuple[bool, Any]:
+    value: Any = params
+    for part in path.split("."):
+        if isinstance(value, dict):
+            if part not in value:
+                return False, None
+            value = value[part]
+            continue
+        if isinstance(value, list) and part.isdigit():
+            index = int(part)
+            if index >= len(value):
+                return False, None
+            value = value[index]
+            continue
+        return False, None
+    return True, value
+
+
+def _param_value_matches(value: Any, spec: dict[str, Any]) -> bool:
+    operator = spec.get("operator")
+    if operator == "equals":
+        return value == spec.get("expected")
+    if operator == "contains":
+        expected = spec.get("expected")
+        if isinstance(value, str):
+            return isinstance(expected, str) and expected in value
+        if isinstance(value, list):
+            return expected in value
+        if isinstance(value, dict):
+            return isinstance(expected, str) and expected in value
+    if operator == "non_empty_list":
+        return isinstance(value, list) and bool(value)
+    if operator == "non_empty_dict":
+        return isinstance(value, dict) and bool(value)
+    return False
+
+
+def _command_syntax_param_value_entries(json_blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for command, specs in COMMAND_SYNTAX_PARAM_VALUE_RULES.items():
+        matching_blocks = [
+            block
+            for block in json_blocks
+            if block.get("parse_success") and block.get("command") == command
+        ]
+        if not matching_blocks:
+            for spec in specs:
+                entries.append(
+                    {
+                        "path": "docs/stackobot-animation-mcp-command-syntax.md",
+                        "command": command,
+                        "block_index": None,
+                        "param_path": spec["path"],
+                        "operator": spec.get("operator", ""),
+                        "expected": spec.get("expected", ""),
+                        "exists": False,
+                        "matches": False,
+                        "value": None,
+                    }
+                )
+            continue
+
+        for block in matching_blocks:
+            params = block.get("params") if isinstance(block.get("params"), dict) else {}
+            for spec in specs:
+                exists, value = _param_path_value(params, str(spec["path"]))
+                entries.append(
+                    {
+                        "path": "docs/stackobot-animation-mcp-command-syntax.md",
+                        "command": command,
+                        "block_index": block.get("block_index"),
+                        "param_path": spec["path"],
+                        "operator": spec.get("operator", ""),
+                        "expected": spec.get("expected", ""),
+                        "exists": exists,
+                        "matches": exists and _param_value_matches(value, spec),
+                        "value": value,
+                    }
+                )
+    return entries
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     started_at = time.monotonic()
     docs = sorted(DOCS_ROOT.glob(args.glob))
@@ -1997,6 +2136,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for entry in command_syntax_sample_paths
         if not entry["exists"] or not entry["safe_value"]
     ]
+    command_syntax_param_values = _command_syntax_param_value_entries(command_syntax_json_blocks)
+    mismatched_command_syntax_param_values = [
+        entry
+        for entry in command_syntax_param_values
+        if not entry["exists"] or not entry["matches"]
+    ]
     pass_value = (
         not missing_references
         and not missing_external_paths
@@ -2032,10 +2177,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not unsafe_command_syntax_authoring
         and not missing_command_syntax_required_params
         and not unsafe_command_syntax_sample_paths
+        and not mismatched_command_syntax_param_values
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v34",
+        "schema": "stackobot_animation_docs_link_audit_v35",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2075,6 +2221,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
         "missing_command_syntax_required_param_count": len(missing_command_syntax_required_params),
         "unsafe_command_syntax_sample_path_count": len(unsafe_command_syntax_sample_paths),
+        "mismatched_command_syntax_param_value_count": len(mismatched_command_syntax_param_values),
         "pass": pass_value,
         "docs": [_project_relative(path) for path in docs],
         "missing_references": missing_references,
@@ -2140,6 +2287,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_command_syntax_required_params": missing_command_syntax_required_params,
         "command_syntax_sample_paths": command_syntax_sample_paths,
         "unsafe_command_syntax_sample_paths": unsafe_command_syntax_sample_paths,
+        "command_syntax_param_values": command_syntax_param_values,
+        "mismatched_command_syntax_param_values": mismatched_command_syntax_param_values,
     }
 
     if args.write_report:
@@ -2189,7 +2338,8 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_quick_map_commands={report['missing_command_quick_map_command_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
             f"missing_command_params={report['missing_command_syntax_required_param_count']} "
-            f"unsafe_command_paths={report['unsafe_command_syntax_sample_path_count']}"
+            f"unsafe_command_paths={report['unsafe_command_syntax_sample_path_count']} "
+            f"mismatched_command_param_values={report['mismatched_command_syntax_param_value_count']}"
         ),
     ]
     if report.get("report_path"):
@@ -2229,6 +2379,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "unsafe_command_syntax_authoring",
             "missing_command_syntax_required_params",
             "unsafe_command_syntax_sample_paths",
+            "mismatched_command_syntax_param_values",
         ]:
             entries = report.get(key) or []
             if entries:
