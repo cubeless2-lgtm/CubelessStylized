@@ -1,9 +1,10 @@
-"""Audit StackOBot animation study documentation references.
+"""Audit StackOBot animation study documentation references and structure.
 
 This local/read-only check validates that StackOBot study docs point to existing
-relative docs and that the sibling/sample workspace paths used by the workflow
-still exist on this machine. It does not call Unreal, does not touch assets, and
-does not require the editor bridge to be online.
+relative docs, required study documents still exist, key template sections are
+present, and the sibling/sample workspace paths used by the workflow still exist
+on this machine. It does not call Unreal, does not touch assets, and does not
+require the editor bridge to be online.
 """
 
 from __future__ import annotations
@@ -29,6 +30,76 @@ EXPECTED_EXTERNAL_PATHS = [
     PROJECT_ROOT.parent / "unreal-mcp-cubeless" / "Docs" / "Tools" / "node_tools.md",
     PROJECT_ROOT.parent / "SampleProject" / "StackOBot" / "Plugins" / "UnrealMCP",
 ]
+
+REQUIRED_DOC_PATHS = [
+    "docs/stackobot-animation-doc-index.md",
+    "docs/stackobot-animation-quickstart.md",
+    "docs/stackobot-animation-study-closeout.md",
+    "docs/stackobot-animation-next-work-backlog.md",
+    "docs/stackobot-animation-acceptance-checklist.md",
+    "docs/stackobot-request-compiler-drills.md",
+    "docs/stackobot-animation-request-playbook.md",
+    "docs/stackobot-animation-request-run-template.md",
+    "docs/stackobot-animation-request-run-examples.md",
+    "docs/stackobot-animation-tivret-handoff-templates.md",
+    "docs/stackobot-animation-authoring-templates.md",
+    "docs/stackobot-animation-mcp-command-syntax.md",
+    "docs/stackobot-cpp-api-decision-matrix.md",
+    "docs/stackobot-animation-execution-map.md",
+    "docs/stackobot-sample-asset-manifest.md",
+    "docs/stackobot-live-read-drill-2026-06-19.md",
+    "docs/stackobot-physics-request-grammar.md",
+]
+
+REQUIRED_SECTIONS = {
+    "docs/stackobot-animation-doc-index.md": [
+        "## Start Here",
+        "## Request Execution Pages",
+        "## Route Deep Dives",
+        "## Default Workflow",
+        "## Local Checks",
+        "## Safe Defaults",
+    ],
+    "docs/stackobot-animation-quickstart.md": [
+        "## Start Here",
+        "## Route Shortcuts",
+        "## Do Not Do First",
+        "## Main References",
+    ],
+    "docs/stackobot-animation-request-run-template.md": [
+        "## Request",
+        "## Compiled Intent",
+        "## Assumptions",
+        "## Safety Scope",
+        "## Tivret Handoff",
+        "## Execution Log",
+        "## Acceptance Checklist",
+        "## Final Report Draft",
+        "## Work-Log Entry Draft",
+    ],
+    "docs/stackobot-animation-request-run-examples.md": [
+        "## Example 1: Bot Head Yaw",
+        "## Example 2: Wider Run Lean",
+        "## Example 3: Antenna Lag",
+        "## Example 4: Upper Body While Moving",
+        "## Example 5: Notify Or Montage Timing",
+    ],
+    "docs/stackobot-animation-acceptance-checklist.md": [
+        "## Universal Pass Gate",
+        "## Route-Specific Pass Criteria",
+        "## Evidence Strength Levels",
+        "## When To Stop And Escalate",
+        "## Final User Report Checklist",
+    ],
+    "docs/stackobot-cpp-api-decision-matrix.md": [
+        "## Current Rule",
+        "## Covered, Do Not Rebuild",
+        "## Candidate Matrix",
+        "## Immediate Implementation Triggers",
+        "## Verification For Any New C++ API",
+        "## Timing Decision",
+    ],
+}
 
 
 def _project_relative(path: Path) -> str:
@@ -61,6 +132,13 @@ def _collect_doc_references(docs: list[Path]) -> list[dict[str, Any]]:
     return references
 
 
+def _read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return path.read_text(encoding="utf-8-sig")
+
+
 def _external_path_entries() -> list[dict[str, Any]]:
     return [
         {
@@ -72,6 +150,32 @@ def _external_path_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _required_doc_entries() -> list[dict[str, Any]]:
+    return [
+        {
+            "path": path_text,
+            "exists": (PROJECT_ROOT / path_text).exists(),
+        }
+        for path_text in REQUIRED_DOC_PATHS
+    ]
+
+
+def _required_section_entries() -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for path_text, sections in REQUIRED_SECTIONS.items():
+        path = PROJECT_ROOT / path_text
+        text = _read_text(path) if path.exists() else ""
+        for section in sections:
+            entries.append(
+                {
+                    "path": path_text,
+                    "section": section,
+                    "exists": section in text,
+                }
+            )
+    return entries
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     started_at = time.monotonic()
     docs = sorted(DOCS_ROOT.glob(args.glob))
@@ -79,9 +183,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_references = [entry for entry in references if not entry["exists"]]
     external_paths = _external_path_entries()
     missing_external_paths = [entry for entry in external_paths if not entry["exists"]]
+    required_docs = _required_doc_entries()
+    missing_required_docs = [entry for entry in required_docs if not entry["exists"]]
+    required_sections = _required_section_entries()
+    missing_required_sections = [entry for entry in required_sections if not entry["exists"]]
+    pass_value = (
+        not missing_references
+        and not missing_external_paths
+        and not missing_required_docs
+        and not missing_required_sections
+    )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v1",
+        "schema": "stackobot_animation_docs_link_audit_v2",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -89,10 +203,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "reference_count": len(references),
         "missing_reference_count": len(missing_references),
         "missing_external_path_count": len(missing_external_paths),
-        "pass": not missing_references and not missing_external_paths,
+        "missing_required_doc_count": len(missing_required_docs),
+        "missing_required_section_count": len(missing_required_sections),
+        "pass": pass_value,
         "docs": [_project_relative(path) for path in docs],
         "missing_references": missing_references,
         "external_paths": external_paths,
+        "missing_required_docs": missing_required_docs,
+        "missing_required_sections": missing_required_sections,
     }
 
     if args.write_report:
