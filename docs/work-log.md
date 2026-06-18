@@ -8174,3 +8174,29 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailIsolatedTempPostCheck.json`
 - Cleanup verification passed: the temporary FakeVelocity AnimBP was deleted, `/Game/_MCP_Temp/AnimNodePrePost` had `0` remaining assets, dirty content package count was `0`, and dirty map package count was `0`.
 - Closed the StackOBot editor without saving. Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, `docs/stackobot-animbp-inventory.md`, and sibling design note `D:/Git/unreal-mcp-cubeless/Docs/Analysis/StackOBot/sample_anim_node_pre_post_runtime_pose_design.md`.
+
+## 2026-06-18 UnrealMCP Anim state-machine runtime metrics
+
+- Extended sibling `D:/Git/unreal-mcp-cubeless` runtime state-machine snapshots with state weights, optional relevant animation timing, and transition progress.
+- Updated `inspect_anim_instance_runtime_state`, `set_anim_instance_runtime_property_for_probe`, and `sample_anim_state_machine_runtime_response` through the shared snapshot helper.
+- Added Python wrapper parameters and `Docs/Tools/node_tools.md` documentation for `include_state_weights`, `include_relevant_anim_times`, `include_transition_progress`, `include_inactive_transition_progress`, and `max_transitions_per_machine`.
+- Runtime getter safety: calls use the discovered runtime `machine_instance_index`, not the baked state-machine class index.
+- Synced the changed `UnrealMCPBlueprintNodeCommands.cpp` into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `git diff --check`
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development -NoHotReload`
+  - `StackOBotEditor Win64 Development -NoHotReload`
+  - Live StackOBot bridge smoke on `127.0.0.1:55557`
+- Live smoke used a transient `SKM_Bot` actor with `ABP_Bot_C` in SIE and original StackOBot assets were not saved.
+- The `GroundSpeed=420` case captured active `GroundLocomotion Idle -> Walk/Run` transition progress:
+  - after one `1/60s` tick: `elapsed_time=0.0167`, `elapsed_fraction=0.0833`, `Idle weight=0.9803`, `Walk/Run weight=0.0197`
+  - after eight more `1/60s` ticks: `elapsed_time=0.1500`, `elapsed_fraction=0.75`, `Idle weight=0.15625`, `Walk/Run weight=0.84375`
+- The final smoke ran `4/4` successful cases and included an `IsInAir?=true` zero-duration transition guard; inactive zero-crossfade transitions reported `elapsed_fraction=0` and no runtime errors.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_Summary.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_Setup.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_Cleanup.json`
+- Cleanup ended SIE and reported dirty content package count `0`; `/Game/StackOBot/Maps/Lvl_Empty` was dirty from transient actor/SIE work and the editor was closed without saving.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and `docs/stackobot-animbp-inventory.md`. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.

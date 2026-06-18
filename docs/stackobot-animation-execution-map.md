@@ -388,10 +388,10 @@ Use this checklist when adding or validating another animation experiment.
 | Priority | Topic | Next useful action | Dependency |
 | ---: | --- | --- | --- |
 | Done | Slot and LayeredBoneBlend | Inventory complete for `UpperBody`, `CashedPose_UpperBody`, branch filters, filename/class montage evidence, and AssetRegistry-level interaction references. | Exact Blueprint call topology still needs a future read-only graph API. |
-| Done/Runtime partial | State-machine transitions | No-C++ transition topology probing is complete; live current-state reading, runtime property setting, per-case state resampling, and meaningful `ABP_Bot` driver sequences are captured. | Transition weights/blend progress and full K2 call topology still need follow-up API work. |
+| Done/Runtime metrics | State-machine transitions | No-C++ transition topology probing is complete; live current-state reading, state weights, transition progress, relevant anim timing, runtime property setting, per-case state resampling, and meaningful `ABP_Bot` driver sequences are captured. | Full K2 call topology still needs follow-up API work. |
 | Done/Runtime pending | Control Rig pre/post | Direct-gate MCP probe, sample ModifyCurve curve-forcing, sample ControlRig input-default forcing, combined forced-driver sample assembly, and direct transient ControlRig pre/post solve probe are complete. | True compiled AnimGraph-internal source-vs-post subtraction still needs `sample_anim_node_pre_post_runtime_pose` or equivalent instrumentation. |
 | Done | Post Process pre/post | Static single-input-pose pre/post isolation is complete for the two variants. | `sample_postprocess_pre_post_pose` is only needed for live same-frame component runtime sampling. |
-| Done/Blocked | Physics pre/post | Evidence synthesis complete for learning baseline; exact same-frame source-vs-post-RigidBody/Trail subtraction remains blocked. | Needs `sample_anim_node_pre_post_runtime_pose`. |
+| Done/Isolated | Physics pre/post | Evidence synthesis complete for learning baseline; RigidBody/Trail isolated source-vs-output sampling is implemented and live-smoked. | True same-instance compiled graph instrumentation remains future work. |
 
 ## Deferred API Work
 
@@ -404,9 +404,9 @@ Implemented APIs to keep available for future audits:
 5. `sample_controlrig_pre_post_runtime_pose` - implemented, build-verified, and StackOBot live-smoked; current artifacts are `StackOBot_ControlRigPrePostMCPProbe.*`. This is direct transient ControlRig evidence, not compiled AnimGraph node-stack instrumentation.
 6. `inspect_anim_state_machine_transitions` - implemented, build-verified, and StackOBot live-smoked; keep for future transition audits.
 7. `sample_skeletal_bones_in_sie` - implemented, build-verified, synced into StackOBot, and live-smoked in PIE/SIE against a transient `SKM_Bot` actor; current artifacts are `StackOBot_SkeletalBonesInSIE_MCPProbe.*`.
-8. `inspect_anim_instance_runtime_state` - implemented, build-verified, synced into StackOBot, and live-smoked in PIE/SIE against a transient `SKM_Bot` actor using `ABP_Bot_C`; current artifacts are `StackOBot_AnimInstanceRuntimeState_MCPInspect.*`.
+8. `inspect_anim_instance_runtime_state` - implemented, build-verified, synced into StackOBot, and live-smoked in PIE/SIE against a transient `SKM_Bot` actor using `ABP_Bot_C`; it now reports state weights, optional relevant animation timing, and transition progress. Current artifacts include `StackOBot_AnimInstanceRuntimeState_MCPInspect.*` and `StackOBot_AnimStateRuntimeMetrics_*`.
 9. `set_anim_instance_runtime_property_for_probe` - implemented, build-verified, synced into StackOBot, and live-smoked against a transient `ABP_Bot_C` runtime instance; current artifacts are `StackOBot_AnimRuntimePropertyMCPSet.*`.
-10. `sample_anim_state_machine_runtime_response` - implemented, build-verified, synced into StackOBot, and live-smoked with two restored runtime property cases; current artifacts are `StackOBot_AnimStateMachineRuntimeResponseMCPProbe.*`.
+10. `sample_anim_state_machine_runtime_response` - implemented, build-verified, synced into StackOBot, and live-smoked with restored runtime property cases plus active transition metric capture; current artifacts include `StackOBot_AnimStateMachineRuntimeResponseMCPProbe.*` and `StackOBot_AnimStateRuntimeMetrics_*`.
 
 Remaining candidates until C++/UnrealMCP implementation is explicitly resumed:
 
@@ -415,7 +415,7 @@ Remaining candidates until C++/UnrealMCP implementation is explicitly resumed:
 3. `ensure_postprocess_anim_demo_variant`
 4. `sample_postprocess_pre_post_pose`
 5. `inspect_blueprint_graph_call_topology`
-6. `sample_anim_node_pre_post_runtime_pose`
+6. true same-instance compiled AnimGraph instrumentation mode for `sample_anim_node_pre_post_runtime_pose`
 
 Implemented `sample_skeletal_bones_in_sie` detail:
 
@@ -428,8 +428,8 @@ Implemented `inspect_anim_instance_runtime_state` detail:
 
 - Scope: immediate read-only inspection of the current `SkeletalMeshComponent` `AnimInstance`, preferring active PIE/SIE and falling back to the editor world.
 - Inputs: actor label/name/path, component name, state-machine name filter, montage/curve/state inclusion flags, and bounded state-machine/state/curve limits.
-- Outputs: sampled world type/name, play-session state, actor/component/AnimInstance metadata, current state-machine names/indexes/elapsed time, optional state metadata, active montage summary, curve values, warnings, and errors.
-- Runtime index safety: the implementation probes live `FAnimNode_StateMachine` instances and maps them back to baked class data through `StateMachineIndexInClass`. Per-state weights and relevant animation timing are intentionally omitted in the safe MVP because the first unsafe helper-index version crashed the editor during smoke.
+- Outputs: sampled world type/name, play-session state, actor/component/AnimInstance metadata, current state-machine names/indexes/elapsed time, optional state metadata, state weights, optional relevant animation timing, transition progress, active montage summary, curve values, warnings, and errors.
+- Runtime index safety: the implementation probes live `FAnimNode_StateMachine` instances and maps them back to baked class data through `StateMachineIndexInClass`. Runtime getter calls use the discovered `machine_instance_index`, not the baked class index.
 - StackOBot smoke result: transient `SKM_Bot` plus `ABP_Bot_C` in SIE returned `AirLocomotion=Walk/Run`, `GroundLocomotion=Idle`, `read_only=true`, `asset_modified=false`, and `sampled_world_type=PIE`.
 
 Implemented runtime property/state-response detail:
@@ -440,7 +440,9 @@ Implemented runtime property/state-response detail:
 - Meaningful `ABP_Bot` runtime driver matrix is now captured in `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_RuntimeDriverMatrix.md`.
 - Confirmed drivers: `GroundSpeed`, `IsInAir?`, `MovementInput?`, and `IsHovering`.
 - Confirmed sequences: `GroundLocomotion Idle <-> Walk/Run`, `Walk/Run -> Jump -> Fall`, landing split to `LandIdle`/`LandRun`, and jetpack path `Fall -> StartJetpack -> JetpackHovering -> Fall`.
-- Limitation: transition weights/blend progress and full K2 call topology are not captured yet.
+- Runtime metrics are captured in `StackOBot_AnimStateRuntimeMetrics_*`: `GroundSpeed=420` captured active `GroundLocomotion Idle -> Walk/Run` transition progress from `elapsed_fraction=0.0833` to `0.75`, with matching per-state weights.
+- The metrics smoke also includes an `IsInAir?=true` zero-duration transition guard; inactive zero-crossfade transitions report `elapsed_fraction=0`.
+- Limitation: full K2 call topology is not captured yet.
 
 Implemented `sample_controlrig_pre_post_runtime_pose` detail:
 

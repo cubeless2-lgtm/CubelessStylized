@@ -442,13 +442,15 @@ compile_and_validate_blueprint(save=false)
 - Trail active sampling is complete for the safe antenna-chain study sample. Use `ABP_Bot_Trail_Study` with explicit component-level Post Process override for broad runtime comparisons; use `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)` for isolated source-bypass vs post-node Trail deltas.
 - BlendSpace source maps and SIE pose grids are complete. Use the SIE grid as the runtime-style result and keep the non-SIE single-node probe as an API-gap record.
 - Slot/LayeredBoneBlend inventory and AssetRegistry-level interaction reference probing are complete. Exact Blueprint graph call topology for the interact/button trigger remains deferred to a future read-only graph-topology API.
-- State-machine transition topology is complete for source/target states and rule-graph topology. The read-only `inspect_anim_state_machine_transitions` UnrealMCP API is implemented, build-verified, and live-smoked against StackOBot on alternate bridge port `55558`; `inspect_anim_instance_runtime_state`, `set_anim_instance_runtime_property_for_probe`, and `sample_anim_state_machine_runtime_response` now cover live PIE/SIE current state reading plus runtime property case resampling. Meaningful `ABP_Bot` transition-driving data is now captured for `GroundSpeed`, `IsInAir?`, `MovementInput?`, and `IsHovering`; transition weights still need follow-up work.
+- State-machine transition topology is complete for source/target states and rule-graph topology. The read-only `inspect_anim_state_machine_transitions` UnrealMCP API is implemented, build-verified, and live-smoked against StackOBot on alternate bridge port `55558`; `inspect_anim_instance_runtime_state`, `set_anim_instance_runtime_property_for_probe`, and `sample_anim_state_machine_runtime_response` now cover live PIE/SIE current state reading, state weights, transition progress, relevant anim timing, and runtime property case resampling. Meaningful `ABP_Bot` transition-driving data is captured for `GroundSpeed`, `IsInAir?`, `MovementInput?`, and `IsHovering`.
 
 ## ABP_Bot Runtime Driver Matrix
 
 Runtime matrix artifact:
 
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_RuntimeDriverMatrix.md`
+- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_Summary.json`
+- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_raw.json`
 
 Driver variables found from transition topology:
 
@@ -470,6 +472,14 @@ Confirmed runtime responses:
 | Landing run sequence | `Walk/Run -> Jump -> Fall -> LandRun -> Walk/Run` |
 | Jetpack sequence | `Walk/Run -> Jump -> Fall -> StartJetpack -> JetpackHovering -> Fall` |
 
+Runtime metric smoke:
+
+- The runtime state snapshot now reports `machine_weight`, per-state `state_weight` and `recorded_state_weight`, optional relevant animation time/remaining values, and `transition_progress`.
+- `GroundSpeed=420` from idle captured an active `GroundLocomotion` transition `Idle -> Walk/Run`.
+- After one `1/60s` tick, transition progress was `elapsed_time=0.0167`, `elapsed_fraction=0.0833`, with `Idle weight=0.9803` and `Walk/Run weight=0.0197`.
+- After eight more `1/60s` ticks, transition progress was `elapsed_time=0.1500`, `elapsed_fraction=0.75`, with `Idle weight=0.15625` and `Walk/Run weight=0.84375`.
+- The `IsInAir?=true` zero-duration transition guard case completed with no errors; inactive zero-crossfade transitions report `elapsed_fraction=0`.
+
 Automatic transition rules seen in topology and runtime sequence behavior:
 
 - `Jump -> Fall`
@@ -479,7 +489,6 @@ Automatic transition rules seen in topology and runtime sequence behavior:
 
 Remaining state-machine gap:
 
-- Transition weights/blend progress are not yet captured.
 - Full `EventGraph`/`CalcLean` K2 call topology still needs a future read-only C++ API because Python graph-subobject traversal was not reliable in this UE 5.7 setup.
 - The remaining exact pre/post attribution tasks are true same-instance compiled graph instrumentation for Control Rig and physics. Post Process static pre/post is complete, and RigidBody/Trail isolated source-vs-output sampling is now covered.
 
@@ -499,7 +508,8 @@ Remaining state-machine gap:
    - Current runtime-state artifacts are `StackOBot_AnimInstanceRuntimeState_MCPInspect.*`.
    - `set_anim_instance_runtime_property_for_probe` and `sample_anim_state_machine_runtime_response` are implemented, build-verified, synced into StackOBot, and live-smoked against the same transient `ABP_Bot_C` runtime path.
    - Current runtime property/response artifacts are `StackOBot_AnimRuntimePropertyMCPSet.*` and `StackOBot_AnimStateMachineRuntimeResponseMCPProbe.*`.
-   - The smoke used `bUseMultiThreadedAnimationUpdate` to prove runtime set/echo/tick/snapshot/restore, not to force locomotion transitions. Next transition-response pass should identify real `ABP_Bot` transition-driving values or drive movement/velocity through gameplay components.
+   - Runtime state snapshots now include state weights, optional relevant animation timing, and transition progress. Current metrics artifacts are `StackOBot_AnimStateRuntimeMetrics_*`.
+   - The metrics smoke captured active `GroundLocomotion Idle -> Walk/Run` progress from `elapsed_fraction=0.0833` to `0.75` under `GroundSpeed=420`.
 3. Control Rig pre/post pass
    - Completed the direct-gate MCP command `controlrig_direct_gate_probe`.
    - Current command artifacts are `StackOBot_ControlRig_DirectGateMCPProbe.*`.
@@ -688,7 +698,7 @@ Implemented APIs:
 | `sample_skeletal_bones_in_sie` | Sample live PIE/SIE SkeletalMeshComponent bone/socket transforms from a matched actor/component. | Implemented in UnrealMCP, build-verified in both editor targets, synced into StackOBot, and StackOBot live-smoked against a transient `SKM_Bot` actor in PIE/SIE. It is read-only, reports `sampled_world_type=PIE`, `is_play_session_active=true`, and sampled `pelvis`, `foot_l`, `foot_r`, `head`, `antenna_04_l`, and `antenna_04_r` with no invalid bones. Current artifacts are `StackOBot_SkeletalBonesInSIE_MCPProbe.*`. |
 | `inspect_anim_instance_runtime_state` | Read current state names and elapsed time from a live AnimInstance. | Implemented in UnrealMCP, build-verified in both editor targets, synced into StackOBot, and StackOBot live-smoked in PIE/SIE against a transient `SKM_Bot` actor using `ABP_Bot_C`. The safe MVP reads `FAnimNode_StateMachine` runtime instances and maps them through `StateMachineIndexInClass`; per-state weights/relevant timing are intentionally omitted. Current artifacts are `StackOBot_AnimInstanceRuntimeState_MCPInspect.*`. |
 | `set_anim_instance_runtime_property_for_probe` | Set supported reflected properties on a matched live AnimInstance for runtime probing. | Implemented in UnrealMCP, build-verified in both editor targets, synced into StackOBot, and StackOBot live-smoked with `bUseMultiThreadedAnimationUpdate`. It reports `runtime_only=true`, `asset_modified=false`, and property echo before/after assignment. Current artifacts are `StackOBot_AnimRuntimePropertyMCPSet.*`. |
-| `sample_anim_state_machine_runtime_response` | Apply runtime property cases, force bounded component animation ticks, sample state-machine snapshots, and restore successful changes per case. | Implemented in UnrealMCP, build-verified in both editor targets, synced into StackOBot, and StackOBot live-smoked with two restored runtime property cases. This proves the response scaffold; meaningful transition-driving cases still need real ABP_Bot driver values. Current artifacts are `StackOBot_AnimStateMachineRuntimeResponseMCPProbe.*`. |
+| `sample_anim_state_machine_runtime_response` | Apply runtime property cases, force bounded component animation ticks, sample state-machine snapshots, and restore successful changes per case. | Implemented in UnrealMCP, build-verified in both editor targets, synced into StackOBot, and StackOBot live-smoked with restored runtime property cases plus active transition metric capture. Current artifacts include `StackOBot_AnimStateMachineRuntimeResponseMCPProbe.*` and `StackOBot_AnimStateRuntimeMetrics_*`. |
 
 Remaining candidates:
 
@@ -815,7 +825,7 @@ Current decision:
 
 - Use `StackOBot_StateMachine_TransitionMCPInspect.*` as the current source of truth for transition source/target states and rule summaries.
 - Do not use the older Python-only deep probe to infer transition source/target names; it is now only the record of why the C++ MCP path was needed.
-- Runtime active state names, transition weights, and forced-variable response are still separate runtime AnimInstance API work.
+- Runtime active state names, state weights, transition progress, relevant animation timing, and forced-variable response are covered by the runtime AnimInstance API work.
 - Keep deeper protected graph expansion under `inspect_anim_graph_protected_topology` as a separate future candidate only if full pin/link-level condition graphs become necessary.
 
 ## AnimInstance Runtime State Probe
