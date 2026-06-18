@@ -20,7 +20,8 @@ BLOCKER_LABEL = "MCP_PCG_BlockTagExclusion_Blocker"
 WAIT_SECONDS = 8.0
 STATE_ATTR = "_cubeless_block_tag_staticmesh_exclusion_state"
 
-CLOSED_SCRIPT = "D:/Git/CubelessStylized/Tools/Unreal/validate_pcg_closed_spline_grass_area.py"
+TOOLS_DIR = os.path.join(unreal.Paths.project_dir(), "Tools", "Unreal")
+CLOSED_SCRIPT = os.path.join(TOOLS_DIR, "validate_pcg_closed_spline_grass_area.py")
 CUBE_MESH_PATH = "/Engine/BasicShapes/Cube.Cube"
 BLOCK_GRAPH_FOLDER = "/Game/_MCP_Temp/PCG/Graphs"
 BLOCK_GRAPH_NAME = "PCG_Cubeless_ClosedSplineGrassArea_BlockTagNative_MCP"

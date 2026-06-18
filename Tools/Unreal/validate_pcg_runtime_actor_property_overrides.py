@@ -20,7 +20,13 @@ import unreal
 TARGET_LEVEL = "/Game/_MCP_Temp/PCG/LVL_PCG_LandscapeValidation_MCP"
 REPORT_NAME = "pcg_runtime_actor_property_override_validation_report.json"
 ACTOR_PREFIX = "MCP_Cubeless_PCG_RuntimeOverrideValidation"
-PROJECT_PLUGIN_PYTHON = r"D:\Git\CubelessStylized\Plugins\CustomTools\Content\Python"
+PROJECT_PLUGIN_PYTHON = str(
+    pathlib.Path(unreal.Paths.project_dir())
+    / "Plugins"
+    / "CustomTools"
+    / "Content"
+    / "Python"
+)
 VALIDATION_MODE = globals().get("VALIDATION_MODE", "run")
 
 RUNTIME_BLUEPRINT_OBJECT = (

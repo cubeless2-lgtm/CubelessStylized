@@ -11,7 +11,12 @@ import os
 import unreal
 
 
-SCRIPT_DIR = os.path.dirname(globals().get("__file__", "D:/Git/CubelessStylized/Tools/Unreal/"))
+SCRIPT_FILE = globals().get("__file__")
+SCRIPT_DIR = (
+    os.path.dirname(SCRIPT_FILE)
+    if SCRIPT_FILE
+    else os.path.join(unreal.Paths.project_dir(), "Tools", "Unreal")
+)
 BASE_SCRIPT = os.path.join(SCRIPT_DIR, "validate_pcg_two_point_open_spline_fence_native_graph.py")
 
 MOVED_LOCAL_POINTS = [

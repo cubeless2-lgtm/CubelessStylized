@@ -2,6 +2,14 @@
 
 Durable local fallback for project memory when Notion capture is unavailable.
 
+## 2026-06-18 - Workspace-relative path hardening
+
+- Fixed immediate hardcoded workspace-drive paths in `CubelessStylized` Unreal/Python tooling and the sibling `../unreal-mcp-cubeless` analysis contracts.
+- Added `../unreal-mcp-cubeless/Python/scripts/analysis/project_paths.py` so MCP analysis scripts resolve `CubelessStylized`, wrong-workspace fixtures, plugin DLL/source paths, Lyra candidates, and Unreal editor/build commands from environment variables or workspace-relative defaults instead of `C:/Git` or `D:/Git`.
+- Follow-up review hardening: `project_paths.py` now resolves Unreal Editor and UBT from `UE_EDITOR_EXE`, `UE_BUILD_BAT`, `UE_ENGINE_ROOT`, `UE_SOURCE_ROOT`, or sibling `../UnrealEngine`, and quotes command-line project paths so workspaces with spaces do not break handoff commands.
+- Updated project handoff docs and Hunyuan source-art notes to avoid instructing future agents or users to follow fixed drive-letter paths.
+- Verification passed: no remaining `C:/Git` or `D:/Git` references were found in the checked execution/script and handoff scopes; modified Python files passed `py_compile`; the two related MCP offline smoke tests passed; `git diff --check` passed in both repositories with only CRLF normalization warnings.
+
 ## 2026-06-12 - PCG production validation steps 1-3 branch pass
 
 ### Summary
