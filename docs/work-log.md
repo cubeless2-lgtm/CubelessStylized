@@ -8114,3 +8114,23 @@ These entries were visible from Notion search/fetch results earlier in this Code
   - `StackOBotEditor Win64 Development -NoHotReload`
 - Live bridge smoke was not run because `127.0.0.1:55557` refused the connection; the next live check requires launching/restarting the StackOBot editor so the rebuilt UnrealMCP DLL is loaded.
 - Original StackOBot assets were not saved or intentionally modified. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 UnrealMCP Anim node active tick-delta probe
+
+- Extended sibling `D:/Git/unreal-mcp-cubeless` command `sample_anim_node_pre_post_runtime_pose` with `dry_run=false` runtime mode `active_component_tick_delta`.
+- This mode samples a matched live `SkeletalMeshComponent` before and after bounded forced animation ticks and returns `pre_tick_pose`, `post_tick_pose`, and per-bone/socket transform `deltas`.
+- The response explicitly keeps `runtime_graph_prepost=false` and `same_instance_prepost=false`; it is final component pose response evidence, not internal AnimGraph node source-vs-output instrumentation.
+- Updated the Python MCP wrapper, server info text, `Docs/Tools/node_tools.md`, and the StackOBot design note in `Docs/Analysis/StackOBot/sample_anim_node_pre_post_runtime_pose_design.md`.
+- Synced the changed C++ plugin file into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+- Verification passed:
+  - `python -m py_compile Python/tools/node_tools.py Python/unreal_mcp_server.py`
+  - `MCPGameProjectEditor Win64 Development -NoHotReload`
+  - `StackOBotEditor Win64 Development -NoHotReload`
+  - Live StackOBot bridge smoke on `127.0.0.1:55557`
+- Live smoke created a transient `MCP_AnimNodeProbe_Baddy` actor, sampled `ABP_Baddy` RigidBody node `81E779C34D36CC52F0125F91BF52BAF3`, and removed the actor afterward.
+- Smoke output showed nonzero deltas for `Head_02`, `TailEnd`, `R_Stalk_04`, and `L_Stalk_04`; no runtime probe errors or warnings were returned.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostActiveTickSmoke_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostActiveTickSmoke_Summary.json`
+- Dirty content package count was zero after cleanup. `/Game/StackOBot/Maps/Lvl_Empty` became dirty from transient actor spawn/destroy, but the editor was closed without saving, so original StackOBot assets were not intentionally saved or modified.
+- The isolated temporary source-vs-output sampler under `/Game/_MCP_Temp/AnimNodePrePost` remains the next implementation step. Notion auto-capture remained unavailable due reauthentication, so this local work-log entry is the durable fallback capture.
