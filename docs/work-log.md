@@ -8835,3 +8835,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added safety/evidence tokens for Post Process assignment boundaries, disconnected original Trail, LayeredBlend route evidence, Montage crash boundary, PoseWatch proof routes, `_MCP_Sample` safety, and C++ escalation limits.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with no missing docs, sections, or tokens.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot broad study doc audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v10`.
+- The checker now validates required sections for `docs/stackobot-animation-study.md`, covering Post Process variants, Baddy RigidBody, Bot Trail, runtime-driver evidence, LayeredBlend inventory, deferred API work, BlendSpace evidence, ControlRig synthesis, physics evidence, and Post Process runtime/static comparison.
+- Added safety/evidence tokens for the StackOBot project path, `_MCP_Sample` boundary, original-asset mutation status, Trail non-reactivation guidance, RigidBody and Trail commands, state-machine command coverage, PoseWatch proof, broad-study Montage boundary, explicit Post Process override, and same-instance evidence.
+- Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with no missing sections or tokens.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
