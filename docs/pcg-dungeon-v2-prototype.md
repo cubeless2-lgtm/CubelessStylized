@@ -8,6 +8,7 @@ current V1 delivery under `/Game/Cubeless/PCG/Dungeon`.
 - Asset root: `/Game/Cubeless/PCG/DungeonV2`
 - Report root: `Saved/MCP_DungeonV2/`
 - Default V2 scale: `DungeonGridCellSize=800`, `DungeonCorridorWidth=800`
+- Default V2 story height: `640` Unreal units, `2x` the V1 `320` wall/story height.
 - Gameplay implementation remains out of scope.
 - Project C++ is not required for this first V2 pass.
 
@@ -16,11 +17,13 @@ current V1 delivery under `/Game/Cubeless/PCG/Dungeon`.
 V1 is the delivered baseline: Geometry Script modules, Python/export-backed
 layout, native PCG mesh spawning, and V1 closeout gates.
 
-V2 starts from the same module and spawner pattern, but uses a separate root and
-2x spatial scale so layout and room-rule changes can be tested without touching
-V1. Room markers and room-variant floor details are still inherited from V1 for
-the first prototype; later V2 passes should move those into a debug/review-only
-mode or replace them with clearer room design language.
+V2 starts from the same module and spawner pattern, but uses a separate root,
+2x XY spatial scale, and 2x story height so layout and room-rule changes can be
+tested without touching V1. The V2 wall, column, door-frame, ceiling placement,
+room volume, door volume, and gate volume paths use the `640` story-height
+baseline. Room markers and room-variant floor details are still inherited from
+V1 for the first prototype; later V2 passes should move those into a
+debug/review-only mode or replace them with clearer room design language.
 
 ## V2 Core Output Policy
 
@@ -28,12 +31,17 @@ The V2 default Native PCG output is now a core structure view. The generation
 reports still keep room-rule, marker, and detail data, but the NativeOutput
 spawner contract excludes these semantic/detail modules by default:
 
+- `connector_detail`
+- `corridor_detail`
 - `marker`
 - `room_variant_detail`
 - `detail_mesh`
 
 This keeps the default visual review focused on generated rooms, corridors,
-walls, doors, ceiling, and connector structure. The excluded data remains in
+walls, doors, ceiling, and connector structure. `connector_detail` and
+`corridor_detail` are excluded because they sit on top of the same cell/door
+locations as the structural modules and make the default output look
+overlapped. The excluded data remains in
 `Saved/MCP_DungeonV2/CubelessDungeonV2_GameplayData.json` and the V2 spawner
 contract for audit/debug use.
 
@@ -98,6 +106,22 @@ python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset loop_dense --no-bui
 python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset open_cutaway --no-build
 ```
 
+For one-off tuning, keep a preset as the base and pass explicit overrides with
+`--set KEY=VALUE`. This writes the merged config to the V2 bridge actor tags and
+then refreshes the NativeOutput:
+
+```powershell
+python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset default --no-build --set DungeonRoomCount=16 --set DungeonMaxLoopEdges=4
+python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --preset open_cutaway --no-build --set room_count=14 --set branch_chance_percent=80
+```
+
+Override keys may use snake-case config names such as `room_count`, short tag
+names such as `RoomCount`, or full bridge tag names such as
+`DungeonRoomCount`. Values are validated before generation; unknown keys,
+duplicate config targets, non-integer values, and out-of-range values fail
+before the PCG refresh is requested. `--verify-existing-output` intentionally
+does not accept overrides because it validates already generated output.
+
 Available V2 presets:
 
 - `default`: balanced closed-ceiling baseline.
@@ -111,9 +135,67 @@ Available V2 presets:
 
 For manual editor tuning, open
 `/Game/Cubeless/PCG/DungeonV2/Maps/LVL_Cubeless_PCG_Dungeon_V2`, select the
-actor labeled `MCP_Cubeless_Dungeon_V2_PCGBridge`, and edit its actor Tags. The
-current V2 prototype treats these `Dungeon...` tags as the supported authoring
-surface:
+actor labeled `MCP_Cubeless_Dungeon_V2_Controller`, and edit its exposed
+Blueprint variables in the Details panel. The controller Blueprint is:
+
+- `/Game/Cubeless/PCG/DungeonV2/Blueprints/BP_Cubeless_DungeonV2_Controller`
+
+The Blueprint now owns a `PCG_DungeonV2_Bridge` PCGComponent that points at:
+
+- `/Game/Cubeless/PCG/DungeonV2/Graphs/PCG_Cubeless_Dungeon_V2_Bridge`
+
+The bridge graph contains one `PCG Get Actor Property` node per exposed
+controller field. The node `property_name` and output attribute name intentionally
+match the BP variable name exactly, such as `DungeonRoomCount` or
+`DungeonUseCeiling`. The bridge tags remain as an automation/fallback surface,
+but the editor-facing V2 authoring source is the placed BP controller actor.
+
+The runner reads these BP variables, validates them, confirms the exact-name
+PCG actor-property binding, writes matching internal bridge actor tags for
+backwards compatibility, then refreshes the NativeOutput:
+
+```powershell
+python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --use-bp-controller --no-build
+```
+
+The binding audit is written to:
+
+- `Saved/MCP_DungeonV2/CubelessDungeonV2_PCGParameterBindingAudit.json`
+
+The story-height rebuild audit is written to:
+
+- `Saved/MCP_DungeonV2/CubelessDungeonV2_StoryHeightModulesRebuild.json`
+
+That audit should show the V2 wall, door-frame, and column mesh bounds reaching
+Z `640`, while the generated ceiling points sit at Z `650`.
+
+When validating an already generated single-seed BP/custom output without
+running another refresh, use:
+
+```powershell
+python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --verify-existing-output --allow-seed-suite-warning
+```
+
+Inside the Unreal Editor, the same BP-driven refresh is also available from:
+
+- `Cubeless > PCG Dungeon V2 > Regenerate From BP Controller`
+- actor right-click menu: `Cubeless : Regenerate Dungeon V2 From BP Controller`
+
+This editor command reads the placed `MCP_Cubeless_Dungeon_V2_Controller`
+actor values and requests a fresh V2 NativeOutput generation. Values outside
+the supported BP ranges are clamped back to the nearest valid value before
+refresh, so an accidental `DungeonBranchChancePercent=103` becomes `100`.
+If the requested `DungeonRoomCount` cannot produce a passing layout for the
+current seed, the BP route searches for the nearest practical passing value. If
+the requested value is too low for the current room-role budgets, it first tries
+the V2 default room count and then larger values; otherwise it can still search
+downward for an over-large request. The corrected value is written back to the
+controller actor before generation.
+Direct Details panel `Call In Editor` buttons are not authored by the current
+Python path because Unreal does not expose the required Blueprint function flag
+reliably to editor scripting in this project setup.
+
+The current V2 controller exposes these fields:
 
 | Tag | Range | Purpose |
 | --- | ---: | --- |
@@ -134,9 +216,14 @@ surface:
 | `DungeonUseThemeMaterials` | `0..1` | Room-theme material override toggle. |
 | `DungeonPreviewMode` | `0..1` | Review metadata flag. |
 
-After manual tag edits, run `--verify-existing-output` only if the PCG output is
-already generated. If the tags should drive a fresh output, run a preset refresh
-or add a matching custom preset in `CubelessDungeonPCGV2.py` and run the runner.
+Boolean-style fields such as `DungeonBossEnabled`, `DungeonUseCeiling`,
+`DungeonUseThemeMaterials`, and `DungeonPreviewMode` are BP checkboxes. The
+runner converts them to the existing internal `0..1` bridge-tag values before
+generation.
+
+The older bridge actor tag surface still exists for automation and backwards
+compatibility, and `--set KEY=VALUE` remains useful for one-off scripted tests.
+For normal editor use, prefer the BP controller actor.
 
 ## Preset Refresh Notes
 
@@ -183,6 +270,35 @@ Latest `--verify-existing-output` validation passed in 6.984 seconds with the
 same `37` native components, `725` instances, screenshot QA pass, final gate
 pass, room-rule summary pass, room-rule matrix pass across 8 presets, tuning
 guide pass across 6 quick-choice goals, and zero dirty packages.
+
+Custom override smoke:
+
+- `small_route` with `--set DungeonRoomCount=8 --set DungeonMaxLoopEdges=2
+  --set DungeonUseCeiling=0` passed. The merged config applied to the V2 bridge
+  tags before refresh, generated `8` rooms, `34` native components, and `439`
+  instances. The immediate verify socket timed out after 60.016 seconds, then
+  automatic existing-output recovery passed in 4.344 seconds. Summary,
+  Matrix, TuningGuide, screenshot QA, and final gate passed with zero dirty
+  packages.
+- The final output was restored to `default` afterward. The restoration passed
+  with `37` native components, `725` instances, Summary/Matrix/TuningGuide
+  pass, screenshot QA pass, final gate pass, and zero dirty packages.
+
+BP controller smoke:
+
+- `--use-bp-controller --no-build` passed after creating
+  `/Game/Cubeless/PCG/DungeonV2/Blueprints/BP_Cubeless_DungeonV2_Controller`
+  and placing `MCP_Cubeless_Dungeon_V2_Controller` in the V2 map. The BP exposes
+  `16` instance-editable authoring fields.
+- A non-default BP controller test changed the placed actor to
+  `DungeonRoomCount=8`, `DungeonMaxLoopEdges=2`, and `DungeonUseCeiling=false`.
+  The BP-driven refresh read those values, synchronized them to the bridge tags,
+  and passed with `8` rooms, `35` native components, `415` instances, screenshot
+  QA pass, final gate pass, and zero dirty packages.
+- The BP controller and generated output were restored to default afterward. The
+  final BP-driven refresh passed with `37` native components, `725` instances,
+  Summary/Matrix/TuningGuide pass, screenshot QA pass, final gate pass, and zero
+  dirty packages.
 
 Additional preset smoke:
 
