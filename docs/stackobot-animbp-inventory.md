@@ -321,6 +321,8 @@ Offline artifacts:
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe.md`
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe_Summary.json`
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe_Normalized.json`
+- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPoseWatchPrePost_Summary.json`
+- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPoseWatchPrePost_raw.json`
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstanceRuntimeState_MCPInspect.md`
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstanceRuntimeState_MCPInspect_Summary.json`
 - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstanceRuntimeState_MCPInspect_raw.json`
@@ -343,6 +345,7 @@ Main result:
 - `set_anim_graph_controlrig_input_defaults` created and saved sample asset `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_InputDefaults_Study`, refused original `ABP_Bot` mutation, disconnected linked `InteractionWorldLocation` and `ShouldDoIKTrace` pins in the sample, set them to `[80, -40, 80]` and `true`, compiled/saved with `0` errors and `0` warnings, and was idempotent on the second call with `graph_changed=false`.
 - `ensure_controlrig_forced_driver_animbp` created and saved sample asset `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ForcedDriver_Study`, refused original `ABP_Bot` mutation, preserved the original upstream pose into `ModifyCurve -> ControlRig`, forced `IK_blend_interact=1.0`, `IKBlend_l=1.0`, `ShouldDoIKTrace=true`, and `InteractionWorldLocation=(80,-40,80)`, compiled/saved with `0` errors and `0` warnings, and was idempotent on the second call with `graph_changed=false`.
 - `sample_controlrig_pre_post_runtime_pose` sampled a transient `CR_Bot_Correction` instance before and after `Forwards Solve` with forced driver values. StackOBot live smoke returned `read_only=true`, `asset_modified=false`, `runtime_source=direct_transient_controlrig`, `runtime_graph_prepost=false`, `0` errors, max translation delta `pelvis=20.9368`, and max rotation delta `calf_r=40.3937 deg`.
+- `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` sampled the forced-driver sample's compiled `AnimGraphNode_ControlRig` input and output in the same runtime AnimInstance. StackOBot live smoke returned `runtime_graph_prepost=true`, `same_instance_prepost=true`, output link `42`, input `Source` link `45`, `debug_object_restored=true`, and `errors=[]` / `warnings=[]`. Strong deltas included `spine_03=35.386 cm`, `head=35.113 cm`, `pelvis=34.920 cm`, `calf_r=21.443 cm / 73.779 deg`, and `calf_l=19.181 cm / 78.123 deg`.
 - `sample_skeletal_bones_in_sie` sampled a transient `SKM_Bot` actor from an active PIE/SIE world. StackOBot live smoke returned `read_only=true`, `asset_modified=false`, `sampled_world_type=PIE`, `is_play_session_active=true`, no warnings, and valid transforms for `pelvis`, `foot_l`, `foot_r`, `head`, `antenna_04_l`, and `antenna_04_r`.
 - `inspect_anim_instance_runtime_state` sampled the same kind of transient `SKM_Bot` actor with `ABP_Bot_C` from active PIE/SIE. StackOBot live smoke returned `read_only=true`, `asset_modified=false`, `sampled_world_type=PIE`, `is_play_session_active=true`, `AirLocomotion=Walk/Run`, and `GroundLocomotion=Idle`; requested curve names were warning-only missing values on this idle smoke actor.
 - `set_anim_instance_runtime_property_for_probe` set `bUseMultiThreadedAnimationUpdate=false` on the transient live `ABP_Bot_C` runtime instance. StackOBot live smoke returned `runtime_only=true`, `asset_modified=false`, `sampled_world_type=PIE`, `is_play_session_active=true`, and property echo `true -> false`.
@@ -350,13 +353,12 @@ Main result:
 - Runtime state snapshots now include `machine_weight`, per-state `state_weight` and `recorded_state_weight`, optional relevant animation timing, and transition progress.
 - The metrics smoke captured `GroundLocomotion Idle -> Walk/Run` under `GroundSpeed=420`: after one `1/60s` tick, `elapsed_fraction=0.0833`, `Idle weight=0.9803`, `Walk/Run weight=0.0197`; after eight more ticks, `elapsed_fraction=0.75`, `Idle weight=0.15625`, `Walk/Run weight=0.84375`.
 - The `IsInAir?=true` zero-duration transition guard case completed with no errors; inactive zero-crossfade transitions report `elapsed_fraction=0`.
-- Exact compiled AnimGraph source-vs-post-ControlRig subtraction remains blocked only on deeper AnimGraph node-stack instrumentation.
+- Exact compiled AnimGraph source-vs-post-ControlRig subtraction is now covered for the safe forced-driver sample through PoseWatch capture. For the original gameplay `ABP_Bot`, natural runtime ControlRig motion still depends on the interaction curve and trace gates becoming active during gameplay.
 
 Remaining exact-runtime API:
 
-- `sample_anim_node_pre_post_runtime_pose` or equivalent compiled AnimGraph instrumentation should work on duplicate `/Game/_MCP_Sample/AnimStudy` assets or transient runtime objects only.
-- It needs to sample both sides of the selected ControlRig node in the compiled AnimGraph stack, then report true source pose, post-ControlRig pose, per-bone deltas, active curve values, driver-variable echo, compile/runtime status, and dirty-package status.
-- Until that deeper command exists, Control Rig should be treated as proven active, directly gate-probeable, curve-forceable, input-default-forceable, forced-driver assembleable, and direct-transient pre/post measurable, but not yet exactly subtractable from the authored AnimBP source pose.
+- Use `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` for ControlRig, RigidBody, Trail, Post Process Modify Bone, and LayeredBoneBlend-style node attribution when the selected node exposes a valid runtime pose link.
+- Add deeper instrumentation only if a future custom or unusual AnimGraph node does not expose evaluable runtime pose links through the current PoseWatch route.
 
 ## Bot Active Trail Sample
 

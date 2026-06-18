@@ -404,9 +404,9 @@ Use this checklist when adding or validating another animation experiment.
 | Done | Slot and LayeredBoneBlend | Inventory complete for `UpperBody`, `CashedPose_UpperBody`, branch filters, filename/class montage evidence, AssetRegistry-level interaction references, and read-only Blueprint call topology. | `BP_Bot` topology shows interact/grab component flow, not a direct montage/dynamic-slot playback call. |
 | Done/Runtime metrics | State-machine transitions | No-C++ transition topology probing is complete; live current-state reading, state weights, transition progress, relevant anim timing, runtime property setting, per-case state resampling, and meaningful `ABP_Bot` driver sequences are captured. | Full K2 call topology still needs follow-up API work. |
 | Done/SIE pose grid + MCP API | BlendSpace runtime pose grid | Source pose map, SIE game-world pose grid, and reusable `sample_blendspace_runtime_pose_grid` command are complete for `BS_Bot_WalkRunLean` and `BS_Bot_RunIdleJump`. | Study evidence can use `StackOBot_BlendSpace_SIEPoseGrid.*`; repeatable MCP audits should use `StackOBot_BlendSpaceRuntimePoseGridMCP_*`. |
-| Done/Runtime pending | Control Rig pre/post | Direct-gate MCP probe, sample ModifyCurve curve-forcing, sample ControlRig input-default forcing, combined forced-driver sample assembly, and direct transient ControlRig pre/post solve probe are complete. | True compiled AnimGraph-internal source-vs-post subtraction still needs `sample_anim_node_pre_post_runtime_pose` or equivalent instrumentation. |
+| Done/PoseWatch + forced-driver | Control Rig pre/post | Direct-gate MCP probe, sample ModifyCurve curve-forcing, sample ControlRig input-default forcing, combined forced-driver sample assembly, direct transient ControlRig pre/post solve probe, and compiled AnimGraph same-instance PoseWatch capture are complete. | Same-instance ControlRig evidence uses the safe `_MCP_Sample` forced-driver AnimBP, not the original inactive `ABP_Bot` gate state. |
 | Done/PoseWatch | Post Process pre/post | Static single-input-pose pre/post isolation and live same-instance PoseWatch capture are complete for the two variants. | Use `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)` for comparable Post Process node checks. |
-| Done/PoseWatch + isolated + mapping | Physics pre/post | Evidence synthesis complete for learning baseline; RigidBody/Trail isolated source-vs-output sampling is implemented and live-smoked; compiled runtime-node mapping and pose-link preflight are implemented and live-smoked; `ABP_Baddy` RigidBody and `ABP_Bot_Trail_Study` Post Process Trail same-instance PoseWatch pre/post capture are implemented and live-smoked. | Broader multi-input/custom node classes may still need lower-level taps. |
+| Done/PoseWatch + isolated + mapping | Physics pre/post | Evidence synthesis complete for learning baseline; RigidBody/Trail isolated source-vs-output sampling is implemented and live-smoked; compiled runtime-node mapping and pose-link preflight are implemented and live-smoked; `ABP_Baddy` RigidBody and `ABP_Bot_Trail_Study` Post Process Trail same-instance PoseWatch pre/post capture are implemented and live-smoked. | Broader unusual node classes beyond the current RigidBody/Trail/ModifyBone/LayeredBoneBlend/ControlRig coverage may still need lower-level taps. |
 
 ## Deferred API Work
 
@@ -424,7 +424,7 @@ Implemented APIs to keep available for future audits:
 10. `sample_anim_state_machine_runtime_response` - implemented, build-verified, synced into StackOBot, and live-smoked with restored runtime property cases plus active transition metric capture; current artifacts include `StackOBot_AnimStateMachineRuntimeResponseMCPProbe.*` and `StackOBot_AnimStateRuntimeMetrics_*`.
 11. `inspect_blueprint_graph_call_topology` - implemented, build-verified, synced into StackOBot, and live-smoked against `BP_Bot` plus `BPC_InteractionHandler`; current artifacts are `StackOBot_BlueprintCallTopology_*`.
 12. `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody. It maps editor node GUID `81E779C34D36CC52F0125F91BF52BAF3` to live compiled property `AnimGraphNode_RigidBody` / `/Script/AnimGraphRuntime.AnimNode_RigidBody` with pointer parity against `FindDebugAnimNode`, and now reports runtime pose-link topology such as `ComponentPose -> AnimGraphNode_LocalToComponentSpace`.
-13. `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody, `ABP_Bot_Trail_Study` Post Process Trail, and `ABP_Bot` LayeredBoneBlend all-input capture. It uses transient debug-data PoseWatches to capture selected output and selected input pose links in the same runtime AnimInstance. RigidBody artifacts are `StackOBot_PoseWatchPrePost_*`; Trail artifacts are `StackOBot_TrailPoseWatchPrePost_*`; multi-input LayeredBoneBlend artifacts are `StackOBot_LayeredBlendPoseWatchAllInputs_*`.
+13. `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Baddy` RigidBody, `ABP_Bot_Trail_Study` Post Process Trail, `ABP_Bot` LayeredBoneBlend all-input capture, and `_MCP_Sample` `ABP_Bot_ControlRig_ForcedDriver_Study` ControlRig. It uses transient debug-data PoseWatches to capture selected output and selected input pose links in the same runtime AnimInstance. RigidBody artifacts are `StackOBot_PoseWatchPrePost_*`; Trail artifacts are `StackOBot_TrailPoseWatchPrePost_*`; multi-input LayeredBoneBlend artifacts are `StackOBot_LayeredBlendPoseWatchAllInputs_*`; ControlRig artifacts are `StackOBot_ControlRigPoseWatchPrePost_*`.
 14. `ensure_anim_graph_trail_demo` - implemented, build-verified, and StackOBot live-smoked; it creates/reuses safe `_MCP_Sample` Trail Post Process AnimBP chains and refuses original asset mutation by default.
 15. `inspect_anim_graph_protected_topology` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Bot` ControlRig topology. Current artifacts are `StackOBot_AnimGraphProtectedTopology_ControlRig_*`.
 16. `ensure_postprocess_anim_demo_variant` - implemented, build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against the existing `HeadPitch` Post Process sample. It duplicates/reuses sample-only AnimBP/SkeletalMesh targets, ensures the Modify Bone chain, compiles the AnimBP, assigns the SkeletalMesh Post Process AnimBlueprint, saves, and reports `original_assets_modified=false`. Current artifacts are `StackOBot_PostProcessDemoVariantEnsure_*`.
@@ -432,7 +432,7 @@ Implemented APIs to keep available for future audits:
 
 Remaining C++/UnrealMCP candidates if reusable tooling is explicitly resumed:
 
-1. expand same-instance AnimGraph pre/post capture beyond the smoked RigidBody/Trail/Post Process ModifyBone/LayeredBoneBlend paths, especially custom or unusual node classes.
+1. expand same-instance AnimGraph pre/post capture only if a new unusual node class falls outside the smoked RigidBody/Trail/Post Process ModifyBone/LayeredBoneBlend/ControlRig paths.
 
 Implemented `sample_skeletal_bones_in_sie` detail:
 
@@ -461,16 +461,18 @@ Implemented runtime property/state-response detail:
 - The metrics smoke also includes an `IsInAir?=true` zero-duration transition guard; inactive zero-crossfade transitions report `elapsed_fraction=0`.
 - Limitation: full K2 call topology is not captured yet.
 
-Implemented `sample_controlrig_pre_post_runtime_pose` detail:
+Implemented `sample_controlrig_pre_post_runtime_pose` and ControlRig PoseWatch detail:
 
 - Scope: transient ControlRig instance only. It is read-only and does not save original StackOBot assets.
 - Inputs: ControlRig path/class, bone/control names to sample, driver variables such as `InteractionWorldLocation` and `ShouldDoIKTrace`, forced curves such as `IKBlend_l` and `IK_blend_interact`, and execute events.
 - Outputs: pre-solve pose, post-solve pose, per-bone/per-control deltas, active curve values, driver-variable echo, execution status, and artifact paths.
-- Limitation: the command reports `runtime_graph_prepost=false`; compiled AnimGraph-internal ControlRig node source-vs-post sampling remains future `sample_anim_node_pre_post_runtime_pose` work.
+- Direct ControlRig command limitation: it reports `runtime_graph_prepost=false` because it samples a transient rig, not the compiled AnimGraph node stack.
+- Compiled AnimGraph same-instance ControlRig source-vs-post is now covered by `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` against `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ForcedDriver_Study`. The smoke resolved ControlRig output link `42`, input `Source` link `45`, `runtime_graph_prepost=true`, `same_instance_prepost=true`, `debug_object_restored=true`, and `errors=[]` / `warnings=[]`.
+- ControlRig PoseWatch artifacts: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPoseWatchPrePost_Summary.json` and `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPoseWatchPrePost_raw.json`.
 
 `sample_anim_node_pre_post_runtime_pose` detail:
 
-- Scope: selected AnimGraph physics or transform nodes such as RigidBody and Trail, using duplicate `/Game/_MCP_Sample/AnimStudy` assets or transient runtime components only.
+- Scope: selected AnimGraph physics, transform, blend, and ControlRig nodes such as RigidBody, Trail, Transform Modify Bone, LayeredBoneBlend, and ControlRig, using duplicate `/Game/_MCP_Sample/AnimStudy` assets or transient runtime components only.
 - Inputs: AnimBP or Post Process AnimBP path, skeletal mesh path, node selector, runtime mode, driver setup, settle ticks, duration/rate, and bones.
 - Outputs: pre-node pose, post-node pose, per-bone deltas, runtime state/curve values when available, cleanup status, dirty-package status, and artifact paths.
 - Safety: read-only by default, no Python map loading, no original asset mutation, and explicit reporting when component-level Post Process override is required.

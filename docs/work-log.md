@@ -8402,3 +8402,19 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Cleanup note: the hidden StackOBot editor was closed after validation, but the cleanup helper used `execute_python` + `unreal.SystemLibrary.quit_editor()` and the latest log records a UE TaskGraph assertion during shutdown. Treat that as a cleanup-route issue after the successful command smoke, not as a `sample_blendspace_runtime_pose_grid` failure. Future hidden-editor test cleanup should prefer an external process shutdown route or a reviewed native/deferred exit command instead of calling `quit_editor()` from MCP Python dispatch.
 - Stopped the lingering `CrashReportClientEditor` process after the editor exited.
 - Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, and this work log. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot ControlRig AnimGraph PoseWatch pre/post
+
+- Continued the remaining same-instance AnimGraph pre/post expansion without new C++ changes.
+- Live StackOBot bridge smoke ran on `127.0.0.1:55557` with the existing `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` command.
+- Targeted safe sample AnimBP: `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ForcedDriver_Study.ABP_Bot_ControlRig_ForcedDriver_Study`.
+- The smoke spawned a transient `SkeletalMeshActor` with `SKM_Bot`, assigned `ABP_Bot_ControlRig_ForcedDriver_Study_C`, started SIE, then sampled the PIE duplicate actor by label. Original StackOBot assets were not saved.
+- Smoke result: `success=true`, `runtime_graph_prepost=true`, `same_instance_prepost=true`, `same_anim_instance_node_mapping=true`, `runtime_node_instance_mapped=true`, `find_debug_anim_node_mapped=true`, `transient_pose_watches=true`, `debug_object_restored=true`, `errors=[]`, and `warnings=[]`.
+- ControlRig runtime links resolved as output link `42` and input `Source` link `45`.
+- Strong sampled same-instance deltas included `spine_03=35.386 cm`, `head=35.113 cm`, `pelvis=34.920 cm`, `antenna_04_r=34.069 cm`, `antenna_04_l=33.261 cm`, `calf_r=21.443 cm / 73.779 deg`, and `calf_l=19.181 cm / 78.123 deg`.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPoseWatchPrePost_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPoseWatchPrePost_Summary.json`
+- Cleanup ended SIE and reported empty dirty content packages; `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible transient actor spawn/delete. The hidden validation editor was then stopped externally rather than by `quit_editor()`, and the lingering `CrashReportClientEditor` process was stopped.
+- Latest log caveat: failed setup attempts before the successful smoke produced `LogUtils: Error` lines and Python setup errors (`editor_is_playing` missing, `refresh_bone_transforms` not exposed, and attempted PIE-world direct spawn). The final `sample_anim_node_pre_post_runtime_pose` command succeeded with empty command errors/warnings, so treat those log errors as validation-script route mistakes, not as ControlRig PoseWatch failures.
+- Updated `docs/stackobot-animation-study.md`, `docs/stackobot-animation-execution-map.md`, `docs/stackobot-animbp-inventory.md`, and sibling design note `D:/Git/unreal-mcp-cubeless/Docs/Analysis/StackOBot/sample_anim_node_pre_post_runtime_pose_design.md`. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

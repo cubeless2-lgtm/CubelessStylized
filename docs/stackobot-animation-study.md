@@ -531,8 +531,10 @@ Remaining state-machine gap:
    - Current forced-driver sample artifacts are `StackOBot_ControlRigForcedDriverMCPEnsure.*`.
    - Completed the direct transient ControlRig pre/post solve probe command `sample_controlrig_pre_post_runtime_pose`.
    - Current ControlRig pre/post artifacts are `StackOBot_ControlRigPrePostMCPProbe.*`.
+   - Completed compiled AnimGraph same-instance PoseWatch capture on `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ForcedDriver_Study`.
+   - Current ControlRig AnimGraph PoseWatch artifacts are `StackOBot_ControlRigPoseWatchPrePost_*`.
    - Do not hand-edit protected AnimGraph pins through Python.
-   - Compiled AnimGraph-internal source-vs-post-ControlRig subtraction remains future `sample_anim_node_pre_post_runtime_pose` or equivalent instrumentation work.
+   - Original inactive `ABP_Bot` still needs its gameplay gates to fire for natural ControlRig motion; the completed exact pre/post evidence uses the safe forced-driver sample.
 4. Post Process final runtime pass
    - Static pre/post pose isolation and live same-instance PoseWatch capture are complete for the two variants.
    - A separate `sample_postprocess_pre_post_pose` command is no longer needed for these learning fixtures; use `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)` for comparable Post Process AnimBP node checks.
@@ -716,7 +718,7 @@ API follow-up status:
 
 | Command | Status | Notes |
 | --- | --- | --- |
-| `sample_anim_node_pre_post_runtime_pose` | Implemented, with follow-up expansion | `compiled_graph_mapping`, `active_component_tick_delta`, `isolated_temp_components`, and `pose_watch_capture` are implemented. Same-instance PoseWatch capture is live-smoked for `ABP_Baddy` RigidBody, `ABP_Bot_Trail_Study`, and Post Process ModifyBone variants. Use `anim_instance_source=post_process` when the selected node lives in the component's Post Process AnimBP. Remaining expansion is broader multi-input/custom-node coverage. |
+| `sample_anim_node_pre_post_runtime_pose` | Implemented, with follow-up expansion | `compiled_graph_mapping`, `active_component_tick_delta`, `isolated_temp_components`, and `pose_watch_capture` are implemented. Same-instance PoseWatch capture is live-smoked for `ABP_Baddy` RigidBody, `ABP_Bot_Trail_Study`, Post Process ModifyBone variants, `ABP_Bot` LayeredBoneBlend all-input capture, and `_MCP_Sample` ControlRig forced-driver capture. Use `anim_instance_source=post_process` when the selected node lives in the component's Post Process AnimBP. Remaining expansion is only for unusual node classes outside the smoked coverage. |
 | `ensure_anim_graph_trail_demo` | Implemented | Creates safe `_MCP_Sample` Trail Post Process AnimBP chains and refuses original asset mutation by default. Current Trail learning evidence already uses this path. |
 | `inspect_anim_graph_protected_topology` | Implemented | Build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `ABP_Bot` ControlRig topology. It returned one `AnimGraphNode_ControlRig_0`, two pose links, `read_only=true`, and `asset_modified=false`. Current artifacts are `StackOBot_AnimGraphProtectedTopology_ControlRig_*`. |
 | `sample_blendspace_runtime_pose_grid` | Implemented | Build-verified in UnrealMCP and StackOBot, synced into StackOBot, and live-smoked against `BS_Bot_WalkRunLean` plus `BS_Bot_RunIdleJump` in PIE/SIE. Current artifacts are `StackOBot_BlendSpaceRuntimePoseGridMCP_*`. |
@@ -727,7 +729,7 @@ API follow-up status:
 Priority recommendation:
 
 1. Completed for SIE component bone/socket sampling: `sample_skeletal_bones_in_sie` was run against StackOBot through the primary bridge port and sampled the transient Bot actor from `sampled_world_type=PIE`.
-2. Extend `sample_anim_node_pre_post_runtime_pose` beyond the smoked RigidBody/Trail PoseWatch paths when multi-input, custom, or ControlRig-in-AnimGraph node attribution becomes the next priority.
+2. Completed ControlRig-in-AnimGraph attribution through `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` on the forced-driver sample; extend the command only when a new unusual node class falls outside the smoked coverage.
 3. Completed for direct transient ControlRig pre/post solve: `sample_controlrig_pre_post_runtime_pose` was run against StackOBot through the alternate bridge port.
 4. Completed for direct ControlRig gate: `controlrig_direct_gate_probe` was run against StackOBot through the alternate bridge port.
 5. Completed for sample curve forcing: `ensure_anim_graph_modify_curve_demo` was run against StackOBot through the alternate bridge port.
