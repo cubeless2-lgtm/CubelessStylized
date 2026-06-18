@@ -2,8 +2,9 @@
 
 This is a read-only convenience runner. It compiles the StackOBot animation
 checker scripts, validates the documentation audit, runs the static preflight
-gate, and checks staged Git scope. It does not call Unreal commands or mutate
-assets. Use --require-bridge immediately before live editor work.
+gate, checks staged Git scope, and reports sibling workspace Git status. It does
+not call Unreal commands or mutate assets. Use --require-bridge immediately
+before live editor work.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SIBLING_MCP_ROOT = PROJECT_ROOT.parent / "unreal-mcp-cubeless"
 REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_DocAudit" / "StackOBotAnimationLocalChecks.json"
 
 CHECKER_FILES = [
@@ -28,12 +30,12 @@ CHECKER_FILES = [
 ]
 
 
-def _run_command(label: str, command: list[str]) -> dict[str, Any]:
+def _run_command(label: str, command: list[str], cwd: Path = PROJECT_ROOT) -> dict[str, Any]:
     started_at = time.monotonic()
     try:
         completed = subprocess.run(
             command,
-            cwd=str(PROJECT_ROOT),
+            cwd=str(cwd),
             capture_output=True,
             check=False,
             text=True,
@@ -43,7 +45,7 @@ def _run_command(label: str, command: list[str]) -> dict[str, Any]:
         return {
             "label": label,
             "command": command,
-            "cwd": PROJECT_ROOT.as_posix(),
+            "cwd": cwd.as_posix(),
             "returncode": completed.returncode,
             "stdout": completed.stdout,
             "stderr": completed.stderr,
@@ -54,7 +56,7 @@ def _run_command(label: str, command: list[str]) -> dict[str, Any]:
         return {
             "label": label,
             "command": command,
-            "cwd": PROJECT_ROOT.as_posix(),
+            "cwd": cwd.as_posix(),
             "elapsed_seconds": round(time.monotonic() - started_at, 4),
             "success": False,
             "error": str(exc),
@@ -80,15 +82,25 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             [sys.executable, "Tools/Unreal/check_stackobot_animation_staging_scope.py", "--summary"],
         ),
     ]
+    workspace_status = {
+        "cubeless_status": _run_command("cubeless_git_status", ["git", "status", "--short"], PROJECT_ROOT),
+        "sibling_mcp_status": _run_command("sibling_mcp_git_status", ["git", "status", "--short"], SIBLING_MCP_ROOT),
+    }
+    sibling_status = str(workspace_status["sibling_mcp_status"].get("stdout", "")).strip()
+    sibling_clean = bool(workspace_status["sibling_mcp_status"].get("success")) and not sibling_status
 
-    pass_value = all(check["success"] for check in checks)
+    pass_value = all(check["success"] for check in checks) and (sibling_clean or not args.require_sibling_clean)
     report = {
         "schema": "stackobot_animation_local_checks_v1",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
+        "sibling_mcp_root": SIBLING_MCP_ROOT.as_posix(),
         "require_bridge": args.require_bridge,
+        "require_sibling_clean": args.require_sibling_clean,
+        "sibling_clean": sibling_clean,
         "pass": pass_value,
         "checks": checks,
+        "workspace_status": workspace_status,
     }
 
     if args.write_report:
@@ -105,7 +117,8 @@ def _format_summary(report: dict[str, Any]) -> str:
         f"StackOBot animation local checks: {status}",
         (
             f"schema={report['schema']} require_bridge={str(report['require_bridge']).lower()} "
-            f"checks={len(report['checks'])}"
+            f"require_sibling_clean={str(report['require_sibling_clean']).lower()} "
+            f"sibling_clean={str(report['sibling_clean']).lower()} checks={len(report['checks'])}"
         ),
     ]
     if report.get("report_path"):
@@ -121,6 +134,17 @@ def _format_summary(report: dict[str, Any]) -> str:
             lines.extend(f"  stderr: {line}" for line in stderr.splitlines())
         if check.get("error"):
             lines.append(f"  error: {check['error']}")
+    workspace_status = report.get("workspace_status", {})
+    for label in ["cubeless_status", "sibling_mcp_status"]:
+        entry = workspace_status.get(label) or {}
+        stdout = str(entry.get("stdout", "")).strip()
+        count = len(stdout.splitlines()) if stdout else 0
+        status = "PASS" if entry.get("success") else "FAIL"
+        lines.append(f"{label}: {status} dirty_lines={count}")
+        if stdout:
+            lines.extend(f"  {line}" for line in stdout.splitlines()[:20])
+            if count > 20:
+                lines.append(f"  ... {count - 20} more")
     return "\n".join(lines)
 
 
@@ -130,6 +154,11 @@ def main(argv: list[str] | None = None) -> int:
         "--require-bridge",
         action="store_true",
         help="Require the StackOBot UnrealMCP bridge to be reachable.",
+    )
+    parser.add_argument(
+        "--require-sibling-clean",
+        action="store_true",
+        help="Fail if the sibling unreal-mcp-cubeless workspace has dirty files.",
     )
     parser.add_argument(
         "--write-report",

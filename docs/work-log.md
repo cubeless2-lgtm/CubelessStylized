@@ -8773,3 +8773,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Updated `Tools/Unreal/check_stackobot_animation_staging_scope.py` so the new runner is allowed in StackOBot animation study commits.
 - Updated `docs/stackobot-animation-quickstart.md`, `docs/stackobot-animation-doc-index.md`, and `Tools/Unreal/check_stackobot_animation_docs.py` so routine closeout can use `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary`.
 - No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot local runner sibling status
+
+- Updated `Tools/Unreal/run_stackobot_animation_local_checks.py` so the local closeout summary reports both Cubeless and sibling `D:/Git/unreal-mcp-cubeless` Git status.
+- Added `--require-sibling-clean` for stricter runs when sibling MCP changes are part of the StackOBot animation tooling work.
+- Updated `docs/stackobot-animation-doc-index.md` and `Tools/Unreal/check_stackobot_animation_docs.py` so the stricter sibling-clean command is documented and audited.
+- No Unreal assets, C++ files, editor sessions, or sample assets were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

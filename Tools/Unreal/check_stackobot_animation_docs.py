@@ -125,6 +125,7 @@ REQUIRED_TOKENS = {
         "Original StackOBot assets stay read-only",
         "Sample assets go under `/Game/_MCP_Sample/AnimStudy`",
         "run_stackobot_animation_local_checks.py --summary",
+        "run_stackobot_animation_local_checks.py --summary --require-sibling-clean",
         "check_stackobot_animation_preflight.py --summary",
         "check_stackobot_animation_preflight.py --summary --require-bridge",
         "check_stackobot_animation_staging_scope.py --summary",

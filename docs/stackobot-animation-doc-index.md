@@ -57,6 +57,12 @@ Run this for the normal local closeout:
 python Tools/Unreal/run_stackobot_animation_local_checks.py --summary
 ```
 
+Use this stricter form when sibling MCP changes are part of the work:
+
+```powershell
+python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean
+```
+
 Run this before a concrete StackOBot editor/sample request:
 
 ```powershell
