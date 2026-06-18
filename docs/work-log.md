@@ -8340,3 +8340,21 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Post-smoke dirty check through `ExecuteFile` reported empty dirty content/map package lists, and the validation editor was closed without saving.
 - The latest StackOBot log contains a `LogPython: Error` from an earlier failed direct-socket dirty-check attempt using the wrong single-statement Python mode. The follow-up `ExecuteFile` dirty check succeeded, so treat that log error as a validation-script attempt error, not an asset mutation or topology-command failure.
 - Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-18 StackOBot ensure_postprocess_anim_demo_variant API
+
+- Implemented the UnrealMCP command `ensure_postprocess_anim_demo_variant` in sibling `D:/Git/unreal-mcp-cubeless`.
+- The command duplicates or reuses target sample assets, ensures the existing Modify Bone demo chain through `ensure_anim_graph_modify_bone_demo`, compiles the target AnimBP, assigns the target SkeletalMesh `PostProcessAnimBlueprint`, and saves the sample assets.
+- Safety defaults: target AnimBP and SkeletalMesh must be under `/Game/_MCP_Sample/` unless `allow_non_sample=true`; source AnimBP/SkeletalMesh package paths cannot be reused as targets; result reports `original_assets_modified=false`.
+- Updated `Python/tools/node_tools.py` and `Docs/Tools/node_tools.md`, then synced the changed plugin C++ source into `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP` for smoke validation.
+- Build verification passed for both `MCPGameProjectEditor Win64 Development -NoHotReload` and `StackOBotEditor Win64 Development -NoHotReload`.
+- Live StackOBot bridge smoke on `127.0.0.1:55557` reused:
+  - `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadPitch`
+  - `/Game/_MCP_Sample/AnimStudy/SKM_Bot_PostProcess_Study_HeadPitch`
+- Smoke result: `success=true`, `target_blueprint_reused=true`, `target_skeletal_mesh_reused=true`, `compile_success=true`, `blueprint_saved=true`, `skeletal_mesh_saved=true`, `post_process_anim_blueprint_class=/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadPitch.ABP_Bot_PostProcess_Study_HeadPitch_C`, and `original_assets_modified=false`.
+- Smoke artifacts:
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessDemoVariantEnsure_raw.json`
+  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessDemoVariantEnsure_Summary.json`
+- Post-smoke dirty check through `ExecuteFile` reported empty dirty content/map package lists, and the validation editor was closed.
+- The latest StackOBot log still shows four startup `LogAutomationTest: Error: Condition failed` lines before the command ran; no new error was observed in the command execution/save section.
+- Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

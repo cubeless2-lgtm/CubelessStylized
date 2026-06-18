@@ -535,6 +535,7 @@ Remaining state-machine gap:
 4. Post Process final runtime pass
    - Static pre/post pose isolation and live same-instance PoseWatch capture are complete for the two variants.
    - A separate `sample_postprocess_pre_post_pose` command is no longer needed for these learning fixtures; use `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process)` for comparable Post Process AnimBP node checks.
+   - Reusable sample setup is now covered by `ensure_postprocess_anim_demo_variant`, which creates/reuses `_MCP_Sample` Post Process AnimBP/SkeletalMesh variants, ensures the Modify Bone chain, compiles the AnimBP, assigns the SkeletalMesh Post Process AnimBlueprint, and saves without modifying original StackOBot assets.
 5. Physics final runtime pass
    - Baddy RigidBody variants, source-vs-runtime split, Bot Trail runtime comparison, physics evidence synthesis, compiled node mapping preflight, and isolated RigidBody/Trail source-vs-output sampling are enough for the current learning baseline.
    - `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)` now covers RigidBody/Trail-style source-bypass vs post-node comparisons with temp assets.
