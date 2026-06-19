@@ -21,7 +21,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SIBLING_MCP_ROOT = PROJECT_ROOT.parent / "unreal-mcp-cubeless"
 REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_DocAudit" / "StackOBotAnimationLocalChecks.json"
-EXPECTED_DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v87"
+EXPECTED_DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v88"
 EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"
 EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"
 
@@ -129,7 +129,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     pass_value = all(check["success"] for check in checks) and (sibling_clean or not args.require_sibling_clean)
     report = {
-        "schema": "stackobot_animation_local_checks_v8",
+        "schema": "stackobot_animation_local_checks_v9",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "sibling_mcp_root": SIBLING_MCP_ROOT.as_posix(),
