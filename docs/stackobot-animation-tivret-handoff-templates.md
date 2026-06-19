@@ -11,6 +11,20 @@ Before showing a block to the user, replace bracket placeholders with the curren
 request details. If a value is unknown but non-blocking, state the assumption in
 the block; if it changes asset mutation, billing, or C++ scope, ask first.
 
+## Route Token To Handoff
+
+| Route token | Handoff section | Notes |
+| --- | --- | --- |
+| `Post Process ModifyBone` | `Post Process ModifyBone` | Sample Post Process AnimBP and same-instance PoseWatch. |
+| `BlendSpace sample variant` | `BlendSpace Sample Variant` | Sample BlendSpace edit and pose-grid proof. |
+| `Bot Trail sample` | `Trail Or Secondary Motion` | Bot antenna Trail sample route. |
+| `UpperBody Slot and LayeredBlend` | `UpperBody Slot And LayeredBlend` | Route proof first; visible action source remains separate. |
+| `protected metadata boundary` | `Notify, Curve, Sync Marker, Or Montage Internals` | Safe inventory first; guarded native API only if blocked. |
+| `ControlRig gate probe` | `ControlRig Late Correction` | Direct gate probe, then forced-driver sample if needed. |
+| `state-machine runtime-driver proof` | `State Machine Or Runtime Driver` | Read/runtime proof before graph authoring. |
+| `Baddy RigidBody` | `Trail Or Secondary Motion` | RigidBody setting read or sample tuning. |
+| `node resolver plus same-instance pre/post proof` | `no authoring handoff` | Instrumentation route; use final report fields unless a sample actor setup is needed. |
+
 ## Post Process ModifyBone
 
 ```text
