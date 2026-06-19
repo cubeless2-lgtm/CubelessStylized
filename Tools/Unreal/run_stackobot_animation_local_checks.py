@@ -21,6 +21,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SIBLING_MCP_ROOT = PROJECT_ROOT.parent / "unreal-mcp-cubeless"
 REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_DocAudit" / "StackOBotAnimationLocalChecks.json"
+EXPECTED_DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v82"
 
 CHECKER_FILES = [
     "Tools/Unreal/check_stackobot_animation_docs.py",
@@ -69,6 +70,17 @@ def _run_command(label: str, command: list[str], cwd: Path = PROJECT_ROOT) -> di
         }
 
 
+def _require_stdout_token(check: dict[str, Any], token: str, description: str) -> None:
+    stdout = str(check.get("stdout", ""))
+    matched = token in stdout
+    check["expected_token"] = token
+    check["expected_token_description"] = description
+    check["expected_token_matched"] = matched
+    if not matched:
+        check["success"] = False
+        check["error"] = f"Missing expected {description}: {token}"
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     started_at = time.monotonic()
     preflight_command = [
@@ -88,6 +100,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             [sys.executable, "Tools/Unreal/check_stackobot_animation_staging_scope.py", "--summary"],
         ),
     ]
+    docs_audit_check = next(check for check in checks if check["label"] == "docs_audit")
+    _require_stdout_token(
+        docs_audit_check,
+        f"schema={EXPECTED_DOCS_AUDIT_SCHEMA}",
+        "docs audit schema",
+    )
     workspace_status = {
         "cubeless_status": _run_command("cubeless_git_status", ["git", "status", "--short"], PROJECT_ROOT),
         "sibling_mcp_status": _run_command("sibling_mcp_git_status", ["git", "status", "--short"], SIBLING_MCP_ROOT),
@@ -97,10 +115,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     pass_value = all(check["success"] for check in checks) and (sibling_clean or not args.require_sibling_clean)
     report = {
-        "schema": "stackobot_animation_local_checks_v1",
+        "schema": "stackobot_animation_local_checks_v2",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "sibling_mcp_root": SIBLING_MCP_ROOT.as_posix(),
+        "expected_docs_audit_schema": EXPECTED_DOCS_AUDIT_SCHEMA,
         "require_bridge": args.require_bridge,
         "require_sibling_clean": args.require_sibling_clean,
         "sibling_clean": sibling_clean,
@@ -124,7 +143,8 @@ def _format_summary(report: dict[str, Any]) -> str:
         (
             f"schema={report['schema']} require_bridge={str(report['require_bridge']).lower()} "
             f"require_sibling_clean={str(report['require_sibling_clean']).lower()} "
-            f"sibling_clean={str(report['sibling_clean']).lower()} checks={len(report['checks'])}"
+            f"sibling_clean={str(report['sibling_clean']).lower()} "
+            f"expected_docs_audit_schema={report['expected_docs_audit_schema']} checks={len(report['checks'])}"
         ),
     ]
     if report.get("report_path"):
