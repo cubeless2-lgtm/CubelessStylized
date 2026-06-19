@@ -6,7 +6,7 @@ Authoring-pattern guide for future build requests:
 Request execution playbook:
 `docs/stackobot-animation-request-playbook.md`.
 
-이 문서는 `D:/Git/SampleProject/StackOBot`을 애니메이션 학습용으로 볼 때의 기준 노트다. 원본 StackOBot 애셋은 읽기 전용으로 두고, 실험은 `/Game/_MCP_Sample/AnimStudy/` 아래 disposable 샘플에서 진행한다.
+이 문서는 `<workspace-parent>/SampleProject/StackOBot`을 애니메이션 학습용으로 볼 때의 기준 노트다. 원본 StackOBot 애셋은 읽기 전용으로 두고, 실험은 `/Game/_MCP_Sample/AnimStudy/` 아래 disposable 샘플에서 진행한다.
 
 ## 학습 순서
 
@@ -77,10 +77,10 @@ Control Rig audit artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| ControlRig AnimGraph node inspect JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRigNodeInspect.json` |
-| ControlRig asset inventory JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_Inventory.json` |
-| ControlRig compact summary JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRigAuditSummary.json` |
-| ControlRig summary Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRigAuditSummary.md` |
+| ControlRig AnimGraph node inspect JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRigNodeInspect.json` |
+| ControlRig asset inventory JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_Inventory.json` |
+| ControlRig compact summary JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRigAuditSummary.json` |
+| ControlRig summary Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRigAuditSummary.md` |
 
 Latest Control Rig conclusion:
 
@@ -121,12 +121,12 @@ Post Process verification artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Inventory JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_StudyInventory.json` |
-| AnimGraph inspect JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_StudyAnimGraphInspect.json` |
-| Summary Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_StudySummary.md` |
-| Runtime head SIE JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_HeadSIESamples.json` |
-| Runtime head SIE CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_HeadSIESummary.csv` |
-| Runtime head SIE chart | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_HeadRotationDelta.png` |
+| Inventory JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_StudyInventory.json` |
+| AnimGraph inspect JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_StudyAnimGraphInspect.json` |
+| Summary Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_StudySummary.md` |
+| Runtime head SIE JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_HeadSIESamples.json` |
+| Runtime head SIE CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_HeadSIESummary.csv` |
+| Runtime head SIE chart | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_PostProcess_HeadRotationDelta.png` |
 
 Latest verification:
 
@@ -165,11 +165,11 @@ Variant artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Variant setup JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSetup.json` |
-| Mesh link JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantMeshLink.json` |
-| Component template probe JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_ComponentTemplateProbe.json` |
-| Variant summary JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSummary.json` |
-| Variant summary Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSummary.md` |
+| Variant setup JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSetup.json` |
+| Mesh link JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantMeshLink.json` |
+| Component template probe JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_ComponentTemplateProbe.json` |
+| Variant summary JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSummary.json` |
+| Variant summary Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSummary.md` |
 
 Variant verification:
 
@@ -194,17 +194,17 @@ Additional authoring-pattern smoke:
 - Result: `runtime_graph_prepost=true`, `same_instance_prepost=true`, `same_anim_instance_node_mapping=true`, `runtime_node_instance_mapped=true`, `find_debug_anim_node_mapped=true`, `transient_pose_watches=true`, `debug_object_restored=true`, and `original_assets_modified=false`.
 - Deltas: `head` rotates about `8.0 deg`; descendant `antenna_04_l` moves about `11.737 cm` and rotates about `8.0 deg`; `antenna_04_r` moves about `11.746 cm` and rotates about `8.0 deg`; `pelvis` and `neck_01` stay at floating-point noise.
 - Artifacts:
-  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_HeadYawAuthoringPatternPoseWatchPrePost_raw.json`
-  - `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_HeadYawAuthoringPatternPoseWatchPrePost_Summary.json`
+  - `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_HeadYawAuthoringPatternPoseWatchPrePost_raw.json`
+  - `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_HeadYawAuthoringPatternPoseWatchPrePost_Summary.json`
 
 Variant impact map:
 
 | Purpose | Path |
 | --- | --- |
-| Impact map JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.json` |
-| Impact map CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.csv` |
-| Impact map Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.md` |
-| Impact map SVG | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.svg` |
+| Impact map JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.json` |
+| Impact map CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.csv` |
+| Impact map Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.md` |
+| Impact map SVG | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.svg` |
 
 Impact interpretation:
 
@@ -261,9 +261,9 @@ Trail inactive proof artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Full ABP_Bot AnimGraph inspect JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_AnimGraphInspect.json` |
-| Trail Controller inspect JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_TrailControllerInspect.json` |
-| Trail inactive summary Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_TrailControllerInactiveSummary.md` |
+| Full ABP_Bot AnimGraph inspect JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_AnimGraphInspect.json` |
+| Trail Controller inspect JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_TrailControllerInspect.json` |
+| Trail inactive summary Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_TrailControllerInactiveSummary.md` |
 
 Latest Trail conclusion:
 
@@ -332,7 +332,7 @@ Temporary comparison map:
 | --- | --- |
 | RigidBody comparison preview map | `/Game/_MCP_Temp/AnimStudy/M_Baddy_RigidBody_Compare_MCP` |
 | Blueprint spawn smoke-test map | `/Game/_MCP_Temp/AnimStudy/M_BPSpawn_PathSmoke_Fixed_MCP` |
-| Review screenshot | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_Compare_Annotated.png` |
+| Review screenshot | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_Compare_Annotated.png` |
 
 The preview map was created with the native UnrealMCP `safe_new_preview_map` command, not with generic Python map creation APIs. It contains four `SkeletalMeshActor` preview instances using the duplicated study skeletal mesh and the four study AnimBP classes. The actors are named:
 
@@ -354,12 +354,12 @@ Runtime sampling artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Editor-tick sample JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_EditorTickSamples.json` |
-| SIE runtime sample JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIESamples.json` |
-| Clean GameMode SIE sample JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameModeSamples.json` |
-| Clean GameMode metrics CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameModeMetrics.csv` |
-| Clean GameMode summary Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameModeSummary.md` |
-| Clean GameMode stalk delta chart | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameMode_StalkMaxDelta.png` |
+| Editor-tick sample JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_EditorTickSamples.json` |
+| SIE runtime sample JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIESamples.json` |
+| Clean GameMode SIE sample JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameModeSamples.json` |
+| Clean GameMode metrics CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameModeMetrics.csv` |
+| Clean GameMode summary Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameModeSummary.md` |
+| Clean GameMode stalk delta chart | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Baddy_RigidBody_SIECleanGameMode_StalkMaxDelta.png` |
 
 Runtime sampling notes:
 
@@ -469,11 +469,11 @@ compile_and_validate_blueprint(save=false)
 
 Runtime matrix artifact:
 
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_RuntimeDriverMatrix.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_raw.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_raw.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_RuntimeDriverMatrix.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_raw.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_raw.json`
 
 Driver variables found from transition topology:
 
@@ -571,11 +571,11 @@ Remaining state-machine gap:
 
 Read-only artifacts:
 
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SlotLayeredBlend_Inventory.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SlotLayeredBlend_Inventory.csv`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SlotLayeredBlend_Inventory.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UpperBody_InteractionReferenceProbe.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UpperBody_InteractionReferenceProbe.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SlotLayeredBlend_Inventory.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SlotLayeredBlend_Inventory.csv`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SlotLayeredBlend_Inventory.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UpperBody_InteractionReferenceProbe.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UpperBody_InteractionReferenceProbe.json`
 
 Main result:
 
@@ -615,11 +615,11 @@ Runtime artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Raw actor driver samples | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_DriverSamples.json` |
-| Raw actor driver summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_DriverSummary.json` |
-| Raw-vs-BP comparison samples | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_BPCompareSamples.json` |
-| Raw-vs-BP comparison summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_BPCompareSummary.json` |
-| Runtime curve probe summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_CurveProbeSummary.json` |
+| Raw actor driver samples | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_DriverSamples.json` |
+| Raw actor driver summary | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_DriverSummary.json` |
+| Raw-vs-BP comparison samples | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_BPCompareSamples.json` |
+| Raw-vs-BP comparison summary | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_BPCompareSummary.json` |
+| Runtime curve probe summary | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/Bot_ControlRig_CurveProbeSummary.json` |
 
 Observed result:
 
@@ -649,14 +649,14 @@ Direct Control Rig instance artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Direct gate probe JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_DirectGateProbe.json` |
-| Direct gate probe Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_DirectGateProbeSummary.md` |
-| Direct gate metrics CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_DirectGateProbeMetrics.csv` |
-| Direct gate distance chart SVG | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_DirectGateProbeDistances.svg` |
-| MCP direct gate raw JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.json` |
-| MCP direct gate normalized JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe_Normalized.json` |
-| MCP direct gate CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.csv` |
-| MCP direct gate Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.md` |
+| Direct gate probe JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_DirectGateProbe.json` |
+| Direct gate probe Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_DirectGateProbeSummary.md` |
+| Direct gate metrics CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_DirectGateProbeMetrics.csv` |
+| Direct gate distance chart SVG | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/CR_Bot_Correction_DirectGateProbeDistances.svg` |
+| MCP direct gate raw JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.json` |
+| MCP direct gate normalized JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe_Normalized.json` |
+| MCP direct gate CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.csv` |
+| MCP direct gate Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.md` |
 
 Direct probe method:
 
@@ -693,8 +693,8 @@ Feasibility artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Feasibility JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRig_NoCppForcedDriverFeasibility.json` |
-| Feasibility Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRig_NoCppForcedDriverFeasibility.md` |
+| Feasibility JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRig_NoCppForcedDriverFeasibility.json` |
+| Feasibility Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_ControlRig_NoCppForcedDriverFeasibility.md` |
 
 Result:
 
@@ -771,8 +771,8 @@ Feasibility artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Feasibility JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_Trail_NoCppActiveSampleFeasibility.json` |
-| Feasibility Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_Trail_NoCppActiveSampleFeasibility.md` |
+| Feasibility JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_Trail_NoCppActiveSampleFeasibility.json` |
+| Feasibility Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_Trail_NoCppActiveSampleFeasibility.md` |
 
 Result:
 
@@ -791,7 +791,7 @@ Current no-C++ decision:
 
 The compact execution map and sampling checklist live in:
 
-- `D:/Git/CubelessStylized/docs/stackobot-animation-execution-map.md`
+- `<workspace-parent>/CubelessStylized/docs/stackobot-animation-execution-map.md`
 
 ## AnimBP State Machine Inventory
 
@@ -799,15 +799,15 @@ Inventory artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Read API probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_ReadApiProbe.json` |
-| Refreshed ABP_Bot AnimGraph inspect | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_AnimGraphInspect_Refresh.json` |
-| ABP_Baddy AnimGraph inspect | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Baddy_AnimGraphInspect.json` |
-| State graph node/asset probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateGraph_NodeAssetProbe.json` |
-| Compact inventory JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_StateMachineInventory.json` |
-| Compact inventory Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_StateMachineInventory.md` |
-| Transition inventory JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.json` |
-| Transition inventory Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.md` |
-| Project-facing inventory note | `D:/Git/CubelessStylized/docs/stackobot-animbp-inventory.md` |
+| Read API probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_ReadApiProbe.json` |
+| Refreshed ABP_Bot AnimGraph inspect | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_AnimGraphInspect_Refresh.json` |
+| ABP_Baddy AnimGraph inspect | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Baddy_AnimGraphInspect.json` |
+| State graph node/asset probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateGraph_NodeAssetProbe.json` |
+| Compact inventory JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_StateMachineInventory.json` |
+| Compact inventory Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_StateMachineInventory.md` |
+| Transition inventory JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.json` |
+| Transition inventory Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.md` |
+| Project-facing inventory note | `<workspace-parent>/CubelessStylized/docs/stackobot-animbp-inventory.md` |
 
 Key `ABP_Bot` flow:
 
@@ -837,16 +837,16 @@ Transition inventory artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Transition graph GUID/path probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TransitionGraph_GuidProbe.json` |
-| Transition API read probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionApiProbe.json` |
-| Deep transition topology probe JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TransitionTopology_DeepProbe.json` |
-| Deep transition topology probe Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TransitionTopology_DeepProbe.md` |
-| Compact transition inventory JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.json` |
-| Compact transition inventory Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.md` |
-| MCP transition inspect JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect.json` |
-| MCP transition inspect normalized JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect_Normalized.json` |
-| MCP transition inspect CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect.csv` |
-| MCP transition inspect Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect.md` |
+| Transition graph GUID/path probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TransitionGraph_GuidProbe.json` |
+| Transition API read probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionApiProbe.json` |
+| Deep transition topology probe JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TransitionTopology_DeepProbe.json` |
+| Deep transition topology probe Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TransitionTopology_DeepProbe.md` |
+| Compact transition inventory JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.json` |
+| Compact transition inventory Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.md` |
+| MCP transition inspect JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect.json` |
+| MCP transition inspect normalized JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect_Normalized.json` |
+| MCP transition inspect CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect.csv` |
+| MCP transition inspect Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect.md` |
 
 Read result:
 
@@ -872,14 +872,14 @@ Runtime feasibility artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| AnimInstance state API probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_StateApiProbe.json` |
-| Unreal Python state library probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UnrealPython_StateLibraryProbe.json` |
-| SkeletalMeshComponent tick method probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SkeletalMeshComponent_TickMethodProbe.json` |
-| Temp actor setup probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_StateProbe_Setup.json` |
-| SIE immediate mutability probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_SIEMutabilityProbe.json` |
-| SIE delayed mutability probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_SIEDelayedMutabilityProbe.json` |
-| Runtime state probe summary JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_RuntimeStateProbeSummary.json` |
-| Runtime state probe summary Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_RuntimeStateProbeSummary.md` |
+| AnimInstance state API probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_StateApiProbe.json` |
+| Unreal Python state library probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UnrealPython_StateLibraryProbe.json` |
+| SkeletalMeshComponent tick method probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SkeletalMeshComponent_TickMethodProbe.json` |
+| Temp actor setup probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_StateProbe_Setup.json` |
+| SIE immediate mutability probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_SIEMutabilityProbe.json` |
+| SIE delayed mutability probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_SIEDelayedMutabilityProbe.json` |
+| Runtime state probe summary JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_RuntimeStateProbeSummary.json` |
+| Runtime state probe summary Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_RuntimeStateProbeSummary.md` |
 
 Read result:
 
@@ -902,10 +902,10 @@ Animation asset inventory artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Raw read/API probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_ReadApiProbe.json` |
-| BlendSpace detail probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_DetailProbe.json` |
-| Compact inventory JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_Inventory.json` |
-| Compact inventory Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_Inventory.md` |
+| Raw read/API probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_ReadApiProbe.json` |
+| BlendSpace detail probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_DetailProbe.json` |
+| Compact inventory JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_Inventory.json` |
+| Compact inventory Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_Inventory.md` |
 
 Read result:
 
@@ -931,12 +931,12 @@ Sequence motion profile artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Pose sampling API probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_PoseSamplingApiProbe.json` |
-| AnimPose API probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_AnimPoseApiProbe.json` |
-| Full motion profile JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_Profile.json` |
-| Motion profile metrics CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_ProfileMetrics.csv` |
-| Motion profile Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_Profile.md` |
-| Top deltas chart SVG | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_ProfileTopDeltas.svg` |
+| Pose sampling API probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_PoseSamplingApiProbe.json` |
+| AnimPose API probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_AnimPoseApiProbe.json` |
+| Full motion profile JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_Profile.json` |
+| Motion profile metrics CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_ProfileMetrics.csv` |
+| Motion profile Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_Profile.md` |
+| Top deltas chart SVG | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_ProfileTopDeltas.svg` |
 
 Read result:
 
@@ -968,10 +968,10 @@ Artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Source vs runtime JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.json` |
-| Source vs runtime CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.csv` |
-| Source vs runtime Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.md` |
-| Stalk comparison chart | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.svg` |
+| Source vs runtime JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.json` |
+| Source vs runtime CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.csv` |
+| Source vs runtime Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.md` |
+| Stalk comparison chart | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.svg` |
 
 Key numeric comparison:
 
@@ -998,10 +998,10 @@ Artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| BlendSpace pose-map JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.json` |
-| BlendSpace pose-map CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.csv` |
-| BlendSpace pose-map Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.md` |
-| BlendSpace pose-map SVG | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.svg` |
+| BlendSpace pose-map JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.json` |
+| BlendSpace pose-map CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.csv` |
+| BlendSpace pose-map Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.md` |
+| BlendSpace pose-map SVG | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.svg` |
 
 Key readings:
 
@@ -1029,13 +1029,13 @@ Artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| SIE pose grid JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.json` |
-| SIE pose grid CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.csv` |
-| SIE pose grid Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.md` |
-| SIE pose grid SVG | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.svg` |
-| Non-SIE live tick gap probe | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_LiveTickPoseGrid.md` |
-| Reusable MCP runtime pose-grid summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpaceRuntimePoseGridMCP_Summary.json` |
-| Reusable MCP runtime pose-grid raw JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpaceRuntimePoseGridMCP_raw.json` |
+| SIE pose grid JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.json` |
+| SIE pose grid CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.csv` |
+| SIE pose grid Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.md` |
+| SIE pose grid SVG | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.svg` |
+| Non-SIE live tick gap probe | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_LiveTickPoseGrid.md` |
+| Reusable MCP runtime pose-grid summary | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpaceRuntimePoseGridMCP_Summary.json` |
+| Reusable MCP runtime pose-grid raw JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpaceRuntimePoseGridMCP_raw.json` |
 
 Key readings:
 
@@ -1067,16 +1067,16 @@ Artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Control Rig synthesis JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.json` |
-| Control Rig synthesis CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.csv` |
-| Control Rig synthesis Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.md` |
-| Control Rig synthesis SVG | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.svg` |
-| Forced-driver ensure Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure.md` |
-| Forced-driver ensure summary JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure_Summary.json` |
-| Forced-driver ensure normalized JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure_Normalized.json` |
-| Direct pre/post probe Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe.md` |
-| Direct pre/post probe summary JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe_Summary.json` |
-| Direct pre/post probe normalized JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe_Normalized.json` |
+| Control Rig synthesis JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.json` |
+| Control Rig synthesis CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.csv` |
+| Control Rig synthesis Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.md` |
+| Control Rig synthesis SVG | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.svg` |
+| Forced-driver ensure Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure.md` |
+| Forced-driver ensure summary JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure_Summary.json` |
+| Forced-driver ensure normalized JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure_Normalized.json` |
+| Direct pre/post probe Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe.md` |
+| Direct pre/post probe summary JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe_Summary.json` |
+| Direct pre/post probe normalized JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe_Normalized.json` |
 
 Active graph fact:
 
@@ -1144,10 +1144,10 @@ Runtime comparison artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Runtime comparison Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.md` |
-| Runtime comparison JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.json` |
-| Runtime comparison CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.csv` |
-| Runtime comparison chart | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.svg` |
+| Runtime comparison Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.md` |
+| Runtime comparison JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.json` |
+| Runtime comparison CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.csv` |
+| Runtime comparison chart | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.svg` |
 
 Comparison result:
 
@@ -1182,17 +1182,17 @@ Artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| Physics synthesis Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.md` |
-| Physics synthesis JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.json` |
-| Physics synthesis CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.csv` |
-| Compiled node mapping summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_Summary.json` |
-| Compiled node mapping raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_raw.json` |
-| Compiled pose-link mapping summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_Summary.json` |
-| Compiled pose-link mapping raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_raw.json` |
-| PoseWatch same-instance pre/post summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_Summary.json` |
-| PoseWatch same-instance pre/post raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_raw.json` |
-| Trail PoseWatch same-instance pre/post summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_Summary.json` |
-| Trail PoseWatch same-instance pre/post raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_raw.json` |
+| Physics synthesis Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.md` |
+| Physics synthesis JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.json` |
+| Physics synthesis CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.csv` |
+| Compiled node mapping summary | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_Summary.json` |
+| Compiled node mapping raw | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_raw.json` |
+| Compiled pose-link mapping summary | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_Summary.json` |
+| Compiled pose-link mapping raw | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_raw.json` |
+| PoseWatch same-instance pre/post summary | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_Summary.json` |
+| PoseWatch same-instance pre/post raw | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_raw.json` |
+| Trail PoseWatch same-instance pre/post summary | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_Summary.json` |
+| Trail PoseWatch same-instance pre/post raw | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_raw.json` |
 
 Current evidence:
 
@@ -1222,17 +1222,17 @@ Artifacts:
 
 | Purpose | Path |
 | --- | --- |
-| SIE dynamic raw-vs-variant samples | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_RuntimeSamples.json` |
-| Static pose comparison Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.md` |
-| Static pose comparison JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.json` |
-| Static pose comparison CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.csv` |
-| Static pose comparison chart | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.svg` |
-| Pre/post isolation Markdown | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.md` |
-| Pre/post isolation JSON | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.json` |
-| Pre/post isolation CSV | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.csv` |
-| Pre/post isolation chart | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.svg` |
-| PoseWatch same-instance pre/post summary | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_Summary.json` |
-| PoseWatch same-instance pre/post raw | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_raw.json` |
+| SIE dynamic raw-vs-variant samples | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_RuntimeSamples.json` |
+| Static pose comparison Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.md` |
+| Static pose comparison JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.json` |
+| Static pose comparison CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.csv` |
+| Static pose comparison chart | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.svg` |
+| Pre/post isolation Markdown | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.md` |
+| Pre/post isolation JSON | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.json` |
+| Pre/post isolation CSV | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.csv` |
+| Pre/post isolation chart | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.svg` |
+| PoseWatch same-instance pre/post summary | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_Summary.json` |
+| PoseWatch same-instance pre/post raw | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_raw.json` |
 
 Main result:
 

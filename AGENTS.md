@@ -6,6 +6,7 @@
 - Do not assume a fixed drive letter for this sibling folder. On the user's machines it may be under `C:`, `D:`, `F:`, or another workspace drive; resolve it relative to the parent folder of the cloned `CubelessStylized` repository first, and use an absolute path only after discovering it locally.
 - When MCP behavior, tooling, or integration work may require changes in `unreal-mcp-cubeless`, inspect and modify that sibling workspace without requiring the user to repeat this instruction.
 - Keep Git status, diffs, staging, commits, and summaries separate for `CubelessStylized` and `unreal-mcp-cubeless` so changes from the two workspaces are not mixed accidentally.
+- Apply the same drive-independent sibling rule to Python, PowerShell, Unreal scripts, build helpers, MCP wrappers, and executable docs examples. Do not add new execution defaults such as `C:\Git\...`, `D:\Git\...`, or `F:\Git\...`; resolve paths from the active repo, active `.uproject`, sibling folders, or explicit environment variables.
 
 ## Git Automation Rules
 

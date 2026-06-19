@@ -243,7 +243,7 @@ Every authored or probed request should pass
 1. Classification and chosen route.
 2. Exact sample asset paths or explicit statement that the pass is read-only.
 3. Verification artifact paths under
-   `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
+   `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
 4. Runtime result summary: world type, node/input link ids when relevant, key
    deltas or state changes, errors, warnings, and dirty-package status.
 5. Cleanup statement: transient actors removed, SIE ended, editor closed without

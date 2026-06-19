@@ -2,7 +2,7 @@
 
 This manifest records the local learning/sample assets under:
 
-`D:/Git/SampleProject/StackOBot/Content/_MCP_Sample/AnimStudy`
+`<workspace-parent>/SampleProject/StackOBot/Content/_MCP_Sample/AnimStudy`
 
 The StackOBot sample project is not a git repository. Treat these assets as local
 learning artifacts. Do not stage them in `CubelessStylized`, and do not modify
@@ -100,7 +100,7 @@ explicit boundaries until a concrete request justifies new sample authoring.
 
 Primary evidence and runtime artifacts live under:
 
-`D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`
+`<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy`
 
 Use the newest `*TemplateRehearsal*`, `*PoseWatch*`, `*RigidBody*`,
 `*Trail*`, `*BlendSpace*`, and `*ControlRig*` files as proof references.

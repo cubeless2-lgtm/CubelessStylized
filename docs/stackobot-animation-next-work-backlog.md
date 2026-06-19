@@ -42,7 +42,7 @@ with the route matrix and command syntax.
 
 | Item | Trigger | Action |
 | --- | --- | --- |
-| Bridge readiness check | Any StackOBot editor/MCP work | Confirm the StackOBot bridge on `127.0.0.1:55557` and that the active plugin copy is `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`. |
+| Bridge readiness check | Any StackOBot editor/MCP work | Confirm the StackOBot bridge on `127.0.0.1:55557` and that the active plugin copy is `<workspace-parent>/SampleProject/StackOBot/Plugins/UnrealMCP`. |
 | Sample boundary check | Any authoring request | Keep writes under `/Game/_MCP_Sample/AnimStudy` unless original mutation is explicitly approved. |
 | Handoff visibility | Any asset/editor mutation | Show the matching `Tivret handoff` block before execution. |
 | Dirty package check | Any live editor session | Report dirty content/map packages and do not save original maps just to clean up transient actors. |

@@ -15,8 +15,8 @@ For compact MCP command parameter syntax, use:
 
 Scope:
 
-- Reference project: `D:/Git/SampleProject/StackOBot`.
-- Study artifacts: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
+- Reference project: `<workspace-parent>/SampleProject/StackOBot`.
+- Study artifacts: `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
 - Default safe authoring target: `/Game/_MCP_Sample/AnimStudy`.
 - Original StackOBot assets are reference-only unless the user explicitly approves editing them.
 
@@ -182,8 +182,8 @@ Useful StackOBot evidence:
 - Overlay pose is `CashedPose_UpperBody`.
 - `LayeredBoneBlend` uses branch filters around `pelvis`, `thigh_r`, and `thigh_l` to exclude leg branches.
 - Request-template proof artifacts:
-  `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_LayeredBlendTemplateRehearsal_Topology_Summary.json`
-  and `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_LayeredBlendTemplateRehearsal_PoseWatch_Summary.json`.
+  `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_LayeredBlendTemplateRehearsal_Topology_Summary.json`
+  and `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_LayeredBlendTemplateRehearsal_PoseWatch_Summary.json`.
 - The PIE rehearsal captured both `BasePose` and `BlendPoses[0]` in the same runtime AnimInstance with `runtime_graph_prepost=true` and `same_instance_prepost=true`.
 - If no montage or action clip is played, near-zero pose deltas are normal; treat that case as route/instrumentation proof, not as visual overlay proof.
 
@@ -333,7 +333,7 @@ Do not treat an authored animation change as complete until the relevant checks 
 3. Runtime SIE/PIE smoke confirms the expected state, curve, or pose change.
 4. Same-instance PoseWatch pre/post is used for node contribution claims when the command supports that node type.
 5. Dirty package checks are reported, and original StackOBot assets remain unmodified unless explicitly approved.
-6. Artifacts are written under `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
+6. Artifacts are written under `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
 
 ## Safety Notes
 

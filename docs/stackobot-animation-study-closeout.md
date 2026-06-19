@@ -92,7 +92,7 @@ Stable local sample inventory:
 
 - `docs/stackobot-sample-asset-manifest.md`
 - sample root: `/Game/_MCP_Sample/AnimStudy`
-- evidence root: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`
+- evidence root: `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy`
 
 The StackOBot sample project is not a git repository. Treat its `_MCP_Sample`
 assets as local learning artifacts, not versioned deliverables.
@@ -129,7 +129,7 @@ For the non-immediate backlog, use
   Generic Python Montage probing already asserted in `AnimMontage.h:770`.
 - Advanced command availability must be checked against the StackOBot-local
   UnrealMCP plugin copy at
-  `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+  `<workspace-parent>/SampleProject/StackOBot/Plugins/UnrealMCP`.
 - Some proof routes need SIE/PIE for meaningful motion. Static editor-world
   proof is enough only for static Post Process ModifyBone-style deltas.
 

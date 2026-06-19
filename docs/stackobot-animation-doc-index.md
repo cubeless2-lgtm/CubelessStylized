@@ -154,8 +154,8 @@ sibling StackOBot/UnrealMCP paths used by the workflow still exist.
 
 - Original StackOBot assets stay read-only for the first pass.
 - Sample assets go under `/Game/_MCP_Sample/AnimStudy`.
-- Evidence goes under `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
+- Evidence goes under `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
 - Use the StackOBot-local UnrealMCP plugin copy for StackOBot animation-study
-  commands: `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+  commands: `<workspace-parent>/SampleProject/StackOBot/Plugins/UnrealMCP`.
 - Do not broad-probe Montage internals with generic Python.
 - Do not add new C++ until a concrete request hits a documented trigger.

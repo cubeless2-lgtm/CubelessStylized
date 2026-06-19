@@ -13,7 +13,7 @@ Every route must report these fields:
 - whether original StackOBot assets were modified;
 - compile/save result for authored sample assets;
 - runtime world used for proof, such as editor world, SIE, or PIE;
-- evidence artifact paths under `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`;
+- evidence artifact paths under `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy`;
 - command `errors` and `warnings`;
 - dirty content and map package status;
 - cleanup status for transient actors and play sessions;

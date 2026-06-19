@@ -1,8 +1,8 @@
 # StackOBot Animation MCP Command Syntax
 
 Use this as the short syntax sheet for StackOBot animation requests. The full
-tool source remains in `D:/Git/unreal-mcp-cubeless/Python/tools/node_tools.py`
-and `D:/Git/unreal-mcp-cubeless/Docs/Tools/node_tools.md`.
+tool source remains in `../unreal-mcp-cubeless/Python/tools/node_tools.py`
+and `../unreal-mcp-cubeless/Docs/Tools/node_tools.md`.
 
 For the shortest operating guide, start with
 `docs/stackobot-animation-quickstart.md`.
@@ -17,7 +17,7 @@ Default safety rules:
 - Keep `allow_non_sample=false` for authoring commands.
 - Prefer read-only commands before authoring commands.
 - Use the StackOBot-local UnrealMCP plugin copy for StackOBot animation-study commands:
-  `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+  `<workspace-parent>/SampleProject/StackOBot/Plugins/UnrealMCP`.
 - Commands here do not open maps. Do not use generic Python map switching as setup.
 
 ## Command Quick Map
@@ -67,7 +67,7 @@ column names the proof command or explicit no-command boundary.
 | Baddy AnimBP | `/Game/StackOBot/Characters/Blobling/Anim/ABP_Baddy.ABP_Baddy` |
 | Baddy SkeletalMesh | `/Game/StackOBot/Characters/Blobling/SKM_Baddy.SKM_Baddy` |
 | Sample root | `/Game/_MCP_Sample/AnimStudy` |
-| Evidence root | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy` |
+| Evidence root | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy` |
 
 ## Authoring Syntax
 
@@ -301,6 +301,6 @@ Every animation command result should be summarized with:
 - Key pose deltas or state-machine response.
 - Dirty package status after transient actor work.
 - Cleanup status for transient actors, play sessions, and temporary probe assets.
-- Evidence artifact paths under `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
+- Evidence artifact paths under `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
 - C++/API decision: `not needed`, `candidate`, or `implemented`.
 - Residual risk that affects the next request.

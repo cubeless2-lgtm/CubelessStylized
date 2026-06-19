@@ -5,7 +5,7 @@ StackOBot editor assets after the UnrealMCP bridge was restarted.
 
 Scope:
 
-- Project: `D:/Git/SampleProject/StackOBot`
+- Project: `<workspace-parent>/SampleProject/StackOBot`
 - Primary bridge: `127.0.0.1:55557`
 - Editor start: hidden `UE_5.7` editor process
 - Asset mutation: none

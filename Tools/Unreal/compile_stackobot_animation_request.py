@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import time
@@ -21,7 +22,25 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_DocAudit" / "StackOBotAnimationRequestCompiler.json"
 SCHEMA = "stackobot_animation_request_compiler_v1"
 SAMPLE_ROOT = "/Game/_MCP_Sample/AnimStudy"
-EVIDENCE_ROOT = "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy"
+
+
+def _stackobot_project_root() -> Path:
+    env_root = os.environ.get("STACKOBOT_PROJECT_ROOT")
+    if env_root:
+        return Path(env_root).expanduser().resolve()
+
+    workspace_parent = PROJECT_ROOT.parent
+    for candidate in (
+        workspace_parent / "SampleProject" / "StackOBot",
+        workspace_parent / "StackOBot",
+    ):
+        if candidate.exists():
+            return candidate.resolve()
+
+    return (workspace_parent / "SampleProject" / "StackOBot").resolve()
+
+
+EVIDENCE_ROOT = (_stackobot_project_root() / "Saved" / "MCP" / "AnimStudy").as_posix()
 
 
 ROUTES: dict[str, dict[str, Any]] = {

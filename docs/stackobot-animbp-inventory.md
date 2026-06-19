@@ -4,21 +4,21 @@ This is a compact read-only inventory of the original StackOBot Animation Bluepr
 
 Source artifacts:
 
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_ReadApiProbe.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_AnimGraphInspect_Refresh.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Baddy_AnimGraphInspect.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateGraph_NodeAssetProbe.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_StateMachineInventory.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_StateMachineInventory.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_Inventory.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_Inventory.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_Profile.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_ProfileMetrics.csv`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_Profile.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_raw.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_ReadApiProbe.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Bot_AnimGraphInspect_Refresh.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/ABP_Baddy_AnimGraphInspect.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateGraph_NodeAssetProbe.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_StateMachineInventory.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimBP_StateMachineInventory.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionInventory.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_Inventory.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimationAsset_Inventory.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_Profile.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_ProfileMetrics.csv`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SequenceMotion_Profile.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_raw.json`
 
 ## ABP_Bot
 
@@ -92,8 +92,8 @@ Upper-body slot detail:
 | Layered blend node | `AnimGraphNode_LayeredBoneBlend_149` |
 | Blend weight | `1.0` |
 | Branch filters | `pelvis BlendDepth=4`, `thigh_r BlendDepth=-1`, `thigh_l BlendDepth=-1` |
-| Artifact | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SlotLayeredBlend_Inventory.md` |
-| Reference artifact | `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UpperBody_InteractionReferenceProbe.md` |
+| Artifact | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_SlotLayeredBlend_Inventory.md` |
+| Reference artifact | `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UpperBody_InteractionReferenceProbe.md` |
 
 Slot interpretation:
 
@@ -156,18 +156,18 @@ Read result:
 - `ABP_Bot` ground locomotion is `Idle -> Walk/Run` on `GroundSpeed >`, and `Walk/Run -> Idle` on `GroundSpeed <=`.
 - `ABP_Bot` air locomotion includes `IsHovering`, `IsInAir?`, and `MovementInput?` K2 gates plus automatic sequence-player completion transitions.
 - `ABP_Baddy` transitions are `A_Baddy_Idle -> A_Baddy_Walk` on `Is Moving`, and `A_Baddy_Walk -> A_Baddy_Idle` on `NOT Is Moving`.
-- MCP inspect artifact: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect.md`.
-- Deep probe artifact retained as the Python protected-topology gap record: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TransitionTopology_DeepProbe.md`.
+- MCP inspect artifact: `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_StateMachine_TransitionMCPInspect.md`.
+- Deep probe artifact retained as the Python protected-topology gap record: `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TransitionTopology_DeepProbe.md`.
 
 ## Runtime State Probe
 
 Runtime feasibility artifacts:
 
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_StateApiProbe.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UnrealPython_StateLibraryProbe.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_StateProbe_Setup.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_SIEDelayedMutabilityProbe.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_RuntimeStateProbeSummary.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_StateApiProbe.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_UnrealPython_StateLibraryProbe.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_StateProbe_Setup.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_SIEDelayedMutabilityProbe.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstance_RuntimeStateProbeSummary.md`
 
 Current runtime result:
 
@@ -188,10 +188,10 @@ Compiled study variants under `/Game/_MCP_Sample/AnimStudy`:
 
 Verification artifacts:
 
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSetup.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantMeshLink.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_ComponentTemplateProbe.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSummary.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSetup.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantMeshLink.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_ComponentTemplateProbe.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantSummary.md`
 
 Result:
 
@@ -202,10 +202,10 @@ Result:
 
 Impact map artifacts:
 
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.csv`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.svg`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.csv`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_VariantImpactMap.svg`
 
 Impact interpretation:
 
@@ -254,10 +254,10 @@ Motion profile limits:
 
 Offline artifacts:
 
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.csv`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.svg`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.csv`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Baddy_RigidBody_SourceVsRuntime.svg`
 
 Main result:
 
@@ -271,10 +271,10 @@ Main result:
 
 Offline artifacts:
 
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.csv`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.svg`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.csv`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_BlendSpace_SourcePoseMap.svg`
 
 Main result:
 
@@ -288,53 +288,53 @@ Main result:
 
 Runtime-style artifacts:
 
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.csv`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.svg`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.csv`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_SIEPoseGrid.svg`
 
 Main result:
 
 - `BS_Bot_WalkRunLean` input changes produced SIE pose changes, with max location delta from first sample `66.061 cm`.
 - `BS_Bot_RunIdleJump` input changes produced SIE pose changes, with max location delta from first sample `35.438 cm`.
-- A non-SIE full-editor single-node probe also ran and produced `0.0` deltas despite accepted input values, so it is retained as an API-gap artifact: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_LiveTickPoseGrid.md`.
+- A non-SIE full-editor single-node probe also ran and produced `0.0` deltas despite accepted input values, so it is retained as an API-gap artifact: `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlendSpace_LiveTickPoseGrid.md`.
 - Use the SIE pose grid, not the non-SIE single-node probe, when discussing actual engine BlendSpace interpolation.
 
 ## Control Rig Contribution Synthesis
 
 Offline artifacts:
 
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.csv`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.svg`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.csv`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe_Normalized.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ModifyCurveMCPEnsure.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ModifyCurveMCPEnsure_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ModifyCurveMCPEnsure_Normalized.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigInputDefaultsMCPSet.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigInputDefaultsMCPSet_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigInputDefaultsMCPSet_Normalized.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure_Normalized.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe_Normalized.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPoseWatchPrePost_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPoseWatchPrePost_raw.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstanceRuntimeState_MCPInspect.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstanceRuntimeState_MCPInspect_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstanceRuntimeState_MCPInspect_raw.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimRuntimePropertyMCPSet.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimRuntimePropertyMCPSet_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateMachineRuntimeResponseMCPProbe.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateMachineRuntimeResponseMCPProbe_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateMachineRuntimeResponseMCPProbe_raw.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_raw.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.csv`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_Contribution_Synthesis.svg`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe.csv`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRig_DirectGateMCPProbe_Normalized.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ModifyCurveMCPEnsure.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ModifyCurveMCPEnsure_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ModifyCurveMCPEnsure_Normalized.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigInputDefaultsMCPSet.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigInputDefaultsMCPSet_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigInputDefaultsMCPSet_Normalized.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigForcedDriverMCPEnsure_Normalized.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPrePostMCPProbe_Normalized.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPoseWatchPrePost_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ControlRigPoseWatchPrePost_raw.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstanceRuntimeState_MCPInspect.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstanceRuntimeState_MCPInspect_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimInstanceRuntimeState_MCPInspect_raw.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimRuntimePropertyMCPSet.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimRuntimePropertyMCPSet_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateMachineRuntimeResponseMCPProbe.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateMachineRuntimeResponseMCPProbe_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateMachineRuntimeResponseMCPProbe_raw.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimStateRuntimeMetrics_raw.json`
 
 Main result:
 
@@ -391,30 +391,30 @@ Notes:
 - The retained original `ABP_Bot` Trail node still uses `VB VBHead` and remains disconnected.
 - Connecting `VB VBHead` in the sample produced a compile warning because the skeleton could not find that bone, so the clean active sample uses `antenna_04_l`.
 - `ABP_Bot_Trail_Study` and `BP_Bot_Trail_StudyActor` compile with `0` errors and `0` warnings.
-- Runtime comparison artifacts were written to `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.*`.
+- Runtime comparison artifacts were written to `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Bot_Trail_RuntimeComparison.*`.
 - Editor tick and SIE using only mesh-level Post Process defaults produced no measurable Trail-vs-raw difference on transient proof actors.
 - SIE with explicit component-level `set_override_post_process_anim_bp(ABP_Bot_Trail_Study_C, true)` produced measurable Trail output.
 - Strongest measured Trail-vs-raw distance was `antenna_04_l` at about `2.945 cm`; the response grows toward the antenna leaf.
 - `sample_anim_node_pre_post_runtime_pose(mode=isolated_temp_components)` now provides isolated source-bypass vs post-node Trail evidence through disposable `_MCP_Temp` assets.
 - The static no-FakeVelocity case stayed at noise level, about `0.000005 cm`; the controlled temp duplicate with `FakeVelocity=(0,0,80)` produced a strongest `antenna_04_l` delta of about `21.948 cm` translation and `34.072 deg` rotation.
-- Trail isolated sampler artifacts were written to `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostTrailIsolatedTempSmoke_*`.
+- Trail isolated sampler artifacts were written to `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimNodePrePostTrailIsolatedTempSmoke_*`.
 - Temporary proof actors were removed, but `/Game/StackOBot/Maps/Lvl_Empty` stayed dirty from reversible temp actor spawning. Discard by closing the editor without saving.
 
 ## Physics Pre/Post Evidence Synthesis
 
 Offline artifacts:
 
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.csv`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_raw.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_raw.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_raw.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_raw.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.csv`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_Physics_PrePostEvidenceSynthesis.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphMapping_raw.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_CompiledGraphPoseLinks_raw.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PoseWatchPrePost_raw.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_TrailPoseWatchPrePost_raw.json`
 
 Main result:
 
@@ -429,17 +429,17 @@ Main result:
 
 Post Process comparison artifacts:
 
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_RuntimeSamples.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.csv`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.svg`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.md`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.csv`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.svg`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_Summary.json`
-- `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_raw.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_RuntimeSamples.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.csv`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_StaticPoseComparison.svg`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.md`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.csv`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcess_PrePostPoseIsolation.svg`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_Summary.json`
+- `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_PostProcessPoseWatchPrePost_raw.json`
 
 Main result:
 
@@ -464,10 +464,10 @@ Main result:
 - Blueprint variables and function graphs are protected in Python on this UE 5.7 setup.
 - Full pin/link-level transition condition internals are still not expanded through the Python path. Use the C++ MCP topology commands for static graph reads instead of protected Python reflection.
 - Use `inspect_anim_state_machine_transitions` for exact transition source/target state names and rule graph summaries.
-- Use `inspect_anim_instance_runtime_state` for current live PIE/SIE state names, state weights, transition progress, and relevant animation timing; use `set_anim_instance_runtime_property_for_probe` for runtime-only property echo checks; and use `sample_anim_state_machine_runtime_response` for restored property-case snapshots. The real `ABP_Bot` state-change matrix exists at `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_RuntimeDriverMatrix.md`; the remaining state-machine gap is full K2 call topology.
+- Use `inspect_anim_instance_runtime_state` for current live PIE/SIE state names, state weights, transition progress, and relevant animation timing; use `set_anim_instance_runtime_property_for_probe` for runtime-only property echo checks; and use `sample_anim_state_machine_runtime_response` for restored property-case snapshots. The real `ABP_Bot` state-change matrix exists at `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_ABP_Bot_RuntimeDriverMatrix.md`; the remaining state-machine gap is full K2 call topology.
 - Use the SIE BlendSpace pose grid for current engine interpolation evidence; `sample_skeletal_bones_in_sie` is now available for the reusable live component bone/socket read step, while SIE startup/tick orchestration still remains external.
 - Use `controlrig_direct_gate_probe` for repeatable direct-rig gate checks, `ensure_anim_graph_modify_curve_demo` for sample-only `IKBlend_l` / `IK_blend_interact` curve forcing, `set_anim_graph_controlrig_input_defaults` for sample-only `ShouldDoIKTrace` / `InteractionWorldLocation` input-default forcing, `ensure_controlrig_forced_driver_animbp` for the combined sample forced-driver AnimBP, `sample_controlrig_pre_post_runtime_pose` for direct transient same-instance ControlRig pre/post solve deltas, `sample_skeletal_bones_in_sie` for live PIE/SIE component bone/socket reads, `inspect_anim_instance_runtime_state` for live AnimInstance state-machine current-state reads, and the runtime property/response commands for case scaffolding. Use future compiled AnimGraph node-stack instrumentation for exact source-vs-output subtraction; the current synthesis only compares existing source, direct-rig, sample curve-forcing, sample input-default forcing, forced-driver graph assembly, direct-transient pre/post solve, SIE probe, runtime-state inspector, and runtime-property response artifacts.
 - Use `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)` when the next instrumentation step needs to prove that an editor AnimGraph node GUID resolves to a live compiled `FAnimNode_*` instance. Use `mode=pose_watch_capture` for same-instance AnimGraph node input/output pose capture when the selected node has an evaluable runtime pose link path; add `anim_instance_source=post_process` for Post Process AnimBP nodes such as Trail and Transform Modify Bone.
-- Use `inspect_anim_graph_protected_topology` for read-only static AnimGraph nodes, pins, pose-pin summaries, and normalized pose links. Current StackOBot artifacts are `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimGraphProtectedTopology_ControlRig_Summary.json` and `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimGraphProtectedTopology_ControlRig_raw.json`.
-- Use `inspect_blueprint_graph_call_topology` to prove exact static Blueprint call/reference/link topology. Current StackOBot artifacts are `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_Summary.json` and `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_raw.json`.
+- Use `inspect_anim_graph_protected_topology` for read-only static AnimGraph nodes, pins, pose-pin summaries, and normalized pose links. Current StackOBot artifacts are `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimGraphProtectedTopology_ControlRig_Summary.json` and `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_AnimGraphProtectedTopology_ControlRig_raw.json`.
+- Use `inspect_blueprint_graph_call_topology` to prove exact static Blueprint call/reference/link topology. Current StackOBot artifacts are `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_Summary.json` and `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy/StackOBot_BlueprintCallTopology_raw.json`.
 - This inventory did not modify or save original StackOBot assets.

@@ -30,8 +30,8 @@ Start sample-only unless the user explicitly approves original asset mutation.
 Default target paths:
 
 - Sample content root: `/Game/_MCP_Sample/AnimStudy`
-- Evidence root: `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`
-- Reference project: `D:/Git/SampleProject/StackOBot`
+- Evidence root: `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy`
+- Reference project: `<workspace-parent>/SampleProject/StackOBot`
 
 Do not edit original StackOBot assets for a first pass. Use original assets as
 reference inputs and duplicate or create safe sample variants.
@@ -143,7 +143,7 @@ StackOBot 원본 BlendSpace는 수정하지 않는다. `[SourceBlendSpace]`를 �
 [axis/sample coordinate/compatible animation] 변경만 적용한다.
 
 Use route:
-1. StackOBot editor가 `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP` 플러그인 복사본을 쓰는지 확인한다.
+1. StackOBot editor가 `<workspace-parent>/SampleProject/StackOBot/Plugins/UnrealMCP` 플러그인 복사본을 쓰는지 확인한다.
 2. `ensure_blendspace_sample_variant`로 샘플 BlendSpace를 만들거나 재사용한다.
 3. 명시된 축 범위와 샘플 좌표만 바꾸고, skeleton/animation compatibility 실패 시 중단한다.
 4. `sample_blendspace_runtime_pose_grid`로 입력 변화가 실제 pose delta를 만드는지 검증한다.
@@ -337,7 +337,7 @@ Implemented route:
   refuse original asset mutation by default, validate skeleton/animation compatibility,
   save only the sample target, and then run or request `sample_blendspace_runtime_pose_grid`.
 - Command-surface check: for StackOBot work, confirm the active editor is using
-  `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`. The Cubeless plugin copy can lag behind
+  `<workspace-parent>/SampleProject/StackOBot/Plugins/UnrealMCP`. The Cubeless plugin copy can lag behind
   the StackOBot-local study command surface, so do not assume `ensure_blendspace_sample_variant`
   exists outside the StackOBot bridge until that plugin copy is synced and build-verified.
 - Existing `UpperBody` Slot/LayeredBlend route: inspect

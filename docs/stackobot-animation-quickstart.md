@@ -33,10 +33,10 @@ items and record the result in the request run note:
 
 - Local read-only preflight passes:
   `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary`
-- StackOBot project path exists at `D:/Git/SampleProject/StackOBot`.
+- StackOBot project path exists at `<workspace-parent>/SampleProject/StackOBot`.
 - Primary UnrealMCP bridge is reachable on `127.0.0.1:55557`.
 - Active StackOBot plugin copy is
-  `D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP`.
+  `<workspace-parent>/SampleProject/StackOBot/Plugins/UnrealMCP`.
 - Required animation-study command is exposed by that plugin copy; if not,
   treat it as a command-surface sync issue before adding C++.
 - Pre-existing dirty packages are captured before transient actor setup.
@@ -45,7 +45,7 @@ items and record the result in the request run note:
 - Concrete `_MCP_Sample/AnimStudy` sample targets named in route matrix or
   request-run examples are listed in `docs/stackobot-sample-asset-manifest.md`.
 - Evidence output target is
-  `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
+  `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
 
 Use `--require-bridge` when this is the final gate before live editor work.
 

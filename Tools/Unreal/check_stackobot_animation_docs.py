@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 import sys
 import time
@@ -34,6 +35,23 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DOCS_ROOT = PROJECT_ROOT / "docs"
 REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_DocAudit" / "StackOBotAnimationDocsLinkAudit.json"
 SAMPLE_ANIM_STUDY_ROOT = "/Game/_MCP_Sample/AnimStudy"
+
+
+def _stackobot_project_root() -> Path | None:
+    env_root = os.environ.get("STACKOBOT_PROJECT_ROOT")
+    candidates = []
+    if env_root:
+        candidates.append(Path(env_root).expanduser())
+    candidates.extend(
+        [
+            PROJECT_ROOT.parent / "SampleProject" / "StackOBot",
+            PROJECT_ROOT.parent / "StackOBot",
+        ]
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+    return None
 
 RELATIVE_DOC_RE = re.compile(r"(?<![A-Za-z0-9_:/.-])docs/[A-Za-z0-9._/-]+\.md")
 EXAMPLE_SECTION_RE = re.compile(r"^## Example (?P<number>\d+): (?P<title>.+)$", re.MULTILINE)
@@ -73,15 +91,15 @@ DOC_INDEX_LOCAL_CHECK_COMMANDS = [
 
 QUICKSTART_PREFLIGHT_CHECKLIST_TOKENS = {
     "local_runner": "python Tools/Unreal/run_stackobot_animation_local_checks.py --summary",
-    "stackobot_project_path": "D:/Git/SampleProject/StackOBot",
+    "stackobot_project_path": "<workspace-parent>/SampleProject/StackOBot",
     "primary_bridge": "127.0.0.1:55557",
-    "stackobot_plugin_path": "D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP",
+    "stackobot_plugin_path": "<workspace-parent>/SampleProject/StackOBot/Plugins/UnrealMCP",
     "command_surface_sync": "command-surface sync issue",
     "dirty_package_capture": "Pre-existing dirty packages are captured",
     "sample_root": "/Game/_MCP_Sample/AnimStudy",
     "sample_only_flag": "allow_non_sample=false",
     "sample_manifest": "docs/stackobot-sample-asset-manifest.md",
-    "evidence_root": "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+    "evidence_root": "<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy",
     "bridge_required_flag": "--require-bridge",
 }
 
@@ -214,7 +232,7 @@ AUTHORING_COMPLETION_CONTRACT_TOKENS = {
     "acceptance_checklist": "docs/stackobot-animation-acceptance-checklist.md",
     "classification": "Classification and chosen route.",
     "sample_paths_or_read_only": "Exact sample asset paths or explicit statement that the pass is read-only.",
-    "evidence_root": "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+    "evidence_root": "<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy",
     "runtime_summary": "Runtime result summary",
     "node_input_link_ids": "node/input link ids",
     "errors_warnings_dirty": "errors, warnings, and dirty-package status",
@@ -273,8 +291,10 @@ PLAYBOOK_CXX_ESCALATION_TOKENS = {
 EXPECTED_EXTERNAL_PATHS = [
     PROJECT_ROOT.parent / "unreal-mcp-cubeless" / "Python" / "tools" / "node_tools.py",
     PROJECT_ROOT.parent / "unreal-mcp-cubeless" / "Docs" / "Tools" / "node_tools.md",
-    PROJECT_ROOT.parent / "SampleProject" / "StackOBot" / "Plugins" / "UnrealMCP",
 ]
+STACKOBOT_PROJECT_ROOT = _stackobot_project_root()
+if STACKOBOT_PROJECT_ROOT:
+    EXPECTED_EXTERNAL_PATHS.append(STACKOBOT_PROJECT_ROOT / "Plugins" / "UnrealMCP")
 
 REQUIRED_DOC_PATHS = [
     "docs/stackobot-animation-doc-index.md",
@@ -553,9 +573,9 @@ REQUIRED_TOKENS = {
         "run_stackobot_animation_local_checks.py --summary",
         "--require-bridge",
         "docs/stackobot-animation-route-matrix.md",
-        "D:/Git/SampleProject/StackOBot",
+        "<workspace-parent>/SampleProject/StackOBot",
         "127.0.0.1:55557",
-        "D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP",
+        "<workspace-parent>/SampleProject/StackOBot/Plugins/UnrealMCP",
         "/Game/_MCP_Sample/AnimStudy",
         "allow_non_sample=false",
         "Concrete `_MCP_Sample/AnimStudy` sample targets named in route matrix or",
@@ -583,16 +603,16 @@ REQUIRED_TOKENS = {
         "docs/stackobot-animation-tivret-handoff-templates.md",
         "docs/stackobot-cpp-api-decision-matrix.md",
         "/Game/_MCP_Sample/AnimStudy",
-        "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+        "<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy",
         "no new C++ is needed before the next concrete request",
         "AnimMontage.h:770",
-        "D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP",
+        "<workspace-parent>/SampleProject/StackOBot/Plugins/UnrealMCP",
     ],
     "docs/stackobot-animation-next-work-backlog.md": [
         "The next real animation request should start sample-only.",
         "No immediate C++ work is scheduled.",
         "127.0.0.1:55557",
-        "D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP",
+        "<workspace-parent>/SampleProject/StackOBot/Plugins/UnrealMCP",
         "/Game/_MCP_Sample/AnimStudy",
         "ensure_layered_slot_overlay_sample",
         "ensure_state_machine_sample_variant",
@@ -624,7 +644,7 @@ REQUIRED_TOKENS = {
         "C++/API Escalation",
         "Do not broad-probe Montage",
         "/Game/_MCP_Sample/AnimStudy",
-        "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+        "<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy",
         "Do not edit original StackOBot assets",
         "Update Cubeless docs/work-log, then commit only relevant docs or tooling files.",
         "Generic `execute_python` would need unsafe map switching",
@@ -661,16 +681,16 @@ REQUIRED_TOKENS = {
         "Do not add C++ just because a request is complex.",
     ],
     "docs/stackobot-animation-mcp-command-syntax.md": [
-        "D:/Git/unreal-mcp-cubeless/Python/tools/node_tools.py",
-        "D:/Git/unreal-mcp-cubeless/Docs/Tools/node_tools.md",
+        "../unreal-mcp-cubeless/Python/tools/node_tools.py",
+        "../unreal-mcp-cubeless/Docs/Tools/node_tools.md",
         "Start under `/Game/_MCP_Sample/AnimStudy` unless original asset mutation was explicitly approved.",
         "Keep `allow_non_sample=false` for authoring commands.",
-        "D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP",
+        "<workspace-parent>/SampleProject/StackOBot/Plugins/UnrealMCP",
         "Commands here do not open maps. Do not use generic Python map switching as setup.",
         "/Game/StackOBot/Characters/Bot/ABP_Bot.ABP_Bot",
         "/Game/StackOBot/Characters/Bot/Mesh/SKM_Bot.SKM_Bot",
         "/Game/_MCP_Sample/AnimStudy",
-        "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+        "<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy",
         "original_assets_modified=false",
         "sampled_world_type",
         "Dirty package status after transient actor work.",
@@ -694,7 +714,7 @@ REQUIRED_TOKENS = {
         "RigidBody runs in component space by default with `Alpha=1`.",
         "Original `SKM_Bot` still has no Post Process AnimBP assignment.",
         "Do not inspect `AnimMontage` internals with broad Unreal Python reflection",
-        "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+        "<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy",
         "/Game/_MCP_Sample/AnimStudy/ABP_Bot_Trail_Study",
         "same_instance_prepost=true",
         "Use the C++ MCP topology commands for static graph reads instead of protected Python reflection.",
@@ -710,7 +730,7 @@ REQUIRED_TOKENS = {
         "Keep `_MCP_Sample` learning assets disposable and gitignored unless the user explicitly asks to version a specific sample asset.",
     ],
     "docs/stackobot-animation-study.md": [
-        "D:/Git/SampleProject/StackOBot",
+        "<workspace-parent>/SampleProject/StackOBot",
         "/Game/_MCP_Sample/AnimStudy/",
         "Original StackOBot assets were not edited.",
         "original_assets_modified=false",
@@ -766,7 +786,7 @@ REQUIRED_TOKENS = {
         "Final Response Checklist",
     ],
     "docs/stackobot-sample-asset-manifest.md": [
-        "D:/Git/SampleProject/StackOBot/Content/_MCP_Sample/AnimStudy",
+        "<workspace-parent>/SampleProject/StackOBot/Content/_MCP_Sample/AnimStudy",
         "The StackOBot sample project is not a git repository.",
         "Do not stage them in `CubelessStylized`",
         "/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study",
@@ -774,7 +794,7 @@ REQUIRED_TOKENS = {
         "/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ForcedDriver_Study",
         "/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study",
         "/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanTemplateRehearsal",
-        "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+        "<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy",
         "names a concrete",
         "this manifest and the matching `docs/work-log.md` entry",
         "command-surface sync issue",
@@ -1180,7 +1200,7 @@ ACCEPTANCE_UNIVERSAL_PASS_FIELDS = {
     "original_asset_modification": "whether original StackOBot assets were modified",
     "compile_save_result": "compile/save result for authored sample assets",
     "runtime_world": "runtime world used for proof",
-    "evidence_artifact_paths": "evidence artifact paths under `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`",
+    "evidence_artifact_paths": "evidence artifact paths under `<workspace-parent>/SampleProject/StackOBot/Saved/MCP/AnimStudy`",
     "errors_warnings": "command `errors` and `warnings`",
     "dirty_package_status": "dirty content and map package status",
     "cleanup_status": "cleanup status for transient actors and play sessions",
