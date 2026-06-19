@@ -25,6 +25,22 @@ Physics request grammar:
 Sample asset manifest:
 `docs/stackobot-sample-asset-manifest.md`.
 
+## Route Token Evidence Map
+
+Use this after a route token is selected and deeper evidence context is needed. Quick execution should still start from `docs/stackobot-animation-quickstart.md`, `docs/stackobot-animation-route-matrix.md`, and `docs/stackobot-animation-mcp-command-syntax.md`.
+
+| Route token | Evidence section | First read or authoring command | Verification command |
+| --- | --- | --- | --- |
+| `Post Process ModifyBone` | `Post Process Variant Samples`; `Post Process Runtime/Static Comparison` | `ensure_postprocess_anim_demo_variant` | `sample_anim_node_pre_post_runtime_pose` |
+| `BlendSpace sample variant` | `Bot BlendSpace Source Pose Map`; `Bot BlendSpace SIE Pose Grid` | `ensure_blendspace_sample_variant` | `sample_blendspace_runtime_pose_grid` |
+| `Bot Trail sample` | `Trail Controller Status`; `Physics Pre/Post Evidence Synthesis` | `ensure_anim_graph_trail_demo` | `sample_anim_node_pre_post_runtime_pose` |
+| `UpperBody Slot and LayeredBlend` | `Main AnimBP Chains`; `Remaining Study Backlog` | `slot/cached-pose inventory` | `sample_anim_node_pre_post_runtime_pose` |
+| `protected metadata boundary` | `Playback Asset Data`; `Deferred API Work` | `safe animation asset inventory` | `none for protected internals` |
+| `ControlRig gate probe` | `Control Rig Gate Summary`; `Physics Pre/Post Evidence Synthesis` | `inspect_anim_graph_protected_topology`, then `controlrig_direct_gate_probe` | `sample_anim_node_pre_post_runtime_pose` |
+| `state-machine runtime-driver proof` | `Transition Inventory Status`; `Runtime State Probe Status` | `inspect_anim_state_machine_transitions` | `sample_anim_state_machine_runtime_response` |
+| `Baddy RigidBody` | `Baddy RigidBody Source vs Runtime Split`; `Physics Pre/Post Evidence Synthesis` | `inspect_anim_graph_node_settings` | `sample_anim_node_pre_post_runtime_pose` |
+| `node resolver plus same-instance pre/post proof` | `Physics Pre/Post Evidence Synthesis`; `Sampling Checklist`; `Deferred API Work` | `inspect_anim_graph_protected_topology` plus `compiled mapping` | `sample_anim_node_pre_post_runtime_pose` |
+
 ## Runtime Pose Flow
 
 ```mermaid
