@@ -61,6 +61,24 @@ Use `--require-bridge` when this is the final gate before live editor work.
 | Notify, curve, sync marker, Montage internals | protected metadata boundary | Safe inventory only; guarded native API if concrete request needs internals |
 | Which node changed the pose | node resolver plus same-instance pre/post proof | Compiled mapping or PoseWatch pre/post |
 
+## Route Token Quick Map
+
+Use this table after the request compiler chooses an exact route token. It is the
+fast path from the first page to the safest first command and the required proof
+command.
+
+| Route token | First read or authoring command | Verification command |
+| --- | --- | --- |
+| `Post Process ModifyBone` | `ensure_postprocess_anim_demo_variant` | `sample_anim_node_pre_post_runtime_pose` |
+| `BlendSpace sample variant` | `ensure_blendspace_sample_variant` | `sample_blendspace_runtime_pose_grid` |
+| `Bot Trail sample` | `ensure_anim_graph_trail_demo` | `sample_anim_node_pre_post_runtime_pose` |
+| `UpperBody Slot and LayeredBlend` | slot/cached-pose inventory | `sample_anim_node_pre_post_runtime_pose` |
+| `protected metadata boundary` | safe animation asset inventory | none for protected internals |
+| `ControlRig gate probe` | `inspect_anim_graph_protected_topology`, then `controlrig_direct_gate_probe` | `sample_anim_node_pre_post_runtime_pose` |
+| `state-machine runtime-driver proof` | `inspect_anim_state_machine_transitions` | `sample_anim_state_machine_runtime_response` |
+| `Baddy RigidBody` | `inspect_anim_graph_node_settings` | `sample_anim_node_pre_post_runtime_pose` |
+| `node resolver plus same-instance pre/post proof` | `inspect_anim_graph_protected_topology` or compiled mapping | `sample_anim_node_pre_post_runtime_pose` |
+
 ## Do Not Do First
 
 - Do not edit original StackOBot assets for the first pass.

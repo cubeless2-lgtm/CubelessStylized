@@ -86,6 +86,7 @@ REQUIRED_SECTIONS = {
         "## Start Here",
         "## Preflight Checklist",
         "## Route Shortcuts",
+        "## Route Token Quick Map",
         "## Do Not Do First",
         "## Main References",
     ],
@@ -2485,6 +2486,14 @@ def _closeout_ready_route_token_entries() -> list[dict[str, Any]]:
     )
 
 
+def _quickstart_route_token_entries() -> list[dict[str, Any]]:
+    return _route_token_command_row_entries(
+        path_text="docs/stackobot-animation-quickstart.md",
+        heading="## Route Token Quick Map",
+        check_name="quickstart_route_token",
+    )
+
+
 def _command_syntax_result_checklist_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-mcp-command-syntax.md"
     path = PROJECT_ROOT / path_text
@@ -3022,6 +3031,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_closeout_ready_route_tokens = [
         entry for entry in closeout_ready_route_tokens if not entry["matches"]
     ]
+    quickstart_route_tokens = _quickstart_route_token_entries()
+    mismatched_quickstart_route_tokens = [
+        entry for entry in quickstart_route_tokens if not entry["matches"]
+    ]
     command_syntax_result_checklist = _command_syntax_result_checklist_entries()
     missing_command_syntax_result_checklist = [
         entry for entry in command_syntax_result_checklist if not entry["exists"]
@@ -3107,6 +3120,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_physics_route_tokens
         and not mismatched_backlog_route_tokens
         and not mismatched_closeout_ready_route_tokens
+        and not mismatched_quickstart_route_tokens
         and not missing_command_syntax_result_checklist
         and not unsafe_command_syntax_authoring
         and not missing_command_syntax_required_params
@@ -3115,7 +3129,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v66",
+        "schema": "stackobot_animation_docs_link_audit_v67",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3177,6 +3191,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_physics_route_token_count": len(mismatched_physics_route_tokens),
         "mismatched_backlog_route_token_count": len(mismatched_backlog_route_tokens),
         "mismatched_closeout_ready_route_token_count": len(mismatched_closeout_ready_route_tokens),
+        "mismatched_quickstart_route_token_count": len(mismatched_quickstart_route_tokens),
         "missing_command_syntax_result_checklist_count": len(missing_command_syntax_result_checklist),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
         "missing_command_syntax_required_param_count": len(missing_command_syntax_required_params),
@@ -3296,6 +3311,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_backlog_route_tokens": mismatched_backlog_route_tokens,
         "closeout_ready_route_tokens": closeout_ready_route_tokens,
         "mismatched_closeout_ready_route_tokens": mismatched_closeout_ready_route_tokens,
+        "quickstart_route_tokens": quickstart_route_tokens,
+        "mismatched_quickstart_route_tokens": mismatched_quickstart_route_tokens,
         "command_syntax_result_checklist": command_syntax_result_checklist,
         "missing_command_syntax_result_checklist": missing_command_syntax_result_checklist,
         "command_syntax_authoring_safety": command_syntax_authoring_safety,
@@ -3378,6 +3395,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_physics_route_tokens={report['mismatched_physics_route_token_count']} "
             f"mismatched_backlog_route_tokens={report['mismatched_backlog_route_token_count']} "
             f"mismatched_closeout_ready_routes={report['mismatched_closeout_ready_route_token_count']} "
+            f"mismatched_quickstart_route_tokens={report['mismatched_quickstart_route_token_count']} "
             f"missing_command_result_checklist={report['missing_command_syntax_result_checklist_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
             f"missing_command_params={report['missing_command_syntax_required_param_count']} "
@@ -3444,6 +3462,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_physics_route_tokens",
             "mismatched_backlog_route_tokens",
             "mismatched_closeout_ready_route_tokens",
+            "mismatched_quickstart_route_tokens",
             "missing_command_syntax_result_checklist",
             "unsafe_command_syntax_authoring",
             "missing_command_syntax_required_params",
