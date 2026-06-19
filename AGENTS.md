@@ -11,6 +11,7 @@
 - The pre-migration full instruction snapshot is stored at `../CubelessOps/snapshots/CubelessStylized-AGENTS-before-ops-migration.md`.
 - Shared rules in `../CubelessOps` are the durable source for agent roles, Git boundaries, approval follow-through, workspace portability, MCP workflows, asset authoring, image alpha review, texturing, material authoring, packaging workflow, and promoted lessons.
 - This file is the local adapter. It keeps only project-specific bindings and critical safety rules that must remain available even if the sibling Ops repository is not loaded automatically.
+- For local Cubeless work on any PC, prefer the maximum local-work Codex permission profile documented in `../CubelessOps/docs/policies/local-permission-profile.md`. If this session is restrictive, report the active permission state before broad project/MCP or sibling-repository work.
 
 ## Related Workspace Scope
 
@@ -119,6 +120,7 @@
 - Trigger this mode when the user says `이에타 C++ 리뷰`, `이에타 C++ staged 리뷰`, `이에타 C++ 커밋 전 리뷰`, `이에타 UnrealMCP C++ 리뷰`, or equivalent wording.
 - Review only C++ and Unreal build-related files by default: `.cpp`, `.h`, `.hpp`, `.inl`, `.Build.cs`, and `.Target.cs`.
 - Prioritize findings over summaries. Report concrete bugs, crash risks, behavioral regressions, missing verification, and Unreal-specific lifecycle hazards first.
+- Apply `../CubelessOps/docs/workflows/unreal-cpp-review.md` first when available.
 - Apply `docs/unreal-cpp-conventions.md` when reviewing naming, file structure, UObject ownership, module boundaries, Slate/editor UI, async/socket work, and verification expectations.
 
 ## Selected Static Mesh Texture Workflow
