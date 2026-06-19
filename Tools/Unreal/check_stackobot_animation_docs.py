@@ -1391,6 +1391,40 @@ def _route_matrix_sample_target_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _route_matrix_any_token_entries(
+    rules: dict[str, list[str]],
+    field_name: str,
+) -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-route-matrix.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    execution_matrix = _markdown_heading_section(text, "## Execution Matrix")
+    entries: list[dict[str, Any]] = []
+
+    for route_token, expected_tokens in rules.items():
+        row = next(
+            (
+                line
+                for line in execution_matrix.splitlines()
+                if f"`{route_token}`" in line
+            ),
+            "",
+        )
+        entries.append(
+            {
+                "path": path_text,
+                "field": field_name,
+                "route_token": route_token,
+                "row": row,
+                "expected_tokens": expected_tokens,
+                "exists": bool(row),
+                "matches": bool(row) and _contains_any(row, set(expected_tokens)),
+            }
+        )
+
+    return entries
+
+
 def _contains_any(value: str, needles: list[str] | set[str]) -> bool:
     return any(needle in value for needle in needles)
 
@@ -2271,6 +2305,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_route_matrix_sample_targets = [
         entry for entry in route_matrix_sample_targets if not entry["matches"]
     ]
+    route_matrix_first_commands = _route_matrix_any_token_entries(
+        REQUEST_EXAMPLE_ROUTE_FIRST_COMMAND_RULES,
+        "first_command",
+    )
+    mismatched_route_matrix_first_commands = [
+        entry for entry in route_matrix_first_commands if not entry["matches"]
+    ]
+    route_matrix_verifications = _route_matrix_any_token_entries(
+        REQUEST_EXAMPLE_ROUTE_VERIFICATION_RULES,
+        "verification_command",
+    )
+    mismatched_route_matrix_verifications = [
+        entry for entry in route_matrix_verifications if not entry["matches"]
+    ]
     request_example_route_coverage = _request_example_route_coverage_entries()
     missing_request_example_route_coverage = [
         entry for entry in request_example_route_coverage if not entry["exists"]
@@ -2448,6 +2496,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not unsafe_request_examples
         and not missing_sample_target_manifest_entries
         and not mismatched_route_matrix_sample_targets
+        and not mismatched_route_matrix_first_commands
+        and not mismatched_route_matrix_verifications
         and not missing_request_example_route_coverage
         and not missing_request_compiler_route_coverage
         and not mismatched_request_example_route_handoffs
@@ -2483,7 +2533,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v48",
+        "schema": "stackobot_animation_docs_link_audit_v49",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2499,6 +2549,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "unsafe_request_example_count": len(unsafe_request_examples),
         "missing_sample_target_manifest_count": len(missing_sample_target_manifest_entries),
         "mismatched_route_matrix_sample_target_count": len(mismatched_route_matrix_sample_targets),
+        "mismatched_route_matrix_first_command_count": len(mismatched_route_matrix_first_commands),
+        "mismatched_route_matrix_verification_count": len(mismatched_route_matrix_verifications),
         "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
         "missing_request_compiler_route_coverage_count": len(missing_request_compiler_route_coverage),
         "mismatched_request_example_route_handoff_count": len(mismatched_request_example_route_handoffs),
@@ -2548,6 +2600,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_sample_target_manifest_entries": missing_sample_target_manifest_entries,
         "route_matrix_sample_targets": route_matrix_sample_targets,
         "mismatched_route_matrix_sample_targets": mismatched_route_matrix_sample_targets,
+        "route_matrix_first_commands": route_matrix_first_commands,
+        "mismatched_route_matrix_first_commands": mismatched_route_matrix_first_commands,
+        "route_matrix_verifications": route_matrix_verifications,
+        "mismatched_route_matrix_verifications": mismatched_route_matrix_verifications,
         "request_example_route_coverage": request_example_route_coverage,
         "missing_request_example_route_coverage": missing_request_example_route_coverage,
         "request_compiler_route_coverage": request_compiler_route_coverage,
@@ -2638,6 +2694,8 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"unsafe_request_examples={report['unsafe_request_example_count']} "
             f"missing_sample_target_manifest={report['missing_sample_target_manifest_count']} "
             f"mismatched_route_matrix_sample_targets={report['mismatched_route_matrix_sample_target_count']} "
+            f"mismatched_route_matrix_first_commands={report['mismatched_route_matrix_first_command_count']} "
+            f"mismatched_route_matrix_verifications={report['mismatched_route_matrix_verification_count']} "
             f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
             f"missing_request_compiler_routes={report['missing_request_compiler_route_coverage_count']} "
             f"mismatched_request_example_route_handoffs={report['mismatched_request_example_route_handoff_count']} "
@@ -2685,6 +2743,8 @@ def _format_summary(report: dict[str, Any]) -> str:
             "unsafe_request_examples",
             "missing_sample_target_manifest_entries",
             "mismatched_route_matrix_sample_targets",
+            "mismatched_route_matrix_first_commands",
+            "mismatched_route_matrix_verifications",
             "missing_request_example_route_coverage",
             "missing_request_compiler_route_coverage",
             "mismatched_request_example_route_handoffs",
