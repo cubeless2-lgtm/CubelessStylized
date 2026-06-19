@@ -42,10 +42,10 @@ JSON_FENCE_RE = re.compile(r"```json\n(?P<body>.*?)\n```", re.DOTALL)
 EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 SAMPLE_ASSET_PATH_RE = re.compile(r"/Game/_MCP_Sample/AnimStudy/[A-Za-z0-9_]+")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
-DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v85"
+DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v86"
 
 LOCAL_CHECK_RUNNER_SCHEMA_TOKENS = {
-    "local_check_schema": '"schema": "stackobot_animation_local_checks_v6"',
+    "local_check_schema": '"schema": "stackobot_animation_local_checks_v7"',
     "expected_docs_audit_schema": f'EXPECTED_DOCS_AUDIT_SCHEMA = "{DOCS_AUDIT_SCHEMA}"',
     "expected_preflight_schema": 'EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"',
     "expected_staging_scope_schema": 'EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"',
@@ -54,6 +54,16 @@ LOCAL_CHECK_RUNNER_SCHEMA_TOKENS = {
     "checker_staging_scope_compile_target": '"Tools/Unreal/check_stackobot_animation_staging_scope.py"',
     "checker_local_runner_compile_target": '"Tools/Unreal/run_stackobot_animation_local_checks.py"',
 }
+
+DOC_INDEX_LOCAL_CHECK_COMMANDS = [
+    "python Tools/Unreal/run_stackobot_animation_local_checks.py --summary",
+    "python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean",
+    "python Tools/Unreal/check_stackobot_animation_preflight.py --summary",
+    "python Tools/Unreal/check_stackobot_animation_preflight.py --summary --require-bridge",
+    "python Tools/Unreal/check_stackobot_animation_docs.py --summary",
+    "python Tools/Unreal/check_stackobot_animation_staging_scope.py --summary",
+    "python Tools/Unreal/check_stackobot_animation_docs.py --write-report",
+]
 
 EXPECTED_EXTERNAL_PATHS = [
     PROJECT_ROOT.parent / "unreal-mcp-cubeless" / "Python" / "tools" / "node_tools.py",
@@ -2911,6 +2921,22 @@ def _local_check_runner_schema_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _doc_index_local_check_command_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-doc-index.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Local Checks")
+    return [
+        {
+            "path": path_text,
+            "section": "## Local Checks",
+            "command": command,
+            "exists": command in section,
+        }
+        for command in DOC_INDEX_LOCAL_CHECK_COMMANDS
+    ]
+
+
 def _preflight_required_command_entries() -> list[dict[str, Any]]:
     path_text = "Tools/Unreal/check_stackobot_animation_preflight.py"
     path = PROJECT_ROOT / path_text
@@ -3544,6 +3570,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_local_check_runner_schemas = [
         entry for entry in local_check_runner_schemas if not entry["exists"]
     ]
+    doc_index_local_check_commands = _doc_index_local_check_command_entries()
+    missing_doc_index_local_check_commands = [
+        entry for entry in doc_index_local_check_commands if not entry["exists"]
+    ]
     preflight_required_commands = _preflight_required_command_entries()
     missing_preflight_required_commands = [
         entry for entry in preflight_required_commands if not entry["exists"]
@@ -3647,6 +3677,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_execution_evidence_sections
         and not missing_command_syntax_result_checklist
         and not missing_local_check_runner_schemas
+        and not missing_doc_index_local_check_commands
         and not missing_preflight_required_commands
         and not unsafe_command_syntax_authoring
         and not missing_command_syntax_required_params
@@ -3735,6 +3766,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_execution_evidence_section_count": len(missing_execution_evidence_sections),
         "missing_command_syntax_result_checklist_count": len(missing_command_syntax_result_checklist),
         "missing_local_check_runner_schema_count": len(missing_local_check_runner_schemas),
+        "missing_doc_index_local_check_command_count": len(missing_doc_index_local_check_commands),
         "missing_preflight_required_command_count": len(missing_preflight_required_commands),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
         "missing_command_syntax_required_param_count": len(missing_command_syntax_required_params),
@@ -3890,6 +3922,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_command_syntax_result_checklist": missing_command_syntax_result_checklist,
         "local_check_runner_schemas": local_check_runner_schemas,
         "missing_local_check_runner_schemas": missing_local_check_runner_schemas,
+        "doc_index_local_check_commands": doc_index_local_check_commands,
+        "missing_doc_index_local_check_commands": missing_doc_index_local_check_commands,
         "preflight_required_commands": preflight_required_commands,
         "missing_preflight_required_commands": missing_preflight_required_commands,
         "command_syntax_authoring_safety": command_syntax_authoring_safety,
@@ -3990,6 +4024,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_execution_evidence_sections={report['missing_execution_evidence_section_count']} "
             f"missing_command_result_checklist={report['missing_command_syntax_result_checklist_count']} "
             f"missing_local_check_runner_schemas={report['missing_local_check_runner_schema_count']} "
+            f"missing_doc_index_local_check_commands={report['missing_doc_index_local_check_command_count']} "
             f"missing_preflight_required_commands={report['missing_preflight_required_command_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
             f"missing_command_params={report['missing_command_syntax_required_param_count']} "
@@ -4074,6 +4109,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_execution_evidence_sections",
             "missing_command_syntax_result_checklist",
             "missing_local_check_runner_schemas",
+            "missing_doc_index_local_check_commands",
             "missing_preflight_required_commands",
             "unsafe_command_syntax_authoring",
             "missing_command_syntax_required_params",
