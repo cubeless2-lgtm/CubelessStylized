@@ -8,7 +8,7 @@ request-run route and acceptance-focus coverage, and command/sample-path guards 
 present, request-run routes map to the expected handoff templates and
 first/verification commands, target character/body area, timing type, runtime layer,
 C++/API status, expected evidence, sample target scope, plus route-specific
-acceptance focus and approval boundaries, and acceptance
+acceptance focus and approval boundaries, request compiler route coverage, and acceptance
 universal/route/evidence/reporting fields plus escalation triggers are
 preserved. It also confirms the sibling/sample workspace paths used by the
 workflow still exist on this machine.
@@ -582,6 +582,45 @@ REQUEST_EXAMPLE_ROUTE_COVERAGE = {
     "state_machine_runtime_driver": "state-machine runtime-driver proof",
     "rigidbody_physics": "Baddy RigidBody",
     "node_contribution_proof": "node resolver plus same-instance pre/post proof",
+}
+
+REQUEST_COMPILER_ROUTE_COVERAGE_RULES = {
+    "post_process_modifybone": {
+        "signal_tokens": ["머리", "Post Process ModifyBone", "ensure_postprocess_anim_demo_variant"],
+        "drill_tokens": ["Bot 머리를 오른쪽으로 5도", "Post Process ModifyBone", "no-SIE Post Process PoseWatch"],
+    },
+    "blendspace_sample_variant": {
+        "signal_tokens": ["기울", "BlendSpace sample variant", "ensure_blendspace_sample_variant"],
+        "drill_tokens": ["달릴 때 좌우 기울기", "BlendSpace sample variant", "sample_blendspace_runtime_pose_grid"],
+    },
+    "trail_secondary_motion": {
+        "signal_tokens": ["안테나", "Trail or secondary motion", "ensure_anim_graph_trail_demo"],
+        "drill_tokens": ["안테나가 달릴 때", "Trail secondary motion", "SIE Post Process PoseWatch"],
+    },
+    "upperbody_layeredblend": {
+        "signal_tokens": ["상체", "UpperBody Slot/LayeredBlend", "all-input PoseWatch"],
+        "drill_tokens": ["움직이면서 버튼", "UpperBody Slot/LayeredBlend", "New overlay/action source remains candidate"],
+    },
+    "protected_metadata": {
+        "signal_tokens": ["notify", "Protected metadata", "Existing safe inventory only"],
+        "drill_tokens": ["몽타주 notify", "Protected metadata", "Candidate guarded native API"],
+    },
+    "controlrig_late_correction": {
+        "signal_tokens": ["발", "ControlRig late correction", "controlrig_direct_gate_probe"],
+        "drill_tokens": ["상호작용 지점", "ControlRig late correction", "ControlRig same-instance PoseWatch"],
+    },
+    "state_machine_runtime_driver": {
+        "signal_tokens": ["transition", "State machine/runtime driver", "inspect_anim_state_machine_transitions"],
+        "drill_tokens": ["점프에서 착지", "State machine/runtime driver", "runtime state response cases"],
+    },
+    "rigidbody_physics": {
+        "signal_tokens": ["말랑", "RigidBody physics", "inspect_anim_graph_node_settings"],
+        "drill_tokens": ["Baddy 줄기", "RigidBody sample tuning", "SIE variant metrics or PoseWatch"],
+    },
+    "node_contribution_proof": {
+        "signal_tokens": ["which node", "Instrumentation", "sample_anim_node_pre_post_runtime_pose"],
+        "drill_tokens": ["어느 노드", "Instrumentation", "compiled mapping"],
+    },
 }
 
 REQUEST_EXAMPLE_ROUTE_HANDOFF_RULES = {
@@ -1308,6 +1347,34 @@ def _request_example_route_coverage_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _request_compiler_route_coverage_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-request-compiler-drills.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    sections = {
+        "signal_words": _markdown_heading_section(text, "## Signal Words"),
+        "drill_table": _markdown_heading_section(text, "## Drill Table"),
+    }
+    entries: list[dict[str, Any]] = []
+    for route_key, rules in REQUEST_COMPILER_ROUTE_COVERAGE_RULES.items():
+        for section_key, tokens_key in [
+            ("signal_words", "signal_tokens"),
+            ("drill_table", "drill_tokens"),
+        ]:
+            section_text = sections[section_key]
+            for token in rules[tokens_key]:
+                entries.append(
+                    {
+                        "path": path_text,
+                        "route_key": route_key,
+                        "section": section_key,
+                        "token": token,
+                        "exists": token in section_text,
+                    }
+                )
+    return entries
+
+
 def _request_example_route_tokens(route: str, rules: dict[str, Any]) -> list[str]:
     return [token for token in rules if token in route]
 
@@ -2004,6 +2071,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_request_example_route_coverage = [
         entry for entry in request_example_route_coverage if not entry["exists"]
     ]
+    request_compiler_route_coverage = _request_compiler_route_coverage_entries()
+    missing_request_compiler_route_coverage = [
+        entry for entry in request_compiler_route_coverage if not entry["exists"]
+    ]
     request_example_route_handoffs = _request_example_route_handoff_entries()
     mismatched_request_example_route_handoffs = [
         entry
@@ -2152,6 +2223,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_example_fields
         and not unsafe_request_examples
         and not missing_request_example_route_coverage
+        and not missing_request_compiler_route_coverage
         and not mismatched_request_example_route_handoffs
         and not mismatched_request_example_route_first_commands
         and not mismatched_request_example_route_target_characters
@@ -2181,7 +2253,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v35",
+        "schema": "stackobot_animation_docs_link_audit_v36",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2196,6 +2268,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_example_field_count": len(missing_example_fields),
         "unsafe_request_example_count": len(unsafe_request_examples),
         "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
+        "missing_request_compiler_route_coverage_count": len(missing_request_compiler_route_coverage),
         "mismatched_request_example_route_handoff_count": len(mismatched_request_example_route_handoffs),
         "mismatched_request_example_route_first_command_count": len(mismatched_request_example_route_first_commands),
         "mismatched_request_example_route_target_character_count": len(mismatched_request_example_route_target_characters),
@@ -2237,6 +2310,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "unsafe_request_examples": unsafe_request_examples,
         "request_example_route_coverage": request_example_route_coverage,
         "missing_request_example_route_coverage": missing_request_example_route_coverage,
+        "request_compiler_route_coverage": request_compiler_route_coverage,
+        "missing_request_compiler_route_coverage": missing_request_compiler_route_coverage,
         "request_example_route_handoffs": request_example_route_handoffs,
         "mismatched_request_example_route_handoffs": mismatched_request_example_route_handoffs,
         "request_example_route_first_commands": request_example_route_first_commands,
@@ -2314,6 +2389,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_example_fields={report['missing_example_field_count']} "
             f"unsafe_request_examples={report['unsafe_request_example_count']} "
             f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
+            f"missing_request_compiler_routes={report['missing_request_compiler_route_coverage_count']} "
             f"mismatched_request_example_route_handoffs={report['mismatched_request_example_route_handoff_count']} "
             f"mismatched_request_example_first_commands={report['mismatched_request_example_route_first_command_count']} "
             f"mismatched_request_example_target_characters={report['mismatched_request_example_route_target_character_count']} "
@@ -2354,6 +2430,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_example_fields",
             "unsafe_request_examples",
             "missing_request_example_route_coverage",
+            "missing_request_compiler_route_coverage",
             "mismatched_request_example_route_handoffs",
             "mismatched_request_example_route_first_commands",
             "mismatched_request_example_route_target_characters",
