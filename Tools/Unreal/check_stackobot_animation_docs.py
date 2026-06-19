@@ -2615,6 +2615,39 @@ def _playbook_route_failure_entries() -> list[dict[str, Any]]:
     )
 
 
+def _playbook_route_failure_cxx_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-request-playbook.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Route Token Failure Map")
+    entries: list[dict[str, Any]] = []
+
+    for route_token, expected_tokens in REQUEST_EXAMPLE_ROUTE_CXX_STATUS_RULES.items():
+        row = next(
+            (
+                line
+                for line in section.splitlines()
+                if f"`{route_token}`" in line
+            ),
+            "",
+        )
+        lower_row = row.lower()
+        expected_lower = [token.lower() for token in expected_tokens]
+        entries.append(
+            {
+                "path": path_text,
+                "section": "## Route Token Failure Map",
+                "route_token": route_token,
+                "row": row,
+                "expected_tokens": expected_tokens,
+                "exists": bool(row),
+                "matches": bool(row) and _contains_any(lower_row, set(expected_lower)),
+            }
+        )
+
+    return entries
+
+
 def _animbp_authoring_pattern_route_entries() -> list[dict[str, Any]]:
     return _route_token_command_row_entries(
         path_text="docs/stackobot-animbp-authoring-patterns.md",
@@ -3272,6 +3305,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_playbook_route_failures = [
         entry for entry in playbook_route_failures if not entry["matches"]
     ]
+    playbook_route_failure_cxx = _playbook_route_failure_cxx_entries()
+    mismatched_playbook_route_failure_cxx = [
+        entry for entry in playbook_route_failure_cxx if not entry["matches"]
+    ]
     animbp_authoring_pattern_routes = _animbp_authoring_pattern_route_entries()
     mismatched_animbp_authoring_pattern_routes = [
         entry
@@ -3397,6 +3434,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_authoring_route_templates
         and not mismatched_playbook_route_map
         and not mismatched_playbook_route_failures
+        and not mismatched_playbook_route_failure_cxx
         and not mismatched_animbp_authoring_pattern_routes
         and not mismatched_physics_route_tokens
         and not mismatched_backlog_route_tokens
@@ -3414,7 +3452,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v77",
+        "schema": "stackobot_animation_docs_link_audit_v78",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3478,6 +3516,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_authoring_route_template_count": len(mismatched_authoring_route_templates),
         "mismatched_playbook_route_map_count": len(mismatched_playbook_route_map),
         "mismatched_playbook_route_failure_count": len(mismatched_playbook_route_failures),
+        "mismatched_playbook_route_failure_cxx_count": len(mismatched_playbook_route_failure_cxx),
         "mismatched_animbp_authoring_pattern_route_count": len(mismatched_animbp_authoring_pattern_routes),
         "mismatched_physics_route_token_count": len(mismatched_physics_route_tokens),
         "mismatched_backlog_route_token_count": len(mismatched_backlog_route_tokens),
@@ -3610,6 +3649,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_playbook_route_map": mismatched_playbook_route_map,
         "playbook_route_failures": playbook_route_failures,
         "mismatched_playbook_route_failures": mismatched_playbook_route_failures,
+        "playbook_route_failure_cxx": playbook_route_failure_cxx,
+        "mismatched_playbook_route_failure_cxx": mismatched_playbook_route_failure_cxx,
         "animbp_authoring_pattern_routes": animbp_authoring_pattern_routes,
         "mismatched_animbp_authoring_pattern_routes": mismatched_animbp_authoring_pattern_routes,
         "physics_route_tokens": physics_route_tokens,
@@ -3712,6 +3753,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_authoring_route_templates={report['mismatched_authoring_route_template_count']} "
             f"mismatched_playbook_route_map={report['mismatched_playbook_route_map_count']} "
             f"mismatched_playbook_route_failures={report['mismatched_playbook_route_failure_count']} "
+            f"mismatched_playbook_route_failure_cxx={report['mismatched_playbook_route_failure_cxx_count']} "
             f"mismatched_animbp_authoring_patterns={report['mismatched_animbp_authoring_pattern_route_count']} "
             f"mismatched_physics_route_tokens={report['mismatched_physics_route_token_count']} "
             f"mismatched_backlog_route_tokens={report['mismatched_backlog_route_token_count']} "
@@ -3789,6 +3831,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_authoring_route_templates",
             "mismatched_playbook_route_map",
             "mismatched_playbook_route_failures",
+            "mismatched_playbook_route_failure_cxx",
             "mismatched_animbp_authoring_pattern_routes",
             "mismatched_physics_route_tokens",
             "mismatched_backlog_route_tokens",
