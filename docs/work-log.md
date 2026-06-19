@@ -2,6 +2,17 @@
 
 Durable local fallback for project memory when Notion capture is unavailable.
 
+## 2026-06-19 - UDS Static Cloud Cubeless V2 sky dome
+
+- Replaced the earlier 8-plane direction for this work with a V2-only path under `/Game/Cubeless/SKY`: the saved target level is `/Game/Cubeless/SKY/Test_UnusedUDS_V2`, and the placed sky uses the UDS sky dome mesh `/Game/UltraDynamicSky/Meshes/Ultra_Dynamic_Sky_Sphere`.
+- Built `/Game/Cubeless/SKY/V2/Materials/M_Cubeless_UDSStaticCloud_SkyDome_V2` as the Cubeless-owned UDS Static Cloud sky-dome material. UDS textures are allowed and retained, but the graph is no longer a UDS material/function chain.
+- Recursively expanded the copied static-cloud function chain into the final material, including nested function calls. Final verification reported `node_count=898`, `material_function_call_count=0`, `custom_hlsl_count=0`, `MD_Surface`, `BLEND_Opaque`, `MSM_Unlit`, and `compile_error_count=0`.
+- Added `/Game/Cubeless/SKY/V2/MPC/MPC_Cubeless_UDSStaticCloud_V2` for Cubeless MPC ownership. All `24` final `MaterialExpressionCollectionParameter` nodes target this MPC, with `mismatched_id_count=0` and `missing_collection_parameter_count=0`.
+- The V2 level contains `CubelessV2_UDSStaticCloud_SkyDome`, `CubelessV2_UDSRef_Sun`, `CubelessV2_UDSRef_Moon`, `CubelessV2_UDSRef_SkyLight`, and `CubelessV2_UDSRef_SkyAtmosphere`, with light and atmosphere values copied from `/Game/Cubeless/SKY/Test_UDS`.
+- Dependency validation after cached expression refresh reported no UDS material/function/MPC dependency in the final material. Remaining UDS dependencies are the intentionally reused textures `/Game/UltraDynamicSky/Textures/StaticClouds/StaticClouds_A` and `/Game/UltraDynamicSky/Textures/3D_Clouds/3D_Cells_32`; the level intentionally depends on the UDS sky sphere mesh.
+- Visual QA capture was written to `Saved/UDS_Analysis/Test_UnusedUDS_V2_staticcloud_review.png`; it passed the review-image opaque-alpha hook with final alpha extrema `[255, 255]` and nonblank pixel stats.
+- Final dirty-package verification reported `dirty_content=[]` and `dirty_maps=[]`.
+
 ## 2026-06-18 - Multi-project agent operations design note
 
 - User proposed splitting this topic into a new session titled `상위 이에타 멀티프로젝트 운영 설계`.
