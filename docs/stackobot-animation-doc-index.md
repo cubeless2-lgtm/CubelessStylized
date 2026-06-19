@@ -26,6 +26,24 @@ the first useful page for each situation.
 | Show the visible instruction before Tivret performs asset/editor work | `docs/stackobot-animation-tivret-handoff-templates.md` |
 | Find exact MCP command parameters and common asset paths | `docs/stackobot-animation-mcp-command-syntax.md` |
 
+## Route Coverage
+
+Use this table after the request compiler has produced a route token. Open the
+quickstart for the short path, then compare the route matrix and request-run
+examples before filling a request record.
+
+| Route token | Open first | Compare with | Example source |
+| --- | --- | --- | --- |
+| `Post Process ModifyBone` | `docs/stackobot-animation-quickstart.md` | `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-request-run-examples.md` |
+| `BlendSpace sample variant` | `docs/stackobot-animation-quickstart.md` | `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-request-run-examples.md` |
+| `Bot Trail sample` | `docs/stackobot-animation-quickstart.md` | `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-request-run-examples.md` |
+| `UpperBody Slot and LayeredBlend` | `docs/stackobot-animation-quickstart.md` | `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-request-run-examples.md` |
+| `protected metadata boundary` | `docs/stackobot-animation-quickstart.md` | `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-request-run-examples.md` |
+| `ControlRig gate probe` | `docs/stackobot-animation-quickstart.md` | `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-request-run-examples.md` |
+| `state-machine runtime-driver proof` | `docs/stackobot-animation-quickstart.md` | `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-request-run-examples.md` |
+| `Baddy RigidBody` | `docs/stackobot-animation-quickstart.md` | `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-request-run-examples.md` |
+| `node resolver plus same-instance pre/post proof` | `docs/stackobot-animation-quickstart.md` | `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-request-run-examples.md` |
+
 ## Route Deep Dives
 
 | Topic | Document |
@@ -43,13 +61,14 @@ the first useful page for each situation.
 
 1. Open quickstart.
 2. Compile the request.
-3. Copy the request run template if the work will touch editor state or create
+3. Compare the compiled route token against Route Coverage and the route matrix.
+4. Copy the request run template if the work will touch editor state or create
    sample evidence.
-4. Pick the route and visible handoff.
-5. Run sample-only unless original mutation is approved.
-6. Verify against the acceptance checklist.
-7. Check the C++ matrix only if the safe route is blocked.
-8. Record results in `docs/work-log.md`.
+5. Pick the route and visible handoff.
+6. Run sample-only unless original mutation is approved.
+7. Verify against the acceptance checklist.
+8. Check the C++ matrix only if the safe route is blocked.
+9. Record results in `docs/work-log.md`.
 
 ## Local Checks
 

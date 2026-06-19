@@ -9193,3 +9193,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added the missing node contribution shortcut so quickstart covers all nine request-run example routes.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_quickstart_route_shortcuts=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot doc index route coverage audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v54`.
+- Added `Route Coverage` to `docs/stackobot-animation-doc-index.md` so compiled route tokens point back to quickstart, route matrix, and request-run examples from the first navigation page.
+- Added an audit guard that requires the doc index route coverage section to retain all request-run example route tokens and the core route comparison docs.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_doc_index_route_coverage=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

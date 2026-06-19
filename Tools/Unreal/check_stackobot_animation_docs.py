@@ -4,7 +4,7 @@ This local/read-only check validates that StackOBot study docs point to existing
 relative docs, required study documents still exist, the doc index covers the
 required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters,
-request-run route and acceptance-focus coverage, and command/sample-path guards are
+doc-index route coverage, request-run route and acceptance-focus coverage, and command/sample-path guards are
 present, concrete sample targets are registered in the sample manifest,
 request-run routes map to the expected handoff templates and
 first/verification commands, target character/body area, timing type, runtime layer,
@@ -75,6 +75,7 @@ REQUIRED_SECTIONS = {
     "docs/stackobot-animation-doc-index.md": [
         "## Start Here",
         "## Request Execution Pages",
+        "## Route Coverage",
         "## Route Deep Dives",
         "## Default Workflow",
         "## Local Checks",
@@ -1577,6 +1578,28 @@ def _quickstart_route_shortcut_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _doc_index_route_coverage_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-doc-index.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    route_coverage = _markdown_heading_section(text, "## Route Coverage")
+    required_tokens = [
+        *REQUEST_EXAMPLE_ROUTE_COVERAGE.values(),
+        "docs/stackobot-animation-quickstart.md",
+        "docs/stackobot-animation-route-matrix.md",
+        "docs/stackobot-animation-request-run-examples.md",
+    ]
+    return [
+        {
+            "path": path_text,
+            "section": "## Route Coverage",
+            "token": token,
+            "exists": token in route_coverage,
+        }
+        for token in required_tokens
+    ]
+
+
 def _contains_any(value: str, needles: list[str] | set[str]) -> bool:
     return any(needle in value for needle in needles)
 
@@ -2527,6 +2550,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_quickstart_route_shortcuts = [
         entry for entry in quickstart_route_shortcuts if not entry["exists"]
     ]
+    doc_index_route_coverage = _doc_index_route_coverage_entries()
+    missing_doc_index_route_coverage = [
+        entry for entry in doc_index_route_coverage if not entry["exists"]
+    ]
     request_example_route_coverage = _request_example_route_coverage_entries()
     missing_request_example_route_coverage = [
         entry for entry in request_example_route_coverage if not entry["exists"]
@@ -2710,6 +2737,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_route_matrix_evidence_approval
         and not missing_route_matrix_selection_rules
         and not missing_quickstart_route_shortcuts
+        and not missing_doc_index_route_coverage
         and not missing_request_example_route_coverage
         and not missing_request_compiler_route_coverage
         and not mismatched_request_example_route_handoffs
@@ -2745,7 +2773,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v53",
+        "schema": "stackobot_animation_docs_link_audit_v54",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2767,6 +2795,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_route_matrix_evidence_approval_count": len(mismatched_route_matrix_evidence_approval),
         "missing_route_matrix_selection_rule_count": len(missing_route_matrix_selection_rules),
         "missing_quickstart_route_shortcut_count": len(missing_quickstart_route_shortcuts),
+        "missing_doc_index_route_coverage_count": len(missing_doc_index_route_coverage),
         "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
         "missing_request_compiler_route_coverage_count": len(missing_request_compiler_route_coverage),
         "mismatched_request_example_route_handoff_count": len(mismatched_request_example_route_handoffs),
@@ -2833,6 +2862,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_route_matrix_selection_rules": missing_route_matrix_selection_rules,
         "quickstart_route_shortcuts": quickstart_route_shortcuts,
         "missing_quickstart_route_shortcuts": missing_quickstart_route_shortcuts,
+        "doc_index_route_coverage": doc_index_route_coverage,
+        "missing_doc_index_route_coverage": missing_doc_index_route_coverage,
         "request_example_route_coverage": request_example_route_coverage,
         "missing_request_example_route_coverage": missing_request_example_route_coverage,
         "request_compiler_route_coverage": request_compiler_route_coverage,
@@ -2929,6 +2960,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_route_matrix_evidence_approval={report['mismatched_route_matrix_evidence_approval_count']} "
             f"missing_route_matrix_selection_rules={report['missing_route_matrix_selection_rule_count']} "
             f"missing_quickstart_route_shortcuts={report['missing_quickstart_route_shortcut_count']} "
+            f"missing_doc_index_route_coverage={report['missing_doc_index_route_coverage_count']} "
             f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
             f"missing_request_compiler_routes={report['missing_request_compiler_route_coverage_count']} "
             f"mismatched_request_example_route_handoffs={report['mismatched_request_example_route_handoff_count']} "
@@ -2982,6 +3014,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_route_matrix_evidence_approval",
             "missing_route_matrix_selection_rules",
             "missing_quickstart_route_shortcuts",
+            "missing_doc_index_route_coverage",
             "missing_request_example_route_coverage",
             "missing_request_compiler_route_coverage",
             "mismatched_request_example_route_handoffs",
