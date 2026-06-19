@@ -9065,3 +9065,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Promoted `docs/stackobot-animation-route-matrix.md` into the required StackOBot animation doc set and added required section/token checks for route classification, execution matrix, evidence/approval matrix, selection rules, and stop conditions.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_required_docs=0`, `missing_required_sections=0`, and `missing_required_tokens=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot Tivret final report field audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v38`.
+- Added `residual_risk:` to `docs/stackobot-animation-tivret-handoff-templates.md` `Final Report Shape`, matching the request-run template final report fields.
+- The checker now validates Tivret handoff final report fields separately, so missing route, asset scope, runtime proof, dirty package, cleanup, artifact, C++/API, or residual-risk reporting fields fail the docs audit.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_handoff_report_fields=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

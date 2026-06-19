@@ -184,6 +184,7 @@ dirty_packages:
 cleanup:
 cxx_api_needed:
 artifact_paths:
+residual_risk:
 ```
 
 Ieta then summarizes the result for the user and records durable project memory.
