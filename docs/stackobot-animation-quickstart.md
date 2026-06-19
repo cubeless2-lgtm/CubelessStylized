@@ -8,17 +8,19 @@ Use this as the first page for future StackOBot animation requests.
    `127.0.0.1:55557`.
 2. Compile the user's natural-language request with
    `docs/stackobot-request-compiler-drills.md`.
-3. For any request that touches editor state or creates sample evidence, copy
+3. Compare the compiled route fields against
+   `docs/stackobot-animation-route-matrix.md`.
+4. For any request that touches editor state or creates sample evidence, copy
    `docs/stackobot-animation-request-run-template.md`.
-4. Show the filled `티브렛에게 전달할 지시` block from
+5. Show the filled `티브렛에게 전달할 지시` block from
    `docs/stackobot-animation-tivret-handoff-templates.md`.
-5. Keep the first pass sample-only under `/Game/_MCP_Sample/AnimStudy`.
-6. Run the narrowest read or authoring command from
+6. Keep the first pass sample-only under `/Game/_MCP_Sample/AnimStudy`.
+7. Run the narrowest read or authoring command from
    `docs/stackobot-animation-mcp-command-syntax.md`.
-7. Verify with the route-specific gate from
+8. Verify with the route-specific gate from
    `docs/stackobot-animation-authoring-templates.md`.
-8. Record results in `docs/work-log.md`.
-9. Before committing, run
+9. Record results in `docs/work-log.md`.
+10. Before committing, run
    `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary`
    and commit only relevant docs/tooling.
 
@@ -72,6 +74,7 @@ Use `--require-bridge` when this is the final gate before live editor work.
 - Next-work backlog: `docs/stackobot-animation-next-work-backlog.md`
 - Acceptance checklist: `docs/stackobot-animation-acceptance-checklist.md`
 - Request compiler: `docs/stackobot-request-compiler-drills.md`
+- Route matrix: `docs/stackobot-animation-route-matrix.md`
 - Request run template: `docs/stackobot-animation-request-run-template.md`
 - Request run examples: `docs/stackobot-animation-request-run-examples.md`
 - Request playbook: `docs/stackobot-animation-request-playbook.md`

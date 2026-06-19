@@ -300,6 +300,7 @@ REQUIRED_TOKENS = {
     "docs/stackobot-animation-quickstart.md": [
         "run_stackobot_animation_local_checks.py --summary",
         "--require-bridge",
+        "docs/stackobot-animation-route-matrix.md",
         "D:/Git/SampleProject/StackOBot",
         "127.0.0.1:55557",
         "D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP",
@@ -2297,7 +2298,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v38",
+        "schema": "stackobot_animation_docs_link_audit_v39",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
