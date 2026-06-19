@@ -9518,3 +9518,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added a Quickstart-specific docs-audit guard that checks `docs/stackobot-animation-quickstart.md` keeps the `## Start Here` path for bridge check, request compilation, route matrix comparison, request-run template, Tivret handoff, sample-only root, command syntax, authoring verification, work-log recording, local runner, and docs/tooling-only commit scope.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_quickstart_start_here=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request-run Tivret handoff guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v93`.
+- Expanded `Tools/Unreal/run_stackobot_animation_local_checks.py` to schema `stackobot_animation_local_checks_v14` and updated it to expect docs audit schema `stackobot_animation_docs_link_audit_v93`.
+- Added a request-run-template docs-audit guard that checks `docs/stackobot-animation-request-run-template.md` keeps the `## Tivret Handoff` section tied to `docs/stackobot-animation-tivret-handoff-templates.md`, the visible handoff paste instruction, and the `Tivret handoff:` block field.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_request_template_tivret_handoff=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
