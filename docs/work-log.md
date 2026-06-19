@@ -9225,3 +9225,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added an audit guard that compares the handoff route map against the route-specific handoff rules already used by request-run examples.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_handoff_route_map=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot command route map audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v58`.
+- Added `Route Token Command Map` to `docs/stackobot-animation-mcp-command-syntax.md` so each route token points to the matching first read/authoring command and verification command.
+- Added an audit guard that compares command-route rows against the first-command and verification-command rules already used by request-run examples and the route matrix.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_command_route_map=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

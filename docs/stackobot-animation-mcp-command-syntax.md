@@ -38,6 +38,24 @@ Default safety rules:
 | RigidBody settings read | `inspect_anim_graph_node_settings` | `blueprint_name`, `node_type=RigidBody` | No |
 | RigidBody sample tuning | `set_anim_graph_rigidbody_settings` | sample `blueprint_name`, optional `alpha`, `external_force`, `simulation_space` | Yes, sample target only |
 
+## Route Token Command Map
+
+Use this after the request compiler chooses a route token. The first command
+column names the safest first read or sample authoring action; the verification
+column names the proof command or explicit no-command boundary.
+
+| Route token | First read or authoring command | Verification command |
+| --- | --- | --- |
+| `Post Process ModifyBone` | `ensure_postprocess_anim_demo_variant` | `sample_anim_node_pre_post_runtime_pose` |
+| `BlendSpace sample variant` | `ensure_blendspace_sample_variant` | `sample_blendspace_runtime_pose_grid` |
+| `Bot Trail sample` | `ensure_anim_graph_trail_demo` | `sample_anim_node_pre_post_runtime_pose` |
+| `UpperBody Slot and LayeredBlend` | slot/cached-pose inventory | `sample_anim_node_pre_post_runtime_pose` |
+| `protected metadata boundary` | safe animation asset inventory | none for protected internals |
+| `ControlRig gate probe` | `inspect_anim_graph_protected_topology`, then `controlrig_direct_gate_probe` | `sample_anim_node_pre_post_runtime_pose` |
+| `state-machine runtime-driver proof` | `inspect_anim_state_machine_transitions` | `sample_anim_state_machine_runtime_response` |
+| `Baddy RigidBody` | `inspect_anim_graph_node_settings` | `sample_anim_node_pre_post_runtime_pose` |
+| `node resolver plus same-instance pre/post proof` | `inspect_anim_graph_protected_topology` or compiled mapping | `sample_anim_node_pre_post_runtime_pose` |
+
 ## Common StackOBot Asset Paths
 
 | Meaning | Path |
