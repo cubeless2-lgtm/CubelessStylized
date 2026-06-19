@@ -40,6 +40,10 @@ V2_BASE_WALL_HEIGHT = float(v1.WALL_HEIGHT)
 V2_STORY_HEIGHT_SCALE = 2.0
 V2_WALL_HEIGHT = V2_BASE_WALL_HEIGHT * V2_STORY_HEIGHT_SCALE
 V2_STORY_HEIGHT_MODULE_KEYS = ("wall", "door", "column")
+V2_CEILING_MODULE_KEYS = ("ceiling", "ceiling_room", "ceiling_corridor", "ceiling_corner")
+V2_CEILING_LIGHT_SEAL_DROP = 32.0
+V2_CEILING_LIGHT_SEAL_THICKNESS = 12.0
+V2_CEILING_LIGHT_SEAL_MIN_OVERLAP = 12.0
 
 V2_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 V2_ENTRYPOINT_PATH = os.path.join(V2_SCRIPT_DIR, "CubelessDungeonPCGV2Entrypoint.py")
@@ -297,9 +301,43 @@ def _v2_build_door_mesh():
     return mesh
 
 
+def _v2_add_ceiling_light_seal(mesh):
+    tile = float(v1.TILE)
+    half = tile * 0.5
+    thickness = float(V2_CEILING_LIGHT_SEAL_THICKNESS)
+    drop = float(V2_CEILING_LIGHT_SEAL_DROP)
+    z_center = drop * -0.5
+    material = "M_Dungeon_Ceiling_SootStone"
+    v1.box(mesh, material, (0, -half + thickness * 0.5, z_center), (tile, thickness, drop))
+    v1.box(mesh, material, (0, half - thickness * 0.5, z_center), (tile, thickness, drop))
+    v1.box(mesh, material, (-half + thickness * 0.5, 0, z_center), (thickness, tile, drop))
+    v1.box(mesh, material, (half - thickness * 0.5, 0, z_center), (thickness, tile, drop))
+    return mesh
+
+
+def _v2_build_ceiling_mesh():
+    return _v2_add_ceiling_light_seal(v1.build_ceiling_mesh())
+
+
+def _v2_build_ceiling_room_mesh():
+    return _v2_add_ceiling_light_seal(v1.build_ceiling_room_mesh())
+
+
+def _v2_build_ceiling_corridor_mesh():
+    return _v2_add_ceiling_light_seal(v1.build_ceiling_corridor_mesh())
+
+
+def _v2_build_ceiling_corner_mesh():
+    return _v2_add_ceiling_light_seal(v1.build_ceiling_corner_mesh())
+
+
 def _v2_mesh_builders():
     builders = dict(v1.MESH_BUILDERS)
     builders["door"] = _v2_build_door_mesh
+    builders["ceiling"] = _v2_build_ceiling_mesh
+    builders["ceiling_room"] = _v2_build_ceiling_room_mesh
+    builders["ceiling_corridor"] = _v2_build_ceiling_corridor_mesh
+    builders["ceiling_corner"] = _v2_build_ceiling_corner_mesh
     return builders
 
 
@@ -1266,6 +1304,207 @@ def _v2_actor_module(actor):
     return str(values.get("DungeonModule", ""))
 
 
+def _v2_actor_label(actor):
+    try:
+        return str(actor.get_actor_label())
+    except Exception:
+        try:
+            return str(actor.get_name())
+        except Exception:
+            return str(actor)
+
+
+def _v2_actor_path(actor):
+    try:
+        return str(actor.get_path_name())
+    except Exception:
+        return _v2_actor_label(actor)
+
+
+def _v2_actor_is_editor_hidden(actor):
+    method = getattr(actor, "is_temporarily_hidden_in_editor", None)
+    if method:
+        try:
+            return bool(method())
+        except Exception:
+            return None
+    return None
+
+
+def _v2_current_world_package_name():
+    try:
+        world = unreal.EditorLevelLibrary.get_editor_world()
+        if world:
+            return str(world.get_outermost().get_name())
+    except Exception:
+        pass
+    return ""
+
+
+def _v2_all_level_actors():
+    try:
+        subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+        if subsystem:
+            actors = list(subsystem.get_all_level_actors())
+            if actors:
+                return actors
+    except Exception:
+        pass
+    try:
+        return list(unreal.EditorLevelLibrary.get_all_level_actors())
+    except Exception:
+        return []
+
+
+def _v2_unnecessary_static_mesh_actors():
+    actors = []
+    for actor in _v2_all_level_actors():
+        label = _v2_actor_label(actor)
+        if not label.startswith(V2_ACTOR_PREFIX):
+            continue
+        if not actor.get_component_by_class(unreal.StaticMeshComponent):
+            continue
+        module = _v2_actor_module(actor)
+        if module not in V2_CORE_OUTPUT_EXCLUDED_MODULES:
+            continue
+        actors.append(actor)
+    return actors
+
+
+def _v2_unnecessary_static_mesh_summary(actors=None):
+    actors = list(_v2_unnecessary_static_mesh_actors() if actors is None else actors)
+    summary = {
+        "schema": "cubeless_pcg_dungeon_v2_unnecessary_static_mesh_summary_v1",
+        "world_package": _v2_current_world_package_name(),
+        "actor_count": len(actors),
+        "editor_visible_actor_count": 0,
+        "editor_hidden_actor_count": 0,
+        "unknown_editor_visibility_actor_count": 0,
+        "static_mesh_component_count": 0,
+        "module_counts": {},
+        "sample_labels": [],
+    }
+    for actor in actors:
+        if len(summary["sample_labels"]) < 16:
+            summary["sample_labels"].append(_v2_actor_label(actor))
+        module = _v2_actor_module(actor)
+        summary["module_counts"][module] = summary["module_counts"].get(module, 0) + 1
+        hidden = _v2_actor_is_editor_hidden(actor)
+        if hidden is True:
+            summary["editor_hidden_actor_count"] += 1
+        elif hidden is False:
+            summary["editor_visible_actor_count"] += 1
+        else:
+            summary["unknown_editor_visibility_actor_count"] += 1
+        try:
+            summary["static_mesh_component_count"] += len(list(actor.get_components_by_class(unreal.StaticMeshComponent)))
+        except Exception:
+            pass
+    summary["module_counts"] = dict(sorted(summary["module_counts"].items()))
+    return summary
+
+
+def set_v2_unnecessary_static_mesh_visibility(visible=True, show_dialog=False):
+    actors = _v2_unnecessary_static_mesh_actors()
+    before = _v2_unnecessary_static_mesh_summary(actors)
+    operations = {
+        "target_visible": bool(visible),
+        "actor_count": len(actors),
+        "editor_hidden_updates": 0,
+        "errors": [],
+    }
+    for actor in actors:
+        method = getattr(actor, "set_is_temporarily_hidden_in_editor", None)
+        if not method:
+            operations["errors"].append(
+                {
+                    "actor": _v2_actor_path(actor),
+                    "operation": "set_is_temporarily_hidden_in_editor",
+                    "error": "Actor does not expose temporary editor visibility.",
+                }
+            )
+            continue
+        try:
+            method(not bool(visible))
+            operations["editor_hidden_updates"] += 1
+        except Exception as exc:
+            operations["errors"].append(
+                {
+                    "actor": _v2_actor_path(actor),
+                    "operation": "set_is_temporarily_hidden_in_editor",
+                    "error": str(exc),
+                }
+            )
+    try:
+        unreal.EditorLevelLibrary.editor_invalidate_viewports()
+    except Exception:
+        pass
+    after = _v2_unnecessary_static_mesh_summary(actors)
+    expected_visible = after["actor_count"] if bool(visible) else 0
+    expected_hidden = 0 if bool(visible) else after["actor_count"]
+    result = {
+        "schema": "cubeless_pcg_dungeon_v2_unnecessary_static_mesh_visibility_v1",
+        "target_visible": bool(visible),
+        "target_modules": sorted(V2_CORE_OUTPUT_EXCLUDED_MODULES),
+        "before": before,
+        "operations": operations,
+        "after": after,
+        "pass": bool(
+            not operations["errors"]
+            and after["editor_visible_actor_count"] == expected_visible
+            and after["editor_hidden_actor_count"] == expected_hidden
+        ),
+    }
+    result["status"] = "passed" if result["pass"] else "failed"
+    path = _saved_report_path(V2_REPORT_PREFIX + "_UnnecessaryStaticMeshVisibility.json")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(result, handle, indent=2, ensure_ascii=False)
+    result["report_path"] = path
+    unreal.log(
+        "CubelessDungeonPCGV2 unnecessary StaticMesh visibility: "
+        + json.dumps(
+            {
+                "status": result["status"],
+                "target_visible": result["target_visible"],
+                "actor_count": after["actor_count"],
+                "visible": after["editor_visible_actor_count"],
+                "hidden": after["editor_hidden_actor_count"],
+            },
+            ensure_ascii=False,
+        )
+    )
+    if show_dialog:
+        try:
+            action = "shown" if bool(visible) else "hidden"
+            unreal.EditorDialog.show_message(
+                "PCG Dungeon V2",
+                "Unnecessary StaticMeshActors {}: {} / {}".format(
+                    action,
+                    operations["editor_hidden_updates"],
+                    operations["actor_count"],
+                ),
+                unreal.AppMsgType.OK,
+            )
+        except Exception:
+            pass
+    return result
+
+
+def hide_v2_unnecessary_static_meshes(show_dialog=False):
+    return set_v2_unnecessary_static_mesh_visibility(False, show_dialog=show_dialog)
+
+
+def show_v2_unnecessary_static_meshes(show_dialog=False):
+    return set_v2_unnecessary_static_mesh_visibility(True, show_dialog=show_dialog)
+
+
+def toggle_v2_unnecessary_static_meshes(show_dialog=False):
+    before = _v2_unnecessary_static_mesh_summary()
+    target_visible = before["actor_count"] > 0 and before["editor_visible_actor_count"] == 0
+    return set_v2_unnecessary_static_mesh_visibility(target_visible, show_dialog=show_dialog)
+
+
 def _v2_core_output_contract_builder(original_builder):
     def build_pcg_spawner_contract_v2(actors):
         kept_actors = []
@@ -1823,6 +2062,73 @@ def rebuild_story_height_modules(save_dirty_packages=True):
                 {
                     "pass": report["pass"],
                     "wall_height": report["wall_height"],
+                    "rebuilt_module_keys": report["rebuilt_module_keys"],
+                },
+                ensure_ascii=False,
+            )
+        )
+        return report
+
+
+def rebuild_ceiling_light_seal_modules():
+    with v2_context() as dungeon:
+        dungeon.ensure_dirs()
+        materials = _v2_load_existing_materials()
+        rebuilt = {}
+        ceiling_spawn_z = float(V2_WALL_HEIGHT) + 10.0
+        for module_key in V2_CEILING_MODULE_KEYS:
+            static_mesh = dungeon.bake_static_mesh(
+                module_key,
+                dungeon.MESH_BUILDERS[module_key](),
+                materials,
+            )
+            bounds = _v2_static_mesh_bounds_record(static_mesh)
+            local_min_z = float(bounds.get("min", [0.0, 0.0, 0.0])[2]) if bounds.get("min") else 0.0
+            world_min_z = ceiling_spawn_z + local_min_z
+            rebuilt[module_key] = {
+                "asset_path": static_mesh.get_path_name() if static_mesh else None,
+                "bounds": bounds,
+                "ceiling_spawn_z": ceiling_spawn_z,
+                "seal_world_min_z": world_min_z,
+                "seal_overlap_below_wall_top": float(V2_WALL_HEIGHT) - world_min_z,
+            }
+        checks = {
+            "rebuilt_all_ceiling_modules": len(rebuilt) == len(V2_CEILING_MODULE_KEYS),
+            "all_bounds_include_light_seal_drop": all(
+                float(item.get("bounds", {}).get("min", [0.0, 0.0, 999.0])[2])
+                <= -float(V2_CEILING_LIGHT_SEAL_DROP) + 0.001
+                for item in rebuilt.values()
+            ),
+            "all_seals_overlap_wall_top": all(
+                float(item.get("seal_overlap_below_wall_top", 0.0)) >= float(V2_CEILING_LIGHT_SEAL_MIN_OVERLAP)
+                for item in rebuilt.values()
+            ),
+        }
+        report = {
+            "schema": "cubeless_pcg_dungeon_v2_ceiling_light_seal_rebuild_v1",
+            "wall_height": float(V2_WALL_HEIGHT),
+            "ceiling_spawn_z": ceiling_spawn_z,
+            "light_seal_drop": float(V2_CEILING_LIGHT_SEAL_DROP),
+            "light_seal_thickness": float(V2_CEILING_LIGHT_SEAL_THICKNESS),
+            "minimum_required_overlap": float(V2_CEILING_LIGHT_SEAL_MIN_OVERLAP),
+            "rebuilt_module_keys": list(V2_CEILING_MODULE_KEYS),
+            "rebuilt": rebuilt,
+            "checks": checks,
+        }
+        report["pass"] = all(bool(value) for value in checks.values())
+        path = _saved_report_path(V2_REPORT_PREFIX + "_CeilingLightSealRebuild.json")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(report, handle, indent=2, ensure_ascii=False)
+        report["report_path"] = path
+        unreal.log(
+            "CubelessDungeonPCGV2 ceiling light seal rebuild: "
+            + json.dumps(
+                {
+                    "pass": report["pass"],
+                    "wall_height": report["wall_height"],
+                    "ceiling_spawn_z": report["ceiling_spawn_z"],
+                    "light_seal_drop": report["light_seal_drop"],
                     "rebuilt_module_keys": report["rebuilt_module_keys"],
                 },
                 ensure_ascii=False,

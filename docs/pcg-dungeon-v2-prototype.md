@@ -168,6 +168,11 @@ The story-height rebuild audit is written to:
 
 That audit should show the V2 wall, door-frame, and column mesh bounds reaching
 Z `640`, while the generated ceiling points sit at Z `650`.
+V2 ceiling meshes also include a downward perimeter light-seal skirt so the
+`Z=650` ceiling placement overlaps the `Z=640` wall top instead of leaving a
+thin light leak. The targeted rebuild audit is written to:
+
+- `Saved/MCP_DungeonV2/CubelessDungeonV2_CeilingLightSealRebuild.json`
 
 When validating an already generated single-seed BP/custom output without
 running another refresh, use:
@@ -191,9 +196,17 @@ the requested value is too low for the current room-role budgets, it first tries
 the V2 default room count and then larger values; otherwise it can still search
 downward for an over-large request. The corrected value is written back to the
 controller actor before generation.
-Direct Details panel `Call In Editor` buttons are not authored by the current
-Python path because Unreal does not expose the required Blueprint function flag
-reliably to editor scripting in this project setup.
+The controller also exposes Details panel `Call In Editor` events for quick
+review cleanup:
+
+- `HideUnnecessaryStaticMeshes`: temporarily hides V2 StaticMeshActors whose
+  `DungeonModule` is excluded from the default core output policy.
+- `ShowUnnecessaryStaticMeshes`: restores those actors in the editor viewport.
+
+The hide/show buttons target `connector_detail`, `corridor_detail`, `marker`,
+`room_variant_detail`, and `detail_mesh` actors under the `MCP_Dungeon_V2_`
+label prefix. The operation uses temporary editor visibility, so it is useful
+for inspection without intentionally changing the saved level state.
 
 The current V2 controller exposes these fields:
 
