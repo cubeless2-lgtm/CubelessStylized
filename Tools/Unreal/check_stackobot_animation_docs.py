@@ -285,6 +285,7 @@ REQUIRED_SECTIONS = {
         "## Current Rule",
         "## Covered, Do Not Rebuild",
         "## Route Token Decision Map",
+        "## Current Candidate Shortlist",
         "## Candidate Matrix",
         "## Immediate Implementation Triggers",
         "## Verification For Any New C++ API",
@@ -786,6 +787,19 @@ REQUEST_EXAMPLE_ROUTE_SAMPLE_TARGET_RULES = {
     "Baddy RigidBody": ["/Game/_MCP_Sample/AnimStudy/", "ABP_Baddy_RigidBody_Study"],
     "node resolver plus same-instance pre/post proof": ["none unless", "controlled sample actor"],
 }
+
+CPP_API_CANDIDATE_MATRIX_REQUIRED_ROWS = [
+    "ensure_state_machine_sample_variant",
+    "ensure_layered_slot_overlay_sample",
+    "ensure_anim_graph_rigidbody_demo_variant",
+    "sample_anim_physics_variant_matrix",
+    "inspect_physics_asset_constraints_guarded",
+    "inspect_or_author_anim_notifies_curves",
+    "resolve_anim_posewatch_target_actor",
+    "extend_anim_node_runtime_mapping",
+    "Broader Trail parameter editor",
+    "inspect_blueprint_graph_call_topology",
+]
 
 REQUEST_EXAMPLE_MIN_ACCEPTANCE_FOCUS_BULLETS = 3
 
@@ -1674,6 +1688,22 @@ def _cpp_api_route_decision_entries() -> list[dict[str, Any]]:
             }
         )
     return entries
+
+
+def _cpp_api_candidate_matrix_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-cpp-api-decision-matrix.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    candidate_matrix = _markdown_heading_section(text, "## Candidate Matrix")
+    return [
+        {
+            "path": path_text,
+            "section": "## Candidate Matrix",
+            "candidate": candidate,
+            "exists": candidate in candidate_matrix,
+        }
+        for candidate in CPP_API_CANDIDATE_MATRIX_REQUIRED_ROWS
+    ]
 
 
 def _handoff_route_map_entries() -> list[dict[str, Any]]:
@@ -2782,6 +2812,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_cpp_api_route_decisions = [
         entry for entry in cpp_api_route_decisions if not entry["matches"]
     ]
+    cpp_api_candidate_matrix = _cpp_api_candidate_matrix_entries()
+    missing_cpp_api_candidate_matrix = [
+        entry for entry in cpp_api_candidate_matrix if not entry["exists"]
+    ]
     handoff_route_map = _handoff_route_map_entries()
     mismatched_handoff_route_map = [
         entry for entry in handoff_route_map if not entry["matches"]
@@ -2994,6 +3028,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_quickstart_route_shortcuts
         and not missing_doc_index_route_coverage
         and not mismatched_cpp_api_route_decisions
+        and not missing_cpp_api_candidate_matrix
         and not mismatched_handoff_route_map
         and not missing_request_example_route_coverage
         and not missing_request_compiler_route_coverage
@@ -3035,7 +3070,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v62",
+        "schema": "stackobot_animation_docs_link_audit_v63",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3060,6 +3095,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_quickstart_route_shortcut_count": len(missing_quickstart_route_shortcuts),
         "missing_doc_index_route_coverage_count": len(missing_doc_index_route_coverage),
         "mismatched_cpp_api_route_decision_count": len(mismatched_cpp_api_route_decisions),
+        "missing_cpp_api_candidate_matrix_count": len(missing_cpp_api_candidate_matrix),
         "mismatched_handoff_route_map_count": len(mismatched_handoff_route_map),
         "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
         "missing_request_compiler_route_coverage_count": len(missing_request_compiler_route_coverage),
@@ -3138,6 +3174,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_doc_index_route_coverage": missing_doc_index_route_coverage,
         "cpp_api_route_decisions": cpp_api_route_decisions,
         "mismatched_cpp_api_route_decisions": mismatched_cpp_api_route_decisions,
+        "cpp_api_candidate_matrix": cpp_api_candidate_matrix,
+        "missing_cpp_api_candidate_matrix": missing_cpp_api_candidate_matrix,
         "handoff_route_map": handoff_route_map,
         "mismatched_handoff_route_map": mismatched_handoff_route_map,
         "request_example_route_coverage": request_example_route_coverage,
@@ -3249,6 +3287,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_quickstart_route_shortcuts={report['missing_quickstart_route_shortcut_count']} "
             f"missing_doc_index_route_coverage={report['missing_doc_index_route_coverage_count']} "
             f"mismatched_cpp_api_route_decisions={report['mismatched_cpp_api_route_decision_count']} "
+            f"missing_cpp_api_candidate_matrix={report['missing_cpp_api_candidate_matrix_count']} "
             f"mismatched_handoff_route_map={report['mismatched_handoff_route_map_count']} "
             f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
             f"missing_request_compiler_routes={report['missing_request_compiler_route_coverage_count']} "
@@ -3311,6 +3350,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_quickstart_route_shortcuts",
             "missing_doc_index_route_coverage",
             "mismatched_cpp_api_route_decisions",
+            "missing_cpp_api_candidate_matrix",
             "mismatched_handoff_route_map",
             "missing_request_example_route_coverage",
             "missing_request_compiler_route_coverage",

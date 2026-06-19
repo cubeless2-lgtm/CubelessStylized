@@ -9266,3 +9266,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added an audit guard that compares the sample-manifest route target rows against the route-specific sample-target rules used by the route matrix and request-run examples.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_sample_manifest_route_targets=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot C++ API candidate list guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v63`.
+- Added a required-section guard for `Current Candidate Shortlist` in `docs/stackobot-cpp-api-decision-matrix.md`.
+- Added an audit guard that requires the C++/API `Candidate Matrix` to keep the parked API candidates for state-machine authoring, layered overlay authoring, RigidBody variants, physics metrics, guarded PhysicsAsset inspection, notifies/curves, PoseWatch actor resolution, node mapping, broader Trail parameters, and Blueprint call topology.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_cpp_api_candidate_matrix=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
