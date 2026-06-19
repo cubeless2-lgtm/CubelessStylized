@@ -45,6 +45,7 @@
 
 - Use Git-tracked Markdown as durable memory.
 - Promote reusable Cubeless-wide rules and lessons into `../CubelessOps`.
+- For promotion requests such as `공용작업으로 승격`, follow `../CubelessOps/docs/workflows/promote-shared-work.md`.
 - Keep CubelessStylized-specific paths, assets, engine notes, and local exceptions in this file or `docs/`.
 - If an important decision, reusable procedure, handoff instruction, execution result, verification result, failure cause, workaround, or residual risk appears during work, update the appropriate Git-tracked doc and report which file changed.
 - Do not capture short confirmations, unaccepted temporary ideas, secrets, credentials, personal data, or anything the user says not to record.
