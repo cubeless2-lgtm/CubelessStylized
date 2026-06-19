@@ -9209,3 +9209,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added an audit guard that compares the C++/API route decision rows against the route-specific C++ status rules already used by request-run examples and the route matrix.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_cpp_api_route_decisions=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot acceptance route token audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v56`.
+- Updated `docs/stackobot-animation-acceptance-checklist.md` so route-specific pass criteria carry exact request-run route tokens next to the human-readable labels.
+- Added an audit guard that checks each acceptance route row contains the expected evidence tokens used by request-run examples and the route matrix.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_acceptance_route_tokens=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

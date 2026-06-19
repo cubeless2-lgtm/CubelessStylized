@@ -9,7 +9,7 @@ present, concrete sample targets are registered in the sample manifest,
 request-run routes map to the expected handoff templates and
 first/verification commands, target character/body area, timing type, runtime layer,
 C++/API status, expected evidence, sample target scope, plus route-specific
-acceptance focus and approval boundaries, request compiler route coverage, and acceptance
+acceptance route tokens, acceptance focus and approval boundaries, request compiler route coverage, and acceptance
 universal/route/evidence/reporting fields plus escalation triggers are
 preserved. It also confirms the sibling/sample workspace paths used by the
 workflow still exist on this machine.
@@ -2137,6 +2137,42 @@ def _acceptance_route_criteria_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _acceptance_route_token_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-acceptance-checklist.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Route-Specific Pass Criteria")
+    entries: list[dict[str, Any]] = []
+
+    for route_token, expected_tokens in REQUEST_EXAMPLE_ROUTE_EXPECTED_EVIDENCE_RULES.items():
+        row = next(
+            (
+                line
+                for line in section.splitlines()
+                if f"| `{route_token}` |" in line
+            ),
+            "",
+        )
+        lower_row = row.lower()
+        missing_tokens = [
+            token for token in expected_tokens if token.lower() not in lower_row
+        ]
+        entries.append(
+            {
+                "path": path_text,
+                "section": "## Route-Specific Pass Criteria",
+                "route_token": route_token,
+                "row": row,
+                "expected_tokens": expected_tokens,
+                "missing_tokens": missing_tokens,
+                "exists": bool(row),
+                "matches": bool(row) and not missing_tokens,
+            }
+        )
+
+    return entries
+
+
 def _acceptance_evidence_strength_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
     path = PROJECT_ROOT / path_text
@@ -2708,6 +2744,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_acceptance_route_criteria = [
         entry for entry in acceptance_route_criteria if not entry["exists"]
     ]
+    acceptance_route_tokens = _acceptance_route_token_entries()
+    mismatched_acceptance_route_tokens = [
+        entry for entry in acceptance_route_tokens if not entry["matches"]
+    ]
     acceptance_evidence_strength_levels = _acceptance_evidence_strength_entries()
     missing_acceptance_evidence_strength_levels = [
         entry for entry in acceptance_evidence_strength_levels if not entry["exists"]
@@ -2797,6 +2837,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_acceptance_final_report_fields
         and not missing_acceptance_universal_pass_fields
         and not missing_acceptance_route_criteria
+        and not mismatched_acceptance_route_tokens
         and not missing_acceptance_evidence_strength_levels
         and not missing_acceptance_escalation_triggers
         and not invalid_command_syntax_json
@@ -2810,7 +2851,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v55",
+        "schema": "stackobot_animation_docs_link_audit_v56",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2856,6 +2897,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_acceptance_final_report_field_count": len(missing_acceptance_final_report_fields),
         "missing_acceptance_universal_pass_field_count": len(missing_acceptance_universal_pass_fields),
         "missing_acceptance_route_criteria_count": len(missing_acceptance_route_criteria),
+        "mismatched_acceptance_route_token_count": len(mismatched_acceptance_route_tokens),
         "missing_acceptance_evidence_strength_level_count": len(missing_acceptance_evidence_strength_levels),
         "missing_acceptance_escalation_trigger_count": len(missing_acceptance_escalation_triggers),
         "invalid_command_syntax_json_count": len(invalid_command_syntax_json),
@@ -2948,6 +2990,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_acceptance_universal_pass_fields": missing_acceptance_universal_pass_fields,
         "acceptance_route_criteria": acceptance_route_criteria,
         "missing_acceptance_route_criteria": missing_acceptance_route_criteria,
+        "acceptance_route_tokens": acceptance_route_tokens,
+        "mismatched_acceptance_route_tokens": mismatched_acceptance_route_tokens,
         "acceptance_evidence_strength_levels": acceptance_evidence_strength_levels,
         "missing_acceptance_evidence_strength_levels": missing_acceptance_evidence_strength_levels,
         "acceptance_escalation_triggers": acceptance_escalation_triggers,
@@ -3024,6 +3068,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_acceptance_report_fields={report['missing_acceptance_final_report_field_count']} "
             f"missing_acceptance_universal_fields={report['missing_acceptance_universal_pass_field_count']} "
             f"missing_acceptance_routes={report['missing_acceptance_route_criteria_count']} "
+            f"mismatched_acceptance_route_tokens={report['mismatched_acceptance_route_token_count']} "
             f"missing_evidence_strength_levels={report['missing_acceptance_evidence_strength_level_count']} "
             f"missing_acceptance_escalation_triggers={report['missing_acceptance_escalation_trigger_count']} "
             f"invalid_command_json={report['invalid_command_syntax_json_count']} "
@@ -3079,6 +3124,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_acceptance_final_report_fields",
             "missing_acceptance_universal_pass_fields",
             "missing_acceptance_route_criteria",
+            "mismatched_acceptance_route_tokens",
             "missing_acceptance_evidence_strength_levels",
             "missing_acceptance_escalation_triggers",
             "invalid_command_syntax_json",
