@@ -23,6 +23,7 @@ REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_DocAudit" / "StackOBotAnimationStagi
 ALLOWED_EXACT = {
     "docs/work-log.md",
     "Tools/GitHooks/check_unreal_python_uv_safety.py",
+    "Tools/Unreal/compile_stackobot_animation_request.py",
     "Tools/Unreal/check_stackobot_animation_docs.py",
     "Tools/Unreal/check_stackobot_animation_preflight.py",
     "Tools/Unreal/check_stackobot_animation_staging_scope.py",
@@ -140,7 +141,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     pass_value = bool(scope_result.get("success")) and bool(diff_check.get("success")) and not blocked and not unknown
 
     report = {
-        "schema": "stackobot_animation_staging_scope_v2",
+        "schema": "stackobot_animation_staging_scope_v3",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "mode": mode,

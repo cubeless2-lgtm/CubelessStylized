@@ -17,6 +17,7 @@ the first useful page for each situation.
 
 | Purpose | Document |
 | --- | --- |
+| Smoke-test a natural-language request into a route token before filling the record | `Tools/Unreal/compile_stackobot_animation_request.py` |
 | Convert user wording into route, assumptions, first command, verification, and C++ status | `docs/stackobot-request-compiler-drills.md` |
 | Execute a request from intake through delivery | `docs/stackobot-animation-request-playbook.md` |
 | Keep a per-request execution record | `docs/stackobot-animation-request-run-template.md` |
@@ -89,6 +90,12 @@ evidence, and sample-target references together.
 9. Record results in `docs/work-log.md`.
 
 ## Local Checks
+
+Run this when compiling a concrete StackOBot animation request:
+
+```powershell
+python Tools/Unreal/compile_stackobot_animation_request.py --summary --request "Bot 머리를 오른쪽으로 5도만 더 돌려줘."
+```
 
 Run this for the normal local closeout:
 

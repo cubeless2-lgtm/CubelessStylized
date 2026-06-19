@@ -21,11 +21,13 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SIBLING_MCP_ROOT = PROJECT_ROOT.parent / "unreal-mcp-cubeless"
 REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_DocAudit" / "StackOBotAnimationLocalChecks.json"
-EXPECTED_DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v97"
+EXPECTED_DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v98"
 EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"
-EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v2"
+EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v3"
+EXPECTED_REQUEST_COMPILER_SCHEMA = "stackobot_animation_request_compiler_v1"
 
 CHECKER_FILES = [
+    "Tools/Unreal/compile_stackobot_animation_request.py",
     "Tools/Unreal/check_stackobot_animation_docs.py",
     "Tools/Unreal/check_stackobot_animation_preflight.py",
     "Tools/Unreal/check_stackobot_animation_staging_scope.py",
@@ -95,6 +97,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     checks = [
         _run_command("py_compile", [sys.executable, "-m", "py_compile", *CHECKER_FILES]),
+        _run_command(
+            "request_compiler_smoke",
+            [
+                sys.executable,
+                "Tools/Unreal/compile_stackobot_animation_request.py",
+                "--summary",
+                "--request",
+                "Bot 머리를 오른쪽으로 5도만 더 돌려줘.",
+            ],
+        ),
         _run_command("docs_audit", [sys.executable, "Tools/Unreal/check_stackobot_animation_docs.py", "--summary"]),
         _run_command("preflight", preflight_command),
         _run_command(
@@ -107,6 +119,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         docs_audit_check,
         f"schema={EXPECTED_DOCS_AUDIT_SCHEMA}",
         "docs audit schema",
+    )
+    request_compiler_check = next(check for check in checks if check["label"] == "request_compiler_smoke")
+    _require_stdout_token(
+        request_compiler_check,
+        f"schema={EXPECTED_REQUEST_COMPILER_SCHEMA}",
+        "request compiler schema",
+    )
+    _require_stdout_token(
+        request_compiler_check,
+        "route=Post Process ModifyBone",
+        "request compiler smoke route",
     )
     preflight_check = next(check for check in checks if check["label"] == "preflight")
     _require_stdout_token(
@@ -129,13 +152,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     pass_value = all(check["success"] for check in checks) and (sibling_clean or not args.require_sibling_clean)
     report = {
-        "schema": "stackobot_animation_local_checks_v18",
+        "schema": "stackobot_animation_local_checks_v19",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "sibling_mcp_root": SIBLING_MCP_ROOT.as_posix(),
         "expected_docs_audit_schema": EXPECTED_DOCS_AUDIT_SCHEMA,
         "expected_preflight_schema": EXPECTED_PREFLIGHT_SCHEMA,
         "expected_staging_scope_schema": EXPECTED_STAGING_SCOPE_SCHEMA,
+        "expected_request_compiler_schema": EXPECTED_REQUEST_COMPILER_SCHEMA,
         "require_bridge": args.require_bridge,
         "require_sibling_clean": args.require_sibling_clean,
         "sibling_clean": sibling_clean,
@@ -163,6 +187,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"expected_docs_audit_schema={report['expected_docs_audit_schema']} "
             f"expected_preflight_schema={report['expected_preflight_schema']} "
             f"expected_staging_scope_schema={report['expected_staging_scope_schema']} "
+            f"expected_request_compiler_schema={report['expected_request_compiler_schema']} "
             f"checks={len(report['checks'])}"
         ),
     ]

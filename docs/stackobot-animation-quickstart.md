@@ -7,7 +7,9 @@ Use this as the first page for future StackOBot animation requests.
 1. Confirm the primary bridge is reachable:
    `127.0.0.1:55557`.
 2. Compile the user's natural-language request with
-   `docs/stackobot-request-compiler-drills.md`.
+   `docs/stackobot-request-compiler-drills.md`; use
+   `python Tools/Unreal/compile_stackobot_animation_request.py --summary --request "<request>"`
+   as the first route-token smoke when helpful.
 3. Compare the compiled route fields against
    `docs/stackobot-animation-route-matrix.md`.
 4. For any request that touches editor state or creates sample evidence, copy

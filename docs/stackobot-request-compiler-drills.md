@@ -43,6 +43,20 @@ Use `ask_user_first=true` only when the missing choice affects original asset
 mutation, non-exception C++, billing/API use, map saving, or an important visual
 direction. Otherwise state a reversible assumption and proceed sample-only.
 
+## Local Compiler Tool
+
+Use the local compiler for a quick route-token smoke before filling a request
+run record:
+
+```powershell
+python Tools/Unreal/compile_stackobot_animation_request.py --summary --request "Bot 머리를 오른쪽으로 5도만 더 돌려줘."
+```
+
+The tool is read-only. It does not call Unreal, does not touch assets, and does
+not replace Ieta's final judgment. Treat its output as the first classification
+draft, then compare the route against `docs/stackobot-animation-route-matrix.md`
+and the route-token maps before Tivret touches editor state.
+
 ## Signal Words
 
 | Request signals | Route | Body/layer inference | First command |

@@ -9559,3 +9559,15 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added `--range origin/main..HEAD` coverage so the same StackOBot docs/tooling scope guard can validate the full push range, including the approved UTF-8 Git hook fix, before `main` is pushed.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_staging_scope.py --summary --range origin/main..HEAD` passed with `entries=27`, `allowed=27`, `blocked=0`, and `unknown=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request compiler smoke tool
+
+- Added `Tools/Unreal/compile_stackobot_animation_request.py` as a local/read-only natural-language request compiler for StackOBot animation requests.
+- The compiler maps request text to route token, sample target, first read/authoring command, verification command, expected evidence, handoff template, C++/API status, and sample-only safety defaults without calling Unreal or touching assets.
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v98`.
+- Expanded `Tools/Unreal/check_stackobot_animation_staging_scope.py` to schema `stackobot_animation_staging_scope_v3`.
+- Expanded `Tools/Unreal/run_stackobot_animation_local_checks.py` to schema `stackobot_animation_local_checks_v19` and added a request-compiler smoke check expecting `route=Post Process ModifyBone`.
+- Updated `docs/stackobot-request-compiler-drills.md`, `docs/stackobot-animation-quickstart.md`, and `docs/stackobot-animation-doc-index.md` with the compiler command.
+- Smoke samples passed for head tilt, antenna lag, run lean, hover/landing transition, protected Montage/notify metadata, upper-body action, ControlRig foot interaction, and Baddy RigidBody-style secondary motion.
+- Full local result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with docs audit schema `stackobot_animation_docs_link_audit_v98`, local runner schema `stackobot_animation_local_checks_v19`, staging scope schema `stackobot_animation_staging_scope_v3`, and request compiler schema `stackobot_animation_request_compiler_v1`.
+- No Unreal assets, C++ files, editor sessions, sample assets, SampleProject files, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
