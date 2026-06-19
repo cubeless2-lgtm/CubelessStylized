@@ -6,7 +6,7 @@ Learn the PCG authoring grammar from `/Game/Cubeless/PCG/PCGStudy` so new PCG sy
 
 PCGStudy is the reference textbook. It should not become the runtime or recreation dependency. For test recreations, use replacement assets under `/Game/DreamscapeSeries`.
 
-Default priority: use PCGStudy as the primary PCG authoring grammar and system-design reference. Use Electric Dreams as a visual, spatial, road-flow, and ecosystem composition reference only unless the user explicitly asks for an Electric Dreams-style implementation.
+Default priority: use only PCGStudy as the PCG authoring grammar and system-design reference. Do not use Electric Dreams as a default PCG reference for now because that reference set is unfinished; bring it back only when the user explicitly re-enables it for a specific request.
 
 ## Safety Rules
 
@@ -18,6 +18,42 @@ Default priority: use PCGStudy as the primary PCG authoring grammar and system-d
 - Expose user-tunable PCG parameters as BP variables by default, and keep BP variable names exactly matched to the PCG Actor Property parameter names. Example: BP variable `DungeonRoomCount` should be read by PCG as `DungeonRoomCount`, not an alias or differently cased name.
 - Avoid Python map switching. Use native safe level commands if a map open is ever required.
 - Save only after a recreated graph compiles and behaves as intended.
+
+## Fast PCG Authoring Mode
+
+Use this mode by default until a stable reusable PCG template asset exists.
+
+1. Build or rebuild PCG graphs in batches. Prefer one Unreal Python/MCP operation that creates nodes, wires pins, sets editor properties, applies actor-property bindings, and marks assets dirty over many single-node calls.
+2. Keep PCG regeneration off the hot path while authoring. Do not repeatedly trigger Construction Script regeneration or `Cleanup -> Generate` after each small edit; compile and regenerate only at grouped checkpoints.
+3. Validate with data before screenshots. First read mesh/category instance counts, branch presence, spline containment, Landscape hit status, and radial density numbers. Use screenshots after the numeric gate passes or when visual framing is explicitly needed.
+4. Capture review images sparingly. Prefer one final viewport screenshot or generated top-down distribution image, then run the alpha hook so the user-facing review copy has alpha `[255, 255]`.
+5. Separate draft and final passes. Draft passes may use lower sampling density or simplified validation to prove graph structure; final passes restore requested densities, projection/normal alignment, scale/randomization, compile/save, regenerate once, and run the numeric plus visual QA gate.
+
+Template cloning can be added later, but it is not part of the current default workflow.
+
+### Fast PCG Side-Effect Gate
+
+Fast PCG authoring trades immediate viewport feedback for fewer editor operations. Before a fast-authored PCG result is accepted, run these checks:
+
+1. Verify the live `PCGComponent` and its `PCGGraphInstance` point at the intended graph; a reflection-level assignment alone is not enough.
+2. Regenerate once at the final or major checkpoint and treat pre-regeneration viewport output as stale evidence.
+3. Compare BP/CDO defaults against placed actor overrides for every PCG-facing actor property used by the graph.
+4. Confirm spline shape, closed-state, bounds, and Landscape sampler contact after regeneration, not just after asset editing.
+5. Run a deliberate parameter delta test, such as changing density or mesh on one category, and confirm that category count or mesh assignment changes as expected.
+6. When judging density falloff, account for random seed noise by comparing aggregate center/mid/edge metrics rather than only individual instance positions.
+7. If a batch edit fails or output is category-missing, inspect branch presence and node wiring/layout before adding more nodes.
+
+If these checks are skipped, a fast-authored PCG can look unchanged, partially generated, or falsely correct until the next explicit refresh.
+
+### Finished PCG Live Refresh Mode
+
+Use fast authoring while the graph/BP is being built, then switch finished user-facing PCG Blueprints into live refresh mode when the numeric gate passes.
+
+1. Expose an editor-facing auto-refresh control such as `AutoRegenerateInEditor`. Keep it off during MCP/scripted batch authoring, then default it on for final artist-facing assets unless the graph is known to be too heavy.
+2. Use debounce or a dirty flag. Refresh after meaningful changes to spline shape, graph assignment, actor-property parameters, mesh overrides, scale, density, or falloff settings; do not run `Cleanup -> Generate` on every tick or every tiny node-authoring step.
+3. Provide a deterministic manual refresh path for heavy graphs or uncertain editor states. If a Blueprint `Call In Editor` route is not safely available, use an editor utility or UnrealMCP refresh command instead of adding C++ by default.
+4. Prefer a separate `PreviewDensityScale` or equivalent preview-quality control for expensive graphs, so artists can get quick feedback without forcing full-density regeneration during editing.
+5. Validate live refresh before handoff: change one density/falloff parameter, one spline shape, and one mesh override; confirm regenerated category counts, containment, Landscape hits, graph assignment, and latest log health remain acceptable.
 
 ## Core Grammar
 

@@ -7373,3 +7373,59 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Reinstanced level actor `MCP_PCG_Landscape_CircleSplineEcosystem_Demo`, restored it to an 8-point closed spline, and regenerated in `/Game/Cubeless/Map/LVL_Cubeless_PCG_Ecosystem_Field`.
 - Verification passed: generated `478` instances total (`304` grass, `78` fern/grass-clump, `65` rock, `31` tree); `220/220` sampled instances were inside the spline polygon, `220/220` hit Landscape, and `0` samples had Z error over `90cm`.
 - Review screenshot: `Saved/MCP_PCG/LandscapeSplineLandscapeSampler_Ecosystem_Topdown_review_opaque.png`, verified with alpha extrema `[255, 255]`.
+
+## 2026-06-19 PCG Reference Scope Update
+
+- User decision: for now, new PCG generation requests should reference only `/Game/Cubeless/PCG/PCGStudy`.
+- Electric Dreams is unfinished and should be excluded from the default PCG reference set until the user explicitly re-enables it for a specific request.
+- Current default remains source-independent PCGStudy-style authoring: learn structure and contracts from PCGStudy, but do not make new runtime assets depend on PCGStudy source assets.
+
+## 2026-06-19 Landscape Spline Biome PCG BP
+
+- Created `/Game/Cubeless/PCG/ProductionCandidates/Blueprints/BP_Cubeless_PCG_LandscapeSplineBiome` and `/Game/Cubeless/PCG/ProductionCandidates/Graphs/PCG_Cubeless_LandscapeSplineBiome`.
+- The BP exposes density, falloff, Static Mesh, and scale min/max parameters for tree, bush, grass, and three rock spawners. Float variables were created through the MCP Blueprint variable route after a lower-level Python float path produced integer-like defaults.
+- The BP default spline is a 16-point closed circle with 2500cm radius, giving a 50m diameter generation area. The PCG component references the graph and the Construction Script runs PCG `NotifyPropertiesChangedFromBlueprint -> Cleanup -> Generate` so edited parameters refresh the component.
+- The graph samples Landscape inside the closed BP spline, applies center-to-edge density falloff through actor properties, uses actor-property Static Mesh values through `DynamicMeshPath`, aligns bush/grass/rocks to Landscape normals, keeps trees upright, and applies random Z yaw plus exposed scale min/max.
+- Verification passed: BP compile/save with 0 errors and 0 warnings, graph compile/save, source-independence audit with no PCGStudy or Electric Dreams dependencies, 74 PCG nodes, 85 edges, 6 static mesh spawners, 5 Landscape-normal projection nodes, and dry-run PCG smoke audit. The current level was not modified or saved.
+- Follow-up: re-applied the PCG graph reference to the BP's `PCG_Biome` component and explicitly marked all 22 PCG-facing BP variables as instance editable and expose-on-spawn under `PCG|Density`, `PCG|Meshes`, and `PCG|Scale`.
+- Correction: the visible PCGComponent Details `Graph` slot is backed by `PCGGraphInstance.graph`; a reflection-level `Graph` readback was insufficient. Set both `PCG_Biome.set_graph(...)` and `PCG_Biome.graph_instance.graph`, then verified `get_const_pcg_graph()` returns `PCG_Cubeless_LandscapeSplineBiome`.
+- Correction: only-tree output was caused by disconnected non-tree Projection inputs. Reconnected bush, grass, and three rock branches to their projected Landscape-normal paths.
+- Correction: the attempted `AttributeRemap -> $Density` falloff path collapsed generation to 13 instances. Rebuilt the active probability path to the PCGStudy-compatible `Distance -> DensityRemap -> AttributeNoise -> AttributeFilter` pattern, with branch density and edge density driven through `GetActorProperty` into `DensityRemap` override pins.
+- Verification: current level actor regeneration produced all six mesh categories again: 20 trees, 59 bushes, 201 grass instances, and 27 total rocks across three rock meshes. `GrassDensity` was temporarily lowered from 0.82 to 0.20 and grass count dropped from 201 to 44, confirming the density parameter is reflected after PCG regeneration.
+- Review artifacts: `Saved/MCP/PCG_LandscapeSplineBiome_after_fix_review.png` and `Saved/MCP/PCG_LandscapeSplineBiome_distribution.png`, both alpha-fixed to `[255, 255]` for chat QA display.
+
+## 2026-06-19 Fast PCG Authoring Mode
+
+- User decision: apply the fast PCG creation workflow even before a reusable template asset exists.
+- Project rule added: new PCG creation and major PCG rebuilds should batch Unreal Python/MCP node creation, pin wiring, setting changes, and actor-property bindings instead of recompiling/regenerating after small edits.
+- Validation rule added: use numeric gates first, including mesh/category counts, branch presence, spline containment, Landscape hit checks, and radial density metrics. Review screenshots should be taken near the end and alpha-fixed to `[255, 255]` before chat display.
+- Current scope deliberately excludes template cloning. Template-based PCG creation remains a later optimization after a stable template asset exists.
+
+## 2026-06-19 Fast BP Authoring Mode
+
+- User decision: apply the same fast authoring approach to Blueprint creation and major Blueprint rebuilds.
+- Project rule added: until a stable reusable Blueprint template/base asset exists, batch variable creation, exposure metadata, categories, defaults, component additions, component defaults, and minimal graph wiring through Unreal Python/MCP instead of editing one small item at a time.
+- Workflow rule added: prefer CDO defaults, component template defaults, and editor-exposed properties over large node-by-node Blueprint graph construction; keep Construction Script thin and avoid per-edit expensive PCG cleanup/generation loops.
+- Validation rule added: compile/save in grouped checkpoints, then audit variable names/types/defaults/exposure flags/categories, component existence/defaults, CDO versus placed actor overrides, graph/component references, and compile warnings/errors before visual QA. PCG-owning Blueprints also verify PCG graph assignment and regenerate only at final or major checkpoints.
+
+## 2026-06-19 Fast PCG Side-Effect Gate
+
+- User decision: apply the fast PCG side-effect checks as required validation, not as optional cautions.
+- Side effects recorded: fast batch authoring can leave stale viewport/generated results, mismatch `PCGComponent` and `PCGGraphInstance` graph state, hide BP default versus placed actor override divergence, delay spline/bounds/Landscape sampler refresh, make density comparisons noisy through random seeds, and make branch wiring issues harder to isolate.
+- Validation rule added: before accepting a fast-authored PCG, verify graph assignment through the live component and graph instance, run a final or major-checkpoint regeneration, audit actor-property defaults versus placed overrides, confirm spline containment and Landscape hits, inspect radial density metrics, and run a deliberate parameter delta test for density or mesh assignment.
+- Review rule reaffirmed: screenshots and distribution images remain end-of-pass evidence and must use the alpha hook so chat-visible review copies have alpha `[255, 255]`.
+
+## 2026-06-19 Finished PCG/BP Live Refresh Mode
+
+- User decision: keep fast batch authoring for construction, then switch finished user-facing PCG/BP assets to a live refresh mode.
+- Direction review: this separates builder speed from artist usability. During MCP/scripted authoring, auto-regeneration stays off; after validation, final PCG Blueprints expose an editor-facing control such as `AutoRegenerateInEditor` and default it on unless the graph is too expensive.
+- Safety rule added: live refresh must use debounce or dirty-flag behavior and trigger only on meaningful spline, graph, actor-property parameter, mesh override, scale, density, or falloff changes. Avoid per-tick and per-node `Cleanup -> Generate` loops.
+- Fallback rule added: heavy graphs should expose a manual refresh path and/or `PreviewDensityScale`. If safe Blueprint `Call In Editor` authoring is unavailable, prefer editor utility or UnrealMCP refresh routes instead of adding non-exception C++.
+- Validation rule added: before handoff, change one parameter, one spline shape, and one mesh override, then verify regenerated output, category counts, spline containment, Landscape hits, graph assignment, and latest log health.
+
+## 2026-06-19 NVIDIA D3D12 GPU Hang Investigation
+
+- Issue observed: Unreal Editor showed a GPU crash warning at `2026-06-19 09:03:52 KST`. Project log reported `DXGI_ERROR_DEVICE_HUNG`, Windows logged `LiveKernelEvent 141` from `nvlddmkm.sys_Blackwell`, and NVIDIA Aftermath wrote `Saved/Logs/D3D12.0.2026.06.19-09.03.52.nv-gpudmp`.
+- Crash context: UE 5.7.4, D3D12 SM6, NVIDIA RTX 5060 Laptop GPU driver `596.49`, editor running on battery, active shader `ResampleLightingHistoryToCardCaptureAtlasCS`, active breadcrumbs around `LumenSceneUpdate`, `SkyAtmosphereLUTs`, and Lumen card capture.
+- Project setting decision: do not keep project-wide editor CVar mitigation because the issue is machine-specific and other PCs are unaffected. The temporary `[SystemSettingsEditor]` mitigation in `Config/DefaultEngine.ini` was reverted.
+- Follow-up expectation: if this PC repeats the same crash, handle it as a local-machine troubleshooting path first: restart the editor after the device removal, test plugged-in/high-performance GPU mode, then try a DX11/no-ray-tracing launch or NVIDIA driver update/rollback. Do not commit shared render-quality reductions for this single-PC event.
