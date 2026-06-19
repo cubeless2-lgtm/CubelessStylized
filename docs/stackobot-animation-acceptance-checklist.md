@@ -23,6 +23,24 @@ Do not mark the task complete when the only evidence is that an asset exists.
 Animation work needs either a route-specific runtime proof or a clear statement
 that the request was read-only.
 
+## Route Token Acceptance Map
+
+Use this quick map before final delivery. The detailed pass/fail text remains in
+`Route-Specific Pass Criteria`, but each row here keeps the first command and
+verification command aligned with the request route.
+
+| Route token | Minimum evidence strength | First read or authoring command | Verification command | Complete only when |
+| --- | --- | --- | --- | --- |
+| `Post Process ModifyBone` | Same-instance pre/post | `ensure_postprocess_anim_demo_variant` | `sample_anim_node_pre_post_runtime_pose` | Target bone delta matches the requested transform and original assets were not edited without approval. |
+| `BlendSpace sample variant` | Runtime smoke | `ensure_blendspace_sample_variant` | `sample_blendspace_runtime_pose_grid` | Sample coordinates are reported and `input_changed_pose=true` when a visible response is expected. |
+| `Bot Trail sample` | Same-instance pre/post | `ensure_anim_graph_trail_demo` | `sample_anim_node_pre_post_runtime_pose` | Component-level Post Process override was used and the target chain shows a Trail response. |
+| `UpperBody Slot and LayeredBlend` | Same-instance pre/post | `slot/cached-pose inventory` | `sample_anim_node_pre_post_runtime_pose` | `BasePose` and `BlendPoses[0]` are captured and route proof is not mistaken for visible action proof. |
+| `protected metadata boundary` | Read-only topology | `safe animation asset inventory` | `none for protected internals` | Readable fields and blocked protected fields are reported, or a guarded native API candidate is parked. |
+| `ControlRig gate probe` | Same-instance pre/post | `inspect_anim_graph_protected_topology`, then `controlrig_direct_gate_probe` | `sample_anim_node_pre_post_runtime_pose` | Required gates are identified and compiled AnimGraph proof is separated from direct transient rig proof. |
+| `state-machine runtime-driver proof` | Runtime smoke | `inspect_anim_state_machine_transitions` | `sample_anim_state_machine_runtime_response` | Runtime cases report state response and restore changed runtime properties. |
+| `Baddy RigidBody` | Same-instance pre/post | `inspect_anim_graph_node_settings` | `sample_anim_node_pre_post_runtime_pose` | Runtime node mapping or pose deltas support the physics effect and source clip motion is separated. |
+| `node resolver plus same-instance pre/post proof` | Same-instance pre/post | `inspect_anim_graph_protected_topology` plus `compiled mapping` | `sample_anim_node_pre_post_runtime_pose` | Target node selection, input/output links, and same-instance confirmation are all reported. |
+
 ## Route-Specific Pass Criteria
 
 | Route token | Route | Pass criteria | Fail or incomplete when |

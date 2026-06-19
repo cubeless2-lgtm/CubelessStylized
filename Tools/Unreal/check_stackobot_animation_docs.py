@@ -166,6 +166,7 @@ REQUIRED_SECTIONS = {
     ],
     "docs/stackobot-animation-acceptance-checklist.md": [
         "## Universal Pass Gate",
+        "## Route Token Acceptance Map",
         "## Route-Specific Pass Criteria",
         "## Evidence Strength Levels",
         "## When To Stop And Escalate",
@@ -2562,6 +2563,14 @@ def _request_compiler_route_token_entries() -> list[dict[str, Any]]:
     )
 
 
+def _acceptance_route_token_map_entries() -> list[dict[str, Any]]:
+    return _route_token_command_row_entries(
+        path_text="docs/stackobot-animation-acceptance-checklist.md",
+        heading="## Route Token Acceptance Map",
+        check_name="acceptance_route_token_map",
+    )
+
+
 def _execution_evidence_route_token_entries() -> list[dict[str, Any]]:
     return _route_token_command_row_entries(
         path_text="docs/stackobot-animation-execution-map.md",
@@ -3160,6 +3169,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_request_compiler_route_tokens = [
         entry for entry in request_compiler_route_tokens if not entry["matches"]
     ]
+    acceptance_route_token_map = _acceptance_route_token_map_entries()
+    mismatched_acceptance_route_token_map = [
+        entry for entry in acceptance_route_token_map if not entry["matches"]
+    ]
     execution_evidence_route_tokens = _execution_evidence_route_token_entries()
     mismatched_execution_evidence_route_tokens = [
         entry for entry in execution_evidence_route_tokens if not entry["matches"]
@@ -3256,6 +3269,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_closeout_ready_route_tokens
         and not mismatched_quickstart_route_tokens
         and not mismatched_request_compiler_route_tokens
+        and not mismatched_acceptance_route_token_map
         and not mismatched_execution_evidence_route_tokens
         and not missing_execution_evidence_sections
         and not missing_command_syntax_result_checklist
@@ -3266,7 +3280,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v71",
+        "schema": "stackobot_animation_docs_link_audit_v72",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3331,6 +3345,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_closeout_ready_route_token_count": len(mismatched_closeout_ready_route_tokens),
         "mismatched_quickstart_route_token_count": len(mismatched_quickstart_route_tokens),
         "mismatched_request_compiler_route_token_count": len(mismatched_request_compiler_route_tokens),
+        "mismatched_acceptance_route_token_map_count": len(mismatched_acceptance_route_token_map),
         "mismatched_execution_evidence_route_token_count": len(mismatched_execution_evidence_route_tokens),
         "missing_execution_evidence_section_count": len(missing_execution_evidence_sections),
         "missing_command_syntax_result_checklist_count": len(missing_command_syntax_result_checklist),
@@ -3458,6 +3473,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_quickstart_route_tokens": mismatched_quickstart_route_tokens,
         "request_compiler_route_tokens": request_compiler_route_tokens,
         "mismatched_request_compiler_route_tokens": mismatched_request_compiler_route_tokens,
+        "acceptance_route_token_map": acceptance_route_token_map,
+        "mismatched_acceptance_route_token_map": mismatched_acceptance_route_token_map,
         "execution_evidence_route_tokens": execution_evidence_route_tokens,
         "mismatched_execution_evidence_route_tokens": mismatched_execution_evidence_route_tokens,
         "execution_evidence_sections": execution_evidence_sections,
@@ -3547,6 +3564,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_closeout_ready_routes={report['mismatched_closeout_ready_route_token_count']} "
             f"mismatched_quickstart_route_tokens={report['mismatched_quickstart_route_token_count']} "
             f"mismatched_request_compiler_route_tokens={report['mismatched_request_compiler_route_token_count']} "
+            f"mismatched_acceptance_route_token_map={report['mismatched_acceptance_route_token_map_count']} "
             f"mismatched_execution_evidence_route_tokens={report['mismatched_execution_evidence_route_token_count']} "
             f"missing_execution_evidence_sections={report['missing_execution_evidence_section_count']} "
             f"missing_command_result_checklist={report['missing_command_syntax_result_checklist_count']} "
@@ -3618,6 +3636,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_closeout_ready_route_tokens",
             "mismatched_quickstart_route_tokens",
             "mismatched_request_compiler_route_tokens",
+            "mismatched_acceptance_route_token_map",
             "mismatched_execution_evidence_route_tokens",
             "missing_execution_evidence_sections",
             "missing_command_syntax_result_checklist",
