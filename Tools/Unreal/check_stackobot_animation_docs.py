@@ -293,6 +293,7 @@ REQUIRED_SECTIONS = {
     ],
     "docs/stackobot-physics-request-grammar.md": [
         "## Route Matrix",
+        "## Physics Route Token Map",
         "## Decision Rules",
         "## Known Evidence",
         "## Safe Command Patterns",
@@ -1740,13 +1741,15 @@ def _route_token_command_row_entries(
     path_text: str,
     heading: str,
     check_name: str,
+    route_tokens: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     path = PROJECT_ROOT / path_text
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, heading)
     entries: list[dict[str, Any]] = []
 
-    for route_token in REQUEST_EXAMPLE_ROUTE_COVERAGE.values():
+    tokens = route_tokens or list(REQUEST_EXAMPLE_ROUTE_COVERAGE.values())
+    for route_token in tokens:
         row = next(
             (
                 line
@@ -2455,6 +2458,15 @@ def _animbp_authoring_pattern_route_entries() -> list[dict[str, Any]]:
     )
 
 
+def _physics_route_token_entries() -> list[dict[str, Any]]:
+    return _route_token_command_row_entries(
+        path_text="docs/stackobot-physics-request-grammar.md",
+        heading="## Physics Route Token Map",
+        check_name="physics_route_token",
+        route_tokens=["Bot Trail sample", "Baddy RigidBody"],
+    )
+
+
 def _command_syntax_result_checklist_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-mcp-command-syntax.md"
     path = PROJECT_ROOT / path_text
@@ -2980,6 +2992,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for entry in animbp_authoring_pattern_routes
         if not entry["matches"]
     ]
+    physics_route_tokens = _physics_route_token_entries()
+    mismatched_physics_route_tokens = [
+        entry for entry in physics_route_tokens if not entry["matches"]
+    ]
     command_syntax_result_checklist = _command_syntax_result_checklist_entries()
     missing_command_syntax_result_checklist = [
         entry for entry in command_syntax_result_checklist if not entry["exists"]
@@ -3062,6 +3078,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_authoring_route_templates
         and not mismatched_playbook_route_map
         and not mismatched_animbp_authoring_pattern_routes
+        and not mismatched_physics_route_tokens
         and not missing_command_syntax_result_checklist
         and not unsafe_command_syntax_authoring
         and not missing_command_syntax_required_params
@@ -3070,7 +3087,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v63",
+        "schema": "stackobot_animation_docs_link_audit_v64",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3129,6 +3146,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_authoring_route_template_count": len(mismatched_authoring_route_templates),
         "mismatched_playbook_route_map_count": len(mismatched_playbook_route_map),
         "mismatched_animbp_authoring_pattern_route_count": len(mismatched_animbp_authoring_pattern_routes),
+        "mismatched_physics_route_token_count": len(mismatched_physics_route_tokens),
         "missing_command_syntax_result_checklist_count": len(missing_command_syntax_result_checklist),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
         "missing_command_syntax_required_param_count": len(missing_command_syntax_required_params),
@@ -3242,6 +3260,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_playbook_route_map": mismatched_playbook_route_map,
         "animbp_authoring_pattern_routes": animbp_authoring_pattern_routes,
         "mismatched_animbp_authoring_pattern_routes": mismatched_animbp_authoring_pattern_routes,
+        "physics_route_tokens": physics_route_tokens,
+        "mismatched_physics_route_tokens": mismatched_physics_route_tokens,
         "command_syntax_result_checklist": command_syntax_result_checklist,
         "missing_command_syntax_result_checklist": missing_command_syntax_result_checklist,
         "command_syntax_authoring_safety": command_syntax_authoring_safety,
@@ -3321,6 +3341,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_authoring_route_templates={report['mismatched_authoring_route_template_count']} "
             f"mismatched_playbook_route_map={report['mismatched_playbook_route_map_count']} "
             f"mismatched_animbp_authoring_patterns={report['mismatched_animbp_authoring_pattern_route_count']} "
+            f"mismatched_physics_route_tokens={report['mismatched_physics_route_token_count']} "
             f"missing_command_result_checklist={report['missing_command_syntax_result_checklist_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
             f"missing_command_params={report['missing_command_syntax_required_param_count']} "
@@ -3384,6 +3405,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_authoring_route_templates",
             "mismatched_playbook_route_map",
             "mismatched_animbp_authoring_pattern_routes",
+            "mismatched_physics_route_tokens",
             "missing_command_syntax_result_checklist",
             "unsafe_command_syntax_authoring",
             "missing_command_syntax_required_params",

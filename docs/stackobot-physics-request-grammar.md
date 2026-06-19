@@ -26,6 +26,17 @@ proof work should use `/Game/_MCP_Sample/AnimStudy` or runtime-only actors.
 | PhysicsAsset constraint design or constraint internals | PhysicsAsset analysis, not AnimBP only | Constraint counts and solver settings only | Read-only evidence first | Candidate: guarded constraint inspection API |
 | World physics, constraints, destructibles, platforms | Blueprint/world physics route | Existing world-side examples only | Not an AnimBP route | Separate request family |
 
+## Physics Route Token Map
+
+Use this table after request compilation when the route is animation-side
+physics. It keeps the physics grammar aligned with the route matrix, command
+syntax, sample manifest, and acceptance checklist.
+
+| Route token | Physics surface | First read or authoring command | Verification command |
+| --- | --- | --- | --- |
+| `Bot Trail sample` | Post Process Trail node on the Bot antenna chain | `ensure_anim_graph_trail_demo` | `sample_anim_node_pre_post_runtime_pose` |
+| `Baddy RigidBody` | RigidBody node in `ABP_Baddy` or a duplicated sample variant | `inspect_anim_graph_node_settings` | `sample_anim_node_pre_post_runtime_pose` |
+
 ## Decision Rules
 
 1. If the request names a Bot antenna or head-mounted appendage, start with the

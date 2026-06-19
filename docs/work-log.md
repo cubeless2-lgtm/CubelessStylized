@@ -9274,3 +9274,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added an audit guard that requires the C++/API `Candidate Matrix` to keep the parked API candidates for state-machine authoring, layered overlay authoring, RigidBody variants, physics metrics, guarded PhysicsAsset inspection, notifies/curves, PoseWatch actor resolution, node mapping, broader Trail parameters, and Blueprint call topology.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_cpp_api_candidate_matrix=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot physics route token audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v64`.
+- Added `Physics Route Token Map` to `docs/stackobot-physics-request-grammar.md` so the animation-physics grammar explicitly maps `Bot Trail sample` and `Baddy RigidBody` to first and verification commands.
+- Added an audit guard that compares the physics route-token rows against the shared first-command and verification-command rules.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_physics_route_tokens=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
