@@ -9115,3 +9115,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Verification before push passed: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` and `python Tools/Unreal/check_stackobot_animation_staging_scope.py --summary --range origin/main..HEAD`.
 - Post-push verification passed: `origin/main...HEAD` count is `0 0`; sibling workspace `D:\Git\unreal-mcp-cubeless` is clean.
 - Remaining local dirty files are the pre-existing PCG Dungeon V2 asset/script/doc changes plus the `Plugins/UnrealMCP` worktree pointer mismatch. They were not staged or pushed as part of this StackOBot main push.
+## 2026-06-19 PCG Dungeon V2 ceiling cleanup main push
+
+- Pushed `main` to `origin/main` at `ace38f13e` with the remaining PCG Dungeon V2 ceiling cleanup work.
+- The commit adds V2 ceiling light-seal mesh rebuild support, editor visibility helpers for unnecessary V2 StaticMeshActors, updated BP/controller assets, updated PCG graph/map/mesh assets, and prototype documentation.
+- Before commit, the `Plugins/UnrealMCP` submodule checkout mismatch was corrected locally to the recorded superproject pointer `b23a2367`; no UnrealMCP submodule change was staged.
+- Verification before commit passed: `git diff --check` for the touched text files and `python -m py_compile Plugins\CustomTools\Content\Python\ArtScripts\CubelessDungeonPCGV2.py`.
+- Push uploaded `11` Git LFS asset objects successfully. Post-push verification passed: `origin/main...HEAD` count is `0 0`, the CubelessStylized worktree is clean, and sibling workspace `D:\Git\unreal-mcp-cubeless` is clean.
