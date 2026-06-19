@@ -9438,3 +9438,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added expected schema guards for `check_stackobot_animation_preflight.py` and `check_stackobot_animation_staging_scope.py` output.
 - Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed and reported `expected_preflight_schema=stackobot_animation_preflight_v1` and `expected_staging_scope_schema=stackobot_animation_staging_scope_v1`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot reciprocal local-check schema guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v83`.
+- Expanded `Tools/Unreal/run_stackobot_animation_local_checks.py` to schema `stackobot_animation_local_checks_v4` and updated it to expect docs audit schema `stackobot_animation_docs_link_audit_v83`.
+- Added a docs-audit guard that verifies the local runner's report schema and expected helper-schema constants stay current.
+- Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with `missing_local_check_runner_schemas=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

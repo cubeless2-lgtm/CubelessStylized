@@ -41,6 +41,14 @@ JSON_FENCE_RE = re.compile(r"```json\n(?P<body>.*?)\n```", re.DOTALL)
 EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 SAMPLE_ASSET_PATH_RE = re.compile(r"/Game/_MCP_Sample/AnimStudy/[A-Za-z0-9_]+")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
+DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v83"
+
+LOCAL_CHECK_RUNNER_SCHEMA_TOKENS = {
+    "local_check_schema": '"schema": "stackobot_animation_local_checks_v4"',
+    "expected_docs_audit_schema": f'EXPECTED_DOCS_AUDIT_SCHEMA = "{DOCS_AUDIT_SCHEMA}"',
+    "expected_preflight_schema": 'EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"',
+    "expected_staging_scope_schema": 'EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"',
+}
 
 EXPECTED_EXTERNAL_PATHS = [
     PROJECT_ROOT.parent / "unreal-mcp-cubeless" / "Python" / "tools" / "node_tools.py",
@@ -2883,6 +2891,21 @@ def _command_syntax_result_checklist_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _local_check_runner_schema_entries() -> list[dict[str, Any]]:
+    path_text = "Tools/Unreal/run_stackobot_animation_local_checks.py"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    return [
+        {
+            "path": path_text,
+            "key": key,
+            "token": token,
+            "exists": token in text,
+        }
+        for key, token in LOCAL_CHECK_RUNNER_SCHEMA_TOKENS.items()
+    ]
+
+
 def _command_syntax_authoring_safety_entries(json_blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for command in COMMAND_SYNTAX_AUTHORING_COMMANDS:
@@ -3479,6 +3502,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_command_syntax_result_checklist = [
         entry for entry in command_syntax_result_checklist if not entry["exists"]
     ]
+    local_check_runner_schemas = _local_check_runner_schema_entries()
+    missing_local_check_runner_schemas = [
+        entry for entry in local_check_runner_schemas if not entry["exists"]
+    ]
     command_syntax_authoring_safety = _command_syntax_authoring_safety_entries(command_syntax_json_blocks)
     unsafe_command_syntax_authoring = [
         entry
@@ -3577,6 +3604,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_execution_evidence_route_tokens
         and not missing_execution_evidence_sections
         and not missing_command_syntax_result_checklist
+        and not missing_local_check_runner_schemas
         and not unsafe_command_syntax_authoring
         and not missing_command_syntax_required_params
         and not unsafe_command_syntax_sample_paths
@@ -3584,7 +3612,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v82",
+        "schema": DOCS_AUDIT_SCHEMA,
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3663,6 +3691,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_execution_evidence_route_token_count": len(mismatched_execution_evidence_route_tokens),
         "missing_execution_evidence_section_count": len(missing_execution_evidence_sections),
         "missing_command_syntax_result_checklist_count": len(missing_command_syntax_result_checklist),
+        "missing_local_check_runner_schema_count": len(missing_local_check_runner_schemas),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
         "missing_command_syntax_required_param_count": len(missing_command_syntax_required_params),
         "unsafe_command_syntax_sample_path_count": len(unsafe_command_syntax_sample_paths),
@@ -3815,6 +3844,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_execution_evidence_sections": missing_execution_evidence_sections,
         "command_syntax_result_checklist": command_syntax_result_checklist,
         "missing_command_syntax_result_checklist": missing_command_syntax_result_checklist,
+        "local_check_runner_schemas": local_check_runner_schemas,
+        "missing_local_check_runner_schemas": missing_local_check_runner_schemas,
         "command_syntax_authoring_safety": command_syntax_authoring_safety,
         "unsafe_command_syntax_authoring": unsafe_command_syntax_authoring,
         "command_syntax_required_params": command_syntax_required_params,
@@ -3912,6 +3943,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_execution_evidence_route_tokens={report['mismatched_execution_evidence_route_token_count']} "
             f"missing_execution_evidence_sections={report['missing_execution_evidence_section_count']} "
             f"missing_command_result_checklist={report['missing_command_syntax_result_checklist_count']} "
+            f"missing_local_check_runner_schemas={report['missing_local_check_runner_schema_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
             f"missing_command_params={report['missing_command_syntax_required_param_count']} "
             f"unsafe_command_paths={report['unsafe_command_syntax_sample_path_count']} "
@@ -3994,6 +4026,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_execution_evidence_route_tokens",
             "missing_execution_evidence_sections",
             "missing_command_syntax_result_checklist",
+            "missing_local_check_runner_schemas",
             "unsafe_command_syntax_authoring",
             "missing_command_syntax_required_params",
             "unsafe_command_syntax_sample_paths",
