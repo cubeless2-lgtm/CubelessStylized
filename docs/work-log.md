@@ -9105,3 +9105,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now requires those fields in request-run examples.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_example_fields=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request example route matrix value audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v43`.
+- The checker now validates that every request-run example marks `route_matrix_checked:` as `true`.
+- The checker also validates route-specific `route_matrix_notes:` content for route classification, execution, and evidence/approval matrix alignment.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_route_matrix_checked=0` and `mismatched_request_example_route_matrix_notes=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

@@ -795,6 +795,30 @@ REQUEST_EXAMPLE_ROUTE_ASK_USER_FIRST_RULES = {
     "node resolver plus same-instance pre/post proof": ["false while the work is read-only instrumentation"],
 }
 
+REQUEST_EXAMPLE_ROUTE_MATRIX_CHECKED_RULES = {
+    "Post Process ModifyBone": ["true"],
+    "BlendSpace sample variant": ["true"],
+    "Bot Trail sample": ["true"],
+    "UpperBody Slot and LayeredBlend": ["true"],
+    "protected metadata boundary": ["true"],
+    "ControlRig gate probe": ["true"],
+    "state-machine runtime-driver proof": ["true"],
+    "Baddy RigidBody": ["true"],
+    "node resolver plus same-instance pre/post proof": ["true"],
+}
+
+REQUEST_EXAMPLE_ROUTE_MATRIX_NOTE_RULES = {
+    "Post Process ModifyBone": ["Post Process ModifyBone", "route classification", "execution", "evidence/approval"],
+    "BlendSpace sample variant": ["BlendSpace sample variant", "route classification", "execution", "evidence/approval"],
+    "Bot Trail sample": ["Bot Trail sample", "route classification", "execution", "evidence/approval"],
+    "UpperBody Slot and LayeredBlend": ["UpperBody Slot and LayeredBlend", "route classification", "execution", "evidence/approval"],
+    "protected metadata boundary": ["protected metadata boundary", "route classification", "execution", "evidence/approval"],
+    "ControlRig gate probe": ["ControlRig gate probe", "route classification", "execution", "evidence/approval"],
+    "state-machine runtime-driver proof": ["state-machine runtime-driver proof", "route classification", "execution", "evidence/approval"],
+    "Baddy RigidBody": ["Baddy RigidBody", "route classification", "execution", "evidence/approval"],
+    "node resolver plus same-instance pre/post proof": ["node resolver plus same-instance pre/post proof", "route classification", "execution", "evidence/approval"],
+}
+
 REQUEST_RUN_TEMPLATE_FIELD_GROUPS = {
     "request": [
         "user_request:",
@@ -1641,6 +1665,20 @@ def _request_example_route_ask_user_first_entries() -> list[dict[str, Any]]:
     )
 
 
+def _request_example_route_matrix_checked_entries() -> list[dict[str, Any]]:
+    return _request_example_route_required_token_entries(
+        REQUEST_EXAMPLE_ROUTE_MATRIX_CHECKED_RULES,
+        "route_matrix_checked",
+    )
+
+
+def _request_example_route_matrix_notes_entries() -> list[dict[str, Any]]:
+    return _request_example_route_required_token_entries(
+        REQUEST_EXAMPLE_ROUTE_MATRIX_NOTE_RULES,
+        "route_matrix_notes",
+    )
+
+
 def _request_example_acceptance_focus_text(record: dict[str, Any]) -> str:
     section_text = str(record.get("section_text", ""))
     focus_index = section_text.find("Acceptance focus:")
@@ -2216,6 +2254,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for entry in request_example_route_ask_user_first
         if not entry["known_route"] or not entry["matches"]
     ]
+    request_example_route_matrix_checked = _request_example_route_matrix_checked_entries()
+    mismatched_request_example_route_matrix_checked = [
+        entry
+        for entry in request_example_route_matrix_checked
+        if not entry["known_route"] or not entry["matches"]
+    ]
+    request_example_route_matrix_notes = _request_example_route_matrix_notes_entries()
+    mismatched_request_example_route_matrix_notes = [
+        entry
+        for entry in request_example_route_matrix_notes
+        if not entry["known_route"] or not entry["matches"]
+    ]
     request_example_acceptance_focus = _request_example_acceptance_focus_entries()
     missing_request_example_acceptance_focus = [
         entry
@@ -2317,6 +2367,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_request_example_route_expected_evidence
         and not mismatched_request_example_route_sample_targets
         and not mismatched_request_example_route_ask_user_first
+        and not mismatched_request_example_route_matrix_checked
+        and not mismatched_request_example_route_matrix_notes
         and not mismatched_request_example_route_verifications
         and not missing_request_example_acceptance_focus
         and not mismatched_request_example_route_acceptance_focus
@@ -2338,7 +2390,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v42",
+        "schema": "stackobot_animation_docs_link_audit_v43",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2364,6 +2416,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_expected_evidence_count": len(mismatched_request_example_route_expected_evidence),
         "mismatched_request_example_route_sample_target_count": len(mismatched_request_example_route_sample_targets),
         "mismatched_request_example_route_ask_user_first_count": len(mismatched_request_example_route_ask_user_first),
+        "mismatched_request_example_route_matrix_checked_count": len(mismatched_request_example_route_matrix_checked),
+        "mismatched_request_example_route_matrix_note_count": len(mismatched_request_example_route_matrix_notes),
         "mismatched_request_example_route_verification_count": len(mismatched_request_example_route_verifications),
         "missing_request_example_acceptance_focus_count": len(missing_request_example_acceptance_focus),
         "mismatched_request_example_route_acceptance_focus_count": len(mismatched_request_example_route_acceptance_focus),
@@ -2419,6 +2473,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_sample_targets": mismatched_request_example_route_sample_targets,
         "request_example_route_ask_user_first": request_example_route_ask_user_first,
         "mismatched_request_example_route_ask_user_first": mismatched_request_example_route_ask_user_first,
+        "request_example_route_matrix_checked": request_example_route_matrix_checked,
+        "mismatched_request_example_route_matrix_checked": mismatched_request_example_route_matrix_checked,
+        "request_example_route_matrix_notes": request_example_route_matrix_notes,
+        "mismatched_request_example_route_matrix_notes": mismatched_request_example_route_matrix_notes,
         "request_example_route_verifications": request_example_route_verifications,
         "mismatched_request_example_route_verifications": mismatched_request_example_route_verifications,
         "request_example_acceptance_focus": request_example_acceptance_focus,
@@ -2491,6 +2549,8 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_request_example_expected_evidence={report['mismatched_request_example_route_expected_evidence_count']} "
             f"mismatched_request_example_sample_targets={report['mismatched_request_example_route_sample_target_count']} "
             f"mismatched_request_example_ask_user_first={report['mismatched_request_example_route_ask_user_first_count']} "
+            f"mismatched_request_example_route_matrix_checked={report['mismatched_request_example_route_matrix_checked_count']} "
+            f"mismatched_request_example_route_matrix_notes={report['mismatched_request_example_route_matrix_note_count']} "
             f"mismatched_request_example_verification_commands={report['mismatched_request_example_route_verification_count']} "
             f"missing_acceptance_focus_blocks={report['missing_request_example_acceptance_focus_count']} "
             f"mismatched_acceptance_focus_tokens={report['mismatched_request_example_route_acceptance_focus_count']} "
@@ -2534,6 +2594,8 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_request_example_route_expected_evidence",
             "mismatched_request_example_route_sample_targets",
             "mismatched_request_example_route_ask_user_first",
+            "mismatched_request_example_route_matrix_checked",
+            "mismatched_request_example_route_matrix_notes",
             "mismatched_request_example_route_verifications",
             "missing_request_example_acceptance_focus",
             "mismatched_request_example_route_acceptance_focus",
