@@ -1267,6 +1267,17 @@ def _markdown_heading_section(text: str, heading: str) -> str:
     return text[section_start : section_start + next_heading.start()]
 
 
+def _markdown_heading_exists(text: str, heading: str) -> bool:
+    return bool(re.search(rf"^##\s+{re.escape(heading)}\s*$", text, re.MULTILINE))
+
+
+def _markdown_table_cells(row: str) -> list[str]:
+    stripped = row.strip()
+    if not stripped.startswith("|") or not stripped.endswith("|"):
+        return []
+    return [cell.strip() for cell in stripped[1:-1].split("|")]
+
+
 def _parse_example_fields(block: str) -> dict[str, str]:
     fields: dict[str, list[str]] = {}
     current_field = ""
@@ -2512,6 +2523,47 @@ def _execution_evidence_route_token_entries() -> list[dict[str, Any]]:
     )
 
 
+def _execution_evidence_section_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-execution-map.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Route Token Evidence Map")
+    entries: list[dict[str, Any]] = []
+
+    for route_token in REQUEST_EXAMPLE_ROUTE_COVERAGE.values():
+        row = next(
+            (
+                line
+                for line in section.splitlines()
+                if f"`{route_token}`" in line
+            ),
+            "",
+        )
+        cells = _markdown_table_cells(row)
+        evidence_cell = cells[1] if len(cells) > 1 else ""
+        evidence_sections = re.findall(r"`([^`]+)`", evidence_cell)
+        missing_sections = [
+            heading
+            for heading in evidence_sections
+            if not _markdown_heading_exists(text, heading)
+        ]
+        entries.append(
+            {
+                "path": path_text,
+                "section": "## Route Token Evidence Map",
+                "check": "execution_evidence_sections",
+                "route_token": route_token,
+                "row": row,
+                "evidence_sections": evidence_sections,
+                "missing_sections": missing_sections,
+                "exists": bool(row),
+                "matches": bool(row) and bool(evidence_sections) and not missing_sections,
+            }
+        )
+
+    return entries
+
+
 def _command_syntax_result_checklist_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-mcp-command-syntax.md"
     path = PROJECT_ROOT / path_text
@@ -3061,6 +3113,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_execution_evidence_route_tokens = [
         entry for entry in execution_evidence_route_tokens if not entry["matches"]
     ]
+    execution_evidence_sections = _execution_evidence_section_entries()
+    missing_execution_evidence_sections = [
+        entry for entry in execution_evidence_sections if not entry["matches"]
+    ]
     command_syntax_result_checklist = _command_syntax_result_checklist_entries()
     missing_command_syntax_result_checklist = [
         entry for entry in command_syntax_result_checklist if not entry["exists"]
@@ -3149,6 +3205,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_quickstart_route_tokens
         and not mismatched_request_compiler_route_tokens
         and not mismatched_execution_evidence_route_tokens
+        and not missing_execution_evidence_sections
         and not missing_command_syntax_result_checklist
         and not unsafe_command_syntax_authoring
         and not missing_command_syntax_required_params
@@ -3157,7 +3214,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v69",
+        "schema": "stackobot_animation_docs_link_audit_v70",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3222,6 +3279,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_quickstart_route_token_count": len(mismatched_quickstart_route_tokens),
         "mismatched_request_compiler_route_token_count": len(mismatched_request_compiler_route_tokens),
         "mismatched_execution_evidence_route_token_count": len(mismatched_execution_evidence_route_tokens),
+        "missing_execution_evidence_section_count": len(missing_execution_evidence_sections),
         "missing_command_syntax_result_checklist_count": len(missing_command_syntax_result_checklist),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
         "missing_command_syntax_required_param_count": len(missing_command_syntax_required_params),
@@ -3347,6 +3405,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_compiler_route_tokens": mismatched_request_compiler_route_tokens,
         "execution_evidence_route_tokens": execution_evidence_route_tokens,
         "mismatched_execution_evidence_route_tokens": mismatched_execution_evidence_route_tokens,
+        "execution_evidence_sections": execution_evidence_sections,
+        "missing_execution_evidence_sections": missing_execution_evidence_sections,
         "command_syntax_result_checklist": command_syntax_result_checklist,
         "missing_command_syntax_result_checklist": missing_command_syntax_result_checklist,
         "command_syntax_authoring_safety": command_syntax_authoring_safety,
@@ -3432,6 +3492,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_quickstart_route_tokens={report['mismatched_quickstart_route_token_count']} "
             f"mismatched_request_compiler_route_tokens={report['mismatched_request_compiler_route_token_count']} "
             f"mismatched_execution_evidence_route_tokens={report['mismatched_execution_evidence_route_token_count']} "
+            f"missing_execution_evidence_sections={report['missing_execution_evidence_section_count']} "
             f"missing_command_result_checklist={report['missing_command_syntax_result_checklist_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
             f"missing_command_params={report['missing_command_syntax_required_param_count']} "
@@ -3501,6 +3562,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_quickstart_route_tokens",
             "mismatched_request_compiler_route_tokens",
             "mismatched_execution_evidence_route_tokens",
+            "missing_execution_evidence_sections",
             "missing_command_syntax_result_checklist",
             "unsafe_command_syntax_authoring",
             "missing_command_syntax_required_params",
