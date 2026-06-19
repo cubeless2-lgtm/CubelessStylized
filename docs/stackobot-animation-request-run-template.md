@@ -31,6 +31,8 @@ handoff_template:
 cxx_api_status:
 ask_user_first:
 route_matrix_checked:
+route_token_document_map_checked:
+route_token_acceptance_map_checked:
 route_matrix_notes:
 ```
 
@@ -102,6 +104,8 @@ Use `docs/stackobot-animation-acceptance-checklist.md`.
 | Dirty packages reported | | |
 | Cleanup completed | | |
 | C++/API decision recorded | | |
+| Route token document map checked | | |
+| Route token acceptance map checked | | |
 
 ## Final Report Draft
 

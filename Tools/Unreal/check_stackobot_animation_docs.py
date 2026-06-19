@@ -890,6 +890,8 @@ REQUEST_RUN_TEMPLATE_FIELD_GROUPS = {
         "cxx_api_status:",
         "ask_user_first:",
         "route_matrix_checked:",
+        "route_token_document_map_checked:",
+        "route_token_acceptance_map_checked:",
         "route_matrix_notes:",
     ],
     "final_report": [
@@ -906,6 +908,10 @@ REQUEST_RUN_TEMPLATE_FIELD_GROUPS = {
         "cxx_api_needed:",
         "artifact_paths:",
         "residual_risk:",
+    ],
+    "acceptance_checklist": [
+        "Route token document map checked",
+        "Route token acceptance map checked",
     ],
     "work_log": [
         "- Request:",
@@ -3280,7 +3286,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v72",
+        "schema": "stackobot_animation_docs_link_audit_v73",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
