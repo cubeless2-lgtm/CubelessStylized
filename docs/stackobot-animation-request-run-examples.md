@@ -30,6 +30,10 @@ cxx_api_status:
 not needed
 ask_user_first:
 false
+route_matrix_checked:
+true
+route_matrix_notes:
+Matches the Post Process ModifyBone route classification, execution, and evidence/approval rows.
 ```
 
 Acceptance focus:
@@ -64,6 +68,10 @@ cxx_api_status:
 not needed
 ask_user_first:
 false
+route_matrix_checked:
+true
+route_matrix_notes:
+Matches the BlendSpace sample variant route classification, execution, and evidence/approval rows.
 ```
 
 Acceptance focus:
@@ -99,6 +107,10 @@ cxx_api_status:
 not needed for current Trail sample
 ask_user_first:
 false
+route_matrix_checked:
+true
+route_matrix_notes:
+Matches the Bot Trail sample route classification, execution, and evidence/approval rows.
 ```
 
 Acceptance focus:
@@ -134,6 +146,10 @@ cxx_api_status:
 candidate only if a new visible action source or overlay branch is required
 ask_user_first:
 false for route proof, true before original asset mutation
+route_matrix_checked:
+true
+route_matrix_notes:
+Matches the UpperBody Slot and LayeredBlend route classification, execution, and evidence/approval rows.
 ```
 
 Acceptance focus:
@@ -168,6 +184,10 @@ cxx_api_status:
 candidate guarded native API for concrete metadata requests
 ask_user_first:
 true before implementing or using new guarded native API
+route_matrix_checked:
+true
+route_matrix_notes:
+Matches the protected metadata boundary route classification, execution, and evidence/approval rows.
 ```
 
 Acceptance focus:
@@ -202,6 +222,10 @@ cxx_api_status:
 not needed unless the requested gate or pin cannot be driven by existing commands
 ask_user_first:
 false for sample proof, true before editing original ABP_Bot or CR_Bot_Correction
+route_matrix_checked:
+true
+route_matrix_notes:
+Matches the ControlRig gate probe route classification, execution, and evidence/approval rows.
 ```
 
 Acceptance focus:
@@ -236,6 +260,10 @@ cxx_api_status:
 candidate only if a new state, sequence player, or transition rule must be authored
 ask_user_first:
 false for read/runtime proof, true before original graph mutation or new authoring API
+route_matrix_checked:
+true
+route_matrix_notes:
+Matches the state-machine runtime-driver proof route classification, execution, and evidence/approval rows.
 ```
 
 Acceptance focus:
@@ -270,6 +298,10 @@ cxx_api_status:
 not needed for narrow setting reads or sample tuning; candidate for deeper PhysicsAsset inspection
 ask_user_first:
 false for sample/read proof, true before original physics asset or AnimBP mutation
+route_matrix_checked:
+true
+route_matrix_notes:
+Matches the Baddy RigidBody route classification, execution, and evidence/approval rows.
 ```
 
 Acceptance focus:
@@ -304,6 +336,10 @@ cxx_api_status:
 not needed unless the node class is unsupported or actor/AnimInstance resolution repeatedly fails
 ask_user_first:
 false while the work is read-only instrumentation
+route_matrix_checked:
+true
+route_matrix_notes:
+Matches the node resolver plus same-instance pre/post proof route classification, execution, and evidence/approval rows.
 ```
 
 Acceptance focus:

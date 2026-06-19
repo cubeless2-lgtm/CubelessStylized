@@ -565,6 +565,8 @@ REQUEST_EXAMPLE_REQUIRED_FIELDS = [
     "handoff_template",
     "cxx_api_status",
     "ask_user_first",
+    "route_matrix_checked",
+    "route_matrix_notes",
 ]
 
 REQUEST_EXAMPLE_ALLOWED_HANDOFFS = {
@@ -2336,7 +2338,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v41",
+        "schema": "stackobot_animation_docs_link_audit_v42",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
