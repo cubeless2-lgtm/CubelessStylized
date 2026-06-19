@@ -44,6 +44,24 @@ examples before filling a request record.
 | `Baddy RigidBody` | `docs/stackobot-animation-quickstart.md` | `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-request-run-examples.md` |
 | `node resolver plus same-instance pre/post proof` | `docs/stackobot-animation-quickstart.md` | `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-request-run-examples.md` |
 
+## Route Token Document Map
+
+Use this table after a route token is known and the full document loop is needed.
+It keeps the short path, route comparison, authoring handoff, command syntax,
+evidence, and sample-target references together.
+
+| Route token | Compile and route | Authoring and handoff | Commands and evidence | Samples |
+| --- | --- | --- | --- | --- |
+| `Post Process ModifyBone` | `docs/stackobot-animation-quickstart.md`; `docs/stackobot-request-compiler-drills.md`; `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-authoring-templates.md`; `docs/stackobot-animation-tivret-handoff-templates.md` | `docs/stackobot-animation-mcp-command-syntax.md`; `docs/stackobot-animation-execution-map.md` | `docs/stackobot-sample-asset-manifest.md` |
+| `BlendSpace sample variant` | `docs/stackobot-animation-quickstart.md`; `docs/stackobot-request-compiler-drills.md`; `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-authoring-templates.md`; `docs/stackobot-animation-tivret-handoff-templates.md` | `docs/stackobot-animation-mcp-command-syntax.md`; `docs/stackobot-animation-execution-map.md` | `docs/stackobot-sample-asset-manifest.md` |
+| `Bot Trail sample` | `docs/stackobot-animation-quickstart.md`; `docs/stackobot-request-compiler-drills.md`; `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-authoring-templates.md`; `docs/stackobot-animation-tivret-handoff-templates.md` | `docs/stackobot-animation-mcp-command-syntax.md`; `docs/stackobot-animation-execution-map.md` | `docs/stackobot-sample-asset-manifest.md` |
+| `UpperBody Slot and LayeredBlend` | `docs/stackobot-animation-quickstart.md`; `docs/stackobot-request-compiler-drills.md`; `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-authoring-templates.md`; `docs/stackobot-animation-tivret-handoff-templates.md` | `docs/stackobot-animation-mcp-command-syntax.md`; `docs/stackobot-animation-execution-map.md` | `docs/stackobot-sample-asset-manifest.md` |
+| `protected metadata boundary` | `docs/stackobot-animation-quickstart.md`; `docs/stackobot-request-compiler-drills.md`; `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-authoring-templates.md`; `docs/stackobot-animation-tivret-handoff-templates.md` | `docs/stackobot-animation-mcp-command-syntax.md`; `docs/stackobot-animation-execution-map.md` | `docs/stackobot-sample-asset-manifest.md` |
+| `ControlRig gate probe` | `docs/stackobot-animation-quickstart.md`; `docs/stackobot-request-compiler-drills.md`; `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-authoring-templates.md`; `docs/stackobot-animation-tivret-handoff-templates.md` | `docs/stackobot-animation-mcp-command-syntax.md`; `docs/stackobot-animation-execution-map.md` | `docs/stackobot-sample-asset-manifest.md` |
+| `state-machine runtime-driver proof` | `docs/stackobot-animation-quickstart.md`; `docs/stackobot-request-compiler-drills.md`; `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-authoring-templates.md`; `docs/stackobot-animation-tivret-handoff-templates.md` | `docs/stackobot-animation-mcp-command-syntax.md`; `docs/stackobot-animation-execution-map.md` | `docs/stackobot-sample-asset-manifest.md` |
+| `Baddy RigidBody` | `docs/stackobot-animation-quickstart.md`; `docs/stackobot-request-compiler-drills.md`; `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-authoring-templates.md`; `docs/stackobot-animation-tivret-handoff-templates.md` | `docs/stackobot-animation-mcp-command-syntax.md`; `docs/stackobot-animation-execution-map.md` | `docs/stackobot-sample-asset-manifest.md` |
+| `node resolver plus same-instance pre/post proof` | `docs/stackobot-animation-quickstart.md`; `docs/stackobot-request-compiler-drills.md`; `docs/stackobot-animation-route-matrix.md` | `docs/stackobot-animation-authoring-templates.md`; `docs/stackobot-animation-tivret-handoff-templates.md` | `docs/stackobot-animation-mcp-command-syntax.md`; `docs/stackobot-animation-execution-map.md` | `docs/stackobot-sample-asset-manifest.md` |
+
 ## Route Deep Dives
 
 | Topic | Document |

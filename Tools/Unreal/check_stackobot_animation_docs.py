@@ -77,6 +77,7 @@ REQUIRED_SECTIONS = {
         "## Start Here",
         "## Request Execution Pages",
         "## Route Coverage",
+        "## Route Token Document Map",
         "## Route Deep Dives",
         "## Default Workflow",
         "## Local Checks",
@@ -634,6 +635,17 @@ REQUEST_EXAMPLE_ROUTE_COVERAGE = {
     "rigidbody_physics": "Baddy RigidBody",
     "node_contribution_proof": "node resolver plus same-instance pre/post proof",
 }
+
+DOC_INDEX_ROUTE_TOKEN_DOCUMENTS = [
+    "docs/stackobot-animation-quickstart.md",
+    "docs/stackobot-request-compiler-drills.md",
+    "docs/stackobot-animation-route-matrix.md",
+    "docs/stackobot-animation-authoring-templates.md",
+    "docs/stackobot-animation-tivret-handoff-templates.md",
+    "docs/stackobot-animation-mcp-command-syntax.md",
+    "docs/stackobot-animation-execution-map.md",
+    "docs/stackobot-sample-asset-manifest.md",
+]
 
 REQUEST_COMPILER_ROUTE_COVERAGE_RULES = {
     "post_process_modifybone": {
@@ -1674,6 +1686,41 @@ def _doc_index_route_coverage_entries() -> list[dict[str, Any]]:
         }
         for token in required_tokens
     ]
+
+
+def _doc_index_route_token_document_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-doc-index.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Route Token Document Map")
+    entries: list[dict[str, Any]] = []
+
+    for route_token in REQUEST_EXAMPLE_ROUTE_COVERAGE.values():
+        row = next(
+            (
+                line
+                for line in section.splitlines()
+                if f"`{route_token}`" in line
+            ),
+            "",
+        )
+        missing_docs = [
+            doc for doc in DOC_INDEX_ROUTE_TOKEN_DOCUMENTS if doc not in row
+        ]
+        entries.append(
+            {
+                "path": path_text,
+                "section": "## Route Token Document Map",
+                "route_token": route_token,
+                "row": row,
+                "expected_docs": DOC_INDEX_ROUTE_TOKEN_DOCUMENTS,
+                "missing_docs": missing_docs,
+                "exists": bool(row),
+                "matches": bool(row) and not missing_docs,
+            }
+        )
+
+    return entries
 
 
 def _cpp_api_route_decision_entries() -> list[dict[str, Any]]:
@@ -2917,6 +2964,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_doc_index_route_coverage = [
         entry for entry in doc_index_route_coverage if not entry["exists"]
     ]
+    doc_index_route_token_documents = _doc_index_route_token_document_entries()
+    missing_doc_index_route_token_documents = [
+        entry for entry in doc_index_route_token_documents if not entry["matches"]
+    ]
     cpp_api_route_decisions = _cpp_api_route_decision_entries()
     mismatched_cpp_api_route_decisions = [
         entry for entry in cpp_api_route_decisions if not entry["matches"]
@@ -3164,6 +3215,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_route_matrix_selection_rules
         and not missing_quickstart_route_shortcuts
         and not missing_doc_index_route_coverage
+        and not missing_doc_index_route_token_documents
         and not mismatched_cpp_api_route_decisions
         and not missing_cpp_api_candidate_matrix
         and not mismatched_handoff_route_map
@@ -3214,7 +3266,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v70",
+        "schema": "stackobot_animation_docs_link_audit_v71",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3238,6 +3290,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_route_matrix_selection_rule_count": len(missing_route_matrix_selection_rules),
         "missing_quickstart_route_shortcut_count": len(missing_quickstart_route_shortcuts),
         "missing_doc_index_route_coverage_count": len(missing_doc_index_route_coverage),
+        "missing_doc_index_route_token_document_count": len(missing_doc_index_route_token_documents),
         "mismatched_cpp_api_route_decision_count": len(mismatched_cpp_api_route_decisions),
         "missing_cpp_api_candidate_matrix_count": len(missing_cpp_api_candidate_matrix),
         "mismatched_handoff_route_map_count": len(mismatched_handoff_route_map),
@@ -3323,6 +3376,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_quickstart_route_shortcuts": missing_quickstart_route_shortcuts,
         "doc_index_route_coverage": doc_index_route_coverage,
         "missing_doc_index_route_coverage": missing_doc_index_route_coverage,
+        "doc_index_route_token_documents": doc_index_route_token_documents,
+        "missing_doc_index_route_token_documents": missing_doc_index_route_token_documents,
         "cpp_api_route_decisions": cpp_api_route_decisions,
         "mismatched_cpp_api_route_decisions": mismatched_cpp_api_route_decisions,
         "cpp_api_candidate_matrix": cpp_api_candidate_matrix,
@@ -3451,6 +3506,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_route_matrix_selection_rules={report['missing_route_matrix_selection_rule_count']} "
             f"missing_quickstart_route_shortcuts={report['missing_quickstart_route_shortcut_count']} "
             f"missing_doc_index_route_coverage={report['missing_doc_index_route_coverage_count']} "
+            f"missing_doc_index_route_token_documents={report['missing_doc_index_route_token_document_count']} "
             f"mismatched_cpp_api_route_decisions={report['mismatched_cpp_api_route_decision_count']} "
             f"missing_cpp_api_candidate_matrix={report['missing_cpp_api_candidate_matrix_count']} "
             f"mismatched_handoff_route_map={report['mismatched_handoff_route_map_count']} "
@@ -3521,6 +3577,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_route_matrix_selection_rules",
             "missing_quickstart_route_shortcuts",
             "missing_doc_index_route_coverage",
+            "missing_doc_index_route_token_documents",
             "mismatched_cpp_api_route_decisions",
             "missing_cpp_api_candidate_matrix",
             "mismatched_handoff_route_map",

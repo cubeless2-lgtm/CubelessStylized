@@ -9329,3 +9329,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added a heading guard for `Route Token Evidence Map` so each evidence-section cell must point at an existing heading in `docs/stackobot-animation-execution-map.md`.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_execution_evidence_sections=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot doc-index route token document map
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v71`.
+- Added `Route Token Document Map` to `docs/stackobot-animation-doc-index.md` so each exact route token points to the compile, route matrix, authoring, handoff, command syntax, evidence, and sample-manifest documents.
+- Added an audit guard that requires every route-token row in the doc-index map to keep those document links.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_doc_index_route_token_documents=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
