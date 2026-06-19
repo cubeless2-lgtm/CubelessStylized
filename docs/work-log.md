@@ -9161,3 +9161,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now catches route matrix drift for sample target, first command, and verification command before live editor work.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_route_matrix_first_commands=0` and `mismatched_route_matrix_verifications=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot route matrix classification audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v50`.
+- Added route matrix classification-table audits for target character, target body area, timing type, and runtime layer tokens, reusing the request-run example route rules.
+- Updated the Bot Trail route matrix body-area cell to `antenna_04_l chain, mirrored only if requested` so it matches the request-run example route rule.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_route_matrix_classification=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

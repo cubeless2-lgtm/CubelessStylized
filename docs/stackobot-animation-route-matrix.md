@@ -17,7 +17,7 @@ Source examples:
 | --- | --- | --- | --- | --- |
 | `Post Process ModifyBone` | Bot | head | static late additive rotation | Post Process AnimBP |
 | `BlendSpace sample variant` | Bot | locomotion body response | continuous BlendSpace axis response | main AnimBP source BlendSpace |
-| `Bot Trail sample` | Bot | `antenna_04_l` chain | secondary motion / follow-through | Post Process AnimBP physics-style node |
+| `Bot Trail sample` | Bot | antenna_04_l chain, mirrored only if requested | secondary motion / follow-through | Post Process AnimBP physics-style node |
 | `UpperBody Slot and LayeredBlend` | Bot | upper body | overlay action over locomotion | Slot / LayeredBoneBlend in main AnimBP |
 | `protected metadata boundary` | Bot or Baddy, depending on the named asset | animation source metadata | notify / curve / sync marker / Montage metadata | animation asset metadata, not pose graph |
 | `ControlRig gate probe` | Bot | foot IK / interaction reach | late correction gated by runtime inputs and curves | ControlRig inside the main AnimBP |

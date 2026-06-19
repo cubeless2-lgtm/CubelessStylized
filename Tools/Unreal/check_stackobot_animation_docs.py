@@ -1425,6 +1425,44 @@ def _route_matrix_any_token_entries(
     return entries
 
 
+def _route_matrix_classification_entries(
+    rules: dict[str, list[str]],
+    field_name: str,
+) -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-route-matrix.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    classification = _markdown_heading_section(text, "## Route Classification")
+    entries: list[dict[str, Any]] = []
+
+    for route_token, expected_tokens in rules.items():
+        row = next(
+            (
+                line
+                for line in classification.splitlines()
+                if f"`{route_token}`" in line
+            ),
+            "",
+        )
+        missing_tokens = [
+            token for token in expected_tokens if token not in row
+        ]
+        entries.append(
+            {
+                "path": path_text,
+                "field": field_name,
+                "route_token": route_token,
+                "row": row,
+                "expected_tokens": expected_tokens,
+                "missing_tokens": missing_tokens,
+                "exists": bool(row),
+                "matches": bool(row) and not missing_tokens,
+            }
+        )
+
+    return entries
+
+
 def _contains_any(value: str, needles: list[str] | set[str]) -> bool:
     return any(needle in value for needle in needles)
 
@@ -2319,6 +2357,32 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_route_matrix_verifications = [
         entry for entry in route_matrix_verifications if not entry["matches"]
     ]
+    route_matrix_target_characters = _route_matrix_classification_entries(
+        REQUEST_EXAMPLE_ROUTE_TARGET_CHARACTER_RULES,
+        "target_character",
+    )
+    route_matrix_target_body_areas = _route_matrix_classification_entries(
+        REQUEST_EXAMPLE_ROUTE_TARGET_BODY_AREA_RULES,
+        "target_body_area",
+    )
+    route_matrix_timing_types = _route_matrix_classification_entries(
+        REQUEST_EXAMPLE_ROUTE_TIMING_TYPE_RULES,
+        "timing_type",
+    )
+    route_matrix_runtime_layers = _route_matrix_classification_entries(
+        REQUEST_EXAMPLE_ROUTE_RUNTIME_LAYER_RULES,
+        "runtime_layer",
+    )
+    mismatched_route_matrix_classification = [
+        entry
+        for entry in (
+            route_matrix_target_characters
+            + route_matrix_target_body_areas
+            + route_matrix_timing_types
+            + route_matrix_runtime_layers
+        )
+        if not entry["matches"]
+    ]
     request_example_route_coverage = _request_example_route_coverage_entries()
     missing_request_example_route_coverage = [
         entry for entry in request_example_route_coverage if not entry["exists"]
@@ -2498,6 +2562,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_route_matrix_sample_targets
         and not mismatched_route_matrix_first_commands
         and not mismatched_route_matrix_verifications
+        and not mismatched_route_matrix_classification
         and not missing_request_example_route_coverage
         and not missing_request_compiler_route_coverage
         and not mismatched_request_example_route_handoffs
@@ -2533,7 +2598,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v49",
+        "schema": "stackobot_animation_docs_link_audit_v50",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2551,6 +2616,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_route_matrix_sample_target_count": len(mismatched_route_matrix_sample_targets),
         "mismatched_route_matrix_first_command_count": len(mismatched_route_matrix_first_commands),
         "mismatched_route_matrix_verification_count": len(mismatched_route_matrix_verifications),
+        "mismatched_route_matrix_classification_count": len(mismatched_route_matrix_classification),
         "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
         "missing_request_compiler_route_coverage_count": len(missing_request_compiler_route_coverage),
         "mismatched_request_example_route_handoff_count": len(mismatched_request_example_route_handoffs),
@@ -2604,6 +2670,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_route_matrix_first_commands": mismatched_route_matrix_first_commands,
         "route_matrix_verifications": route_matrix_verifications,
         "mismatched_route_matrix_verifications": mismatched_route_matrix_verifications,
+        "route_matrix_target_characters": route_matrix_target_characters,
+        "route_matrix_target_body_areas": route_matrix_target_body_areas,
+        "route_matrix_timing_types": route_matrix_timing_types,
+        "route_matrix_runtime_layers": route_matrix_runtime_layers,
+        "mismatched_route_matrix_classification": mismatched_route_matrix_classification,
         "request_example_route_coverage": request_example_route_coverage,
         "missing_request_example_route_coverage": missing_request_example_route_coverage,
         "request_compiler_route_coverage": request_compiler_route_coverage,
@@ -2696,6 +2767,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_route_matrix_sample_targets={report['mismatched_route_matrix_sample_target_count']} "
             f"mismatched_route_matrix_first_commands={report['mismatched_route_matrix_first_command_count']} "
             f"mismatched_route_matrix_verifications={report['mismatched_route_matrix_verification_count']} "
+            f"mismatched_route_matrix_classification={report['mismatched_route_matrix_classification_count']} "
             f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
             f"missing_request_compiler_routes={report['missing_request_compiler_route_coverage_count']} "
             f"mismatched_request_example_route_handoffs={report['mismatched_request_example_route_handoff_count']} "
@@ -2745,6 +2817,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_route_matrix_sample_targets",
             "mismatched_route_matrix_first_commands",
             "mismatched_route_matrix_verifications",
+            "mismatched_route_matrix_classification",
             "missing_request_example_route_coverage",
             "missing_request_compiler_route_coverage",
             "mismatched_request_example_route_handoffs",
