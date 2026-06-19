@@ -36,7 +36,8 @@ the first useful page for each situation.
 | Earlier broad study notes and evidence references | `docs/stackobot-animation-study.md` |
 | Animation-side physics request grammar | `docs/stackobot-physics-request-grammar.md` |
 | Local `_MCP_Sample/AnimStudy` package manifest | `docs/stackobot-sample-asset-manifest.md` |
-| Latest live read-only bridge/node validation | `docs/stackobot-live-read-drill-2026-06-19.md` |
+| Latest broad live read-only bridge/node validation | `docs/stackobot-live-read-drill-2026-06-19.md` |
+| Latest narrow command-surface smoke summary | `docs/stackobot-animation-study-closeout.md` and `docs/work-log.md` |
 
 ## Default Workflow
 
