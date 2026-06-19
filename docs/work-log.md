@@ -9177,3 +9177,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Updated the ControlRig route matrix approval boundary to match the request-run example wording for original `ABP_Bot` and `CR_Bot_Correction` edits.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_route_matrix_evidence_approval=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot route matrix selection guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v52`.
+- Added a route matrix Selection Rules audit that requires every request-run example route token to appear in the selection rules.
+- Tightened route matrix Stop Conditions required tokens for protected metadata/Montage, route-specific proof, and non-exception C++ API escalation boundaries.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_route_matrix_selection_rules=0` and `missing_required_tokens=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
