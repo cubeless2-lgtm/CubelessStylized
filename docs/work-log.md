@@ -9129,3 +9129,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Aligned the BlendSpace route/example sample target with the manifest name `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy`.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_sample_targets=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot sample manifest audit guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v46`.
+- Added an audit guard that compares concrete `/Game/_MCP_Sample/AnimStudy/...` targets in request-run examples and the route matrix execution table against `docs/stackobot-sample-asset-manifest.md`.
+- The checker now fails when a concrete route/example sample target is not listed in the sample manifest.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_sample_target_manifest=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
