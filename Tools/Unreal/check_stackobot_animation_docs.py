@@ -55,6 +55,7 @@ REQUIRED_DOC_PATHS = [
     "docs/stackobot-animation-request-playbook.md",
     "docs/stackobot-animation-request-run-template.md",
     "docs/stackobot-animation-request-run-examples.md",
+    "docs/stackobot-animation-route-matrix.md",
     "docs/stackobot-animation-tivret-handoff-templates.md",
     "docs/stackobot-animation-authoring-templates.md",
     "docs/stackobot-animation-mcp-command-syntax.md",
@@ -145,6 +146,13 @@ REQUIRED_SECTIONS = {
         "## Example 7: Hover Transition Timing",
         "## Example 8: Baddy Soft Stalk",
         "## Example 9: Node Contribution Proof",
+    ],
+    "docs/stackobot-animation-route-matrix.md": [
+        "## Route Classification",
+        "## Execution Matrix",
+        "## Evidence And Approval Matrix",
+        "## Selection Rules",
+        "## Stop Conditions",
     ],
     "docs/stackobot-animation-acceptance-checklist.md": [
         "## Universal Pass Gate",
@@ -524,6 +532,21 @@ REQUIRED_TOKENS = {
         "sample_anim_state_machine_runtime_response",
         "Baddy RigidBody",
         "same-instance confirmation",
+    ],
+    "docs/stackobot-animation-route-matrix.md": [
+        "Post Process ModifyBone",
+        "BlendSpace sample variant",
+        "Bot Trail sample",
+        "UpperBody Slot and LayeredBlend",
+        "protected metadata boundary",
+        "ControlRig gate probe",
+        "state-machine runtime-driver proof",
+        "Baddy RigidBody",
+        "node resolver plus same-instance pre/post proof",
+        "/Game/_MCP_Sample/AnimStudy",
+        "sample_anim_node_pre_post_runtime_pose",
+        "candidate only if",
+        "If the route requires original asset mutation, stop and ask",
     ],
 }
 
@@ -2253,7 +2276,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v36",
+        "schema": "stackobot_animation_docs_link_audit_v37",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,

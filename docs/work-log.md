@@ -9058,3 +9058,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now validates that `docs/stackobot-request-compiler-drills.md` covers each major route in both `Signal Words` and `Drill Table`, including Post Process ModifyBone, BlendSpace, Trail, UpperBody, protected metadata, ControlRig, state-machine, RigidBody, and node contribution proof.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_request_compiler_routes=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot route matrix audit hardening
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v37`.
+- Promoted `docs/stackobot-animation-route-matrix.md` into the required StackOBot animation doc set and added required section/token checks for route classification, execution matrix, evidence/approval matrix, selection rules, and stop conditions.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_required_docs=0`, `missing_required_sections=0`, and `missing_required_tokens=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
