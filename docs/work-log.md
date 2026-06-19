@@ -9145,3 +9145,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Updated `docs/stackobot-sample-asset-manifest.md` to require manifest and work-log updates when a new concrete local sample target is introduced.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_required_tokens=0` and `missing_sample_target_manifest=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot route matrix sample target audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v48`.
+- Added a route matrix execution-table audit so each route row must contain the same sample target tokens required by the request-run examples.
+- The checker now catches route matrix and request-run example sample target drift before live editor work.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_route_matrix_sample_targets=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

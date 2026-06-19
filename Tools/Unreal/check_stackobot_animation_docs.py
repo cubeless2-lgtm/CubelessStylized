@@ -1357,6 +1357,40 @@ def _sample_target_manifest_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _route_matrix_sample_target_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-route-matrix.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    execution_matrix = _markdown_heading_section(text, "## Execution Matrix")
+    entries: list[dict[str, Any]] = []
+
+    for route_token, expected_tokens in REQUEST_EXAMPLE_ROUTE_SAMPLE_TARGET_RULES.items():
+        row = next(
+            (
+                line
+                for line in execution_matrix.splitlines()
+                if f"`{route_token}`" in line
+            ),
+            "",
+        )
+        missing_tokens = [
+            token for token in expected_tokens if token not in row
+        ]
+        entries.append(
+            {
+                "path": path_text,
+                "route_token": route_token,
+                "row": row,
+                "expected_tokens": expected_tokens,
+                "missing_tokens": missing_tokens,
+                "exists": bool(row),
+                "matches": bool(row) and not missing_tokens,
+            }
+        )
+
+    return entries
+
+
 def _contains_any(value: str, needles: list[str] | set[str]) -> bool:
     return any(needle in value for needle in needles)
 
@@ -2233,6 +2267,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_sample_target_manifest_entries = [
         entry for entry in sample_target_manifest_entries if not entry["listed"]
     ]
+    route_matrix_sample_targets = _route_matrix_sample_target_entries()
+    mismatched_route_matrix_sample_targets = [
+        entry for entry in route_matrix_sample_targets if not entry["matches"]
+    ]
     request_example_route_coverage = _request_example_route_coverage_entries()
     missing_request_example_route_coverage = [
         entry for entry in request_example_route_coverage if not entry["exists"]
@@ -2409,6 +2447,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_example_fields
         and not unsafe_request_examples
         and not missing_sample_target_manifest_entries
+        and not mismatched_route_matrix_sample_targets
         and not missing_request_example_route_coverage
         and not missing_request_compiler_route_coverage
         and not mismatched_request_example_route_handoffs
@@ -2444,7 +2483,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v47",
+        "schema": "stackobot_animation_docs_link_audit_v48",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2459,6 +2498,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_example_field_count": len(missing_example_fields),
         "unsafe_request_example_count": len(unsafe_request_examples),
         "missing_sample_target_manifest_count": len(missing_sample_target_manifest_entries),
+        "mismatched_route_matrix_sample_target_count": len(mismatched_route_matrix_sample_targets),
         "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
         "missing_request_compiler_route_coverage_count": len(missing_request_compiler_route_coverage),
         "mismatched_request_example_route_handoff_count": len(mismatched_request_example_route_handoffs),
@@ -2506,6 +2546,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "unsafe_request_examples": unsafe_request_examples,
         "sample_target_manifest_entries": sample_target_manifest_entries,
         "missing_sample_target_manifest_entries": missing_sample_target_manifest_entries,
+        "route_matrix_sample_targets": route_matrix_sample_targets,
+        "mismatched_route_matrix_sample_targets": mismatched_route_matrix_sample_targets,
         "request_example_route_coverage": request_example_route_coverage,
         "missing_request_example_route_coverage": missing_request_example_route_coverage,
         "request_compiler_route_coverage": request_compiler_route_coverage,
@@ -2595,6 +2637,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_example_fields={report['missing_example_field_count']} "
             f"unsafe_request_examples={report['unsafe_request_example_count']} "
             f"missing_sample_target_manifest={report['missing_sample_target_manifest_count']} "
+            f"mismatched_route_matrix_sample_targets={report['mismatched_route_matrix_sample_target_count']} "
             f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
             f"missing_request_compiler_routes={report['missing_request_compiler_route_coverage_count']} "
             f"mismatched_request_example_route_handoffs={report['mismatched_request_example_route_handoff_count']} "
@@ -2641,6 +2684,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_example_fields",
             "unsafe_request_examples",
             "missing_sample_target_manifest_entries",
+            "mismatched_route_matrix_sample_targets",
             "missing_request_example_route_coverage",
             "missing_request_compiler_route_coverage",
             "mismatched_request_example_route_handoffs",
