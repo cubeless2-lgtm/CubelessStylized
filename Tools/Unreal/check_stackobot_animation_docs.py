@@ -21,6 +21,7 @@ bridge to be online.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import sys
@@ -41,10 +42,10 @@ JSON_FENCE_RE = re.compile(r"```json\n(?P<body>.*?)\n```", re.DOTALL)
 EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 SAMPLE_ASSET_PATH_RE = re.compile(r"/Game/_MCP_Sample/AnimStudy/[A-Za-z0-9_]+")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
-DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v84"
+DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v85"
 
 LOCAL_CHECK_RUNNER_SCHEMA_TOKENS = {
-    "local_check_schema": '"schema": "stackobot_animation_local_checks_v5"',
+    "local_check_schema": '"schema": "stackobot_animation_local_checks_v6"',
     "expected_docs_audit_schema": f'EXPECTED_DOCS_AUDIT_SCHEMA = "{DOCS_AUDIT_SCHEMA}"',
     "expected_preflight_schema": 'EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"',
     "expected_staging_scope_schema": 'EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"',
@@ -2910,6 +2911,39 @@ def _local_check_runner_schema_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _preflight_required_command_entries() -> list[dict[str, Any]]:
+    path_text = "Tools/Unreal/check_stackobot_animation_preflight.py"
+    path = PROJECT_ROOT / path_text
+    required_commands: set[str] = set()
+    if path.exists():
+        try:
+            module = ast.parse(_read_text(path), filename=path_text)
+            for node in module.body:
+                if not isinstance(node, ast.Assign):
+                    continue
+                has_required_commands_target = any(
+                    isinstance(target, ast.Name) and target.id == "REQUIRED_COMMANDS"
+                    for target in node.targets
+                )
+                if not has_required_commands_target:
+                    continue
+                value = ast.literal_eval(node.value)
+                if isinstance(value, list):
+                    required_commands = {command for command in value if isinstance(command, str)}
+                break
+        except (SyntaxError, TypeError, ValueError):
+            required_commands = set()
+    return [
+        {
+            "path": path_text,
+            "command": command,
+            "source": "REQUIRED_COMMANDS",
+            "exists": command in required_commands,
+        }
+        for command in COMMAND_SYNTAX_REQUIRED_QUICK_MAP_COMMANDS
+    ]
+
+
 def _command_syntax_authoring_safety_entries(json_blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for command in COMMAND_SYNTAX_AUTHORING_COMMANDS:
@@ -3510,6 +3544,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_local_check_runner_schemas = [
         entry for entry in local_check_runner_schemas if not entry["exists"]
     ]
+    preflight_required_commands = _preflight_required_command_entries()
+    missing_preflight_required_commands = [
+        entry for entry in preflight_required_commands if not entry["exists"]
+    ]
     command_syntax_authoring_safety = _command_syntax_authoring_safety_entries(command_syntax_json_blocks)
     unsafe_command_syntax_authoring = [
         entry
@@ -3609,6 +3647,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_execution_evidence_sections
         and not missing_command_syntax_result_checklist
         and not missing_local_check_runner_schemas
+        and not missing_preflight_required_commands
         and not unsafe_command_syntax_authoring
         and not missing_command_syntax_required_params
         and not unsafe_command_syntax_sample_paths
@@ -3696,6 +3735,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_execution_evidence_section_count": len(missing_execution_evidence_sections),
         "missing_command_syntax_result_checklist_count": len(missing_command_syntax_result_checklist),
         "missing_local_check_runner_schema_count": len(missing_local_check_runner_schemas),
+        "missing_preflight_required_command_count": len(missing_preflight_required_commands),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
         "missing_command_syntax_required_param_count": len(missing_command_syntax_required_params),
         "unsafe_command_syntax_sample_path_count": len(unsafe_command_syntax_sample_paths),
@@ -3850,6 +3890,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_command_syntax_result_checklist": missing_command_syntax_result_checklist,
         "local_check_runner_schemas": local_check_runner_schemas,
         "missing_local_check_runner_schemas": missing_local_check_runner_schemas,
+        "preflight_required_commands": preflight_required_commands,
+        "missing_preflight_required_commands": missing_preflight_required_commands,
         "command_syntax_authoring_safety": command_syntax_authoring_safety,
         "unsafe_command_syntax_authoring": unsafe_command_syntax_authoring,
         "command_syntax_required_params": command_syntax_required_params,
@@ -3948,6 +3990,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_execution_evidence_sections={report['missing_execution_evidence_section_count']} "
             f"missing_command_result_checklist={report['missing_command_syntax_result_checklist_count']} "
             f"missing_local_check_runner_schemas={report['missing_local_check_runner_schema_count']} "
+            f"missing_preflight_required_commands={report['missing_preflight_required_command_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
             f"missing_command_params={report['missing_command_syntax_required_param_count']} "
             f"unsafe_command_paths={report['unsafe_command_syntax_sample_path_count']} "
@@ -4031,6 +4074,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_execution_evidence_sections",
             "missing_command_syntax_result_checklist",
             "missing_local_check_runner_schemas",
+            "missing_preflight_required_commands",
             "unsafe_command_syntax_authoring",
             "missing_command_syntax_required_params",
             "unsafe_command_syntax_sample_paths",

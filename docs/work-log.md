@@ -9454,3 +9454,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added docs-audit tokens for the local runner `CHECKER_FILES` compile targets so all StackOBot checker scripts stay in the py_compile pass.
 - Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with `missing_local_check_runner_schemas=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot preflight required-command guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v85`.
+- Expanded `Tools/Unreal/run_stackobot_animation_local_checks.py` to schema `stackobot_animation_local_checks_v6` and updated it to expect docs audit schema `stackobot_animation_docs_link_audit_v85`.
+- Added a docs-audit guard that checks `Tools/Unreal/check_stackobot_animation_preflight.py` keeps every command from `COMMAND_SYNTAX_REQUIRED_QUICK_MAP_COMMANDS` in its `REQUIRED_COMMANDS` surface.
+- Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with `missing_preflight_required_commands=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
