@@ -908,6 +908,20 @@ COMMAND_SYNTAX_REQUIRED_QUICK_MAP_COMMANDS = [
     "set_anim_graph_rigidbody_settings",
 ]
 
+COMMAND_SYNTAX_RESULT_CHECKLIST_TOKENS = {
+    "success_errors_warnings": "`success`, `errors`, and `warnings`",
+    "original_asset_scope": "original_assets_modified=false",
+    "sample_asset_paths": "Target sample asset paths",
+    "compile_save": "Compile/save result",
+    "runtime_world": "`sampled_world_type` and `is_play_session_active`",
+    "pose_or_state_evidence": "Key pose deltas or state-machine response",
+    "dirty_packages": "Dirty package status",
+    "cleanup": "Cleanup status",
+    "artifact_paths": "Evidence artifact paths",
+    "cxx_api_decision": "C++/API decision",
+    "residual_risk": "Residual risk",
+}
+
 COMMAND_SYNTAX_REQUIRED_JSON_COMMANDS = [
     "ensure_postprocess_anim_demo_variant",
     "sample_anim_node_pre_post_runtime_pose",
@@ -1857,6 +1871,23 @@ def _command_quick_map_command_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _command_syntax_result_checklist_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-mcp-command-syntax.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Result Checklist")
+    return [
+        {
+            "path": path_text,
+            "section": "## Result Checklist",
+            "field": field,
+            "token": token,
+            "exists": token in section,
+        }
+        for field, token in COMMAND_SYNTAX_RESULT_CHECKLIST_TOKENS.items()
+    ]
+
+
 def _command_syntax_authoring_safety_entries(json_blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for command in COMMAND_SYNTAX_AUTHORING_COMMANDS:
@@ -2233,6 +2264,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_command_quick_map_commands = [
         entry for entry in command_quick_map_commands if not entry["exists"]
     ]
+    command_syntax_result_checklist = _command_syntax_result_checklist_entries()
+    missing_command_syntax_result_checklist = [
+        entry for entry in command_syntax_result_checklist if not entry["exists"]
+    ]
     command_syntax_authoring_safety = _command_syntax_authoring_safety_entries(command_syntax_json_blocks)
     unsafe_command_syntax_authoring = [
         entry
@@ -2291,6 +2326,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not invalid_command_syntax_json
         and not missing_command_syntax_commands
         and not missing_command_quick_map_commands
+        and not missing_command_syntax_result_checklist
         and not unsafe_command_syntax_authoring
         and not missing_command_syntax_required_params
         and not unsafe_command_syntax_sample_paths
@@ -2298,7 +2334,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v39",
+        "schema": "stackobot_animation_docs_link_audit_v40",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2337,6 +2373,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "invalid_command_syntax_json_count": len(invalid_command_syntax_json),
         "missing_command_syntax_command_count": len(missing_command_syntax_commands),
         "missing_command_quick_map_command_count": len(missing_command_quick_map_commands),
+        "missing_command_syntax_result_checklist_count": len(missing_command_syntax_result_checklist),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
         "missing_command_syntax_required_param_count": len(missing_command_syntax_required_params),
         "unsafe_command_syntax_sample_path_count": len(unsafe_command_syntax_sample_paths),
@@ -2404,6 +2441,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_command_syntax_commands": missing_command_syntax_commands,
         "command_quick_map_commands": command_quick_map_commands,
         "missing_command_quick_map_commands": missing_command_quick_map_commands,
+        "command_syntax_result_checklist": command_syntax_result_checklist,
+        "missing_command_syntax_result_checklist": missing_command_syntax_result_checklist,
         "command_syntax_authoring_safety": command_syntax_authoring_safety,
         "unsafe_command_syntax_authoring": unsafe_command_syntax_authoring,
         "command_syntax_required_params": command_syntax_required_params,
@@ -2461,6 +2500,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"invalid_command_json={report['invalid_command_syntax_json_count']} "
             f"missing_command_examples={report['missing_command_syntax_command_count']} "
             f"missing_quick_map_commands={report['missing_command_quick_map_command_count']} "
+            f"missing_command_result_checklist={report['missing_command_syntax_result_checklist_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
             f"missing_command_params={report['missing_command_syntax_required_param_count']} "
             f"unsafe_command_paths={report['unsafe_command_syntax_sample_path_count']} "
@@ -2503,6 +2543,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "invalid_command_syntax_json",
             "missing_command_syntax_commands",
             "missing_command_quick_map_commands",
+            "missing_command_syntax_result_checklist",
             "unsafe_command_syntax_authoring",
             "missing_command_syntax_required_params",
             "unsafe_command_syntax_sample_paths",

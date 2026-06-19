@@ -282,3 +282,7 @@ Every animation command result should be summarized with:
 - `sampled_world_type` and `is_play_session_active` for runtime probes.
 - Key pose deltas or state-machine response.
 - Dirty package status after transient actor work.
+- Cleanup status for transient actors, play sessions, and temporary probe assets.
+- Evidence artifact paths under `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
+- C++/API decision: `not needed`, `candidate`, or `implemented`.
+- Residual risk that affects the next request.
