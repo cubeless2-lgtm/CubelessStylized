@@ -9534,3 +9534,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added a Tivret-handoff-template docs-audit guard that checks each concrete handoff section keeps its key command, verification, sample-root, completion, and crash-boundary tokens.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_handoff_template_tokens=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot authoring completion contract guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v95`.
+- Expanded `Tools/Unreal/run_stackobot_animation_local_checks.py` to schema `stackobot_animation_local_checks_v16` and updated it to expect docs audit schema `stackobot_animation_docs_link_audit_v95`.
+- Added authoring-template docs-audit guards that check `docs/stackobot-animation-authoring-templates.md` keeps the `## Completion Contract` completion/reporting tokens and the `## C++/API Escalation Gate` no-complexity-escalation and safe-surface-blocked C++ criteria.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_authoring_completion_contract=0` and `missing_authoring_cxx_gate=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

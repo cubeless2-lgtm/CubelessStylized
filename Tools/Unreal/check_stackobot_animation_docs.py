@@ -42,10 +42,10 @@ JSON_FENCE_RE = re.compile(r"```json\n(?P<body>.*?)\n```", re.DOTALL)
 EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 SAMPLE_ASSET_PATH_RE = re.compile(r"/Game/_MCP_Sample/AnimStudy/[A-Za-z0-9_]+")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
-DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v94"
+DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v95"
 
 LOCAL_CHECK_RUNNER_SCHEMA_TOKENS = {
-    "local_check_schema": '"schema": "stackobot_animation_local_checks_v15"',
+    "local_check_schema": '"schema": "stackobot_animation_local_checks_v16"',
     "expected_docs_audit_schema": f'EXPECTED_DOCS_AUDIT_SCHEMA = "{DOCS_AUDIT_SCHEMA}"',
     "expected_preflight_schema": 'EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"',
     "expected_staging_scope_schema": 'EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"',
@@ -202,6 +202,29 @@ HANDOFF_TEMPLATE_SECTION_TOKENS = {
         "authored_sync_markers",
         "AnimMontage.h:770",
     ],
+}
+
+AUTHORING_COMPLETION_CONTRACT_TOKENS = {
+    "acceptance_checklist": "docs/stackobot-animation-acceptance-checklist.md",
+    "classification": "Classification and chosen route.",
+    "sample_paths_or_read_only": "Exact sample asset paths or explicit statement that the pass is read-only.",
+    "evidence_root": "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+    "runtime_summary": "Runtime result summary",
+    "node_input_link_ids": "node/input link ids",
+    "errors_warnings_dirty": "errors, warnings, and dirty-package status",
+    "cleanup_statement": "Cleanup statement",
+    "cxx_api_decision": "C++/API decision: not needed, deferred candidate, or explicitly approved.",
+}
+
+AUTHORING_CXX_ESCALATION_GATE_TOKENS = {
+    "no_complexity_escalation": "Do not add C++ just because a request is complex.",
+    "safe_surface_blocked": "current safe command surface cannot author or verify",
+    "state_transition_authoring": "New state/transition authoring",
+    "layered_slot_overlay": "new layered-slot overlay branch",
+    "trail_rigidbody_parameters": "Trail/RigidBody parameter authoring",
+    "actor_resolution_helper": "actor/component resolution needs a",
+    "protected_metadata": "Notify, sync-marker, curve, or Montage internals",
+    "parked_candidate": "keep C++ as a parked candidate",
 }
 
 EXPECTED_EXTERNAL_PATHS = [
@@ -2948,6 +2971,40 @@ def _authoring_route_template_entries() -> list[dict[str, Any]]:
     )
 
 
+def _authoring_completion_contract_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-authoring-templates.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Completion Contract")
+    return [
+        {
+            "path": path_text,
+            "section": "## Completion Contract",
+            "key": key,
+            "token": token,
+            "exists": token in section,
+        }
+        for key, token in AUTHORING_COMPLETION_CONTRACT_TOKENS.items()
+    ]
+
+
+def _authoring_cxx_escalation_gate_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-authoring-templates.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## C++/API Escalation Gate")
+    return [
+        {
+            "path": path_text,
+            "section": "## C++/API Escalation Gate",
+            "key": key,
+            "token": token,
+            "exists": token in section,
+        }
+        for key, token in AUTHORING_CXX_ESCALATION_GATE_TOKENS.items()
+    ]
+
+
 def _playbook_route_map_entries() -> list[dict[str, Any]]:
     return _route_token_command_row_entries(
         path_text="docs/stackobot-animation-request-playbook.md",
@@ -3811,6 +3868,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_authoring_route_templates = [
         entry for entry in authoring_route_templates if not entry["matches"]
     ]
+    authoring_completion_contract = _authoring_completion_contract_entries()
+    missing_authoring_completion_contract = [
+        entry for entry in authoring_completion_contract if not entry["exists"]
+    ]
+    authoring_cxx_escalation_gate = _authoring_cxx_escalation_gate_entries()
+    missing_authoring_cxx_escalation_gate = [
+        entry for entry in authoring_cxx_escalation_gate if not entry["exists"]
+    ]
     playbook_route_map = _playbook_route_map_entries()
     mismatched_playbook_route_map = [
         entry for entry in playbook_route_map if not entry["matches"]
@@ -3979,6 +4044,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_command_quick_map_commands
         and not mismatched_command_route_map
         and not mismatched_authoring_route_templates
+        and not missing_authoring_completion_contract
+        and not missing_authoring_cxx_escalation_gate
         and not mismatched_playbook_route_map
         and not mismatched_playbook_route_failures
         and not mismatched_playbook_route_failure_cxx
@@ -4076,6 +4143,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_command_quick_map_command_count": len(missing_command_quick_map_commands),
         "mismatched_command_route_map_count": len(mismatched_command_route_map),
         "mismatched_authoring_route_template_count": len(mismatched_authoring_route_templates),
+        "missing_authoring_completion_contract_count": len(missing_authoring_completion_contract),
+        "missing_authoring_cxx_escalation_gate_count": len(missing_authoring_cxx_escalation_gate),
         "mismatched_playbook_route_map_count": len(mismatched_playbook_route_map),
         "mismatched_playbook_route_failure_count": len(mismatched_playbook_route_failures),
         "mismatched_playbook_route_failure_cxx_count": len(mismatched_playbook_route_failure_cxx),
@@ -4231,6 +4300,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_command_route_map": mismatched_command_route_map,
         "authoring_route_templates": authoring_route_templates,
         "mismatched_authoring_route_templates": mismatched_authoring_route_templates,
+        "authoring_completion_contract": authoring_completion_contract,
+        "missing_authoring_completion_contract": missing_authoring_completion_contract,
+        "authoring_cxx_escalation_gate": authoring_cxx_escalation_gate,
+        "missing_authoring_cxx_escalation_gate": missing_authoring_cxx_escalation_gate,
         "playbook_route_map": playbook_route_map,
         "mismatched_playbook_route_map": mismatched_playbook_route_map,
         "playbook_route_failures": playbook_route_failures,
@@ -4358,6 +4431,8 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_quick_map_commands={report['missing_command_quick_map_command_count']} "
             f"mismatched_command_route_map={report['mismatched_command_route_map_count']} "
             f"mismatched_authoring_route_templates={report['mismatched_authoring_route_template_count']} "
+            f"missing_authoring_completion_contract={report['missing_authoring_completion_contract_count']} "
+            f"missing_authoring_cxx_gate={report['missing_authoring_cxx_escalation_gate_count']} "
             f"mismatched_playbook_route_map={report['mismatched_playbook_route_map_count']} "
             f"mismatched_playbook_route_failures={report['mismatched_playbook_route_failure_count']} "
             f"mismatched_playbook_route_failure_cxx={report['mismatched_playbook_route_failure_cxx_count']} "
@@ -4451,6 +4526,8 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_command_quick_map_commands",
             "mismatched_command_route_map",
             "mismatched_authoring_route_templates",
+            "missing_authoring_completion_contract",
+            "missing_authoring_cxx_escalation_gate",
             "mismatched_playbook_route_map",
             "mismatched_playbook_route_failures",
             "mismatched_playbook_route_failure_cxx",
