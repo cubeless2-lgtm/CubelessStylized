@@ -5,8 +5,8 @@
 ## Claude Code Handoff
 
 - Treat `AGENTS.md` as the project source of truth. If these Claude-specific notes conflict with `AGENTS.md`, follow `AGENTS.md`.
-- Start from `D:\Git\CubelessStylized` unless the user says otherwise.
-- The sibling managed workspace is `D:\Git\unreal-mcp-cubeless`. If Claude Code cannot access it, restart from the project root with `claude --add-dir D:\Git\unreal-mcp-cubeless`.
+- Start from the cloned `CubelessStylized` repository root unless the user says otherwise.
+- The sibling managed workspace is `../unreal-mcp-cubeless` relative to the `CubelessStylized` parent folder. If Claude Code cannot access it, restart from the project root with `claude --add-dir ../unreal-mcp-cubeless`.
 - At the start of work, check `CubelessStylized` and `unreal-mcp-cubeless` separately:
   - `git fetch --prune`
   - `git status --short --branch --untracked-files=all`

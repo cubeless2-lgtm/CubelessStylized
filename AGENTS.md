@@ -3,7 +3,7 @@
 ## Related Workspace Scope
 
 - Treat this repository (`CubelessStylized`) and the sibling workspace folder `../unreal-mcp-cubeless` as the default managed project scope.
-- On the user's current machine this sibling folder is expected at `C:\Git\unreal-mcp-cubeless`; on other machines, resolve it relative to the parent folder of the cloned `CubelessStylized` repository.
+- Do not assume a fixed drive letter for this sibling folder. On the user's machines it may be under `C:`, `D:`, `F:`, or another workspace drive; resolve it relative to the parent folder of the cloned `CubelessStylized` repository first, and use an absolute path only after discovering it locally.
 - When MCP behavior, tooling, or integration work may require changes in `unreal-mcp-cubeless`, inspect and modify that sibling workspace without requiring the user to repeat this instruction.
 - Keep Git status, diffs, staging, commits, and summaries separate for `CubelessStylized` and `unreal-mcp-cubeless` so changes from the two workspaces are not mixed accidentally.
 
@@ -46,6 +46,12 @@
 - Do not open the Ieta Slate window for normal planning, normal MCP work, client connections, or parallel/background tool calls.
 - Only the standalone `이에타` shortcut / `ieta_status` command should open the Ieta Slate window by default.
 - Unreal Editor startup is the only automatic exception: the UnrealMCP plugin may show a brief `ieta_status` Slate sequence, speak in Ieta voice while the connection progress bar advances, then show the connection result and latest editor log error status. On success it closes after about 3 seconds; on failure it stays open.
+
+## Review Image Alpha Hook
+
+- When the user requests visual inspection, asks to see a screenshot/image in chat, or when Codex compares screenshots/images for QA, run the review-display alpha hook before presenting or judging the image: `Tools/Image/ensure_review_image_opaque_alpha.py`, or the integrated hook in `Tools/Unreal/run_pcg_bookmark_visual_qa.py`.
+- The user-facing review/display copy must be fully opaque. If the file has an alpha channel, every alpha value must be `255`; if it lacks alpha, the display copy may stay RGB or be converted to RGBA with alpha `255`.
+- Do not use this hook on deliverable source textures, masks, clouds, decals, UI cutouts, or packed data images where non-opaque alpha is intentional. Those assets still follow the separate alpha-preservation rule.
 
 ## Invocation Shortcut
 
@@ -173,6 +179,19 @@ This project uses three named agent roles. The Korean names are display names; t
 - When debugging, modifying, or creating Blueprints, PCG graphs, Animation Blueprints, Control Rigs, or related Unreal assets through Unreal MCP, do not add or generate C++ code by default.
 - Prefer fixing the issue inside the existing Unreal asset/class: Blueprint graph, AnimBP graph, Control Rig graph, PCG graph, asset defaults, component settings, level instance settings, or editor-exposed properties.
 - When creating or modifying PCG graphs that spawn Static Meshes, expose spawnable Static Mesh choices through Blueprint variables and PCG Actor Property override paths by default, so placed BP actors can change meshes without editing the PCG graph. Hardcoded Static Mesh Spawner entries are allowed only as defaults or fallbacks.
+- Until a reusable PCG template asset exists, use the fast PCG authoring workflow by default for new PCG creation and major PCG rebuilds: batch node creation, pin wiring, settings changes, and actor-property binding in as few Unreal Python/MCP calls as practical instead of repeatedly adding one node and recompiling.
+- During PCG authoring, minimize automatic regeneration. Do not rely on Construction Script or repeated `Cleanup -> Generate` loops while the graph is still being assembled; compile, save, refresh, and generate in grouped checkpoints, then run one final regeneration for validation.
+- Prefer numeric PCG validation before visual QA: mesh/category instance counts, branch presence, spline-interior checks, landscape hit checks, and radial density metrics should be gathered before taking screenshots. Capture review screenshots only at the end or when visual evidence is specifically needed.
+- Treat fast PCG authoring as eventually visible, not immediately visible. Before declaring a PCG change done, explicitly check for stale viewport/generated results, `PCGComponent` versus `PCGGraphInstance` graph mismatch, BP default versus placed-actor override mismatch, spline/bounds/Landscape sampler refresh gaps, random-seed noise in comparisons, and branch/node layout issues that could hide wiring mistakes.
+- For PCG parameter work, run at least one deliberate parameter delta test after final regeneration, such as lowering one density or changing one mesh and confirming the affected category count or mesh assignment changes while unrelated categories remain plausible.
+- Finished user-facing PCG Blueprints should switch from fast authoring mode to live refresh mode unless the graph is known to be too expensive. Expose an editor-facing auto-refresh control such as `AutoRegenerateInEditor`, keep it disabled during MCP/scripted batch authoring, and default it back on for final artist-facing assets when validation passes.
+- Live refresh must be debounced or dirty-flagged. Refresh only after meaningful PCG-facing changes such as spline shape, graph assignment, actor-property parameters, mesh overrides, or scale/density settings; avoid per-tick or per-node `Cleanup -> Generate` loops. For heavy graphs, provide a manual refresh path and/or preview-density control instead of forcing immediate full-density regeneration.
+- Before accepting a finished live-refresh PCG Blueprint, verify a parameter delta, spline-shape delta, and mesh-override delta each trigger the expected regenerated output, while graph assignment, category counts, Landscape contact, and latest log health remain acceptable.
+- Any PCG QA screenshot or generated distribution image shown in chat must pass the Review Image Alpha Hook with all review-display alpha values set to `255`.
+- Until a reusable Blueprint template/base asset exists, use the fast Blueprint authoring workflow by default for new Blueprint creation and major Blueprint rebuilds: batch variable creation, metadata/exposure flags, categories, component additions, default values, and minimal graph wiring in as few Unreal Python/MCP calls as practical.
+- Prefer CDO defaults, component template defaults, and editor-exposed properties over large node-by-node Blueprint graph construction. Keep Construction Script thin and avoid putting expensive PCG cleanup/generation or asset mutation loops on every small authoring change.
+- During Blueprint authoring, compile and save in grouped checkpoints instead of after every variable, component, or graph-node edit. Run at least one compile after major structural batches and one final compile/save.
+- Validate Blueprints numerically before visual QA: variable names/types/defaults/categories/exposure flags, component existence/defaults, graph/component references, CDO values versus placed actor overrides, and compile warning/error counts. For PCG-owning Blueprints, also verify PCG graph assignment and regenerate PCG only at final or major checkpoints.
 - If an Unreal asset cannot be safely modified through MCP or editor scripting, provide a concrete manual edit guide instead of adding C++.
 - Add or modify C++ only when the user explicitly asks for a code/C++ implementation.
 - Before considering C++ for an Unreal MCP task, state the non-C++ approach being attempted or why MCP/editor-asset editing is blocked.

@@ -23,9 +23,20 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SIBLING_MCP_ROOT = PROJECT_ROOT.parent / "unreal-mcp-cubeless"
 SIBLING_PYTHON_ROOT = SIBLING_MCP_ROOT / "Python"
+IMAGE_TOOL_ROOT = PROJECT_ROOT / "Tools" / "Image"
 
 if str(SIBLING_PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(SIBLING_PYTHON_ROOT))
+if str(IMAGE_TOOL_ROOT) not in sys.path:
+    sys.path.insert(0, str(IMAGE_TOOL_ROOT))
+
+try:
+    from ensure_review_image_opaque_alpha import ensure_review_image_opaque_alpha  # type: ignore  # noqa: E402
+except Exception as exc:  # pragma: no cover - reported in QA output.
+    ensure_review_image_opaque_alpha = None  # type: ignore[assignment]
+    REVIEW_IMAGE_ALPHA_HOOK_IMPORT_ERROR = str(exc)
+else:
+    REVIEW_IMAGE_ALPHA_HOOK_IMPORT_ERROR = ""
 
 try:
     from unreal_mcp_server import UnrealConnection  # type: ignore  # noqa: E402
@@ -363,6 +374,25 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def apply_review_image_alpha_hook(path: Path) -> dict[str, Any]:
+    if ensure_review_image_opaque_alpha is None:
+        return {
+            "success": False,
+            "input_path": str(path),
+            "opaque_for_review": False,
+            "error": REVIEW_IMAGE_ALPHA_HOOK_IMPORT_ERROR or "review image alpha hook import failed",
+        }
+    try:
+        return ensure_review_image_opaque_alpha(path, in_place=True)
+    except Exception as exc:
+        return {
+            "success": False,
+            "input_path": str(path),
+            "opaque_for_review": False,
+            "error": str(exc),
+        }
+
+
 def set_editor_game_view(unreal: UnrealConnection, enabled: bool) -> dict[str, Any]:
     code = UNREAL_SET_GAME_VIEW_CODE.replace(
         "__TARGET_GAME_VIEW__",
@@ -429,6 +459,7 @@ def capture_viewport(
     file_path = Path(result.get("filepath") or filepath)
     result["exists_on_disk"] = file_path.exists()
     if file_path.exists():
+        result["review_image_alpha"] = apply_review_image_alpha_hook(file_path)
         result["sha256"] = sha256_file(file_path)
         result["file_size"] = file_path.stat().st_size
     return result
@@ -511,6 +542,10 @@ def build_capture_route_health(captures: list[dict[str, Any]], args: argparse.Na
         "requires_at_least_one_capture": bool(captures),
         "captures_exist_on_disk": all(capture.get("exists_on_disk") for capture in captures),
         "captures_have_nonzero_size": all(int(capture.get("file_size", 0) or 0) > 0 for capture in captures),
+        "review_images_have_alpha_255": all(
+            bool(capture.get("review_image_alpha", {}).get("opaque_for_review"))
+            for capture in captures
+        ),
         "capture_must_not_add_dirty_packages": all(
             int(capture.get("dirty_package_added_count", 0) or 0) == 0
             for capture in captures
@@ -608,6 +643,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "screenshot_validation_route": {
             "default_capture": "active_viewport",
             "native_command": "capture_viewport_bookmark_screenshot",
+            "review_image_alpha_hook": "Tools/Image/ensure_review_image_opaque_alpha.py",
+            "display_alpha_policy": "user-facing review screenshots are rewritten so every alpha value is 255 before hashing/reporting",
             "active_viewport_enabled": not args.no_active_viewport,
             "clean_game_view": clean_game_view_state,
             "requested_bookmarks": args.bookmarks,
@@ -623,6 +660,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "requires_at_least_one_capture": True,
             "capture_must_exist_on_disk": True,
             "capture_must_have_nonzero_size": True,
+            "review_image_alpha_must_be_255": True,
             "screenshot_capture_must_not_add_dirty_packages": True,
             "capture_hashes_unique_when_multiple": not args.allow_duplicate_capture_hashes,
             "visual_density_required": not args.capture_only,

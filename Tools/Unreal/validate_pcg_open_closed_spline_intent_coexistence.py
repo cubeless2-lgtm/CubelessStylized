@@ -20,8 +20,9 @@ REPORT_NAME = "CubelessSplineIntentCoexistence_Report.json"
 WAIT_SECONDS = 8.0
 STATE_ATTR = "_cubeless_spline_intent_coexistence_state"
 
-CLOSED_SCRIPT = "D:/Git/CubelessStylized/Tools/Unreal/validate_pcg_closed_spline_grass_area.py"
-OPEN_SCRIPT = "D:/Git/CubelessStylized/Tools/Unreal/validate_pcg_two_point_open_spline_fence_native_graph.py"
+TOOLS_DIR = os.path.join(unreal.Paths.project_dir(), "Tools", "Unreal")
+CLOSED_SCRIPT = os.path.join(TOOLS_DIR, "validate_pcg_closed_spline_grass_area.py")
+OPEN_SCRIPT = os.path.join(TOOLS_DIR, "validate_pcg_two_point_open_spline_fence_native_graph.py")
 
 
 def _load_helpers(path):

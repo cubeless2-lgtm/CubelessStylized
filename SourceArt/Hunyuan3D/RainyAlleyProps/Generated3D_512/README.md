@@ -1,6 +1,6 @@
 # Rainy Alley Generated 3D Outputs - 512 PBR
 
-Generated with the local Hunyuan3D-2.1 install at `D:/Git/Hunyuan3D-2.1`.
+Generated with a local Hunyuan3D-2.1 checkout. Resolve that checkout from the current workstation instead of assuming a fixed drive.
 
 ## Decision
 

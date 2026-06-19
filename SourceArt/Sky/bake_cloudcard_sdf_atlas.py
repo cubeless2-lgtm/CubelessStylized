@@ -1,14 +1,17 @@
 # Bake SDF alpha into cloud card atlas (4x2 cells, 2048x2048).
 # RGB preserved (directional light pack), A replaced by signed-distance soft alpha.
 # Run: uv run --with pillow,numpy,scipy python bake_cloudcard_sdf_atlas.py
+from pathlib import Path
+
 import numpy as np
 from PIL import Image
 from scipy import ndimage
 
 # Note: the *_Preview_* PNG has fully-opaque alpha (beauty preview). The packed
 # atlas with real alpha/density is the *_RGBA_* file.
-SRC = r"C:\Git\CubelessStylized\Content\Cubeless\Env\Sky\Textures\CloudPlaneAtlas_LightPacked_UDSLike_RGBA_2048.png"
-DST = r"C:\Git\CubelessStylized\SourceArt\Sky\CloudPlaneAtlas_SDF_2048.png"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SRC = PROJECT_ROOT / "Content" / "Cubeless" / "Env" / "Sky" / "Textures" / "CloudPlaneAtlas_LightPacked_UDSLike_RGBA_2048.png"
+DST = PROJECT_ROOT / "SourceArt" / "Sky" / "CloudPlaneAtlas_SDF_2048.png"
 
 COLS, ROWS = 4, 2
 SOFT_PX = 48.0  # +/- soft width in pixels around the 0.5 iso line
