@@ -42,10 +42,10 @@ JSON_FENCE_RE = re.compile(r"```json\n(?P<body>.*?)\n```", re.DOTALL)
 EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 SAMPLE_ASSET_PATH_RE = re.compile(r"/Game/_MCP_Sample/AnimStudy/[A-Za-z0-9_]+")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
-DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v88"
+DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v89"
 
 LOCAL_CHECK_RUNNER_SCHEMA_TOKENS = {
-    "local_check_schema": '"schema": "stackobot_animation_local_checks_v9"',
+    "local_check_schema": '"schema": "stackobot_animation_local_checks_v10"',
     "expected_docs_audit_schema": f'EXPECTED_DOCS_AUDIT_SCHEMA = "{DOCS_AUDIT_SCHEMA}"',
     "expected_preflight_schema": 'EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"',
     "expected_staging_scope_schema": 'EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"',
@@ -92,6 +92,22 @@ CLOSEOUT_NEXT_REQUEST_PROTOCOL_TOKENS = {
     "dirty_packages": "dirty packages",
     "cxx_api_decision": "C++/API decision",
     "no_user_sample_needed": "without asking the user for a sample first",
+}
+
+CLOSEOUT_CXX_API_TIMING_TOKENS = {
+    "no_new_cxx_now": "no new C++ is needed before the next concrete request",
+    "decision_matrix": "docs/stackobot-cpp-api-decision-matrix.md",
+    "state_transition_trigger": "new state or transition authoring",
+    "visible_upper_body_source": "visible upper-body action source",
+    "bot_rigidbody_physics": "new Bot RigidBody-style physics",
+    "protected_animation_metadata": "notifies, curves, sync markers, or Montage internals",
+    "posewatch_failure": "repeated PoseWatch failures",
+    "ordinary_request_block": "Do not add C++ for ordinary",
+    "ordinary_turn_head": "turn head",
+    "ordinary_lean_more": "lean more",
+    "ordinary_antenna_lag": "antenna lag",
+    "ordinary_make_stronger": "stronger",
+    "ordinary_node_question": "which node changed the pose",
 }
 
 EXPECTED_EXTERNAL_PATHS = [
@@ -2848,6 +2864,23 @@ def _closeout_next_request_protocol_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _closeout_cxx_api_timing_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-study-closeout.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## C++ / API Timing")
+    return [
+        {
+            "path": path_text,
+            "section": "## C++ / API Timing",
+            "key": key,
+            "token": token,
+            "exists": token in section,
+        }
+        for key, token in CLOSEOUT_CXX_API_TIMING_TOKENS.items()
+    ]
+
+
 def _quickstart_route_token_entries() -> list[dict[str, Any]]:
     return _route_token_command_row_entries(
         path_text="docs/stackobot-animation-quickstart.md",
@@ -3609,6 +3642,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_closeout_next_request_protocol = [
         entry for entry in closeout_next_request_protocol if not entry["exists"]
     ]
+    closeout_cxx_api_timing = _closeout_cxx_api_timing_entries()
+    missing_closeout_cxx_api_timing = [
+        entry for entry in closeout_cxx_api_timing if not entry["exists"]
+    ]
     quickstart_route_tokens = _quickstart_route_token_entries()
     mismatched_quickstart_route_tokens = [
         entry for entry in quickstart_route_tokens if not entry["matches"]
@@ -3742,6 +3779,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_backlog_route_tokens
         and not mismatched_closeout_ready_route_tokens
         and not missing_closeout_next_request_protocol
+        and not missing_closeout_cxx_api_timing
         and not mismatched_quickstart_route_tokens
         and not mismatched_request_compiler_route_tokens
         and not mismatched_acceptance_route_token_map
@@ -3833,6 +3871,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_backlog_route_token_count": len(mismatched_backlog_route_tokens),
         "mismatched_closeout_ready_route_token_count": len(mismatched_closeout_ready_route_tokens),
         "missing_closeout_next_request_protocol_count": len(missing_closeout_next_request_protocol),
+        "missing_closeout_cxx_api_timing_count": len(missing_closeout_cxx_api_timing),
         "mismatched_quickstart_route_token_count": len(mismatched_quickstart_route_tokens),
         "mismatched_request_compiler_route_token_count": len(mismatched_request_compiler_route_tokens),
         "mismatched_acceptance_route_token_map_count": len(mismatched_acceptance_route_token_map),
@@ -3985,6 +4024,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_closeout_ready_route_tokens": mismatched_closeout_ready_route_tokens,
         "closeout_next_request_protocol": closeout_next_request_protocol,
         "missing_closeout_next_request_protocol": missing_closeout_next_request_protocol,
+        "closeout_cxx_api_timing": closeout_cxx_api_timing,
+        "missing_closeout_cxx_api_timing": missing_closeout_cxx_api_timing,
         "quickstart_route_tokens": quickstart_route_tokens,
         "mismatched_quickstart_route_tokens": mismatched_quickstart_route_tokens,
         "request_compiler_route_tokens": request_compiler_route_tokens,
@@ -4097,6 +4138,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_backlog_route_tokens={report['mismatched_backlog_route_token_count']} "
             f"mismatched_closeout_ready_routes={report['mismatched_closeout_ready_route_token_count']} "
             f"missing_closeout_next_request_protocol={report['missing_closeout_next_request_protocol_count']} "
+            f"missing_closeout_cxx_api_timing={report['missing_closeout_cxx_api_timing_count']} "
             f"mismatched_quickstart_route_tokens={report['mismatched_quickstart_route_token_count']} "
             f"mismatched_request_compiler_route_tokens={report['mismatched_request_compiler_route_token_count']} "
             f"mismatched_acceptance_route_token_map={report['mismatched_acceptance_route_token_map_count']} "
@@ -4184,6 +4226,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_backlog_route_tokens",
             "mismatched_closeout_ready_route_tokens",
             "missing_closeout_next_request_protocol",
+            "missing_closeout_cxx_api_timing",
             "mismatched_quickstart_route_tokens",
             "mismatched_request_compiler_route_tokens",
             "mismatched_acceptance_route_token_map",

@@ -9486,3 +9486,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added a closeout-specific docs-audit guard that checks `docs/stackobot-animation-study-closeout.md` keeps the `## Next Request Protocol` tokens for request compilation, sample-only routing, visible Tivret handoff, `_MCP_Sample/AnimStudy` asset boundary, route-specific runtime evidence, final report fields, dirty package reporting, C++/API decision, and no-user-sample readiness.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_closeout_next_request_protocol=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot closeout C++ timing guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v89`.
+- Expanded `Tools/Unreal/run_stackobot_animation_local_checks.py` to schema `stackobot_animation_local_checks_v10` and updated it to expect docs audit schema `stackobot_animation_docs_link_audit_v89`.
+- Added a closeout-specific docs-audit guard that checks `docs/stackobot-animation-study-closeout.md` keeps the `## C++ / API Timing` tokens for the no-new-C++ default, decision matrix link, concrete C++ candidate triggers, and ordinary-request non-escalation examples.
+- Smoke result: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` passed with `missing_closeout_cxx_api_timing=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
