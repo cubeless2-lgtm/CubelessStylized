@@ -593,6 +593,8 @@ REQUEST_EXAMPLE_REQUIRED_FIELDS = [
     "cxx_api_status",
     "ask_user_first",
     "route_matrix_checked",
+    "route_token_document_map_checked",
+    "route_token_acceptance_map_checked",
     "route_matrix_notes",
 ]
 
@@ -2219,6 +2221,20 @@ def _request_example_route_matrix_checked_entries() -> list[dict[str, Any]]:
     )
 
 
+def _request_example_route_token_document_map_checked_entries() -> list[dict[str, Any]]:
+    return _request_example_route_required_token_entries(
+        REQUEST_EXAMPLE_ROUTE_MATRIX_CHECKED_RULES,
+        "route_token_document_map_checked",
+    )
+
+
+def _request_example_route_token_acceptance_map_checked_entries() -> list[dict[str, Any]]:
+    return _request_example_route_required_token_entries(
+        REQUEST_EXAMPLE_ROUTE_MATRIX_CHECKED_RULES,
+        "route_token_acceptance_map_checked",
+    )
+
+
 def _request_example_route_matrix_notes_entries() -> list[dict[str, Any]]:
     return _request_example_route_required_token_entries(
         REQUEST_EXAMPLE_ROUTE_MATRIX_NOTE_RULES,
@@ -3075,6 +3091,22 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for entry in request_example_route_matrix_checked
         if not entry["known_route"] or not entry["matches"]
     ]
+    request_example_route_token_document_map_checked = (
+        _request_example_route_token_document_map_checked_entries()
+    )
+    mismatched_request_example_route_token_document_map_checked = [
+        entry
+        for entry in request_example_route_token_document_map_checked
+        if not entry["known_route"] or not entry["matches"]
+    ]
+    request_example_route_token_acceptance_map_checked = (
+        _request_example_route_token_acceptance_map_checked_entries()
+    )
+    mismatched_request_example_route_token_acceptance_map_checked = [
+        entry
+        for entry in request_example_route_token_acceptance_map_checked
+        if not entry["known_route"] or not entry["matches"]
+    ]
     request_example_route_matrix_notes = _request_example_route_matrix_notes_entries()
     mismatched_request_example_route_matrix_notes = [
         entry
@@ -3251,6 +3283,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_request_example_route_sample_targets
         and not mismatched_request_example_route_ask_user_first
         and not mismatched_request_example_route_matrix_checked
+        and not mismatched_request_example_route_token_document_map_checked
+        and not mismatched_request_example_route_token_acceptance_map_checked
         and not mismatched_request_example_route_matrix_notes
         and not mismatched_request_example_route_verifications
         and not missing_request_example_acceptance_focus
@@ -3286,7 +3320,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v73",
+        "schema": "stackobot_animation_docs_link_audit_v74",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3327,6 +3361,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_sample_target_count": len(mismatched_request_example_route_sample_targets),
         "mismatched_request_example_route_ask_user_first_count": len(mismatched_request_example_route_ask_user_first),
         "mismatched_request_example_route_matrix_checked_count": len(mismatched_request_example_route_matrix_checked),
+        "mismatched_request_example_route_token_document_map_checked_count": len(mismatched_request_example_route_token_document_map_checked),
+        "mismatched_request_example_route_token_acceptance_map_checked_count": len(mismatched_request_example_route_token_acceptance_map_checked),
         "mismatched_request_example_route_matrix_note_count": len(mismatched_request_example_route_matrix_notes),
         "mismatched_request_example_route_verification_count": len(mismatched_request_example_route_verifications),
         "missing_request_example_acceptance_focus_count": len(missing_request_example_acceptance_focus),
@@ -3431,6 +3467,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_ask_user_first": mismatched_request_example_route_ask_user_first,
         "request_example_route_matrix_checked": request_example_route_matrix_checked,
         "mismatched_request_example_route_matrix_checked": mismatched_request_example_route_matrix_checked,
+        "request_example_route_token_document_map_checked": request_example_route_token_document_map_checked,
+        "mismatched_request_example_route_token_document_map_checked": mismatched_request_example_route_token_document_map_checked,
+        "request_example_route_token_acceptance_map_checked": request_example_route_token_acceptance_map_checked,
+        "mismatched_request_example_route_token_acceptance_map_checked": mismatched_request_example_route_token_acceptance_map_checked,
         "request_example_route_matrix_notes": request_example_route_matrix_notes,
         "mismatched_request_example_route_matrix_notes": mismatched_request_example_route_matrix_notes,
         "request_example_route_verifications": request_example_route_verifications,
@@ -3546,6 +3586,8 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_request_example_sample_targets={report['mismatched_request_example_route_sample_target_count']} "
             f"mismatched_request_example_ask_user_first={report['mismatched_request_example_route_ask_user_first_count']} "
             f"mismatched_request_example_route_matrix_checked={report['mismatched_request_example_route_matrix_checked_count']} "
+            f"mismatched_request_example_route_token_document_map_checked={report['mismatched_request_example_route_token_document_map_checked_count']} "
+            f"mismatched_request_example_route_token_acceptance_map_checked={report['mismatched_request_example_route_token_acceptance_map_checked_count']} "
             f"mismatched_request_example_route_matrix_notes={report['mismatched_request_example_route_matrix_note_count']} "
             f"mismatched_request_example_verification_commands={report['mismatched_request_example_route_verification_count']} "
             f"missing_acceptance_focus_blocks={report['missing_request_example_acceptance_focus_count']} "
@@ -3618,6 +3660,8 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_request_example_route_sample_targets",
             "mismatched_request_example_route_ask_user_first",
             "mismatched_request_example_route_matrix_checked",
+            "mismatched_request_example_route_token_document_map_checked",
+            "mismatched_request_example_route_token_acceptance_map_checked",
             "mismatched_request_example_route_matrix_notes",
             "mismatched_request_example_route_verifications",
             "missing_request_example_acceptance_focus",
