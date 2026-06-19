@@ -181,6 +181,24 @@ root-motion flag, BlendSpace sample, source pose sampling만 사용한다.
 `AnimMontage.h:770` crash boundary를 재현하지 않는다.
 ```
 
+## Route Token Final Report Map
+
+Use this map when Tivret returns execution results to Ieta. The generic field
+list stays in `Final Report Shape`; this table defines the route-specific proof
+focus that must be present before Ieta reports completion to the user.
+
+| Route token | Final proof focus | Must report | C++/API status cue |
+| --- | --- | --- | --- |
+| `Post Process ModifyBone` | Same-instance Post Process node proof. | `runtime_graph_prepost`, `same_instance_prepost`, target bone delta, and original asset mutation status. | `not needed` unless original asset mutation or unsupported node authoring is requested. |
+| `BlendSpace sample variant` | Runtime pose-grid response for the sample BlendSpace. | `valid_pose_count`, `input_changed_pose`, sample coordinate changes, and original asset mutation status. | `not needed` for current sample coordinate edits. |
+| `Bot Trail sample` | Same-instance Trail or Post Process secondary-motion proof. | `same-instance Trail`, `target chain delta`, component-level Post Process override, and cleanup status. | `not needed` unless a new secondary-motion graph cannot be authored safely. |
+| `UpperBody Slot and LayeredBlend` | Existing slot/cached-pose/LayeredBoneBlend route proof. | `BasePose`, `BlendPoses[0]`, branch filter summary, and visible action proof caveat. | `candidate` before new overlay branch authoring. |
+| `protected metadata boundary` | Safe metadata inventory or explicit parked API candidate. | `readable fields`, `blocked protected fields`, protected field names, and crash-boundary avoidance. | `candidate` when notifies, curves, sync markers, or Montage internals are required. |
+| `ControlRig gate probe` | Gate identification plus compiled AnimGraph same-instance proof when needed. | `root-connected`, `required gates`, `same-instance pre/post`, direct-vs-compiled proof boundary, and cleanup status. | `not needed` for sample proof; ask before editing original ControlRig or AnimBP. |
+| `state-machine runtime-driver proof` | Runtime state-machine response cases. | `current state`, `transition progress`, `restored runtime properties`, sampled world, and changed inputs. | `candidate` before original graph mutation or new state-machine authoring. |
+| `Baddy RigidBody` | RigidBody settings plus runtime node or pose proof. | `RigidBody settings`, `mapped runtime node`, `pose deltas`, and source clip motion separation. | `not needed` for read/sample proof; `candidate` before original physics asset or AnimBP mutation. |
+| `node resolver plus same-instance pre/post proof` | Instrumentation-only node contribution proof. | `target node selection`, `input/output links`, `same-instance confirmation`, and ambiguity if unresolved. | `not needed` while read-only; `candidate` only for unsupported node classes. |
+
 ## Final Report Shape
 
 Tivret should return these fields to Ieta after execution:

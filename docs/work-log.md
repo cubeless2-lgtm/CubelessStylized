@@ -9361,3 +9361,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added audit guards that require both new fields in every request-run example and verify they stay `true` for each known route token.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_route_token_document_map_checked=0` and `mismatched_request_example_route_token_acceptance_map_checked=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot handoff final-report route token map
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v75`.
+- Added `Route Token Final Report Map` to `docs/stackobot-animation-tivret-handoff-templates.md` so each route token carries its final proof focus, must-report evidence tokens, and C++/API status cue.
+- Added an audit guard that compares final-report route-token rows against the route-specific expected evidence rules.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_handoff_route_token_final_reports=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
