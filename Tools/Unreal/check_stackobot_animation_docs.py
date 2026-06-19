@@ -42,10 +42,10 @@ JSON_FENCE_RE = re.compile(r"```json\n(?P<body>.*?)\n```", re.DOTALL)
 EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 SAMPLE_ASSET_PATH_RE = re.compile(r"/Game/_MCP_Sample/AnimStudy/[A-Za-z0-9_]+")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
-DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v95"
+DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v96"
 
 LOCAL_CHECK_RUNNER_SCHEMA_TOKENS = {
-    "local_check_schema": '"schema": "stackobot_animation_local_checks_v16"',
+    "local_check_schema": '"schema": "stackobot_animation_local_checks_v17"',
     "expected_docs_audit_schema": f'EXPECTED_DOCS_AUDIT_SCHEMA = "{DOCS_AUDIT_SCHEMA}"',
     "expected_preflight_schema": 'EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"',
     "expected_staging_scope_schema": 'EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"',
@@ -225,6 +225,43 @@ AUTHORING_CXX_ESCALATION_GATE_TOKENS = {
     "actor_resolution_helper": "actor/component resolution needs a",
     "protected_metadata": "Notify, sync-marker, curve, or Montage internals",
     "parked_candidate": "keep C++ as a parked candidate",
+}
+
+PLAYBOOK_EXECUTION_PROTOCOL_TOKENS = {
+    "classify_request": "Classify the request with the matrix above.",
+    "request_run_template": "docs/stackobot-animation-request-run-template.md",
+    "visible_handoff": "before asset work",
+    "sample_only": "sample-only unless the user approved original asset edits",
+    "static_evidence_first": "Run static topology or existing evidence first.",
+    "narrowest_mcp_command": "narrowest existing MCP command",
+    "authoring_compile_save": "Compile/save sample assets only when the route is an authoring command.",
+    "artifact_root": "Saved/MCP/AnimStudy",
+    "acceptance_checklist": "docs/stackobot-animation-acceptance-checklist.md",
+    "dirty_package_handling": "never save dirty original maps just to clean up a proof actor",
+    "commit_scope": "commit only relevant docs or tooling files",
+}
+
+PLAYBOOK_APPROVAL_GATE_TOKENS = {
+    "read_code_docs_allowed": "Reading StackOBot/Cubeless/UnrealMCP code and docs.",
+    "cubeless_docs_allowed": "Creating or updating Cubeless documentation.",
+    "unrealmcp_cxx_allowed": "Creating or modifying C++ inside the UnrealMCP plugin",
+    "sample_assets_allowed": "Creating or modifying disposable sample assets under `/Game/_MCP_Sample/AnimStudy`.",
+    "original_stackobot_requires_approval": "Modifying original StackOBot assets outside `_MCP_Sample`.",
+    "cubeless_runtime_cxx_requires_approval": "Modifying Cubeless project gameplay/runtime C++ outside approved plugin exceptions.",
+    "dirty_original_map_save_requires_approval": "Saving original maps that became dirty during transient proof actor cleanup.",
+    "billed_api_requires_approval": "Using billed/API routes, credentials, or non-local services.",
+    "production_promotion_requires_approval": "Promoting sample assets into production content.",
+}
+
+PLAYBOOK_CXX_ESCALATION_TOKENS = {
+    "candidate_only": "Keep C++ as a candidate only",
+    "safe_create_wire_inspect_verify_blocked": "existing MCP command cannot safely create",
+    "python_wrappers_blocked": "Python wrappers cannot access required AnimGraph internals.",
+    "unsafe_execute_python": "Generic `execute_python` would need unsafe map switching",
+    "same_instance_instrumentation": "reusable same-instance runtime instrumentation",
+    "existing_commands_no_escalation": "Existing commands already cover the request.",
+    "sample_only_no_escalation": "A sample-only asset can be created and verified with current commands.",
+    "docs_only_no_escalation": "The only missing work is documentation or artifact summarization.",
 }
 
 EXPECTED_EXTERNAL_PATHS = [
@@ -2629,6 +2666,48 @@ def _playbook_delivery_shape_field_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _playbook_section_token_entries(
+    *,
+    heading: str,
+    tokens: dict[str, str],
+) -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-request-playbook.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, heading)
+    return [
+        {
+            "path": path_text,
+            "section": heading,
+            "key": key,
+            "token": token,
+            "exists": token in section,
+        }
+        for key, token in tokens.items()
+    ]
+
+
+def _playbook_execution_protocol_entries() -> list[dict[str, Any]]:
+    return _playbook_section_token_entries(
+        heading="## Execution Protocol",
+        tokens=PLAYBOOK_EXECUTION_PROTOCOL_TOKENS,
+    )
+
+
+def _playbook_approval_gate_entries() -> list[dict[str, Any]]:
+    return _playbook_section_token_entries(
+        heading="## Approval Gates",
+        tokens=PLAYBOOK_APPROVAL_GATE_TOKENS,
+    )
+
+
+def _playbook_cxx_escalation_entries() -> list[dict[str, Any]]:
+    return _playbook_section_token_entries(
+        heading="## C++/API Escalation",
+        tokens=PLAYBOOK_CXX_ESCALATION_TOKENS,
+    )
+
+
 def _handoff_final_report_field_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-tivret-handoff-templates.md"
     path = PROJECT_ROOT / path_text
@@ -3796,6 +3875,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_request_run_template_tivret_handoff = [
         entry for entry in request_run_template_tivret_handoff if not entry["exists"]
     ]
+    playbook_execution_protocol = _playbook_execution_protocol_entries()
+    missing_playbook_execution_protocol = [
+        entry for entry in playbook_execution_protocol if not entry["exists"]
+    ]
+    playbook_approval_gates = _playbook_approval_gate_entries()
+    missing_playbook_approval_gates = [
+        entry for entry in playbook_approval_gates if not entry["exists"]
+    ]
+    playbook_cxx_escalation = _playbook_cxx_escalation_entries()
+    missing_playbook_cxx_escalation = [
+        entry for entry in playbook_cxx_escalation if not entry["exists"]
+    ]
     playbook_delivery_shape_fields = _playbook_delivery_shape_field_entries()
     missing_playbook_delivery_shape_fields = [
         entry for entry in playbook_delivery_shape_fields if not entry["exists"]
@@ -4026,6 +4117,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_request_run_template_section_fields
         and not missing_request_run_template_acceptance_gates
         and not missing_request_run_template_tivret_handoff
+        and not missing_playbook_execution_protocol
+        and not missing_playbook_approval_gates
+        and not missing_playbook_cxx_escalation
         and not missing_playbook_delivery_shape_fields
         and not missing_handoff_final_report_fields
         and not missing_handoff_template_section_tokens
@@ -4125,6 +4219,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_request_run_template_section_field_count": len(missing_request_run_template_section_fields),
         "missing_request_run_template_acceptance_gate_count": len(missing_request_run_template_acceptance_gates),
         "missing_request_run_template_tivret_handoff_count": len(missing_request_run_template_tivret_handoff),
+        "missing_playbook_execution_protocol_count": len(missing_playbook_execution_protocol),
+        "missing_playbook_approval_gate_count": len(missing_playbook_approval_gates),
+        "missing_playbook_cxx_escalation_count": len(missing_playbook_cxx_escalation),
         "missing_playbook_delivery_shape_field_count": len(missing_playbook_delivery_shape_fields),
         "missing_handoff_final_report_field_count": len(missing_handoff_final_report_fields),
         "missing_handoff_template_section_token_count": len(missing_handoff_template_section_tokens),
@@ -4264,6 +4361,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_request_run_template_acceptance_gates": missing_request_run_template_acceptance_gates,
         "request_run_template_tivret_handoff": request_run_template_tivret_handoff,
         "missing_request_run_template_tivret_handoff": missing_request_run_template_tivret_handoff,
+        "playbook_execution_protocol": playbook_execution_protocol,
+        "missing_playbook_execution_protocol": missing_playbook_execution_protocol,
+        "playbook_approval_gates": playbook_approval_gates,
+        "missing_playbook_approval_gates": missing_playbook_approval_gates,
+        "playbook_cxx_escalation": playbook_cxx_escalation,
+        "missing_playbook_cxx_escalation": missing_playbook_cxx_escalation,
         "playbook_delivery_shape_fields": playbook_delivery_shape_fields,
         "missing_playbook_delivery_shape_fields": missing_playbook_delivery_shape_fields,
         "handoff_final_report_fields": handoff_final_report_fields,
@@ -4413,6 +4516,9 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_request_template_section_fields={report['missing_request_run_template_section_field_count']} "
             f"missing_request_template_acceptance_gates={report['missing_request_run_template_acceptance_gate_count']} "
             f"missing_request_template_tivret_handoff={report['missing_request_run_template_tivret_handoff_count']} "
+            f"missing_playbook_execution_protocol={report['missing_playbook_execution_protocol_count']} "
+            f"missing_playbook_approval_gates={report['missing_playbook_approval_gate_count']} "
+            f"missing_playbook_cxx_escalation={report['missing_playbook_cxx_escalation_count']} "
             f"missing_playbook_delivery_shape_fields={report['missing_playbook_delivery_shape_field_count']} "
             f"missing_handoff_report_fields={report['missing_handoff_final_report_field_count']} "
             f"missing_handoff_template_tokens={report['missing_handoff_template_section_token_count']} "
@@ -4508,6 +4614,9 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_request_run_template_section_fields",
             "missing_request_run_template_acceptance_gates",
             "missing_request_run_template_tivret_handoff",
+            "missing_playbook_execution_protocol",
+            "missing_playbook_approval_gates",
+            "missing_playbook_cxx_escalation",
             "missing_playbook_delivery_shape_fields",
             "missing_handoff_final_report_fields",
             "missing_handoff_template_section_tokens",

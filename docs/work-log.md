@@ -9542,3 +9542,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added authoring-template docs-audit guards that check `docs/stackobot-animation-authoring-templates.md` keeps the `## Completion Contract` completion/reporting tokens and the `## C++/API Escalation Gate` no-complexity-escalation and safe-surface-blocked C++ criteria.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_authoring_completion_contract=0` and `missing_authoring_cxx_gate=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request playbook protocol guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v96`.
+- Expanded `Tools/Unreal/run_stackobot_animation_local_checks.py` to schema `stackobot_animation_local_checks_v17` and updated it to expect docs audit schema `stackobot_animation_docs_link_audit_v96`.
+- Added request-playbook docs-audit guards that check `docs/stackobot-animation-request-playbook.md` keeps the `## Execution Protocol`, `## Approval Gates`, and `## C++/API Escalation` tokens for sample-only execution, visible handoff, artifact/evidence handling, approval boundaries, and C++ escalation/non-escalation rules.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_playbook_execution_protocol=0`, `missing_playbook_approval_gates=0`, and `missing_playbook_cxx_escalation=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
