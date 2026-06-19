@@ -7,6 +7,7 @@
 - If that sibling is missing, try `CUBELESS_OPS_ROOT\AGENTS.md`.
 - If neither path resolves, report that `CubelessOps` is missing, continue only with the critical local rules in this file, and do not pretend the shared rules were loaded.
 - After loading shared Ops, read `../CubelessOps/projects/CubelessStylized.md` for this project's binding.
+- For fresh Codex section bootstrap verification, follow `../CubelessOps/docs/workflows/codex-session-bootstrap.md`.
 - The pre-migration full instruction snapshot is stored at `../CubelessOps/snapshots/CubelessStylized-AGENTS-before-ops-migration.md`.
 - Shared rules in `../CubelessOps` are the durable source for agent roles, Git boundaries, approval follow-through, workspace portability, MCP workflows, asset authoring, image alpha review, texturing, material authoring, packaging workflow, and promoted lessons.
 - This file is the local adapter. It keeps only project-specific bindings and critical safety rules that must remain available even if the sibling Ops repository is not loaded automatically.
