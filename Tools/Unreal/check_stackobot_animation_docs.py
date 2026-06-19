@@ -2363,6 +2363,39 @@ def _handoff_route_token_final_report_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _handoff_route_token_final_report_cxx_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-tivret-handoff-templates.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Route Token Final Report Map")
+    entries: list[dict[str, Any]] = []
+
+    for route_token, expected_tokens in REQUEST_EXAMPLE_ROUTE_CXX_STATUS_RULES.items():
+        row = next(
+            (
+                line
+                for line in section.splitlines()
+                if f"`{route_token}`" in line
+            ),
+            "",
+        )
+        lower_row = row.lower()
+        expected_lower = [token.lower() for token in expected_tokens]
+        entries.append(
+            {
+                "path": path_text,
+                "section": "## Route Token Final Report Map",
+                "route_token": route_token,
+                "row": row,
+                "expected_tokens": expected_tokens,
+                "exists": bool(row),
+                "matches": bool(row) and _contains_any(lower_row, set(expected_lower)),
+            }
+        )
+
+    return entries
+
+
 def _acceptance_final_report_field_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
     path = PROJECT_ROOT / path_text
@@ -3174,6 +3207,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_handoff_route_token_final_reports = [
         entry for entry in handoff_route_token_final_reports if not entry["matches"]
     ]
+    handoff_route_token_final_report_cxx = _handoff_route_token_final_report_cxx_entries()
+    mismatched_handoff_route_token_final_report_cxx = [
+        entry for entry in handoff_route_token_final_report_cxx if not entry["matches"]
+    ]
     acceptance_final_report_fields = _acceptance_final_report_field_entries()
     missing_acceptance_final_report_fields = [
         entry for entry in acceptance_final_report_fields if not entry["exists"]
@@ -3333,6 +3370,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_request_run_template_fields
         and not missing_handoff_final_report_fields
         and not mismatched_handoff_route_token_final_reports
+        and not mismatched_handoff_route_token_final_report_cxx
         and not missing_acceptance_final_report_fields
         and not missing_acceptance_universal_pass_fields
         and not missing_acceptance_route_criteria
@@ -3362,7 +3400,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v75",
+        "schema": "stackobot_animation_docs_link_audit_v76",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3412,6 +3450,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_request_run_template_field_count": len(missing_request_run_template_fields),
         "missing_handoff_final_report_field_count": len(missing_handoff_final_report_fields),
         "mismatched_handoff_route_token_final_report_count": len(mismatched_handoff_route_token_final_reports),
+        "mismatched_handoff_route_token_final_report_cxx_count": len(mismatched_handoff_route_token_final_report_cxx),
         "missing_acceptance_final_report_field_count": len(missing_acceptance_final_report_fields),
         "missing_acceptance_universal_pass_field_count": len(missing_acceptance_universal_pass_fields),
         "missing_acceptance_route_criteria_count": len(missing_acceptance_route_criteria),
@@ -3528,6 +3567,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_handoff_final_report_fields": missing_handoff_final_report_fields,
         "handoff_route_token_final_reports": handoff_route_token_final_reports,
         "mismatched_handoff_route_token_final_reports": mismatched_handoff_route_token_final_reports,
+        "handoff_route_token_final_report_cxx": handoff_route_token_final_report_cxx,
+        "mismatched_handoff_route_token_final_report_cxx": mismatched_handoff_route_token_final_report_cxx,
         "acceptance_final_report_fields": acceptance_final_report_fields,
         "missing_acceptance_final_report_fields": missing_acceptance_final_report_fields,
         "acceptance_universal_pass_fields": acceptance_universal_pass_fields,
@@ -3640,6 +3681,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_template_fields={report['missing_request_run_template_field_count']} "
             f"missing_handoff_report_fields={report['missing_handoff_final_report_field_count']} "
             f"mismatched_handoff_route_token_final_reports={report['mismatched_handoff_route_token_final_report_count']} "
+            f"mismatched_handoff_route_token_final_report_cxx={report['mismatched_handoff_route_token_final_report_cxx_count']} "
             f"missing_acceptance_report_fields={report['missing_acceptance_final_report_field_count']} "
             f"missing_acceptance_universal_fields={report['missing_acceptance_universal_pass_field_count']} "
             f"missing_acceptance_routes={report['missing_acceptance_route_criteria_count']} "
@@ -3715,6 +3757,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_request_run_template_fields",
             "missing_handoff_final_report_fields",
             "mismatched_handoff_route_token_final_reports",
+            "mismatched_handoff_route_token_final_report_cxx",
             "missing_acceptance_final_report_fields",
             "missing_acceptance_universal_pass_fields",
             "missing_acceptance_route_criteria",

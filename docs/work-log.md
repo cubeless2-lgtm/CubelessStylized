@@ -9369,3 +9369,10 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added an audit guard that compares final-report route-token rows against the route-specific expected evidence rules.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_handoff_route_token_final_reports=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot handoff final-report C++ cue audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v76`.
+- Added an audit guard that compares each `Route Token Final Report Map` C++/API status cue against the route-specific C++/API decision rules.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_handoff_route_token_final_report_cxx=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
