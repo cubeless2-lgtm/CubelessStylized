@@ -42,10 +42,10 @@ JSON_FENCE_RE = re.compile(r"```json\n(?P<body>.*?)\n```", re.DOTALL)
 EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 SAMPLE_ASSET_PATH_RE = re.compile(r"/Game/_MCP_Sample/AnimStudy/[A-Za-z0-9_]+")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
-DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v86"
+DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v87"
 
 LOCAL_CHECK_RUNNER_SCHEMA_TOKENS = {
-    "local_check_schema": '"schema": "stackobot_animation_local_checks_v7"',
+    "local_check_schema": '"schema": "stackobot_animation_local_checks_v8"',
     "expected_docs_audit_schema": f'EXPECTED_DOCS_AUDIT_SCHEMA = "{DOCS_AUDIT_SCHEMA}"',
     "expected_preflight_schema": 'EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"',
     "expected_staging_scope_schema": 'EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"',
@@ -64,6 +64,20 @@ DOC_INDEX_LOCAL_CHECK_COMMANDS = [
     "python Tools/Unreal/check_stackobot_animation_staging_scope.py --summary",
     "python Tools/Unreal/check_stackobot_animation_docs.py --write-report",
 ]
+
+QUICKSTART_PREFLIGHT_CHECKLIST_TOKENS = {
+    "local_runner": "python Tools/Unreal/run_stackobot_animation_local_checks.py --summary",
+    "stackobot_project_path": "D:/Git/SampleProject/StackOBot",
+    "primary_bridge": "127.0.0.1:55557",
+    "stackobot_plugin_path": "D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP",
+    "command_surface_sync": "command-surface sync issue",
+    "dirty_package_capture": "Pre-existing dirty packages are captured",
+    "sample_root": "/Game/_MCP_Sample/AnimStudy",
+    "sample_only_flag": "allow_non_sample=false",
+    "sample_manifest": "docs/stackobot-sample-asset-manifest.md",
+    "evidence_root": "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+    "bridge_required_flag": "--require-bridge",
+}
 
 EXPECTED_EXTERNAL_PATHS = [
     PROJECT_ROOT.parent / "unreal-mcp-cubeless" / "Python" / "tools" / "node_tools.py",
@@ -1720,6 +1734,23 @@ def _quickstart_route_shortcut_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _quickstart_preflight_checklist_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-quickstart.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Preflight Checklist")
+    return [
+        {
+            "path": path_text,
+            "section": "## Preflight Checklist",
+            "key": key,
+            "token": token,
+            "exists": token in section,
+        }
+        for key, token in QUICKSTART_PREFLIGHT_CHECKLIST_TOKENS.items()
+    ]
+
+
 def _doc_index_route_coverage_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-doc-index.md"
     path = PROJECT_ROOT / path_text
@@ -3302,6 +3333,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_quickstart_route_shortcuts = [
         entry for entry in quickstart_route_shortcuts if not entry["exists"]
     ]
+    quickstart_preflight_checklist = _quickstart_preflight_checklist_entries()
+    missing_quickstart_preflight_checklist = [
+        entry for entry in quickstart_preflight_checklist if not entry["exists"]
+    ]
     doc_index_route_coverage = _doc_index_route_coverage_entries()
     missing_doc_index_route_coverage = [
         entry for entry in doc_index_route_coverage if not entry["exists"]
@@ -3620,6 +3655,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_route_matrix_evidence_approval
         and not missing_route_matrix_selection_rules
         and not missing_quickstart_route_shortcuts
+        and not missing_quickstart_preflight_checklist
         and not missing_doc_index_route_coverage
         and not missing_doc_index_route_token_documents
         and not mismatched_cpp_api_route_decisions
@@ -3709,6 +3745,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_route_matrix_evidence_approval_count": len(mismatched_route_matrix_evidence_approval),
         "missing_route_matrix_selection_rule_count": len(missing_route_matrix_selection_rules),
         "missing_quickstart_route_shortcut_count": len(missing_quickstart_route_shortcuts),
+        "missing_quickstart_preflight_checklist_count": len(missing_quickstart_preflight_checklist),
         "missing_doc_index_route_coverage_count": len(missing_doc_index_route_coverage),
         "missing_doc_index_route_token_document_count": len(missing_doc_index_route_token_documents),
         "mismatched_cpp_api_route_decision_count": len(mismatched_cpp_api_route_decisions),
@@ -3808,6 +3845,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_route_matrix_selection_rules": missing_route_matrix_selection_rules,
         "quickstart_route_shortcuts": quickstart_route_shortcuts,
         "missing_quickstart_route_shortcuts": missing_quickstart_route_shortcuts,
+        "quickstart_preflight_checklist": quickstart_preflight_checklist,
+        "missing_quickstart_preflight_checklist": missing_quickstart_preflight_checklist,
         "doc_index_route_coverage": doc_index_route_coverage,
         "missing_doc_index_route_coverage": missing_doc_index_route_coverage,
         "doc_index_route_token_documents": doc_index_route_token_documents,
@@ -3967,6 +4006,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_route_matrix_evidence_approval={report['mismatched_route_matrix_evidence_approval_count']} "
             f"missing_route_matrix_selection_rules={report['missing_route_matrix_selection_rule_count']} "
             f"missing_quickstart_route_shortcuts={report['missing_quickstart_route_shortcut_count']} "
+            f"missing_quickstart_preflight_checklist={report['missing_quickstart_preflight_checklist_count']} "
             f"missing_doc_index_route_coverage={report['missing_doc_index_route_coverage_count']} "
             f"missing_doc_index_route_token_documents={report['missing_doc_index_route_token_document_count']} "
             f"mismatched_cpp_api_route_decisions={report['mismatched_cpp_api_route_decision_count']} "
@@ -4052,6 +4092,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_route_matrix_evidence_approval",
             "missing_route_matrix_selection_rules",
             "missing_quickstart_route_shortcuts",
+            "missing_quickstart_preflight_checklist",
             "missing_doc_index_route_coverage",
             "missing_doc_index_route_token_documents",
             "mismatched_cpp_api_route_decisions",
