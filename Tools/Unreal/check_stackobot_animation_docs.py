@@ -42,10 +42,10 @@ JSON_FENCE_RE = re.compile(r"```json\n(?P<body>.*?)\n```", re.DOTALL)
 EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 SAMPLE_ASSET_PATH_RE = re.compile(r"/Game/_MCP_Sample/AnimStudy/[A-Za-z0-9_]+")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
-DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v93"
+DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v94"
 
 LOCAL_CHECK_RUNNER_SCHEMA_TOKENS = {
-    "local_check_schema": '"schema": "stackobot_animation_local_checks_v14"',
+    "local_check_schema": '"schema": "stackobot_animation_local_checks_v15"',
     "expected_docs_audit_schema": f'EXPECTED_DOCS_AUDIT_SCHEMA = "{DOCS_AUDIT_SCHEMA}"',
     "expected_preflight_schema": 'EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"',
     "expected_staging_scope_schema": 'EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"',
@@ -142,6 +142,66 @@ REQUEST_RUN_TEMPLATE_TIVRET_HANDOFF_TOKENS = {
     "handoff_template_path": "docs/stackobot-animation-tivret-handoff-templates.md",
     "visible_handoff_block": "Paste the visible handoff block",
     "handoff_block_field": "Tivret handoff:",
+}
+
+HANDOFF_TEMPLATE_SECTION_TOKENS = {
+    "Post Process ModifyBone": [
+        "ensure_postprocess_anim_demo_variant",
+        "sample_anim_node_pre_post_runtime_pose",
+        "runtime_graph_prepost=true",
+        "same_instance_prepost=true",
+        "errors=[]",
+    ],
+    "BlendSpace Sample Variant": [
+        "ensure_blendspace_sample_variant",
+        "sample_blendspace_runtime_pose_grid",
+        "valid_pose_count",
+        "input_changed_pose=true",
+        "original_assets_modified=false",
+    ],
+    "State Machine Or Runtime Driver": [
+        "inspect_anim_state_machine_transitions",
+        "sample_anim_state_machine_runtime_response",
+        "asset_modified=false",
+        "saves_assets=false",
+    ],
+    "ControlRig Late Correction": [
+        "inspect_anim_graph_protected_topology",
+        "controlrig_direct_gate_probe",
+        "ShouldDoIKTrace",
+        "InteractionWorldLocation",
+        "IK_blend_interact",
+        "ensure_controlrig_forced_driver_animbp",
+        "inspect_anim_instance_runtime_state",
+        "same_instance_prepost=true",
+    ],
+    "UpperBody Slot And LayeredBlend": [
+        "StackOBot_SlotLayeredBlend_Inventory.md",
+        "LocomotionPose -> UpperBody Slot -> CashedPose_UpperBody -> LayeredBoneBlend",
+        "sample_anim_node_pre_post_runtime_pose",
+        "input_pose_mode=all",
+        "A6513D7A4006C58E2BC82AADE84F15F6",
+        "BasePose",
+        "BlendPoses[0]",
+    ],
+    "Trail Or Secondary Motion": [
+        "ensure_anim_graph_trail_demo",
+        "ABP_Bot_Trail_Study",
+        "SKM_Bot_Trail_Study",
+        "set_override_post_process_anim_bp",
+        "sample_anim_node_pre_post_runtime_pose",
+        "errors=[]",
+        "cleanup",
+    ],
+    "Notify, Curve, Sync Marker, Or Montage Internals": [
+        "StackOBot_AnimationAsset_Inventory.*",
+        "StackOBot_AnimationAsset_ReadApiProbe.json",
+        "AssetRegistry-level Montage scan",
+        "AnimSequence.Notifies",
+        "raw_curve_data",
+        "authored_sync_markers",
+        "AnimMontage.h:770",
+    ],
 }
 
 EXPECTED_EXTERNAL_PATHS = [
@@ -2562,6 +2622,27 @@ def _handoff_final_report_field_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _handoff_template_section_token_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-tivret-handoff-templates.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    entries: list[dict[str, Any]] = []
+
+    for heading, tokens in HANDOFF_TEMPLATE_SECTION_TOKENS.items():
+        section = _markdown_heading_section(text, f"## {heading}")
+        for token in tokens:
+            entries.append(
+                {
+                    "path": path_text,
+                    "section": f"## {heading}",
+                    "token": token,
+                    "exists": token in section,
+                }
+            )
+
+    return entries
+
+
 def _handoff_route_token_final_report_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-tivret-handoff-templates.md"
     path = PROJECT_ROOT / path_text
@@ -3666,6 +3747,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_handoff_final_report_fields = [
         entry for entry in handoff_final_report_fields if not entry["exists"]
     ]
+    handoff_template_section_tokens = _handoff_template_section_token_entries()
+    missing_handoff_template_section_tokens = [
+        entry for entry in handoff_template_section_tokens if not entry["exists"]
+    ]
     handoff_route_token_final_reports = _handoff_route_token_final_report_entries()
     mismatched_handoff_route_token_final_reports = [
         entry for entry in handoff_route_token_final_reports if not entry["matches"]
@@ -3878,6 +3963,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_request_run_template_tivret_handoff
         and not missing_playbook_delivery_shape_fields
         and not missing_handoff_final_report_fields
+        and not missing_handoff_template_section_tokens
         and not mismatched_handoff_route_token_final_reports
         and not mismatched_handoff_route_token_final_report_cxx
         and not missing_acceptance_final_report_fields
@@ -3974,6 +4060,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_request_run_template_tivret_handoff_count": len(missing_request_run_template_tivret_handoff),
         "missing_playbook_delivery_shape_field_count": len(missing_playbook_delivery_shape_fields),
         "missing_handoff_final_report_field_count": len(missing_handoff_final_report_fields),
+        "missing_handoff_template_section_token_count": len(missing_handoff_template_section_tokens),
         "mismatched_handoff_route_token_final_report_count": len(mismatched_handoff_route_token_final_reports),
         "mismatched_handoff_route_token_final_report_cxx_count": len(mismatched_handoff_route_token_final_report_cxx),
         "missing_acceptance_final_report_field_count": len(missing_acceptance_final_report_fields),
@@ -4112,6 +4199,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_playbook_delivery_shape_fields": missing_playbook_delivery_shape_fields,
         "handoff_final_report_fields": handoff_final_report_fields,
         "missing_handoff_final_report_fields": missing_handoff_final_report_fields,
+        "handoff_template_section_tokens": handoff_template_section_tokens,
+        "missing_handoff_template_section_tokens": missing_handoff_template_section_tokens,
         "handoff_route_token_final_reports": handoff_route_token_final_reports,
         "mismatched_handoff_route_token_final_reports": mismatched_handoff_route_token_final_reports,
         "handoff_route_token_final_report_cxx": handoff_route_token_final_report_cxx,
@@ -4253,6 +4342,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_request_template_tivret_handoff={report['missing_request_run_template_tivret_handoff_count']} "
             f"missing_playbook_delivery_shape_fields={report['missing_playbook_delivery_shape_field_count']} "
             f"missing_handoff_report_fields={report['missing_handoff_final_report_field_count']} "
+            f"missing_handoff_template_tokens={report['missing_handoff_template_section_token_count']} "
             f"mismatched_handoff_route_token_final_reports={report['mismatched_handoff_route_token_final_report_count']} "
             f"mismatched_handoff_route_token_final_report_cxx={report['mismatched_handoff_route_token_final_report_cxx_count']} "
             f"missing_acceptance_report_fields={report['missing_acceptance_final_report_field_count']} "
@@ -4345,6 +4435,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_request_run_template_tivret_handoff",
             "missing_playbook_delivery_shape_fields",
             "missing_handoff_final_report_fields",
+            "missing_handoff_template_section_tokens",
             "mismatched_handoff_route_token_final_reports",
             "mismatched_handoff_route_token_final_report_cxx",
             "missing_acceptance_final_report_fields",

@@ -9526,3 +9526,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added a request-run-template docs-audit guard that checks `docs/stackobot-animation-request-run-template.md` keeps the `## Tivret Handoff` section tied to `docs/stackobot-animation-tivret-handoff-templates.md`, the visible handoff paste instruction, and the `Tivret handoff:` block field.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_request_template_tivret_handoff=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot Tivret handoff section token guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v94`.
+- Expanded `Tools/Unreal/run_stackobot_animation_local_checks.py` to schema `stackobot_animation_local_checks_v15` and updated it to expect docs audit schema `stackobot_animation_docs_link_audit_v94`.
+- Added a Tivret-handoff-template docs-audit guard that checks each concrete handoff section keeps its key command, verification, sample-root, completion, and crash-boundary tokens.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_handoff_template_tokens=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
