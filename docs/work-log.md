@@ -9400,3 +9400,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added an audit guard that fails when the playbook delivery section omits a required final-report key.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_playbook_delivery_shape_fields=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot request-run acceptance gate guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v80`.
+- Updated `docs/stackobot-animation-request-run-template.md` so `Acceptance Checklist` includes every `Universal Pass Gate` token from `docs/stackobot-animation-acceptance-checklist.md`.
+- Added an audit guard that fails when the request-run acceptance section omits a universal pass gate or the route-token document/acceptance map checks.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_request_template_acceptance_gates=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

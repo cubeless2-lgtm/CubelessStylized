@@ -97,13 +97,18 @@ Use `docs/stackobot-animation-acceptance-checklist.md`.
 
 | Gate | Pass? | Evidence |
 | --- | --- | --- |
+| route classification and why it was chosen | | |
+| assets created or reused | | |
+| whether original StackOBot assets were modified | | |
+| compile/save result for authored sample assets | | |
+| runtime world used for proof | | |
+| evidence artifact paths under `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy` | | |
+| command `errors` and `warnings` | | |
+| dirty content and map package status | | |
+| cleanup status for transient actors and play sessions | | |
+| C++/API decision recorded: C++/API decision: `not needed`, `candidate`, or `implemented` | | |
 | Route-specific proof | | |
 | Runtime evidence strength is sufficient | | |
-| Original mutation status reported | | |
-| Errors/warnings reported | | |
-| Dirty packages reported | | |
-| Cleanup completed | | |
-| C++/API decision recorded | | |
 | Route token document map checked | | |
 | Route token acceptance map checked | | |
 
