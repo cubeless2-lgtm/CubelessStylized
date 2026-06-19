@@ -57,6 +57,23 @@ direction. Otherwise state a reversible assumption and proceed sample-only.
 | `notify`, `curve`, `sync marker`, `montage section` | Protected metadata | Asset source metadata, not pose graph | Existing safe inventory only |
 | `왜`, `which node`, `caused`, `pre/post` | Instrumentation | Resolve node contribution | `sample_anim_node_pre_post_runtime_pose` |
 
+## Route Token Compiler Map
+
+Use this table after reading the signal words. It maps the normalized route token
+to the first command and verification command expected in the compiler output.
+
+| Route token | First read or authoring command | Verification command |
+| --- | --- | --- |
+| `Post Process ModifyBone` | `ensure_postprocess_anim_demo_variant` | `sample_anim_node_pre_post_runtime_pose` |
+| `BlendSpace sample variant` | `ensure_blendspace_sample_variant` | `sample_blendspace_runtime_pose_grid` |
+| `Bot Trail sample` | `ensure_anim_graph_trail_demo` | `sample_anim_node_pre_post_runtime_pose` |
+| `UpperBody Slot and LayeredBlend` | slot/cached-pose inventory | `sample_anim_node_pre_post_runtime_pose` |
+| `protected metadata boundary` | safe animation asset inventory | none for protected internals |
+| `ControlRig gate probe` | `inspect_anim_graph_protected_topology`, then `controlrig_direct_gate_probe` | `sample_anim_node_pre_post_runtime_pose` |
+| `state-machine runtime-driver proof` | `inspect_anim_state_machine_transitions` | `sample_anim_state_machine_runtime_response` |
+| `Baddy RigidBody` | `inspect_anim_graph_node_settings` | `sample_anim_node_pre_post_runtime_pose` |
+| `node resolver plus same-instance pre/post proof` | `inspect_anim_graph_protected_topology` or compiled mapping | `sample_anim_node_pre_post_runtime_pose` |
+
 ## Drill Table
 
 | User request | Compiled route | Assumption | First command | Verification | C++/API |
