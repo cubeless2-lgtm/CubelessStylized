@@ -9258,3 +9258,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added an audit guard that compares the AnimBP authoring pattern route rows against the shared first-command and verification-command rules.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_animbp_authoring_patterns=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot sample manifest route target audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v62`.
+- Added `Route Token Sample Target Map` to `docs/stackobot-sample-asset-manifest.md` so each route token names its concrete sample target or explicit no-sample boundary.
+- Added an audit guard that compares the sample-manifest route target rows against the route-specific sample-target rules used by the route matrix and request-run examples.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_sample_manifest_route_targets=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

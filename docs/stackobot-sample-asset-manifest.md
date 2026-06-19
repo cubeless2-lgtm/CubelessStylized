@@ -78,6 +78,24 @@ BlendSpace:
 | Baddy RigidBody variants | duplicate study assets, then `set_anim_graph_rigidbody_settings` |
 | BlendSpace variants | `ensure_blendspace_sample_variant` |
 
+## Route Token Sample Target Map
+
+Use this table when a request route names a sample target. Concrete `_MCP_Sample`
+targets must appear in the package manifest above; no-sample routes remain
+explicit boundaries until a concrete request justifies new sample authoring.
+
+| Route token | Manifest status | Sample target boundary |
+| --- | --- | --- |
+| `Post Process ModifyBone` | listed | `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadYawPlus5Study` |
+| `BlendSpace sample variant` | listed | `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy` |
+| `Bot Trail sample` | listed | `/Game/_MCP_Sample/AnimStudy/ABP_Bot_Trail_Study` |
+| `UpperBody Slot and LayeredBlend` | no stable sample yet | none for route proof; future sample overlay only if action source is required |
+| `protected metadata boundary` | no sample asset | none until a guarded native API is approved/implemented |
+| `ControlRig gate probe` | listed | `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ForcedDriver_Study` |
+| `state-machine runtime-driver proof` | no stable sample yet | none for first pass; future sample graph only if runtime-driver proof is insufficient |
+| `Baddy RigidBody` | listed | `/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study` |
+| `node resolver plus same-instance pre/post proof` | no stable sample by default | none unless a controlled sample actor is needed for runtime proof |
+
 ## Evidence Root
 
 Primary evidence and runtime artifacts live under:

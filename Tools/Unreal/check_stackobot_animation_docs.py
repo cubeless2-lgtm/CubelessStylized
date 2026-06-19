@@ -302,6 +302,7 @@ REQUIRED_SECTIONS = {
         "## Asset Groups",
         "## Package Manifest",
         "## Regeneration Routes",
+        "## Route Token Sample Target Map",
         "## Evidence Root",
         "## Safety Notes",
     ],
@@ -1391,6 +1392,42 @@ def _route_matrix_sample_target_entries() -> list[dict[str, Any]]:
         entries.append(
             {
                 "path": path_text,
+                "route_token": route_token,
+                "row": row,
+                "expected_tokens": expected_tokens,
+                "missing_tokens": missing_tokens,
+                "exists": bool(row),
+                "matches": bool(row) and not missing_tokens,
+            }
+        )
+
+    return entries
+
+
+def _sample_manifest_route_target_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-sample-asset-manifest.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Route Token Sample Target Map")
+    entries: list[dict[str, Any]] = []
+
+    for route_token, expected_tokens in REQUEST_EXAMPLE_ROUTE_SAMPLE_TARGET_RULES.items():
+        row = next(
+            (
+                line
+                for line in section.splitlines()
+                if f"`{route_token}`" in line
+            ),
+            "",
+        )
+        missing_tokens = [
+            token for token in expected_tokens if token not in row
+        ]
+        entries.append(
+            {
+                "path": path_text,
+                "section": "## Route Token Sample Target Map",
+                "check": "sample_manifest_route_target",
                 "route_token": route_token,
                 "row": row,
                 "expected_tokens": expected_tokens,
@@ -2663,6 +2700,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_route_matrix_sample_targets = [
         entry for entry in route_matrix_sample_targets if not entry["matches"]
     ]
+    sample_manifest_route_targets = _sample_manifest_route_target_entries()
+    mismatched_sample_manifest_route_targets = [
+        entry for entry in sample_manifest_route_targets if not entry["matches"]
+    ]
     route_matrix_first_commands = _route_matrix_any_token_entries(
         REQUEST_EXAMPLE_ROUTE_FIRST_COMMAND_RULES,
         "first_command",
@@ -2944,6 +2985,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not unsafe_request_examples
         and not missing_sample_target_manifest_entries
         and not mismatched_route_matrix_sample_targets
+        and not mismatched_sample_manifest_route_targets
         and not mismatched_route_matrix_first_commands
         and not mismatched_route_matrix_verifications
         and not mismatched_route_matrix_classification
@@ -2993,7 +3035,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v61",
+        "schema": "stackobot_animation_docs_link_audit_v62",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3009,6 +3051,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "unsafe_request_example_count": len(unsafe_request_examples),
         "missing_sample_target_manifest_count": len(missing_sample_target_manifest_entries),
         "mismatched_route_matrix_sample_target_count": len(mismatched_route_matrix_sample_targets),
+        "mismatched_sample_manifest_route_target_count": len(mismatched_sample_manifest_route_targets),
         "mismatched_route_matrix_first_command_count": len(mismatched_route_matrix_first_commands),
         "mismatched_route_matrix_verification_count": len(mismatched_route_matrix_verifications),
         "mismatched_route_matrix_classification_count": len(mismatched_route_matrix_classification),
@@ -3072,6 +3115,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_sample_target_manifest_entries": missing_sample_target_manifest_entries,
         "route_matrix_sample_targets": route_matrix_sample_targets,
         "mismatched_route_matrix_sample_targets": mismatched_route_matrix_sample_targets,
+        "sample_manifest_route_targets": sample_manifest_route_targets,
+        "mismatched_sample_manifest_route_targets": mismatched_sample_manifest_route_targets,
         "route_matrix_first_commands": route_matrix_first_commands,
         "mismatched_route_matrix_first_commands": mismatched_route_matrix_first_commands,
         "route_matrix_verifications": route_matrix_verifications,
@@ -3195,6 +3240,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"unsafe_request_examples={report['unsafe_request_example_count']} "
             f"missing_sample_target_manifest={report['missing_sample_target_manifest_count']} "
             f"mismatched_route_matrix_sample_targets={report['mismatched_route_matrix_sample_target_count']} "
+            f"mismatched_sample_manifest_route_targets={report['mismatched_sample_manifest_route_target_count']} "
             f"mismatched_route_matrix_first_commands={report['mismatched_route_matrix_first_command_count']} "
             f"mismatched_route_matrix_verifications={report['mismatched_route_matrix_verification_count']} "
             f"mismatched_route_matrix_classification={report['mismatched_route_matrix_classification_count']} "
@@ -3256,6 +3302,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "unsafe_request_examples",
             "missing_sample_target_manifest_entries",
             "mismatched_route_matrix_sample_targets",
+            "mismatched_sample_manifest_route_targets",
             "mismatched_route_matrix_first_commands",
             "mismatched_route_matrix_verifications",
             "mismatched_route_matrix_classification",
