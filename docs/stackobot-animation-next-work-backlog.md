@@ -20,6 +20,24 @@ commands are enough for the common requests:
 
 No immediate C++ work is scheduled.
 
+## Route Token Backlog Map
+
+Use this table after request compilation. It tells whether the route is ready,
+blocked, or only a future candidate, and keeps the first proof command aligned
+with the route matrix and command syntax.
+
+| Route token | Backlog posture | First read or authoring command | Verification command |
+| --- | --- | --- | --- |
+| `Post Process ModifyBone` | ready sample route | `ensure_postprocess_anim_demo_variant` | `sample_anim_node_pre_post_runtime_pose` |
+| `BlendSpace sample variant` | ready sample route | `ensure_blendspace_sample_variant` | `sample_blendspace_runtime_pose_grid` |
+| `Bot Trail sample` | ready sample route | `ensure_anim_graph_trail_demo` | `sample_anim_node_pre_post_runtime_pose` |
+| `UpperBody Slot and LayeredBlend` | route proof ready; visible action source remains candidate | slot/cached-pose inventory | `sample_anim_node_pre_post_runtime_pose` |
+| `protected metadata boundary` | guarded read/API candidate only | safe animation asset inventory | none for protected internals |
+| `ControlRig gate probe` | ready direct probe and forced-driver sample route | `inspect_anim_graph_protected_topology`, then `controlrig_direct_gate_probe` | `sample_anim_node_pre_post_runtime_pose` |
+| `state-machine runtime-driver proof` | read/runtime proof ready; graph authoring remains candidate | `inspect_anim_state_machine_transitions` | `sample_anim_state_machine_runtime_response` |
+| `Baddy RigidBody` | read/sample tuning ready; deeper PhysicsAsset inspection remains candidate | `inspect_anim_graph_node_settings` | `sample_anim_node_pre_post_runtime_pose` |
+| `node resolver plus same-instance pre/post proof` | read-only instrumentation ready for smoked node classes | `inspect_anim_graph_protected_topology` or compiled mapping | `sample_anim_node_pre_post_runtime_pose` |
+
 ## P0: Before Any New Asset Work
 
 | Item | Trigger | Action |

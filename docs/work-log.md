@@ -9282,3 +9282,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added an audit guard that compares the physics route-token rows against the shared first-command and verification-command rules.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_physics_route_tokens=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot backlog route token audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v65`.
+- Added `Route Token Backlog Map` to `docs/stackobot-animation-next-work-backlog.md` so each route token records whether it is ready, blocked, or candidate-only.
+- Added an audit guard that compares backlog route-token rows against the shared first-command and verification-command rules.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_backlog_route_tokens=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
