@@ -9107,3 +9107,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Kept required structural modules in the default output: `cell` floor/corridor modules, `wall`, `door`, `ceiling`, `column`, `stair`, and `locked_door_seal`.
 - Verification passed: `python Tools\Unreal\run_pcg_dungeon_v2_prototype.py --use-bp-controller --no-build --allow-seed-suite-warning --mcp-response-timeout-seconds 900 --refresh-verify-response-timeout-seconds 60 --verify-recovery-response-timeout-seconds 180 --verify-recovery-timeout-seconds 300 --refresh-timeout-seconds 600 --refresh-poll-seconds 1.5 --redraw-count 1` completed in `88.219` seconds with the current BP-authored `DungeonRoomCount=8`, `32` native components, `486` instances, screenshot QA pass, and final gate pass.
 - Verification passed: `CubelessDungeonV2_PCGSpawnerContract.json` now reports `486` output points, `0` exact duplicate groups, and `0` same-location groups. Excluded counts were `connector_detail=18`, `corridor_detail=27`, `detail_mesh=18`, `marker=9`, and `room_variant_detail=8`.
+## 2026-06-19 StackOBot animation request compiler main push
+
+- Pushed `main` to `origin/main` at `343ec0026` after merging remote `origin/main` (`35da68cd5`) into the local StackOBot animation request compiler work.
+- Delivered commit `4f49f5a58 Add StackOBot request compiler`; the pushed history also includes `7cc72a85f Guard StackOBot push range scope`.
+- Remote merge initially hit a Git LFS smudge blocker on `Content/Cubeless/PCG/PCGStudy/BaseBP/Base/PBP_Base.uasset` because the repository exceeded its LFS budget. The merge was completed with `GIT_LFS_SKIP_SMUDGE=1`.
+- Verification before push passed: `python Tools/Unreal/run_stackobot_animation_local_checks.py --summary --require-sibling-clean` and `python Tools/Unreal/check_stackobot_animation_staging_scope.py --summary --range origin/main..HEAD`.
+- Post-push verification passed: `origin/main...HEAD` count is `0 0`; sibling workspace `D:\Git\unreal-mcp-cubeless` is clean.
+- Remaining local dirty files are the pre-existing PCG Dungeon V2 asset/script/doc changes plus the `Plugins/UnrealMCP` worktree pointer mismatch. They were not staged or pushed as part of this StackOBot main push.
