@@ -119,6 +119,7 @@ REQUIRED_SECTIONS = {
         "## Default Rule",
         "## Intake",
         "## Classification Matrix",
+        "## Route Token Playbook Map",
         "## Execution Protocol",
         "## Tivret Instruction Templates",
         "## Dry-Run Request Scenarios",
@@ -2370,6 +2371,14 @@ def _authoring_route_template_entries() -> list[dict[str, Any]]:
     )
 
 
+def _playbook_route_map_entries() -> list[dict[str, Any]]:
+    return _route_token_command_row_entries(
+        path_text="docs/stackobot-animation-request-playbook.md",
+        heading="## Route Token Playbook Map",
+        check_name="playbook_route_map",
+    )
+
+
 def _command_syntax_result_checklist_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-mcp-command-syntax.md"
     path = PROJECT_ROOT / path_text
@@ -2877,6 +2886,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_authoring_route_templates = [
         entry for entry in authoring_route_templates if not entry["matches"]
     ]
+    playbook_route_map = _playbook_route_map_entries()
+    mismatched_playbook_route_map = [
+        entry for entry in playbook_route_map if not entry["matches"]
+    ]
     command_syntax_result_checklist = _command_syntax_result_checklist_entries()
     missing_command_syntax_result_checklist = [
         entry for entry in command_syntax_result_checklist if not entry["exists"]
@@ -2955,6 +2968,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_command_quick_map_commands
         and not mismatched_command_route_map
         and not mismatched_authoring_route_templates
+        and not mismatched_playbook_route_map
         and not missing_command_syntax_result_checklist
         and not unsafe_command_syntax_authoring
         and not missing_command_syntax_required_params
@@ -2963,7 +2977,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v59",
+        "schema": "stackobot_animation_docs_link_audit_v60",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3018,6 +3032,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_command_quick_map_command_count": len(missing_command_quick_map_commands),
         "mismatched_command_route_map_count": len(mismatched_command_route_map),
         "mismatched_authoring_route_template_count": len(mismatched_authoring_route_templates),
+        "mismatched_playbook_route_map_count": len(mismatched_playbook_route_map),
         "missing_command_syntax_result_checklist_count": len(missing_command_syntax_result_checklist),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
         "missing_command_syntax_required_param_count": len(missing_command_syntax_required_params),
@@ -3123,6 +3138,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_command_route_map": mismatched_command_route_map,
         "authoring_route_templates": authoring_route_templates,
         "mismatched_authoring_route_templates": mismatched_authoring_route_templates,
+        "playbook_route_map": playbook_route_map,
+        "mismatched_playbook_route_map": mismatched_playbook_route_map,
         "command_syntax_result_checklist": command_syntax_result_checklist,
         "missing_command_syntax_result_checklist": missing_command_syntax_result_checklist,
         "command_syntax_authoring_safety": command_syntax_authoring_safety,
@@ -3198,6 +3215,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_quick_map_commands={report['missing_command_quick_map_command_count']} "
             f"mismatched_command_route_map={report['mismatched_command_route_map_count']} "
             f"mismatched_authoring_route_templates={report['mismatched_authoring_route_template_count']} "
+            f"mismatched_playbook_route_map={report['mismatched_playbook_route_map_count']} "
             f"missing_command_result_checklist={report['missing_command_syntax_result_checklist_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
             f"missing_command_params={report['missing_command_syntax_required_param_count']} "
@@ -3257,6 +3275,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_command_quick_map_commands",
             "mismatched_command_route_map",
             "mismatched_authoring_route_templates",
+            "mismatched_playbook_route_map",
             "missing_command_syntax_result_checklist",
             "unsafe_command_syntax_authoring",
             "missing_command_syntax_required_params",

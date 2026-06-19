@@ -74,6 +74,23 @@ non-exception C++, or materially change the intended visual result.
 | "physics jiggle/secondary body motion" | RigidBody/Trail | use Baddy RigidBody or Bot Trail sample; see `docs/stackobot-physics-request-grammar.md` | compiled mapping plus PoseWatch |
 | "which node caused this?" | Instrumentation | no asset edit; target node resolver first | `sample_anim_node_pre_post_runtime_pose` |
 
+## Route Token Playbook Map
+
+Use this table after intake has produced a route token. It ties the playbook to
+the route matrix, handoff templates, command syntax, and acceptance checklist.
+
+| Route token | Starting point | Handoff | First read or authoring command | Verification command |
+| --- | --- | --- | --- | --- |
+| `Post Process ModifyBone` | Post Process static ModifyBone | `Post Process ModifyBone` | `ensure_postprocess_anim_demo_variant` | `sample_anim_node_pre_post_runtime_pose` |
+| `BlendSpace sample variant` | BlendSpace sample coordinate/range edit | `BlendSpace Sample Variant` | `ensure_blendspace_sample_variant` | `sample_blendspace_runtime_pose_grid` |
+| `Bot Trail sample` | Post Process physics or secondary motion | `Trail Or Secondary Motion` | `ensure_anim_graph_trail_demo` | `sample_anim_node_pre_post_runtime_pose` |
+| `UpperBody Slot and LayeredBlend` | Slot, cached pose, LayeredBoneBlend overlay | `UpperBody Slot And LayeredBlend` | slot/cached-pose inventory | `sample_anim_node_pre_post_runtime_pose` |
+| `protected metadata boundary` | Notify, curve, sync marker, or Montage metadata | `Notify, Curve, Sync Marker, Or Montage Internals` | safe animation asset inventory | none for protected internals |
+| `ControlRig gate probe` | ControlRig late correction with gameplay gates | `ControlRig Late Correction` | `inspect_anim_graph_protected_topology`, then `controlrig_direct_gate_probe` | `sample_anim_node_pre_post_runtime_pose` |
+| `state-machine runtime-driver proof` | Main AnimBP state-machine/runtime-driver behavior | `State Machine Or Runtime Driver` | `inspect_anim_state_machine_transitions` | `sample_anim_state_machine_runtime_response` |
+| `Baddy RigidBody` | RigidBody/Trail secondary body motion | `Trail Or Secondary Motion` | `inspect_anim_graph_node_settings` | `sample_anim_node_pre_post_runtime_pose` |
+| `node resolver plus same-instance pre/post proof` | Instrumentation only | no authoring handoff | `inspect_anim_graph_protected_topology` or compiled mapping | `sample_anim_node_pre_post_runtime_pose` |
+
 ## Execution Protocol
 
 1. Classify the request with the matrix above.
