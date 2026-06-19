@@ -29,8 +29,8 @@ Source examples:
 
 | Route token | Sample target | First command | Verification command |
 | --- | --- | --- | --- |
-| `Post Process ModifyBone` | `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadYawRight5` | `ensure_postprocess_anim_demo_variant` | `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process, prefer_pie_world=false)` |
-| `BlendSpace sample variant` | `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideRequest` | `ensure_blendspace_sample_variant` | `sample_blendspace_runtime_pose_grid` |
+| `Post Process ModifyBone` | `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadYawPlus5Study` | `ensure_postprocess_anim_demo_variant` | `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process, prefer_pie_world=false)` |
+| `BlendSpace sample variant` | `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy` | `ensure_blendspace_sample_variant` | `sample_blendspace_runtime_pose_grid` |
 | `Bot Trail sample` | `/Game/_MCP_Sample/AnimStudy/ABP_Bot_Trail_Study` | `ensure_anim_graph_trail_demo` or reuse existing sample | `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, anim_instance_source=post_process, prefer_pie_world=true)` |
 | `UpperBody Slot and LayeredBlend` | none for route proof; future sample overlay only if action source is required | slot/cached-pose inventory, then all-input PoseWatch | `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture, input_pose_mode=all)` |
 | `protected metadata boundary` | none until a guarded native API is approved/implemented | safe animation asset inventory and AssetRegistry-level scan only | none for protected internals with current tooling |

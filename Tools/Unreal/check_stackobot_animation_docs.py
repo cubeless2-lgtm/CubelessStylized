@@ -758,8 +758,8 @@ REQUEST_EXAMPLE_ROUTE_EXPECTED_EVIDENCE_RULES = {
 }
 
 REQUEST_EXAMPLE_ROUTE_SAMPLE_TARGET_RULES = {
-    "Post Process ModifyBone": ["/Game/_MCP_Sample/AnimStudy/", "ABP_Bot_PostProcess_Study_HeadYawRight5"],
-    "BlendSpace sample variant": ["/Game/_MCP_Sample/AnimStudy/", "BS_Bot_WalkRunLean_LeanWideRequest"],
+    "Post Process ModifyBone": ["/Game/_MCP_Sample/AnimStudy/", "ABP_Bot_PostProcess_Study_HeadYawPlus5Study"],
+    "BlendSpace sample variant": ["/Game/_MCP_Sample/AnimStudy/", "BS_Bot_WalkRunLean_LeanWideStudy"],
     "Bot Trail sample": ["/Game/_MCP_Sample/AnimStudy/", "ABP_Bot_Trail_Study"],
     "UpperBody Slot and LayeredBlend": ["none for route proof", "future sample overlay"],
     "protected metadata boundary": ["none until", "guarded native API"],
@@ -2390,7 +2390,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v44",
+        "schema": "stackobot_animation_docs_link_audit_v45",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,

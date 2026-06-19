@@ -16,7 +16,7 @@ timing_type: static late additive rotation
 runtime_layer: Post Process AnimBP
 route: Post Process ModifyBone sample
 sample_target:
-/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadYawRight5
+/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadYawPlus5Study
 first_read_or_authoring_command:
 ensure_postprocess_anim_demo_variant
 verification_command:
@@ -55,7 +55,7 @@ timing_type: continuous BlendSpace axis response
 runtime_layer: main AnimBP source BlendSpace
 route: BlendSpace sample variant
 sample_target:
-/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideRequest
+/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy
 first_read_or_authoring_command:
 ensure_blendspace_sample_variant
 verification_command:

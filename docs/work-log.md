@@ -9121,3 +9121,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Updated `docs/stackobot-animation-route-matrix.md` to use the same fallback and reserve new variants for concrete tuning requests.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_sample_targets=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot sample target manifest alignment
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v45`.
+- Aligned the Post Process ModifyBone route/example sample target with the manifest and live evidence name `/Game/_MCP_Sample/AnimStudy/ABP_Bot_PostProcess_Study_HeadYawPlus5Study`.
+- Aligned the BlendSpace route/example sample target with the manifest name `/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanWideStudy`.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_sample_targets=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
