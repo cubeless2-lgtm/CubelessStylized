@@ -48,6 +48,23 @@ original StackOBot assets unless the user explicitly approves that scope.
 | Baddy stalk/body secondary motion | Existing Baddy RigidBody route or sample tuning | RigidBody settings read plus PoseWatch/source comparison |
 | Node contribution question | Instrumentation only | Compiled mapping or PoseWatch pre/post |
 
+## Ready Route Token Map
+
+Use this table as the exact-token version of the ready routes above. It is the
+last closeout check before starting a concrete sample-first request.
+
+| Route token | Ready state | First read or authoring command | Verification command |
+| --- | --- | --- | --- |
+| `Post Process ModifyBone` | ready sample route | `ensure_postprocess_anim_demo_variant` | `sample_anim_node_pre_post_runtime_pose` |
+| `BlendSpace sample variant` | ready sample route | `ensure_blendspace_sample_variant` | `sample_blendspace_runtime_pose_grid` |
+| `Bot Trail sample` | ready sample route | `ensure_anim_graph_trail_demo` | `sample_anim_node_pre_post_runtime_pose` |
+| `UpperBody Slot and LayeredBlend` | ready route proof; authored visible action may be candidate work | slot/cached-pose inventory | `sample_anim_node_pre_post_runtime_pose` |
+| `protected metadata boundary` | guarded read boundary, not a default authoring route | safe animation asset inventory | none for protected internals |
+| `ControlRig gate probe` | ready probe route; forced-driver sample available | `inspect_anim_graph_protected_topology`, then `controlrig_direct_gate_probe` | `sample_anim_node_pre_post_runtime_pose` |
+| `state-machine runtime-driver proof` | ready read/runtime-driver proof; graph authoring remains candidate | `inspect_anim_state_machine_transitions` | `sample_anim_state_machine_runtime_response` |
+| `Baddy RigidBody` | ready read/sample tuning route | `inspect_anim_graph_node_settings` | `sample_anim_node_pre_post_runtime_pose` |
+| `node resolver plus same-instance pre/post proof` | ready read-only instrumentation route for supported node classes | `inspect_anim_graph_protected_topology` or compiled mapping | `sample_anim_node_pre_post_runtime_pose` |
+
 ## Current Evidence Baseline
 
 Latest broad live validation:
