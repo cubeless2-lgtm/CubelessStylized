@@ -14,6 +14,8 @@ operator:
 ## Compiled Intent
 
 Use `docs/stackobot-request-compiler-drills.md` before filling this section.
+Then compare the compiled fields against
+`docs/stackobot-animation-route-matrix.md`.
 
 ```text
 target_character:
@@ -28,6 +30,8 @@ expected_evidence:
 handoff_template:
 cxx_api_status:
 ask_user_first:
+route_matrix_checked:
+route_matrix_notes:
 ```
 
 ## Assumptions
