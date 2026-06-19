@@ -9233,3 +9233,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added an audit guard that compares command-route rows against the first-command and verification-command rules already used by request-run examples and the route matrix.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_command_route_map=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot authoring route template audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v59`.
+- Added `Route Token Template Map` to `docs/stackobot-animation-authoring-templates.md` so every request-run route token points to a template card plus matching first and verification commands.
+- Added a `Node Contribution Proof` card for the read-only instrumentation route that proves a suspected node through topology/compiled mapping and same-instance pre/post sampling.
+- Added an audit guard that compares authoring route-template rows against the first-command and verification-command rules already used by request-run examples, route matrix, and command syntax.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_authoring_route_templates=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

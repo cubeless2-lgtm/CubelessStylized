@@ -34,6 +34,20 @@ When asset/editor work is needed, show the matching handoff block from
 | Antenna lag, spring, or secondary motion | Trail/RigidBody style Post Process sample | `ensure_anim_graph_trail_demo` or existing Baddy RigidBody evidence; see `docs/stackobot-physics-request-grammar.md` | SIE Post Process PoseWatch or isolated source-vs-output | Covered for Bot Trail and Baddy RigidBody; broader physics authoring remains candidate |
 | Notify, sync marker, curve, or Montage internals | Protected animation-source metadata | Existing asset inventory/read probe only | Do not broad-probe Montage internals with Python | Native guarded API only for concrete request |
 
+## Route Token Template Map
+
+| Route token | Template card | First read or authoring command | Verification command |
+| --- | --- | --- | --- |
+| `Post Process ModifyBone` | `Post Process ModifyBone` | `ensure_postprocess_anim_demo_variant` | `sample_anim_node_pre_post_runtime_pose` |
+| `BlendSpace sample variant` | `BlendSpace Sample Variant` | `ensure_blendspace_sample_variant` | `sample_blendspace_runtime_pose_grid` |
+| `Bot Trail sample` | `Secondary Motion Or Physics` | `ensure_anim_graph_trail_demo` | `sample_anim_node_pre_post_runtime_pose` |
+| `UpperBody Slot and LayeredBlend` | `UpperBody Slot And LayeredBlend` | slot/cached-pose inventory | `sample_anim_node_pre_post_runtime_pose` |
+| `protected metadata boundary` | `Notify, Curve, Sync Marker, And Montage Internals` | safe animation asset inventory | none for protected internals |
+| `ControlRig gate probe` | `ControlRig Late Correction` | `inspect_anim_graph_protected_topology`, then `controlrig_direct_gate_probe` | `sample_anim_node_pre_post_runtime_pose` |
+| `state-machine runtime-driver proof` | `State Machine Or Runtime Driver` | `inspect_anim_state_machine_transitions` | `sample_anim_state_machine_runtime_response` |
+| `Baddy RigidBody` | `Secondary Motion Or Physics` | `inspect_anim_graph_node_settings` | `sample_anim_node_pre_post_runtime_pose` |
+| `node resolver plus same-instance pre/post proof` | `Node Contribution Proof` | `inspect_anim_graph_protected_topology` or compiled mapping | `sample_anim_node_pre_post_runtime_pose` |
+
 ## Template Cards
 
 ### Post Process ModifyBone
@@ -173,6 +187,31 @@ Default proof:
 
 Do not reactivate the disconnected original Bot Trail node directly. It is a
 reference node, not the safe authoring target.
+
+### Node Contribution Proof
+
+Use when the request asks which AnimGraph node changed the pose, or when a
+route proof needs exact input/output attribution for a suspected node.
+
+Proof grammar:
+
+```text
+static topology or compiled mapping -> target node selection -> same-instance pre/post PoseWatch
+```
+
+Default proof:
+
+1. Start read-only with `inspect_anim_graph_protected_topology` or compiled
+   mapping for the suspected node.
+2. Run `sample_anim_node_pre_post_runtime_pose` only after the target node and
+   runtime AnimInstance are selected clearly.
+3. Report input/output links, sampled bone deltas, and same-instance
+   confirmation.
+4. If node identity or actor resolution is ambiguous after repeated attempts,
+   stop and park a resolver/API candidate instead of editing assets.
+
+Do not start this route by authoring or mutating assets. It is instrumentation
+unless a separate route has already justified a sample actor setup.
 
 ### Notify, Curve, Sync Marker, And Montage Internals
 

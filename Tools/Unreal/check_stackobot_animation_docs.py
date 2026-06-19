@@ -5,7 +5,7 @@ relative docs, required study documents still exist, the doc index covers the
 required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters,
 doc-index route coverage, C++/API route decisions, handoff route mapping,
-command route mapping, request-run route and acceptance-focus coverage, and command/sample-path guards are
+command route mapping, authoring route templates, request-run route and acceptance-focus coverage, and command/sample-path guards are
 present, concrete sample targets are registered in the sample manifest,
 request-run routes map to the expected handoff templates and
 first/verification commands, target character/body area, timing type, runtime layer,
@@ -178,6 +178,7 @@ REQUIRED_SECTIONS = {
     ],
     "docs/stackobot-animation-authoring-templates.md": [
         "## Routing Table",
+        "## Route Token Template Map",
         "## Template Cards",
         "### Post Process ModifyBone",
         "### BlendSpace Sample Variant",
@@ -185,6 +186,7 @@ REQUIRED_SECTIONS = {
         "### ControlRig Late Correction",
         "### UpperBody Slot And LayeredBlend",
         "### Secondary Motion Or Physics",
+        "### Node Contribution Proof",
         "### Notify, Curve, Sync Marker, And Montage Internals",
         "## Completion Contract",
         "## C++/API Escalation Gate",
@@ -1664,6 +1666,53 @@ def _handoff_route_map_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _route_token_command_row_entries(
+    *,
+    path_text: str,
+    heading: str,
+    check_name: str,
+) -> list[dict[str, Any]]:
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, heading)
+    entries: list[dict[str, Any]] = []
+
+    for route_token in REQUEST_EXAMPLE_ROUTE_COVERAGE.values():
+        row = next(
+            (
+                line
+                for line in section.splitlines()
+                if f"`{route_token}`" in line
+            ),
+            "",
+        )
+        expected_first_tokens = REQUEST_EXAMPLE_ROUTE_FIRST_COMMAND_RULES[route_token]
+        expected_verification_tokens = REQUEST_EXAMPLE_ROUTE_VERIFICATION_RULES[route_token]
+        missing_first_tokens = [
+            token for token in expected_first_tokens if token not in row
+        ]
+        missing_verification_tokens = [
+            token for token in expected_verification_tokens if token not in row
+        ]
+        entries.append(
+            {
+                "path": path_text,
+                "section": heading,
+                "check": check_name,
+                "route_token": route_token,
+                "row": row,
+                "expected_first_tokens": expected_first_tokens,
+                "expected_verification_tokens": expected_verification_tokens,
+                "missing_first_tokens": missing_first_tokens,
+                "missing_verification_tokens": missing_verification_tokens,
+                "exists": bool(row),
+                "matches": bool(row) and not missing_first_tokens and not missing_verification_tokens,
+            }
+        )
+
+    return entries
+
+
 def _contains_any(value: str, needles: list[str] | set[str]) -> bool:
     return any(needle in value for needle in needles)
 
@@ -2306,45 +2355,19 @@ def _command_quick_map_command_entries() -> list[dict[str, Any]]:
 
 
 def _command_route_map_entries() -> list[dict[str, Any]]:
-    path_text = "docs/stackobot-animation-mcp-command-syntax.md"
-    path = PROJECT_ROOT / path_text
-    text = _read_text(path) if path.exists() else ""
-    section = _markdown_heading_section(text, "## Route Token Command Map")
-    entries: list[dict[str, Any]] = []
+    return _route_token_command_row_entries(
+        path_text="docs/stackobot-animation-mcp-command-syntax.md",
+        heading="## Route Token Command Map",
+        check_name="command_route_map",
+    )
 
-    for route_token in REQUEST_EXAMPLE_ROUTE_COVERAGE.values():
-        row = next(
-            (
-                line
-                for line in section.splitlines()
-                if f"`{route_token}`" in line
-            ),
-            "",
-        )
-        expected_first_tokens = REQUEST_EXAMPLE_ROUTE_FIRST_COMMAND_RULES[route_token]
-        expected_verification_tokens = REQUEST_EXAMPLE_ROUTE_VERIFICATION_RULES[route_token]
-        missing_first_tokens = [
-            token for token in expected_first_tokens if token not in row
-        ]
-        missing_verification_tokens = [
-            token for token in expected_verification_tokens if token not in row
-        ]
-        entries.append(
-            {
-                "path": path_text,
-                "section": "## Route Token Command Map",
-                "route_token": route_token,
-                "row": row,
-                "expected_first_tokens": expected_first_tokens,
-                "expected_verification_tokens": expected_verification_tokens,
-                "missing_first_tokens": missing_first_tokens,
-                "missing_verification_tokens": missing_verification_tokens,
-                "exists": bool(row),
-                "matches": bool(row) and not missing_first_tokens and not missing_verification_tokens,
-            }
-        )
 
-    return entries
+def _authoring_route_template_entries() -> list[dict[str, Any]]:
+    return _route_token_command_row_entries(
+        path_text="docs/stackobot-animation-authoring-templates.md",
+        heading="## Route Token Template Map",
+        check_name="authoring_route_template",
+    )
 
 
 def _command_syntax_result_checklist_entries() -> list[dict[str, Any]]:
@@ -2850,6 +2873,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_command_route_map = [
         entry for entry in command_route_map if not entry["matches"]
     ]
+    authoring_route_templates = _authoring_route_template_entries()
+    mismatched_authoring_route_templates = [
+        entry for entry in authoring_route_templates if not entry["matches"]
+    ]
     command_syntax_result_checklist = _command_syntax_result_checklist_entries()
     missing_command_syntax_result_checklist = [
         entry for entry in command_syntax_result_checklist if not entry["exists"]
@@ -2927,6 +2954,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_command_syntax_commands
         and not missing_command_quick_map_commands
         and not mismatched_command_route_map
+        and not mismatched_authoring_route_templates
         and not missing_command_syntax_result_checklist
         and not unsafe_command_syntax_authoring
         and not missing_command_syntax_required_params
@@ -2935,7 +2963,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v58",
+        "schema": "stackobot_animation_docs_link_audit_v59",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2989,6 +3017,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_command_syntax_command_count": len(missing_command_syntax_commands),
         "missing_command_quick_map_command_count": len(missing_command_quick_map_commands),
         "mismatched_command_route_map_count": len(mismatched_command_route_map),
+        "mismatched_authoring_route_template_count": len(mismatched_authoring_route_templates),
         "missing_command_syntax_result_checklist_count": len(missing_command_syntax_result_checklist),
         "unsafe_command_syntax_authoring_count": len(unsafe_command_syntax_authoring),
         "missing_command_syntax_required_param_count": len(missing_command_syntax_required_params),
@@ -3092,6 +3121,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_command_quick_map_commands": missing_command_quick_map_commands,
         "command_route_map": command_route_map,
         "mismatched_command_route_map": mismatched_command_route_map,
+        "authoring_route_templates": authoring_route_templates,
+        "mismatched_authoring_route_templates": mismatched_authoring_route_templates,
         "command_syntax_result_checklist": command_syntax_result_checklist,
         "missing_command_syntax_result_checklist": missing_command_syntax_result_checklist,
         "command_syntax_authoring_safety": command_syntax_authoring_safety,
@@ -3166,6 +3197,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_command_examples={report['missing_command_syntax_command_count']} "
             f"missing_quick_map_commands={report['missing_command_quick_map_command_count']} "
             f"mismatched_command_route_map={report['mismatched_command_route_map_count']} "
+            f"mismatched_authoring_route_templates={report['mismatched_authoring_route_template_count']} "
             f"missing_command_result_checklist={report['missing_command_syntax_result_checklist_count']} "
             f"unsafe_authoring_examples={report['unsafe_command_syntax_authoring_count']} "
             f"missing_command_params={report['missing_command_syntax_required_param_count']} "
@@ -3224,6 +3256,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_command_syntax_commands",
             "missing_command_quick_map_commands",
             "mismatched_command_route_map",
+            "mismatched_authoring_route_templates",
             "missing_command_syntax_result_checklist",
             "unsafe_command_syntax_authoring",
             "missing_command_syntax_required_params",
