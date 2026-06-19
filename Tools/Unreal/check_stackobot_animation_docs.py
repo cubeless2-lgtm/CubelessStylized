@@ -42,10 +42,10 @@ JSON_FENCE_RE = re.compile(r"```json\n(?P<body>.*?)\n```", re.DOTALL)
 EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 SAMPLE_ASSET_PATH_RE = re.compile(r"/Game/_MCP_Sample/AnimStudy/[A-Za-z0-9_]+")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
-DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v89"
+DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v90"
 
 LOCAL_CHECK_RUNNER_SCHEMA_TOKENS = {
-    "local_check_schema": '"schema": "stackobot_animation_local_checks_v10"',
+    "local_check_schema": '"schema": "stackobot_animation_local_checks_v11"',
     "expected_docs_audit_schema": f'EXPECTED_DOCS_AUDIT_SCHEMA = "{DOCS_AUDIT_SCHEMA}"',
     "expected_preflight_schema": 'EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"',
     "expected_staging_scope_schema": 'EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"',
@@ -108,6 +108,12 @@ CLOSEOUT_CXX_API_TIMING_TOKENS = {
     "ordinary_antenna_lag": "antenna lag",
     "ordinary_make_stronger": "stronger",
     "ordinary_node_question": "which node changed the pose",
+}
+
+ACCEPTANCE_COMPLETION_EVIDENCE_TOKENS = {
+    "asset_exists_not_enough": "Do not mark the task complete when the only evidence is that an asset exists.",
+    "route_specific_runtime_proof": "route-specific runtime proof",
+    "read_only_statement": "request was read-only",
 }
 
 EXPECTED_EXTERNAL_PATHS = [
@@ -2597,6 +2603,23 @@ def _acceptance_universal_pass_field_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _acceptance_completion_evidence_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-acceptance-checklist.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Universal Pass Gate")
+    return [
+        {
+            "path": path_text,
+            "section": "## Universal Pass Gate",
+            "key": key,
+            "token": token,
+            "exists": token in section,
+        }
+        for key, token in ACCEPTANCE_COMPLETION_EVIDENCE_TOKENS.items()
+    ]
+
+
 def _acceptance_route_criteria_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
     path = PROJECT_ROOT / path_text
@@ -3572,6 +3595,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_acceptance_universal_pass_fields = [
         entry for entry in acceptance_universal_pass_fields if not entry["exists"]
     ]
+    acceptance_completion_evidence = _acceptance_completion_evidence_entries()
+    missing_acceptance_completion_evidence = [
+        entry for entry in acceptance_completion_evidence if not entry["exists"]
+    ]
     acceptance_route_criteria = _acceptance_route_criteria_entries()
     missing_acceptance_route_criteria = [
         entry for entry in acceptance_route_criteria if not entry["exists"]
@@ -3762,6 +3789,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_handoff_route_token_final_report_cxx
         and not missing_acceptance_final_report_fields
         and not missing_acceptance_universal_pass_fields
+        and not missing_acceptance_completion_evidence
         and not missing_acceptance_route_criteria
         and not mismatched_acceptance_route_tokens
         and not missing_acceptance_evidence_strength_levels
@@ -3854,6 +3882,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_handoff_route_token_final_report_cxx_count": len(mismatched_handoff_route_token_final_report_cxx),
         "missing_acceptance_final_report_field_count": len(missing_acceptance_final_report_fields),
         "missing_acceptance_universal_pass_field_count": len(missing_acceptance_universal_pass_fields),
+        "missing_acceptance_completion_evidence_count": len(missing_acceptance_completion_evidence),
         "missing_acceptance_route_criteria_count": len(missing_acceptance_route_criteria),
         "mismatched_acceptance_route_token_count": len(mismatched_acceptance_route_tokens),
         "missing_acceptance_evidence_strength_level_count": len(missing_acceptance_evidence_strength_levels),
@@ -3990,6 +4019,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_acceptance_final_report_fields": missing_acceptance_final_report_fields,
         "acceptance_universal_pass_fields": acceptance_universal_pass_fields,
         "missing_acceptance_universal_pass_fields": missing_acceptance_universal_pass_fields,
+        "acceptance_completion_evidence": acceptance_completion_evidence,
+        "missing_acceptance_completion_evidence": missing_acceptance_completion_evidence,
         "acceptance_route_criteria": acceptance_route_criteria,
         "missing_acceptance_route_criteria": missing_acceptance_route_criteria,
         "acceptance_route_tokens": acceptance_route_tokens,
@@ -4121,6 +4152,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_handoff_route_token_final_report_cxx={report['mismatched_handoff_route_token_final_report_cxx_count']} "
             f"missing_acceptance_report_fields={report['missing_acceptance_final_report_field_count']} "
             f"missing_acceptance_universal_fields={report['missing_acceptance_universal_pass_field_count']} "
+            f"missing_acceptance_completion_evidence={report['missing_acceptance_completion_evidence_count']} "
             f"missing_acceptance_routes={report['missing_acceptance_route_criteria_count']} "
             f"mismatched_acceptance_route_tokens={report['mismatched_acceptance_route_token_count']} "
             f"missing_evidence_strength_levels={report['missing_acceptance_evidence_strength_level_count']} "
@@ -4209,6 +4241,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_handoff_route_token_final_report_cxx",
             "missing_acceptance_final_report_fields",
             "missing_acceptance_universal_pass_fields",
+            "missing_acceptance_completion_evidence",
             "missing_acceptance_route_criteria",
             "mismatched_acceptance_route_tokens",
             "missing_acceptance_evidence_strength_levels",
