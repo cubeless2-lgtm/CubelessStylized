@@ -4,7 +4,7 @@ This local/read-only check validates that StackOBot study docs point to existing
 relative docs, required study documents still exist, the doc index covers the
 required document set, key template sections, request-run example fields, MCP
 command quick-map entries, command syntax examples, command parameters,
-doc-index route coverage, request-run route and acceptance-focus coverage, and command/sample-path guards are
+doc-index route coverage, C++/API route decisions, request-run route and acceptance-focus coverage, and command/sample-path guards are
 present, concrete sample targets are registered in the sample manifest,
 request-run routes map to the expected handoff templates and
 first/verification commands, target character/body area, timing type, runtime layer,
@@ -277,6 +277,7 @@ REQUIRED_SECTIONS = {
     "docs/stackobot-cpp-api-decision-matrix.md": [
         "## Current Rule",
         "## Covered, Do Not Rebuild",
+        "## Route Token Decision Map",
         "## Candidate Matrix",
         "## Immediate Implementation Triggers",
         "## Verification For Any New C++ API",
@@ -1600,6 +1601,37 @@ def _doc_index_route_coverage_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _cpp_api_route_decision_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-cpp-api-decision-matrix.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    route_decisions = _markdown_heading_section(text, "## Route Token Decision Map")
+    entries: list[dict[str, Any]] = []
+    for route_token, expected_tokens in REQUEST_EXAMPLE_ROUTE_CXX_STATUS_RULES.items():
+        row = next(
+            (
+                line
+                for line in route_decisions.splitlines()
+                if f"`{route_token}`" in line
+            ),
+            "",
+        )
+        lower_row = row.lower()
+        expected_lower = [token.lower() for token in expected_tokens]
+        entries.append(
+            {
+                "path": path_text,
+                "section": "## Route Token Decision Map",
+                "route_token": route_token,
+                "row": row,
+                "expected_tokens": expected_tokens,
+                "exists": bool(row),
+                "matches": bool(row) and _contains_any(lower_row, set(expected_lower)),
+            }
+        )
+    return entries
+
+
 def _contains_any(value: str, needles: list[str] | set[str]) -> bool:
     return any(needle in value for needle in needles)
 
@@ -2554,6 +2586,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_doc_index_route_coverage = [
         entry for entry in doc_index_route_coverage if not entry["exists"]
     ]
+    cpp_api_route_decisions = _cpp_api_route_decision_entries()
+    mismatched_cpp_api_route_decisions = [
+        entry for entry in cpp_api_route_decisions if not entry["matches"]
+    ]
     request_example_route_coverage = _request_example_route_coverage_entries()
     missing_request_example_route_coverage = [
         entry for entry in request_example_route_coverage if not entry["exists"]
@@ -2738,6 +2774,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_route_matrix_selection_rules
         and not missing_quickstart_route_shortcuts
         and not missing_doc_index_route_coverage
+        and not mismatched_cpp_api_route_decisions
         and not missing_request_example_route_coverage
         and not missing_request_compiler_route_coverage
         and not mismatched_request_example_route_handoffs
@@ -2773,7 +2810,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v54",
+        "schema": "stackobot_animation_docs_link_audit_v55",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2796,6 +2833,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_route_matrix_selection_rule_count": len(missing_route_matrix_selection_rules),
         "missing_quickstart_route_shortcut_count": len(missing_quickstart_route_shortcuts),
         "missing_doc_index_route_coverage_count": len(missing_doc_index_route_coverage),
+        "mismatched_cpp_api_route_decision_count": len(mismatched_cpp_api_route_decisions),
         "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
         "missing_request_compiler_route_coverage_count": len(missing_request_compiler_route_coverage),
         "mismatched_request_example_route_handoff_count": len(mismatched_request_example_route_handoffs),
@@ -2864,6 +2902,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_quickstart_route_shortcuts": missing_quickstart_route_shortcuts,
         "doc_index_route_coverage": doc_index_route_coverage,
         "missing_doc_index_route_coverage": missing_doc_index_route_coverage,
+        "cpp_api_route_decisions": cpp_api_route_decisions,
+        "mismatched_cpp_api_route_decisions": mismatched_cpp_api_route_decisions,
         "request_example_route_coverage": request_example_route_coverage,
         "missing_request_example_route_coverage": missing_request_example_route_coverage,
         "request_compiler_route_coverage": request_compiler_route_coverage,
@@ -2961,6 +3001,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_route_matrix_selection_rules={report['missing_route_matrix_selection_rule_count']} "
             f"missing_quickstart_route_shortcuts={report['missing_quickstart_route_shortcut_count']} "
             f"missing_doc_index_route_coverage={report['missing_doc_index_route_coverage_count']} "
+            f"mismatched_cpp_api_route_decisions={report['mismatched_cpp_api_route_decision_count']} "
             f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
             f"missing_request_compiler_routes={report['missing_request_compiler_route_coverage_count']} "
             f"mismatched_request_example_route_handoffs={report['mismatched_request_example_route_handoff_count']} "
@@ -3015,6 +3056,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_route_matrix_selection_rules",
             "missing_quickstart_route_shortcuts",
             "missing_doc_index_route_coverage",
+            "mismatched_cpp_api_route_decisions",
             "missing_request_example_route_coverage",
             "missing_request_compiler_route_coverage",
             "mismatched_request_example_route_handoffs",

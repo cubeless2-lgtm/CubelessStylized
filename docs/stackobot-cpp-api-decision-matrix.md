@@ -40,6 +40,23 @@ decision still has to be tied to a concrete blocked request.
 | State-machine read/runtime response | `inspect_anim_state_machine_transitions`, `inspect_anim_instance_runtime_state`, `sample_anim_state_machine_runtime_response` | Covered for read/probe |
 | General node contribution proof | `sample_anim_node_pre_post_runtime_pose` when node mapping succeeds | Covered for smoked node classes |
 
+## Route Token Decision Map
+
+Use this table after the request route is compiled. It keeps the exact route
+tokens aligned with the route matrix and request-run examples.
+
+| Route token | Current C++/API decision | If blocked |
+| --- | --- | --- |
+| `Post Process ModifyBone` | not needed for current sample and PoseWatch proof | Revisit only if sample graph authoring cannot be expressed by the current command. |
+| `BlendSpace sample variant` | not needed for current sample variant and pose-grid proof | Revisit only if BlendSpace sample editing or grid verification is blocked. |
+| `Bot Trail sample` | not needed for current Trail sample and Post Process PoseWatch proof | Revisit only if a future Trail parameter cannot be authored through the current command surface. |
+| `UpperBody Slot and LayeredBlend` | candidate only if a visible overlay source or branch must be authored | Prove the existing Slot/LayeredBlend route first, then park `ensure_layered_slot_overlay_sample` if source authoring is required. |
+| `protected metadata boundary` | candidate guarded native API for concrete metadata requests | Use safe inventory first; do not broad-probe Montage internals with generic Python. |
+| `ControlRig gate probe` | not needed for direct gate probe or forced-driver sample proof | Revisit only if a requested gate or pin cannot be driven by existing commands. |
+| `state-machine runtime-driver proof` | candidate only if a new state, sequence player, BlendSpace player, or transition rule must be authored | Run runtime-driver proof first, then park `ensure_state_machine_sample_variant` if graph authoring is required. |
+| `Baddy RigidBody` | not needed for setting reads or sample tuning; candidate for deeper PhysicsAsset inspection | Use existing RigidBody settings and pose deltas first, then park guarded PhysicsAsset inspection if body/constraint details are required. |
+| `node resolver plus same-instance pre/post proof` | not needed while compiled mapping and PoseWatch can identify the node | Revisit only for unsupported node classes or repeated actor/AnimInstance resolution failure. |
+
 ## Current Candidate Shortlist
 
 Keep this as the latest "consider C++ only if blocked" list:

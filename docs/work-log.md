@@ -9201,3 +9201,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added an audit guard that requires the doc index route coverage section to retain all request-run example route tokens and the core route comparison docs.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_doc_index_route_coverage=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot C++ API route decision audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v55`.
+- Added `Route Token Decision Map` to `docs/stackobot-cpp-api-decision-matrix.md` so all request-run route tokens have a visible C++/API timing decision.
+- Added an audit guard that compares the C++/API route decision rows against the route-specific C++ status rules already used by request-run examples and the route matrix.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_cpp_api_route_decisions=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
