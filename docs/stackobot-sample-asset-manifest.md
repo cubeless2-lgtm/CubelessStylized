@@ -93,6 +93,13 @@ Use the newest `*TemplateRehearsal*`, `*PoseWatch*`, `*RigidBody*`,
   assets.
 - `_MCP_Temp` assets are disposable validation artifacts and should not be used
   as stable references.
+- If `docs/stackobot-animation-route-matrix.md` or
+  `docs/stackobot-animation-request-run-examples.md` names a concrete
+  `/Game/_MCP_Sample/AnimStudy/...` target, list that package here as a known
+  local sample asset.
+- When a new sample asset is created or regenerated for a real request, update
+  this manifest and the matching `docs/work-log.md` entry in the same docs
+  change.
 - If a sample asset is missing, regenerate it with the route above instead of
   editing original StackOBot assets.
 - If regeneration requires a command that is not exposed in the current tool

@@ -40,6 +40,8 @@ items and record the result in the request run note:
 - Pre-existing dirty packages are captured before transient actor setup.
 - First authoring target stays under `/Game/_MCP_Sample/AnimStudy` and
   authoring commands keep `allow_non_sample=false`.
+- Concrete `_MCP_Sample/AnimStudy` sample targets named in route matrix or
+  request-run examples are listed in `docs/stackobot-sample-asset-manifest.md`.
 - Evidence output target is
   `D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy`.
 

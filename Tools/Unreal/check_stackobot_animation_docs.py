@@ -308,6 +308,7 @@ REQUIRED_TOKENS = {
         "D:/Git/SampleProject/StackOBot/Plugins/UnrealMCP",
         "/Game/_MCP_Sample/AnimStudy",
         "allow_non_sample=false",
+        "Concrete `_MCP_Sample/AnimStudy` sample targets named in route matrix or",
         "command-surface sync issue",
         "티브렛에게 전달할 지시",
         "Do not edit original StackOBot assets",
@@ -524,6 +525,8 @@ REQUIRED_TOKENS = {
         "/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study",
         "/Game/_MCP_Sample/AnimStudy/BS_Bot_WalkRunLean_LeanTemplateRehearsal",
         "D:/Git/SampleProject/StackOBot/Saved/MCP/AnimStudy",
+        "names a concrete",
+        "this manifest and the matching `docs/work-log.md` entry",
         "command-surface sync issue",
     ],
     "docs/stackobot-animation-request-run-examples.md": [
@@ -2441,7 +2444,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v46",
+        "schema": "stackobot_animation_docs_link_audit_v47",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,

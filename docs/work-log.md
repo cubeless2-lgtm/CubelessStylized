@@ -9137,3 +9137,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker now fails when a concrete route/example sample target is not listed in the sample manifest.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_sample_target_manifest=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot sample manifest maintenance rule
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v47`.
+- Updated `docs/stackobot-animation-quickstart.md` so preflight checks confirm route matrix and request-run concrete sample targets are listed in `docs/stackobot-sample-asset-manifest.md`.
+- Updated `docs/stackobot-sample-asset-manifest.md` to require manifest and work-log updates when a new concrete local sample target is introduced.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_required_tokens=0` and `missing_sample_target_manifest=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
