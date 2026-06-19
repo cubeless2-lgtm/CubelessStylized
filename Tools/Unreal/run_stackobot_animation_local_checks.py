@@ -22,6 +22,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SIBLING_MCP_ROOT = PROJECT_ROOT.parent / "unreal-mcp-cubeless"
 REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_DocAudit" / "StackOBotAnimationLocalChecks.json"
 EXPECTED_DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v82"
+EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"
+EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"
 
 CHECKER_FILES = [
     "Tools/Unreal/check_stackobot_animation_docs.py",
@@ -106,6 +108,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         f"schema={EXPECTED_DOCS_AUDIT_SCHEMA}",
         "docs audit schema",
     )
+    preflight_check = next(check for check in checks if check["label"] == "preflight")
+    _require_stdout_token(
+        preflight_check,
+        f"schema={EXPECTED_PREFLIGHT_SCHEMA}",
+        "preflight schema",
+    )
+    staging_scope_check = next(check for check in checks if check["label"] == "staging_scope")
+    _require_stdout_token(
+        staging_scope_check,
+        f"schema={EXPECTED_STAGING_SCOPE_SCHEMA}",
+        "staging scope schema",
+    )
     workspace_status = {
         "cubeless_status": _run_command("cubeless_git_status", ["git", "status", "--short"], PROJECT_ROOT),
         "sibling_mcp_status": _run_command("sibling_mcp_git_status", ["git", "status", "--short"], SIBLING_MCP_ROOT),
@@ -115,11 +129,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     pass_value = all(check["success"] for check in checks) and (sibling_clean or not args.require_sibling_clean)
     report = {
-        "schema": "stackobot_animation_local_checks_v2",
+        "schema": "stackobot_animation_local_checks_v3",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "sibling_mcp_root": SIBLING_MCP_ROOT.as_posix(),
         "expected_docs_audit_schema": EXPECTED_DOCS_AUDIT_SCHEMA,
+        "expected_preflight_schema": EXPECTED_PREFLIGHT_SCHEMA,
+        "expected_staging_scope_schema": EXPECTED_STAGING_SCOPE_SCHEMA,
         "require_bridge": args.require_bridge,
         "require_sibling_clean": args.require_sibling_clean,
         "sibling_clean": sibling_clean,
@@ -144,7 +160,10 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"schema={report['schema']} require_bridge={str(report['require_bridge']).lower()} "
             f"require_sibling_clean={str(report['require_sibling_clean']).lower()} "
             f"sibling_clean={str(report['sibling_clean']).lower()} "
-            f"expected_docs_audit_schema={report['expected_docs_audit_schema']} checks={len(report['checks'])}"
+            f"expected_docs_audit_schema={report['expected_docs_audit_schema']} "
+            f"expected_preflight_schema={report['expected_preflight_schema']} "
+            f"expected_staging_scope_schema={report['expected_staging_scope_schema']} "
+            f"checks={len(report['checks'])}"
         ),
     ]
     if report.get("report_path"):
