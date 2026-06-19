@@ -765,7 +765,7 @@ REQUEST_EXAMPLE_ROUTE_SAMPLE_TARGET_RULES = {
     "protected metadata boundary": ["none until", "guarded native API"],
     "ControlRig gate probe": ["/Game/_MCP_Sample/AnimStudy/", "ABP_Bot_ControlRig_ForcedDriver_Study"],
     "state-machine runtime-driver proof": ["none for first pass", "future sample graph"],
-    "Baddy RigidBody": ["/Game/_MCP_Sample/AnimStudy/", "[BaddyRigidBodySampleName] if tuning is needed"],
+    "Baddy RigidBody": ["/Game/_MCP_Sample/AnimStudy/", "ABP_Baddy_RigidBody_Study"],
     "node resolver plus same-instance pre/post proof": ["none unless", "controlled sample actor"],
 }
 
@@ -2390,7 +2390,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v43",
+        "schema": "stackobot_animation_docs_link_audit_v44",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,

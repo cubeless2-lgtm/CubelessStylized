@@ -285,7 +285,7 @@ timing_type: animation physics response
 runtime_layer: RigidBody node in the AnimBP
 route: existing Baddy RigidBody read or sample tuning
 sample_target:
-/Game/_MCP_Sample/AnimStudy/[BaddyRigidBodySampleName] if tuning is needed
+/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study for first proof; duplicate the same prefix only if tuning needs a new variant
 first_read_or_authoring_command:
 inspect_anim_graph_node_settings
 verification_command:

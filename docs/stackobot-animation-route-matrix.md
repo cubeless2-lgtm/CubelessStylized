@@ -36,7 +36,7 @@ Source examples:
 | `protected metadata boundary` | none until a guarded native API is approved/implemented | safe animation asset inventory and AssetRegistry-level scan only | none for protected internals with current tooling |
 | `ControlRig gate probe` | `/Game/_MCP_Sample/AnimStudy/ABP_Bot_ControlRig_ForcedDriver_Study` | `inspect_anim_graph_protected_topology`, then `controlrig_direct_gate_probe` | `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` |
 | `state-machine runtime-driver proof` | none for first pass; future sample graph only if runtime-driver proof is insufficient | `inspect_anim_state_machine_transitions` | `sample_anim_state_machine_runtime_response` |
-| `Baddy RigidBody` | `/Game/_MCP_Sample/AnimStudy/[BaddyRigidBodySampleName]` if tuning is needed | `inspect_anim_graph_node_settings` | `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)`, then PoseWatch capture if runtime proof is needed |
+| `Baddy RigidBody` | `/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study` for first proof; duplicate the same prefix only if tuning needs a new variant | `inspect_anim_graph_node_settings` | `sample_anim_node_pre_post_runtime_pose(mode=compiled_graph_mapping)`, then PoseWatch capture if runtime proof is needed |
 | `node resolver plus same-instance pre/post proof` | none unless a controlled sample actor is needed for runtime proof | `inspect_anim_graph_protected_topology` or compiled mapping for the suspected node | `sample_anim_node_pre_post_runtime_pose(mode=pose_watch_capture)` |
 
 ## Evidence And Approval Matrix

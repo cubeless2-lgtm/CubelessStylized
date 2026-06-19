@@ -9113,3 +9113,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - The checker also validates route-specific `route_matrix_notes:` content for route classification, execution, and evidence/approval matrix alignment.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_route_matrix_checked=0` and `mismatched_request_example_route_matrix_notes=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot Baddy RigidBody sample fallback audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v44`.
+- Replaced the Baddy RigidBody request-run placeholder sample target with `/Game/_MCP_Sample/AnimStudy/ABP_Baddy_RigidBody_Study` as the first proof fallback.
+- Updated `docs/stackobot-animation-route-matrix.md` to use the same fallback and reserve new variants for concrete tuning requests.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_request_example_sample_targets=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
