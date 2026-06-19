@@ -9502,3 +9502,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added an acceptance-specific docs-audit guard that checks `docs/stackobot-animation-acceptance-checklist.md` keeps the `## Universal Pass Gate` rule that asset existence alone is not completion evidence and final completion needs route-specific runtime proof or an explicit read-only result.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_acceptance_completion_evidence=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot evidence strength detail guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v91`.
+- Expanded `Tools/Unreal/run_stackobot_animation_local_checks.py` to schema `stackobot_animation_local_checks_v12` and updated it to expect docs audit schema `stackobot_animation_docs_link_audit_v91`.
+- Added an acceptance-specific docs-audit guard that checks `docs/stackobot-animation-acceptance-checklist.md` keeps the `## Evidence Strength Levels` semantics for strongest feasible proof, sample compile/load limits, runtime-smoke scope, and same-instance pre/post final proof routes.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_evidence_strength_details=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.

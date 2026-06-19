@@ -42,10 +42,10 @@ JSON_FENCE_RE = re.compile(r"```json\n(?P<body>.*?)\n```", re.DOTALL)
 EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 SAMPLE_ASSET_PATH_RE = re.compile(r"/Game/_MCP_Sample/AnimStudy/[A-Za-z0-9_]+")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
-DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v90"
+DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v91"
 
 LOCAL_CHECK_RUNNER_SCHEMA_TOKENS = {
-    "local_check_schema": '"schema": "stackobot_animation_local_checks_v11"',
+    "local_check_schema": '"schema": "stackobot_animation_local_checks_v12"',
     "expected_docs_audit_schema": f'EXPECTED_DOCS_AUDIT_SCHEMA = "{DOCS_AUDIT_SCHEMA}"',
     "expected_preflight_schema": 'EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"',
     "expected_staging_scope_schema": 'EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"',
@@ -114,6 +114,14 @@ ACCEPTANCE_COMPLETION_EVIDENCE_TOKENS = {
     "asset_exists_not_enough": "Do not mark the task complete when the only evidence is that an asset exists.",
     "route_specific_runtime_proof": "route-specific runtime proof",
     "read_only_statement": "request was read-only",
+}
+
+ACCEPTANCE_EVIDENCE_STRENGTH_DETAIL_TOKENS = {
+    "strongest_feasible": "Use the strongest feasible level for the request",
+    "sample_compile_not_final": "Authoring smoke only; not enough for final visual behavior.",
+    "runtime_smoke_scope": "State-machine and BlendSpace behavior checks",
+    "same_instance_definition": "Input and output of the target node are captured on the same AnimInstance.",
+    "same_instance_final_proof": "Final proof for ModifyBone, Trail, RigidBody, ControlRig, LayeredBoneBlend, and node contribution requests.",
 }
 
 EXPECTED_EXTERNAL_PATHS = [
@@ -2688,6 +2696,23 @@ def _acceptance_evidence_strength_entries() -> list[dict[str, Any]]:
     ]
 
 
+def _acceptance_evidence_strength_detail_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-acceptance-checklist.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Evidence Strength Levels")
+    return [
+        {
+            "path": path_text,
+            "section": "## Evidence Strength Levels",
+            "key": key,
+            "token": token,
+            "exists": token in section,
+        }
+        for key, token in ACCEPTANCE_EVIDENCE_STRENGTH_DETAIL_TOKENS.items()
+    ]
+
+
 def _acceptance_escalation_trigger_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
     path = PROJECT_ROOT / path_text
@@ -3611,6 +3636,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_acceptance_evidence_strength_levels = [
         entry for entry in acceptance_evidence_strength_levels if not entry["exists"]
     ]
+    acceptance_evidence_strength_details = _acceptance_evidence_strength_detail_entries()
+    missing_acceptance_evidence_strength_details = [
+        entry for entry in acceptance_evidence_strength_details if not entry["exists"]
+    ]
     acceptance_escalation_triggers = _acceptance_escalation_trigger_entries()
     missing_acceptance_escalation_triggers = [
         entry for entry in acceptance_escalation_triggers if not entry["exists"]
@@ -3793,6 +3822,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_acceptance_route_criteria
         and not mismatched_acceptance_route_tokens
         and not missing_acceptance_evidence_strength_levels
+        and not missing_acceptance_evidence_strength_details
         and not missing_acceptance_escalation_triggers
         and not invalid_command_syntax_json
         and not missing_command_syntax_commands
@@ -3886,6 +3916,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_acceptance_route_criteria_count": len(missing_acceptance_route_criteria),
         "mismatched_acceptance_route_token_count": len(mismatched_acceptance_route_tokens),
         "missing_acceptance_evidence_strength_level_count": len(missing_acceptance_evidence_strength_levels),
+        "missing_acceptance_evidence_strength_detail_count": len(missing_acceptance_evidence_strength_details),
         "missing_acceptance_escalation_trigger_count": len(missing_acceptance_escalation_triggers),
         "invalid_command_syntax_json_count": len(invalid_command_syntax_json),
         "missing_command_syntax_command_count": len(missing_command_syntax_commands),
@@ -4027,6 +4058,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_acceptance_route_tokens": mismatched_acceptance_route_tokens,
         "acceptance_evidence_strength_levels": acceptance_evidence_strength_levels,
         "missing_acceptance_evidence_strength_levels": missing_acceptance_evidence_strength_levels,
+        "acceptance_evidence_strength_details": acceptance_evidence_strength_details,
+        "missing_acceptance_evidence_strength_details": missing_acceptance_evidence_strength_details,
         "acceptance_escalation_triggers": acceptance_escalation_triggers,
         "missing_acceptance_escalation_triggers": missing_acceptance_escalation_triggers,
         "command_syntax_json_blocks": command_syntax_json_blocks,
@@ -4156,6 +4189,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_acceptance_routes={report['missing_acceptance_route_criteria_count']} "
             f"mismatched_acceptance_route_tokens={report['mismatched_acceptance_route_token_count']} "
             f"missing_evidence_strength_levels={report['missing_acceptance_evidence_strength_level_count']} "
+            f"missing_evidence_strength_details={report['missing_acceptance_evidence_strength_detail_count']} "
             f"missing_acceptance_escalation_triggers={report['missing_acceptance_escalation_trigger_count']} "
             f"invalid_command_json={report['invalid_command_syntax_json_count']} "
             f"missing_command_examples={report['missing_command_syntax_command_count']} "
@@ -4245,6 +4279,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_acceptance_route_criteria",
             "mismatched_acceptance_route_tokens",
             "missing_acceptance_evidence_strength_levels",
+            "missing_acceptance_evidence_strength_details",
             "missing_acceptance_escalation_triggers",
             "invalid_command_syntax_json",
             "missing_command_syntax_commands",
