@@ -41,13 +41,17 @@ JSON_FENCE_RE = re.compile(r"```json\n(?P<body>.*?)\n```", re.DOTALL)
 EXAMPLE_FIELD_RE = re.compile(r"^(?P<name>[a-z_]+):\s*(?P<value>.*)$")
 SAMPLE_ASSET_PATH_RE = re.compile(r"/Game/_MCP_Sample/AnimStudy/[A-Za-z0-9_]+")
 STACKOBOT_DOC_GLOB = "stackobot*.md"
-DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v83"
+DOCS_AUDIT_SCHEMA = "stackobot_animation_docs_link_audit_v84"
 
 LOCAL_CHECK_RUNNER_SCHEMA_TOKENS = {
-    "local_check_schema": '"schema": "stackobot_animation_local_checks_v4"',
+    "local_check_schema": '"schema": "stackobot_animation_local_checks_v5"',
     "expected_docs_audit_schema": f'EXPECTED_DOCS_AUDIT_SCHEMA = "{DOCS_AUDIT_SCHEMA}"',
     "expected_preflight_schema": 'EXPECTED_PREFLIGHT_SCHEMA = "stackobot_animation_preflight_v1"',
     "expected_staging_scope_schema": 'EXPECTED_STAGING_SCOPE_SCHEMA = "stackobot_animation_staging_scope_v1"',
+    "checker_docs_compile_target": '"Tools/Unreal/check_stackobot_animation_docs.py"',
+    "checker_preflight_compile_target": '"Tools/Unreal/check_stackobot_animation_preflight.py"',
+    "checker_staging_scope_compile_target": '"Tools/Unreal/check_stackobot_animation_staging_scope.py"',
+    "checker_local_runner_compile_target": '"Tools/Unreal/run_stackobot_animation_local_checks.py"',
 }
 
 EXPECTED_EXTERNAL_PATHS = [
