@@ -53,12 +53,13 @@ Use `--require-bridge` when this is the final gate before live editor work.
 | --- | --- | --- |
 | Head, neck, antenna offset after animation | Post Process ModifyBone | Sample Post Process AnimBP, then Post Process PoseWatch |
 | Run speed or lean response | BlendSpace sample variant | Sample BlendSpace, then pose grid |
-| Idle/walk/run/jump/hover behavior | State machine/runtime driver | State-machine inspect, then runtime cases |
-| Foot IK or interaction reach | ControlRig late correction | Direct gate probe, then forced-driver sample if needed |
-| Upper body while moving | Existing UpperBody Slot/LayeredBlend | Inventory, then all-input LayeredBlend PoseWatch |
+| Idle/walk/run/jump/hover behavior | state-machine runtime-driver proof | State-machine inspect, then runtime cases |
+| Foot IK or interaction reach | ControlRig gate probe | Direct gate probe, then forced-driver sample if needed |
+| Upper body while moving | UpperBody Slot and LayeredBlend | Inventory, then all-input LayeredBlend PoseWatch |
 | Antenna lag or spring follow | Bot Trail sample | Trail sample, then SIE Post Process PoseWatch |
-| Baddy jiggle/stalk/tail physics | RigidBody | RigidBody settings read, then sample tuning if needed |
-| Notify, curve, sync marker, Montage internals | Protected metadata | Safe inventory only; guarded native API if concrete request needs internals |
+| Baddy jiggle/stalk/tail physics | Baddy RigidBody | RigidBody settings read, then sample tuning if needed |
+| Notify, curve, sync marker, Montage internals | protected metadata boundary | Safe inventory only; guarded native API if concrete request needs internals |
+| Which node changed the pose | node resolver plus same-instance pre/post proof | Compiled mapping or PoseWatch pre/post |
 
 ## Do Not Do First
 

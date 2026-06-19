@@ -9185,3 +9185,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Tightened route matrix Stop Conditions required tokens for protected metadata/Montage, route-specific proof, and non-exception C++ API escalation boundaries.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_route_matrix_selection_rules=0` and `missing_required_tokens=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot quickstart route shortcut audit
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v53`.
+- Updated `docs/stackobot-animation-quickstart.md` route shortcuts to use exact route tokens from the route matrix and request-run examples.
+- Added the missing node contribution shortcut so quickstart covers all nine request-run example routes.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_quickstart_route_shortcuts=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
