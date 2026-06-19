@@ -364,6 +364,24 @@ If a validation route fails, classify the failure before changing the plan:
 | No pose delta | Could be real behavior or inactive gate | Check topology, curves, runtime state, and input gates |
 | No matching actor/AnimInstance | Runtime target setup issue | Recreate transient target or use a native command |
 
+## Route Token Failure Map
+
+Use this table when a route-specific validation fails. Keep the first retry on
+the same safe route, and escalate to C++/API only when the documented safe proof
+or authoring route is actually blocked.
+
+| Route token | First retry or read command | Verification command | Escalate only when |
+| --- | --- | --- | --- |
+| `Post Process ModifyBone` | Re-run `ensure_postprocess_anim_demo_variant` against the sample target and confirm the target bone/transform inputs. | `sample_anim_node_pre_post_runtime_pose` | The sample Post Process graph cannot be authored or same-instance Post Process proof is unavailable. |
+| `BlendSpace sample variant` | Re-run `ensure_blendspace_sample_variant` and inspect axis/sample coordinate edits. | `sample_blendspace_runtime_pose_grid` | The sample BlendSpace cannot be authored or runtime pose-grid proof cannot validate the requested response. |
+| `Bot Trail sample` | Re-run or inspect `ensure_anim_graph_trail_demo`, then confirm component-level Post Process override setup. | `sample_anim_node_pre_post_runtime_pose` | The sample Trail/Post Process route cannot be authored or target chain proof remains unavailable. |
+| `UpperBody Slot and LayeredBlend` | Re-check `slot/cached-pose inventory`, branch filters, and the existing `UpperBody` path before asking for new authoring. | `sample_anim_node_pre_post_runtime_pose` | A visible action requires a missing source clip, Montage, or new overlay branch. |
+| `protected metadata boundary` | Re-run `safe animation asset inventory` and AssetRegistry-level reads only. | `none for protected internals` | The request requires protected notifies, curves, sync markers, or Montage internals. |
+| `ControlRig gate probe` | Re-run `inspect_anim_graph_protected_topology`, then `controlrig_direct_gate_probe`, and confirm required curve/input gates. | `sample_anim_node_pre_post_runtime_pose` | The compiled ControlRig proof route cannot be sampled or original ControlRig/AnimBP mutation is required. |
+| `state-machine runtime-driver proof` | Re-run `inspect_anim_state_machine_transitions` and verify the runtime case inputs are writable/restored. | `sample_anim_state_machine_runtime_response` | A graph authoring change is required beyond runtime-driver proof. |
+| `Baddy RigidBody` | Re-run `inspect_anim_graph_node_settings` and separate source clip motion from physics response. | `sample_anim_node_pre_post_runtime_pose` | Original PhysicsAsset or AnimBP mutation is required, or RigidBody node proof cannot be sampled. |
+| `node resolver plus same-instance pre/post proof` | Re-run `inspect_anim_graph_protected_topology` plus `compiled mapping` and report ambiguity if node selection remains unclear. | `sample_anim_node_pre_post_runtime_pose` | The suspected node class is outside the current mapping/PoseWatch coverage. |
+
 ## Delivery Shape
 
 When finishing a requested animation part, report:

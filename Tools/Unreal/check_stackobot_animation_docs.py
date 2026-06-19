@@ -132,6 +132,7 @@ REQUIRED_SECTIONS = {
         "## Approval Gates",
         "## C++/API Escalation",
         "## Failure Handling",
+        "## Route Token Failure Map",
         "## Delivery Shape",
     ],
     "docs/stackobot-animation-request-run-template.md": [
@@ -2606,6 +2607,14 @@ def _playbook_route_map_entries() -> list[dict[str, Any]]:
     )
 
 
+def _playbook_route_failure_entries() -> list[dict[str, Any]]:
+    return _route_token_command_row_entries(
+        path_text="docs/stackobot-animation-request-playbook.md",
+        heading="## Route Token Failure Map",
+        check_name="playbook_route_failure",
+    )
+
+
 def _animbp_authoring_pattern_route_entries() -> list[dict[str, Any]]:
     return _route_token_command_row_entries(
         path_text="docs/stackobot-animbp-authoring-patterns.md",
@@ -3259,6 +3268,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     mismatched_playbook_route_map = [
         entry for entry in playbook_route_map if not entry["matches"]
     ]
+    playbook_route_failures = _playbook_route_failure_entries()
+    mismatched_playbook_route_failures = [
+        entry for entry in playbook_route_failures if not entry["matches"]
+    ]
     animbp_authoring_pattern_routes = _animbp_authoring_pattern_route_entries()
     mismatched_animbp_authoring_pattern_routes = [
         entry
@@ -3383,6 +3396,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_command_route_map
         and not mismatched_authoring_route_templates
         and not mismatched_playbook_route_map
+        and not mismatched_playbook_route_failures
         and not mismatched_animbp_authoring_pattern_routes
         and not mismatched_physics_route_tokens
         and not mismatched_backlog_route_tokens
@@ -3400,7 +3414,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v76",
+        "schema": "stackobot_animation_docs_link_audit_v77",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3463,6 +3477,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_command_route_map_count": len(mismatched_command_route_map),
         "mismatched_authoring_route_template_count": len(mismatched_authoring_route_templates),
         "mismatched_playbook_route_map_count": len(mismatched_playbook_route_map),
+        "mismatched_playbook_route_failure_count": len(mismatched_playbook_route_failures),
         "mismatched_animbp_authoring_pattern_route_count": len(mismatched_animbp_authoring_pattern_routes),
         "mismatched_physics_route_token_count": len(mismatched_physics_route_tokens),
         "mismatched_backlog_route_token_count": len(mismatched_backlog_route_tokens),
@@ -3593,6 +3608,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_authoring_route_templates": mismatched_authoring_route_templates,
         "playbook_route_map": playbook_route_map,
         "mismatched_playbook_route_map": mismatched_playbook_route_map,
+        "playbook_route_failures": playbook_route_failures,
+        "mismatched_playbook_route_failures": mismatched_playbook_route_failures,
         "animbp_authoring_pattern_routes": animbp_authoring_pattern_routes,
         "mismatched_animbp_authoring_pattern_routes": mismatched_animbp_authoring_pattern_routes,
         "physics_route_tokens": physics_route_tokens,
@@ -3694,6 +3711,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_command_route_map={report['mismatched_command_route_map_count']} "
             f"mismatched_authoring_route_templates={report['mismatched_authoring_route_template_count']} "
             f"mismatched_playbook_route_map={report['mismatched_playbook_route_map_count']} "
+            f"mismatched_playbook_route_failures={report['mismatched_playbook_route_failure_count']} "
             f"mismatched_animbp_authoring_patterns={report['mismatched_animbp_authoring_pattern_route_count']} "
             f"mismatched_physics_route_tokens={report['mismatched_physics_route_token_count']} "
             f"mismatched_backlog_route_tokens={report['mismatched_backlog_route_token_count']} "
@@ -3770,6 +3788,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_command_route_map",
             "mismatched_authoring_route_templates",
             "mismatched_playbook_route_map",
+            "mismatched_playbook_route_failures",
             "mismatched_animbp_authoring_pattern_routes",
             "mismatched_physics_route_tokens",
             "mismatched_backlog_route_tokens",
