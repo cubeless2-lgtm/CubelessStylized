@@ -9416,3 +9416,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Kept the Work-Log draft parser scoped to that final section because its fenced example intentionally starts with a Markdown `##` heading.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_request_template_section_fields=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot acceptance minimum-strength guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v82`.
+- Added route-token minimum evidence strength rules for `docs/stackobot-animation-acceptance-checklist.md`.
+- Added an audit guard that fails when `Route Token Acceptance Map` rows lose the required `Read-only topology`, `Runtime smoke`, or `Same-instance pre/post` standard.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_acceptance_route_token_min_strength=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
