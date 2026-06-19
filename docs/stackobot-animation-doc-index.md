@@ -126,6 +126,12 @@ Run this before committing StackOBot animation docs/tooling:
 python Tools/Unreal/check_stackobot_animation_staging_scope.py --summary
 ```
 
+Run this before pushing StackOBot animation docs/tooling to `main`:
+
+```powershell
+python Tools/Unreal/check_stackobot_animation_staging_scope.py --summary --range origin/main..HEAD
+```
+
 Write the full JSON report when an audit artifact is useful:
 
 ```powershell

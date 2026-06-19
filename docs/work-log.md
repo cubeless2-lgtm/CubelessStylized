@@ -9550,3 +9550,12 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added request-playbook docs-audit guards that check `docs/stackobot-animation-request-playbook.md` keeps the `## Execution Protocol`, `## Approval Gates`, and `## C++/API Escalation` tokens for sample-only execution, visible handoff, artifact/evidence handling, approval boundaries, and C++ escalation/non-escalation rules.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_playbook_execution_protocol=0`, `missing_playbook_approval_gates=0`, and `missing_playbook_cxx_escalation=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot pre-push range scope guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_staging_scope.py` to schema `stackobot_animation_staging_scope_v2`.
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v97`.
+- Expanded `Tools/Unreal/run_stackobot_animation_local_checks.py` to schema `stackobot_animation_local_checks_v18` and updated it to expect staging scope schema `stackobot_animation_staging_scope_v2`.
+- Added `--range origin/main..HEAD` coverage so the same StackOBot docs/tooling scope guard can validate the full push range, including the approved UTF-8 Git hook fix, before `main` is pushed.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_staging_scope.py --summary --range origin/main..HEAD` passed with `entries=27`, `allowed=27`, `blocked=0`, and `unknown=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
