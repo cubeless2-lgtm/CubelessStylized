@@ -2312,6 +2312,22 @@ def _request_run_template_field_entries() -> list[dict[str, Any]]:
     return entries
 
 
+def _playbook_delivery_shape_field_entries() -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-request-playbook.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    section = _markdown_heading_section(text, "## Delivery Shape")
+    return [
+        {
+            "path": path_text,
+            "section": "## Delivery Shape",
+            "field": field,
+            "exists": field in section,
+        }
+        for field in REQUEST_RUN_TEMPLATE_FIELD_GROUPS["final_report"]
+    ]
+
+
 def _handoff_final_report_field_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-tivret-handoff-templates.md"
     path = PROJECT_ROOT / path_text
@@ -3241,6 +3257,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     missing_request_run_template_fields = [
         entry for entry in request_run_template_fields if not entry["exists"]
     ]
+    playbook_delivery_shape_fields = _playbook_delivery_shape_field_entries()
+    missing_playbook_delivery_shape_fields = [
+        entry for entry in playbook_delivery_shape_fields if not entry["exists"]
+    ]
     handoff_final_report_fields = _handoff_final_report_field_entries()
     missing_handoff_final_report_fields = [
         entry for entry in handoff_final_report_fields if not entry["exists"]
@@ -3418,6 +3438,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not missing_request_example_acceptance_focus
         and not mismatched_request_example_route_acceptance_focus
         and not missing_request_run_template_fields
+        and not missing_playbook_delivery_shape_fields
         and not missing_handoff_final_report_fields
         and not mismatched_handoff_route_token_final_reports
         and not mismatched_handoff_route_token_final_report_cxx
@@ -3452,7 +3473,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v78",
+        "schema": "stackobot_animation_docs_link_audit_v79",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -3500,6 +3521,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "missing_request_example_acceptance_focus_count": len(missing_request_example_acceptance_focus),
         "mismatched_request_example_route_acceptance_focus_count": len(mismatched_request_example_route_acceptance_focus),
         "missing_request_run_template_field_count": len(missing_request_run_template_fields),
+        "missing_playbook_delivery_shape_field_count": len(missing_playbook_delivery_shape_fields),
         "missing_handoff_final_report_field_count": len(missing_handoff_final_report_fields),
         "mismatched_handoff_route_token_final_report_count": len(mismatched_handoff_route_token_final_reports),
         "mismatched_handoff_route_token_final_report_cxx_count": len(mismatched_handoff_route_token_final_report_cxx),
@@ -3617,6 +3639,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_request_example_route_acceptance_focus": mismatched_request_example_route_acceptance_focus,
         "request_run_template_fields": request_run_template_fields,
         "missing_request_run_template_fields": missing_request_run_template_fields,
+        "playbook_delivery_shape_fields": playbook_delivery_shape_fields,
+        "missing_playbook_delivery_shape_fields": missing_playbook_delivery_shape_fields,
         "handoff_final_report_fields": handoff_final_report_fields,
         "missing_handoff_final_report_fields": missing_handoff_final_report_fields,
         "handoff_route_token_final_reports": handoff_route_token_final_reports,
@@ -3737,6 +3761,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"missing_acceptance_focus_blocks={report['missing_request_example_acceptance_focus_count']} "
             f"mismatched_acceptance_focus_tokens={report['mismatched_request_example_route_acceptance_focus_count']} "
             f"missing_template_fields={report['missing_request_run_template_field_count']} "
+            f"missing_playbook_delivery_shape_fields={report['missing_playbook_delivery_shape_field_count']} "
             f"missing_handoff_report_fields={report['missing_handoff_final_report_field_count']} "
             f"mismatched_handoff_route_token_final_reports={report['mismatched_handoff_route_token_final_report_count']} "
             f"mismatched_handoff_route_token_final_report_cxx={report['mismatched_handoff_route_token_final_report_cxx_count']} "
@@ -3815,6 +3840,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "missing_request_example_acceptance_focus",
             "mismatched_request_example_route_acceptance_focus",
             "missing_request_run_template_fields",
+            "missing_playbook_delivery_shape_fields",
             "missing_handoff_final_report_fields",
             "mismatched_handoff_route_token_final_reports",
             "mismatched_handoff_route_token_final_report_cxx",

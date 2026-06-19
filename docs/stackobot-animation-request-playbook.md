@@ -386,11 +386,16 @@ or authoring route is actually blocked.
 
 When finishing a requested animation part, report:
 
-- Asset paths created or modified.
-- Whether originals were untouched.
-- The exact authoring route.
-- Compile/save result.
-- Runtime proof result and key deltas.
-- Artifact paths.
-- Dirty package result.
-- Residual risk or blocked route, if any.
+- `route:` exact route token and route matrix row used.
+- `assets_created_or_reused:` sample assets, transient actors, and evidence files.
+- `original_assets_modified:` explicit `false` unless the user approved original mutation.
+- `runtime_world:` editor world, SIE/PIE world, or no-runtime proof context.
+- `main_command_results:` authoring/read commands, compile/save result, and major errors.
+- `pose_or_state_evidence:` pose deltas, state changes, or why proof stayed read-only.
+- `errors:` command, compile, bridge, editor log, or validation errors.
+- `warnings:` weak evidence, inactive gates, missing source clips, or sample-only limits.
+- `dirty_packages:` packages dirtied, saved, reverted, or intentionally left unsaved.
+- `cleanup:` transient actor, preview map, sample reuse, and artifact cleanup status.
+- `cxx_api_needed:` `not needed`, `candidate`, or `implemented` plus the reason.
+- `artifact_paths:` JSON, Markdown, screenshot, or log paths used as evidence.
+- `residual_risk:` blocked route, manual editor follow-up, or next safe retry.

@@ -9392,3 +9392,11 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Added an audit guard that compares failure-map escalation cues against the shared route-specific C++/API decision rules.
 - Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `mismatched_playbook_route_failure_cxx=0`.
 - No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
+
+## 2026-06-19 StackOBot playbook delivery-shape field guard
+
+- Expanded `Tools/Unreal/check_stackobot_animation_docs.py` to schema `stackobot_animation_docs_link_audit_v79`.
+- Updated `docs/stackobot-animation-request-playbook.md` so `Delivery Shape` uses the same final-report keys as `docs/stackobot-animation-request-run-template.md`.
+- Added an audit guard that fails when the playbook delivery section omits a required final-report key.
+- Smoke result: `python Tools/Unreal/check_stackobot_animation_docs.py --summary` passed with `missing_playbook_delivery_shape_fields=0`.
+- No Unreal assets, C++ files, editor sessions, sample assets, or UnrealMCP plugin files were modified. Notion auto-capture remains unavailable in this session, so this local work-log entry is the durable fallback capture.
