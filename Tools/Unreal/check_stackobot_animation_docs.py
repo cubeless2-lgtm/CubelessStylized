@@ -1463,6 +1463,85 @@ def _route_matrix_classification_entries(
     return entries
 
 
+def _route_matrix_evidence_required_entries(
+    rules: dict[str, list[str]],
+    field_name: str,
+) -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-route-matrix.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    evidence_matrix = _markdown_heading_section(text, "## Evidence And Approval Matrix")
+    entries: list[dict[str, Any]] = []
+
+    for route_token, expected_tokens in rules.items():
+        row = next(
+            (
+                line
+                for line in evidence_matrix.splitlines()
+                if f"`{route_token}`" in line
+            ),
+            "",
+        )
+        missing_tokens = [
+            token for token in expected_tokens if token not in row
+        ]
+        entries.append(
+            {
+                "path": path_text,
+                "field": field_name,
+                "route_token": route_token,
+                "row": row,
+                "expected_tokens": expected_tokens,
+                "missing_tokens": missing_tokens,
+                "exists": bool(row),
+                "matches": bool(row) and not missing_tokens,
+            }
+        )
+
+    return entries
+
+
+def _route_matrix_evidence_any_token_entries(
+    rules: dict[str, list[str]],
+    field_name: str,
+    *,
+    lower_value: bool = False,
+) -> list[dict[str, Any]]:
+    path_text = "docs/stackobot-animation-route-matrix.md"
+    path = PROJECT_ROOT / path_text
+    text = _read_text(path) if path.exists() else ""
+    evidence_matrix = _markdown_heading_section(text, "## Evidence And Approval Matrix")
+    entries: list[dict[str, Any]] = []
+
+    for route_token, expected_tokens in rules.items():
+        row = next(
+            (
+                line
+                for line in evidence_matrix.splitlines()
+                if f"`{route_token}`" in line
+            ),
+            "",
+        )
+        comparison_row = row.lower() if lower_value else row
+        comparison_tokens = [
+            token.lower() if lower_value else token
+            for token in expected_tokens
+        ]
+        entries.append(
+            {
+                "path": path_text,
+                "field": field_name,
+                "route_token": route_token,
+                "row": row,
+                "expected_tokens": expected_tokens,
+                "exists": bool(row),
+                "matches": bool(row) and _contains_any(comparison_row, set(comparison_tokens)),
+            }
+        )
+
+    return entries
+
+
 def _contains_any(value: str, needles: list[str] | set[str]) -> bool:
     return any(needle in value for needle in needles)
 
@@ -2383,6 +2462,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         )
         if not entry["matches"]
     ]
+    route_matrix_expected_evidence = _route_matrix_evidence_required_entries(
+        REQUEST_EXAMPLE_ROUTE_EXPECTED_EVIDENCE_RULES,
+        "expected_evidence",
+    )
+    route_matrix_cxx_statuses = _route_matrix_evidence_any_token_entries(
+        REQUEST_EXAMPLE_ROUTE_CXX_STATUS_RULES,
+        "cxx_api_status",
+        lower_value=True,
+    )
+    route_matrix_approval_boundaries = _route_matrix_evidence_required_entries(
+        REQUEST_EXAMPLE_ROUTE_ASK_USER_FIRST_RULES,
+        "approval_boundary",
+    )
+    mismatched_route_matrix_evidence_approval = [
+        entry
+        for entry in (
+            route_matrix_expected_evidence
+            + route_matrix_cxx_statuses
+            + route_matrix_approval_boundaries
+        )
+        if not entry["matches"]
+    ]
     request_example_route_coverage = _request_example_route_coverage_entries()
     missing_request_example_route_coverage = [
         entry for entry in request_example_route_coverage if not entry["exists"]
@@ -2563,6 +2664,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and not mismatched_route_matrix_first_commands
         and not mismatched_route_matrix_verifications
         and not mismatched_route_matrix_classification
+        and not mismatched_route_matrix_evidence_approval
         and not missing_request_example_route_coverage
         and not missing_request_compiler_route_coverage
         and not mismatched_request_example_route_handoffs
@@ -2598,7 +2700,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     report = {
-        "schema": "stackobot_animation_docs_link_audit_v50",
+        "schema": "stackobot_animation_docs_link_audit_v51",
         "elapsed_seconds": round(time.monotonic() - started_at, 4),
         "project_root": PROJECT_ROOT.as_posix(),
         "doc_glob": args.glob,
@@ -2617,6 +2719,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "mismatched_route_matrix_first_command_count": len(mismatched_route_matrix_first_commands),
         "mismatched_route_matrix_verification_count": len(mismatched_route_matrix_verifications),
         "mismatched_route_matrix_classification_count": len(mismatched_route_matrix_classification),
+        "mismatched_route_matrix_evidence_approval_count": len(mismatched_route_matrix_evidence_approval),
         "missing_request_example_route_coverage_count": len(missing_request_example_route_coverage),
         "missing_request_compiler_route_coverage_count": len(missing_request_compiler_route_coverage),
         "mismatched_request_example_route_handoff_count": len(mismatched_request_example_route_handoffs),
@@ -2675,6 +2778,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "route_matrix_timing_types": route_matrix_timing_types,
         "route_matrix_runtime_layers": route_matrix_runtime_layers,
         "mismatched_route_matrix_classification": mismatched_route_matrix_classification,
+        "route_matrix_expected_evidence": route_matrix_expected_evidence,
+        "route_matrix_cxx_statuses": route_matrix_cxx_statuses,
+        "route_matrix_approval_boundaries": route_matrix_approval_boundaries,
+        "mismatched_route_matrix_evidence_approval": mismatched_route_matrix_evidence_approval,
         "request_example_route_coverage": request_example_route_coverage,
         "missing_request_example_route_coverage": missing_request_example_route_coverage,
         "request_compiler_route_coverage": request_compiler_route_coverage,
@@ -2768,6 +2875,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             f"mismatched_route_matrix_first_commands={report['mismatched_route_matrix_first_command_count']} "
             f"mismatched_route_matrix_verifications={report['mismatched_route_matrix_verification_count']} "
             f"mismatched_route_matrix_classification={report['mismatched_route_matrix_classification_count']} "
+            f"mismatched_route_matrix_evidence_approval={report['mismatched_route_matrix_evidence_approval_count']} "
             f"missing_request_example_routes={report['missing_request_example_route_coverage_count']} "
             f"missing_request_compiler_routes={report['missing_request_compiler_route_coverage_count']} "
             f"mismatched_request_example_route_handoffs={report['mismatched_request_example_route_handoff_count']} "
@@ -2818,6 +2926,7 @@ def _format_summary(report: dict[str, Any]) -> str:
             "mismatched_route_matrix_first_commands",
             "mismatched_route_matrix_verifications",
             "mismatched_route_matrix_classification",
+            "mismatched_route_matrix_evidence_approval",
             "missing_request_example_route_coverage",
             "missing_request_compiler_route_coverage",
             "mismatched_request_example_route_handoffs",
