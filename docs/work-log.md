@@ -17,6 +17,35 @@ Durable local fallback for project memory when Notion capture is unavailable.
 - Visual QA capture was written to `Saved/UDS_Analysis/Test_UnusedUDS_V2_staticcloud_review.png`; it passed the review-image opaque-alpha hook with final alpha extrema `[255, 255]` and nonblank pixel stats.
 - Final dirty-package verification reported `dirty_content=[]` and `dirty_maps=[]`.
 
+## 2026-06-20 Forest spline PCG V2 absorption pass
+
+- Created and continued the separate V2 assets under `/Game/Cubeless/PCG/Sample/ForestSet`: `BP_PCG_ForestSplineSet_V2` and `PCG_ForestSplineSet_V2`, leaving the original BP/PCG graph as the current placed level actor.
+- V2 BP component template points at `PCG_ForestSplineSet_V2` and keeps the on-demand native PCG flags while the Blueprint Construction Script remains the refresh path.
+- Added working slope-density parameters for non-tree branches: `BushSlopeDensityMin`, `GrassSlopeDensityMin`, and `RockSlopeDensityMin`.
+- Added V2-only PCG branch chains for bush, grass, and rock: `NormalToDensity(MULTIPLY, world up)` followed by `DensityFilter`, with each filter lower bound driven by the matching BP actor property.
+- Strengthened grass coverage defaults for dense forest testing: `GrassPointsPerSquaredMeter=2.0`, `GrassPruningExtents=(20,20,12)`, `GrassDensity=1.0`, `EdgeDensityMin=0.0`, `EdgeDensityMax=1.0`, and `GradientPower=1.15`.
+- Verification passed: V2 BP compiled and saved with `0` warnings and `0` errors; V2 graph compiled/notified and saved; source-independence audit reported no `/Game/Cubeless/PCG/PCGStudy` dependency.
+- Temporary V2 QA actor copied the placed original spline shape (`8` points, closed loop), generated successfully, and was deleted without leaving a V2 actor in the level. Dense default QA produced `12173` instances total with `12011` grass instances; setting `GrassDensity=0.25` and regenerating reduced the QA output to `1799` total with `1709` grass instances.
+- Placed a persistent V2 review actor in `/Game/Cubeless/PCG/Sample/Test_PCGSample` as `BP_PCG_ForestSplineSet_V2_Actor`, offset from the original actor at world center `(12000, 0, 0)`.
+- The placed V2 actor uses a clean closed 8-point circular spline with `5000cm` radius and editable Bezier-style tangents, keeping the original actor untouched for comparison.
+- V2 actor generation validation passed with graph `/Game/Cubeless/PCG/Sample/ForestSet/PCG_ForestSplineSet_V2.PCG_ForestSplineSet_V2`, generated bounds `min=(7000,-5000,-128)`, `max=(17000,5000,128)`, and `4` managed PCG resources.
+- Final placed V2 output count is `7012` instances: `23` trees, `53` bushes, `14` rocks, and `6922` grass instances. No sampled instance exceeded the closed spline radius.
+- Parameter delta validation passed on the placed V2 actor: `GrassDensity=1.0` generated `6922` grass instances; `GrassDensity=0.25` generated `1732` grass instances; the actor was restored to `GrassDensity=1.0`.
+- Spline delta validation passed on the placed V2 actor: reducing the circular spline radius from `5000cm` to `3000cm` changed generated bounds to `min=(9000,-3000,-128)`, `max=(15000,3000,128)` and reduced total output to `2549`; the actor was restored to the `5000cm` default.
+- Review screenshots were captured under `Saved/MCP/PCGReviews/ForestSplineV2_QA*.png`; review-display copies were passed through the opaque-alpha hook.
+- Exposed two top-level actor variables under `00 PCG Generation`: `PCGGenerationTrigger` (`/Script/PCG.EPCGComponentGenerationTrigger`, display name `Generation Trigger`) and `PCGRegenerateInEditor` (display name `Regenerate in Editor`).
+- Set the V2 default generation posture to automatic editor generation: `ForestPCG.GenerationTrigger=GenerateOnLoad`, `ForestPCG.RegenerateInEditor=true`, and `ForestPCG.GenerateOnDropWhenTriggerOnDemand=false` on both the Blueprint component template and placed V2 actor instance.
+- Note: `GenerationTrigger` is `BlueprintReadOnly` in the native PCG component, so the exposed BP variable mirrors the intended artist-facing setting while the actual component template/placed instance are set directly. `RegenerateInEditor` is the more important editor refresh gate for parameter/spline changes.
+
+## 2026-06-20 Forest spline PCG always-refresh cleanup
+
+- Updated `/Game/Cubeless/PCG/Sample/ForestSet/BP_PCG_ForestSplineSet` in `/Game/Cubeless/PCG/Sample/Test_PCGSample` to always reflect Blueprint parameter and spline edits through Construction Script.
+- Removed the exposed `AutoRegenerateInEditor`, `RegenerateOnSplineChanged`, and `RegenerateOnParameterChanged` variables from the actor-facing Details panel in the earlier cleanup pass.
+- Removed the manual/automatic Call-In-Editor button workflow by deleting the BP `EventGraph`; the removed buttons were `RegenerateForestNow`, `SetAutomaticRegenerationMode`, and `SetManualRegenerationMode`.
+- Construction Script now runs directly: `ForestPCG.NotifyPropertiesChangedFromBlueprint -> Cleanup(true) -> Generate(true)`, with no branch, no refresh mode variable, and no editor-facing refresh controls.
+- Kept `ForestPCG.regenerate_in_editor=false`, `generation_trigger=GENERATE_ON_DEMAND`, and `generate_on_drop_when_trigger_on_demand=false` on both the BP component template and the placed level instance so Blueprint Construction Script remains the single refresh path.
+- Verification: button functions are no longer callable through reflection, `EventGraph` is gone, the temporary hidden mode variable was removed without touching key PCG-facing variables, BP compile passed with `0` warnings and `0` errors, and cleanup followed by `UserConstructionScript` regenerated `5978` instances while preserving variables such as `TreeDensity`, `BushDensity`, `GrassDensity`, and `RockDensity`.
+
 ## 2026-06-18 - Multi-project agent operations design note
 
 - User proposed splitting this topic into a new session titled `상위 이에타 멀티프로젝트 운영 설계`.
@@ -9059,6 +9088,15 @@ These entries were visible from Notion search/fetch results earlier in this Code
 - Applied the same guard to both the active project submodule copy `Plugins/UnrealMCP` and the sibling workspace copy `../unreal-mcp-cubeless/MCPGameProject/Plugins/UnrealMCP` to avoid drift.
 - Verification passed: `git diff --check` in both UnrealMCP workspaces and `Build.bat StylizedCubelessEditor Win64 Development -Project=C:/Git/CubelessStylized/StylizedCubeless.uproject -WaitMutex -NoHotReload` succeeded.
 - Live validation after editor restart passed: an unreachable `if False: unreal.EditorLoadingAndSavingUtils.load_map(...)` script was blocked before Python execution with the new structured guard error, proving the rebuilt plugin DLL was loaded. The native `open_editor_level` tool was exposed and returned a successful dry-run for `/Game/DreamscapeSeries/DreamscapeMountains/Maps/ExampleMap` with `target_exists=true`, `already_open=true`, `can_load=true`, `blocked_reasons=[]`, and `load_attempted=false`.
+
+## 2026-06-20 Forest PCG V2 BP category ordering follow-up
+
+- User requested the `00 PCG Generation` category to appear at the top of the Blueprint/actor Details parameter categories for `/Game/Cubeless/PCG/Sample/ForestSet/BP_PCG_ForestSplineSet_V2`.
+- Investigation found that category order is controlled by `UBlueprint::CategorySorting`, not variable display priority metadata. Unreal Python cannot read or write this field because it is protected in the Python wrapper, and the current UnrealMCP command set has no category-order command.
+- Added native UnrealMCP command `set_blueprint_category_sorting` in the active project plugin source. The command puts requested categories first, preserves existing Blueprint category order, can save the Blueprint, and reports previous/current order.
+- Recovery note: an attempted `LiveCoding.CompileSync` during iteration left the previous editor session non-responsive, so the editor was restarted after user approval.
+- Verification passed: `Build.bat StylizedCubelessEditor Win64 Development -Project=C:/Git/CubelessStylized/StylizedCubeless.uproject -WaitMutex -NoLiveCoding -FromMsBuild` succeeded. The newly loaded command changed the V2 BP category order from `디폴트`, `Forest`, `None`, `00 PCG Generation` to `00 PCG Generation`, `디폴트`, `Forest`, `None`, saved the Blueprint, and `compile_and_validate_blueprint` reported `validation_pass=true`, `compile_error_count=0`, and `compile_warning_count=0`.
+
 ## 2026-06-18 UnrealMCP safe new preview map command
 
 - Follow-up decision: blocking Python map transitions is not sufficient for the water-preview workflow because new temporary preview maps still need a safe MCP route.
