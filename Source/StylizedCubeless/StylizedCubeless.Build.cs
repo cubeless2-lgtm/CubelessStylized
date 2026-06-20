@@ -12,7 +12,8 @@ public class StylizedCubeless : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"InputCore",
-			"Niagara"
+			"Niagara",
+			"PCG"
 		});
 	}
 }
