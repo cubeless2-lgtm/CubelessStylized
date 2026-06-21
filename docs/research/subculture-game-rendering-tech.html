@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>서브컬쳐 게임 렌더링·리깅·파이프라인 기술 리서치</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel2: #1d2129;
+    --border: #2a2f3a;
+    --text: #e6e8ec;
+    --muted: #9aa3b2;
+    --accent: #7aa2f7;
+    --accent2: #bb9af7;
+    --good: #9ece6a;
+    --bad: #f7768e;
+    --warn: #e0af68;
+    --code-bg: #11141a;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+    line-height: 1.7;
+    font-size: 16px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px 96px; }
+  header.hero {
+    padding: 56px 24px 40px;
+    background: linear-gradient(160deg, #1a1f2e 0%, #0f1115 100%);
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+  header.hero h1 { margin: 0 0 12px; font-size: 30px; letter-spacing: -0.5px; }
+  header.hero .sub { color: var(--muted); font-size: 15px; }
+  header.hero .tags { margin-top: 18px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .pill {
+    display: inline-block; padding: 4px 12px; border-radius: 999px;
+    background: var(--panel2); border: 1px solid var(--border);
+    font-size: 12.5px; color: var(--muted);
+  }
+  .meta-bar {
+    display: flex; gap: 24px; flex-wrap: wrap; justify-content: center;
+    margin-top: 22px; font-size: 13px; color: var(--muted);
+  }
+  .meta-bar b { color: var(--accent); }
+  nav.toc {
+    margin: 36px 0 12px; padding: 18px 22px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  }
+  nav.toc h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  .tldr {
+    margin: 28px 0; padding: 20px 24px; border-left: 4px solid var(--accent2);
+    background: var(--panel); border-radius: 0 12px 12px 0;
+  }
+  .tldr .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); font-weight: 700; }
+  .tldr p { margin: 8px 0 0; font-size: 17px; }
+  h2.sec {
+    margin: 52px 0 8px; padding-top: 16px; font-size: 23px;
+    border-top: 1px solid var(--border);
+  }
+  h2.sec .num { color: var(--accent); margin-right: 10px; }
+  h3.subsec { margin: 30px 0 10px; font-size: 18px; color: #cdd6f4; }
+  h3.subsec .star { color: var(--warn); }
+  p { margin: 10px 0; }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  code {
+    background: var(--code-bg); padding: 2px 6px; border-radius: 5px;
+    font-family: "Cascadia Code", "Consolas", monospace; font-size: 13.5px; color: #c0caf5;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto; margin: 14px 0;
+  }
+  pre code { background: none; padding: 0; font-size: 13.5px; line-height: 1.6; }
+  table {
+    width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14.5px;
+  }
+  th, td { padding: 10px 14px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { background: var(--panel2); color: var(--accent); font-weight: 600; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.015); }
+  .callout {
+    margin: 18px 0; padding: 14px 18px; border-radius: 10px; border: 1px solid;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .callout .ico { font-size: 18px; line-height: 1.4; }
+  .callout.warn { background: rgba(224,175,104,0.08); border-color: rgba(224,175,104,0.4); }
+  .callout.bad  { background: rgba(247,118,142,0.08); border-color: rgba(247,118,142,0.4); }
+  .callout.info { background: rgba(122,162,247,0.08); border-color: rgba(122,162,247,0.4); }
+  .callout .label { font-weight: 700; }
+  .callout.warn .label { color: var(--warn); }
+  .callout.bad .label { color: var(--bad); }
+  .callout.info .label { color: var(--accent); }
+  .conf { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+  .conf.high { background: rgba(158,206,106,0.15); color: var(--good); border: 1px solid rgba(158,206,106,0.4); }
+  .src { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .src a { color: var(--accent); text-decoration: none; word-break: break-all; }
+  .src a:hover { text-decoration: underline; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } nav.toc ol { columns: 1; } }
+  footer {
+    margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 13px; text-align: center;
+  }
+  .open-q li { margin: 10px 0; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>서브컬쳐 게임 렌더링·리깅·파이프라인 기술 리서치</h1>
+  <div class="sub">애니메이션 스타일(NPR) 게임의 실무 기술 디테일 — 테크니컬 아티스트 관점</div>
+  <div class="tags">
+    <span class="pill">원신 Genshin Impact</span>
+    <span class="pill">붕괴: 스타레일</span>
+    <span class="pill">젠레스 존 제로</span>
+    <span class="pill">블루 아카이브</span>
+  </div>
+  <div class="meta-bar">
+    <span>검색 갈래 <b>6</b></span>
+    <span>수집 소스 <b>22</b></span>
+    <span>추출 주장 <b>83</b></span>
+    <span>검증 <b>25</b> → 확정 <b>24</b> / 기각 <b>1</b></span>
+    <span>검증 방식 <b>3표 적대적</b></span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <nav class="toc">
+    <h3>목차</h3>
+    <ol>
+      <li><a href="#s1">렌더링·그래픽 기술</a></li>
+      <li><a href="#s1-2">SDF 페이스 섀도우</a></li>
+      <li><a href="#s1-3">외곽선 기법</a></li>
+      <li><a href="#s1-4">램프 텍스처 / 임포트 세팅</a></li>
+      <li><a href="#s2">캐릭터·리깅·애니메이션</a></li>
+      <li><a href="#s3">아트 파이프라인·제작</a></li>
+      <li><a href="#refuted">반증된 주장</a></li>
+      <li><a href="#caveats">신뢰도·커버리지 한계</a></li>
+      <li><a href="#open">못 다룬 부분</a></li>
+      <li><a href="#sources">전체 출처</a></li>
+    </ol>
+  </nav>
+
+  <div class="tldr">
+    <span class="label">한 줄 요약</span>
+    <p><b>"PBR 기반 스타일라이즈드 파이프라인 위에, 캐릭터만 별도 NPR/셀 셰이딩 레이어를 얹는다"</b> — 이게 업계 표준 구조다. 원신이 GDC 2021에서 공개한 <b>"캐릭터와 씬을 서로 다른 두 렌더 파이프라인으로 처리"</b>가 대표 레퍼런스.</p>
+  </div>
+
+  <!-- ===================== SECTION 1 ===================== -->
+  <h2 class="sec" id="s1"><span class="num">1</span>렌더링·그래픽 기술</h2>
+
+  <h3 class="subsec">1-1. 전체 구조 (원신 / GDC 2021) <span class="conf high">검증 3-0</span></h3>
+  <ul>
+    <li>전통적 셀 셰이딩이 아니라 <b>PBR 기반</b>. 단 완전한 에너지 보존은 안 하고, <b>머티리얼별 라이팅 모델을 아트 요구에 맞게 변형</b>.</li>
+    <li>캐릭터는 이 위에 NPR 레이어(커스텀 셀 라이팅 + SDF 페이스 섀도우 + 램프 음영 + 외곽선)를 얹음.</li>
+    <li>GDC 2021 슬라이드 키워드: <code>Different render pipelines for characters and scenes</code>, <code>Face dynamic lightmap</code>, <code>Artificially controlled shadow effect</code>, <code>Real-time lit environment</code>.</li>
+  </ul>
+  <div class="src">출처: miHoYo 기술디렉터 Zhenzhong Yi "From Mobile to Console" Unity 강연 · GDC 2021 'Genshin Impact: Crafting an Anime-Style Open World' (Haoyu Cai)</div>
+
+  <h3 class="subsec" id="s1-2">1-2. <span class="star">★</span> SDF 페이스 섀도우 — 가장 핵심 기법 <span class="conf high">검증 3-0</span></h3>
+  <p>얼굴은 <b>노멀 기반 N·L을 버리는 게 포인트.</b> 노멀로 하면 코·눈두덩 음영이 지저분해지기 때문.</p>
+  <p><b>런타임 로직:</b></p>
+  <pre><code>FdotL = dot(faceForward.xz, lightDir.xz)   // xz 평면(수평) 내적
+정규화: (-FdotL + 1) / 2  →  [0,1]
+비교:   step((-FdotL + 1) / 2, FaceShadowMap)   // 베이크 텍스처와 임계값 비교
+우측 광원일 때: UV 뒤집음 (1 - V)               // 좌우 대칭 처리</code></pre>
+  <ul>
+    <li>한쪽 얼굴의 <b>0~180도 광원 각도</b> 그림자 분포를 1장에 베이크. 광원이 돌면 손그림 그림자 마스크가 자동으로 따라 변함.</li>
+    <li>노멀 편집 없이 부드러운 감쇠를 얻고, 그림자 경계는 <b>램프 텍스처 컬러 블렌딩</b>으로 스타일라이즈.</li>
+  </ul>
+  <p><b>소스 제작 워크플로우 (AnimeShadingPlus 기준):</b></p>
+  <ol>
+    <li>0~180도를 <b>9단계로 쪼개 한쪽 얼굴에 9장 손그림</b> (9는 표준, 최소 2장↑, 많을수록 디테일)</li>
+    <li><code>Tools/ASP &gt; SDFGenerator</code>로 각 장을 개별 SDF 변환 → <b>Create SDFs &amp; Merge</b>로 통합 1장</li>
+    <li>머티리얼 <code>Face Shadow Map</code> 슬롯에 할당</li>
+  </ol>
+  <div class="callout info">
+    <span class="ico">ℹ</span>
+    <div><span class="label">선택 이유</span> — 프록시 노멀/DCC 수동 노멀 수정 대비 아티스트 제어성 높고 작업시간 적음. 단 이건 저자 의견이고 런타임 비용이 아니라 <b>작업 효율</b> 기준 (검증 2-1).</div>
+  </div>
+  <div class="src">출처: AnimeShadingPlus 매뉴얼 · NoiRC256/URPSimpleGenshinShaders · noirccc.net · PrimoToon</div>
+
+  <h3 class="subsec">1-5. 셀프 섀도우 처리 <span class="conf high">검증 3-0</span></h3>
+  <p>셀 셰이딩 특유의 지저분한 셀프 섀도잉을 막으려고 <b>캐릭터를 별도 섀도우 맵에 따로 렌더링</b>(URP 기본 섀도우를 넘는 별도 렌더 패스). 얼굴 그림자 제어는 바디와 분리(Face Mode).</p>
+
+  <h3 class="subsec" id="s1-3">1-3. 외곽선 (두 계열) <span class="conf high">검증 3-0</span></h3>
+  <table>
+    <thead><tr><th>방식</th><th>구현</th><th>특징</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>인버티드 헐</b><br>(오브젝트스페이스)</td>
+        <td>메시 두 번 그림 → 2패스에서 노멀 방향 팽창 + 백페이스만 그림</td>
+        <td><b>스무스 노멀 베이크</b> 옵션 필수(날카로운 엣지 외곽선 깨짐 방지). URP에선 포스트프로세스 아니라 <b>Renderer Feature</b>로</td>
+      </tr>
+      <tr>
+        <td><b>스크린스페이스</b><br>(포스트프로세스)</td>
+        <td>FXAA + 4종 엣지 검출 모드</td>
+        <td>캐릭터 전용</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="src">출처: AnimeShadingPlus · Delt06/urp-toon-shader (DELTation/Inverted Hull Outline)</div>
+
+  <h3 class="subsec" id="s1-4">1-4. 램프 텍스처 음영 — 임포트 세팅 함정 <span class="conf high">검증 3-0</span></h3>
+  <div class="callout warn">
+    <span class="ico">⚠</span>
+    <div>
+      <span class="label">실무에서 제일 자주 틀리는 부분 — 박아둘 것</span>
+      <ul style="margin:8px 0 0;">
+        <li><b>모든 램프 텍스처: Wrap Mode = Clamp</b> (Repeat 쓰면 그림자 타일링 아티팩트)</li>
+        <li><b>Specular 램프: sRGB 해제</b> (안 하면 컬러 왜곡)</li>
+        <li><b>페이스 섀도우 / 라이트맵 / 노멀맵: sRGB 해제</b> (색이 아니라 데이터니까)</li>
+        <li>PrimoToon 재현 시: <b>Color Space를 Linear로</b> 강제 (Gamma면 결과 틀어짐)</li>
+      </ul>
+    </div>
+  </div>
+  <p>톤은 <b>2~3단계 설정형 램프</b>(임계값·smoothness 조절) + 그라데이션 램프 텍스처로 구동.</p>
+  <div class="src">출처: Delt06/urp-toon-shader · PrimoToon · Roystan 툰 튜토리얼</div>
+
+  <!-- ===================== SECTION 2 ===================== -->
+  <h2 class="sec" id="s2"><span class="num">2</span>캐릭터·리깅·애니메이션</h2>
+
+  <h3 class="subsec">2-1. 스프링본 흔들림 물리 (머리카락·옷·꼬리·장식) <span class="conf high">검증 3-0</span></h3>
+  <p>VRM SpringBone(UniVRM / <code>VRMC_springBone</code>)이 표준 참조. <b>Verlet 적분</b> 기반 — 속도를 저장 안 하고 <code>prevTail</code>/<code>currentTail</code> 위치만 추적:</p>
+  <pre><code>nextTail = currentTail + inertia + stiffness + external
+  inertia   = (currentTail - prevTail) * (1.0 - dragForce)   // 관성
+  stiffness = rest 방향 복원력 (stiffnessForce)               // 강성
+  external  = gravityDir * gravityPower                       // 중력/외력
+→ 본 rest 길이로 length-constrain (길이 구속)
+→ sphere/capsule 콜라이더 충돌 처리</code></pre>
+  <p><b>조인트별 파라미터:</b> <code>stiffnessForce</code>(복원력), <code>dragForce</code>(0~1 감쇠), <code>gravityPower</code>, <code>gravityDir</code>(기본 <code>(0,-1,0)</code>), <code>hitRadius</code>(충돌 반경).</p>
+  <div class="callout warn">
+    <span class="ico">⚠</span>
+    <div><span class="label">주의</span> — 이건 VTuber/아바타용 범용 OSS 표준이다. Verlet + 관성/강성/중력 3성분은 업계 보편 패턴이라 실무 참조론 유효하지만, <b>원신/블루아카이브가 정확히 이 구현을 쓴다는 직접 증거는 없다.</b> 개념적 표준으로 받아들일 것.</div>
+  </div>
+  <div class="src">출처: vrm-c/vrm-specification (VRMC_springBone-1.0) · UniVRM VRMSpringBone.cs · vrm.dev · DeepWiki</div>
+
+  <!-- ===================== SECTION 3 ===================== -->
+  <h2 class="sec" id="s3"><span class="num">3</span>아트 파이프라인·제작</h2>
+
+  <h3 class="subsec">3-1. 블루 아카이브 3D 배경 — 생산성 사례 (NDC 2025) <span class="conf high">검증 3-0</span></h3>
+  <ul>
+    <li><b>"2.5명"</b>(2명 시작 → 출시 시 3명)으로 약 2년 만에 배경 완성. (발표자: 3D 배경팀장 최진우)</li>
+    <li><b>Substance Designer 노드 기반 재사용 텍스처 시스템</b>이 핵심. 예: 적합한 이미지를 넣으면 아스팔트 음각 패턴이 자동 생성.</li>
+    <li>전면 적용이 아니라 <b>전략적으로</b> 적용해 생산성↑.</li>
+  </ul>
+  <div class="src">출처: thisisgame · gamevu 등 6개 매체 교차검증 (인원수만 출처 간 2~3명 미세 차이)</div>
+
+  <!-- ===================== REFUTED ===================== -->
+  <h2 class="sec" id="refuted"><span class="num">✕</span>반증된 주장</h2>
+  <div class="callout bad">
+    <span class="ico">✕</span>
+    <div>
+      <span class="label">믿지 말 것 — 0-3 기각</span><br>
+      <b>"Unlit 셰이더가 가장 저렴하고 툰 게임에 권장된다"</b> → 모바일 NPR 최적화를 단순히 Unlit로 일반화하지 말 것. (Unity 공식 최적화 가이드 기준 반박됨)
+    </div>
+  </div>
+
+  <!-- ===================== CAVEATS ===================== -->
+  <h2 class="sec" id="caveats"><span class="num">!</span>신뢰도·커버리지 한계 (솔직하게)</h2>
+  <ul>
+    <li><b>출처 품질 편차:</b> 페이스 SDF·외곽선·램프 디테일 상당수는 <b>커뮤니티 재현 프로젝트</b>(PrimoToon=원신 데이터마이닝 재현, NoiRC256, AnimeShadingPlus)와 개인 블로그 근거. 기법 자체는 다수 소스로 교차검증됐지만 <b>HoYoverse 공식 셰이더 코드 1:1 증거는 아님.</b> 공식 1차 자료는 GDC 2021 발표(슬라이드 키워드 수준)와 miHoYo Unity 강연뿐.</li>
+    <li><b>타이틀 편중:</b> 원신/GDC 2021 중심이라 <b>ZZZ·붕괴:스타레일의 셰이더별 디테일은 일반화 추론</b>에 가까움.</li>
+    <li><b>블루 아카이브:</b> '2.5명' 사례는 6개 매체로 교차검증되나 출시 시점 인원(2명 vs 3명)이 출처 간 미세하게 엇갈림.</li>
+  </ul>
+
+  <!-- ===================== OPEN QUESTIONS ===================== -->
+  <h2 class="sec" id="open"><span class="num">?</span>못 다룬 부분 (검증 통과 claim 없음 → 다음 리서치 후보)</h2>
+  <ol class="open-q">
+    <li><b>젠레스/스타레일 고유 NPR</b> — ZZZ의 만화풍 스크린톤·하프톤·잉크 외곽선 공식 자료</li>
+    <li><b>헤어/피부/눈 전용 셰이더</b> — 애니소트로픽 헤어 하이라이트, SSS 피부, 패럴랙스 아이 + 림라이트</li>
+    <li><b>Live2D vs 3D</b> 페이셜 리깅·룩앳·립싱크 파이프라인 차이와 구체 툴 체인</li>
+    <li><b>후처리(블룸/톤매핑) + 모바일 GPU 최적화 수치</b> 포함 공식 자료</li>
+  </ol>
+
+  <!-- ===================== SOURCES ===================== -->
+  <h2 class="sec" id="sources"><span class="num">⛓</span>전체 출처</h2>
+  <table>
+    <thead><tr><th>품질</th><th>출처</th><th>갈래</th></tr></thead>
+    <tbody>
+      <tr><td>primary</td><td><a href="https://www.slideshare.net/slideshow/210617-unity-dojo20211mihoyozhenzhongyi/249437133">miHoYo Zhenzhong Yi — Unity Dojo 강연</a></td><td>NPR 코어 렌더링</td></tr>
+      <tr><td>secondary</td><td><a href="https://mihoyo.fandom.com/wiki/Game_Developers_Conference_2021">GDC 2021 발표 정리 (miHoYo wiki)</a></td><td>NPR / 페이스</td></tr>
+      <tr><td>primary</td><td><a href="https://github.com/festivities/PrimoToon">PrimoToon (원신 NPR 재현 셰이더)</a></td><td>NPR / 램프</td></tr>
+      <tr><td>secondary</td><td><a href="https://github.com/NoiRC256/URPSimpleGenshinShaders">NoiRC256/URPSimpleGenshinShaders</a></td><td>SDF 페이스 셰도우</td></tr>
+      <tr><td>blog</td><td><a href="https://noirccc.net/blog/posts/54">noirccc.net — SDF lightmap 해설</a></td><td>SDF 페이스 셰도우</td></tr>
+      <tr><td>primary</td><td><a href="https://github.com/EricHu33/AnimeShadingPlus-Anime-Toon-Shader">AnimeShadingPlus (ASP) — 매뉴얼/툴</a></td><td>SDF / 외곽선 / 셰도우</td></tr>
+      <tr><td>blog</td><td><a href="https://medium.com/@Donkey/ue5-anime-face-shading-d38ba298ffdf">UE5 Anime Face Shading</a></td><td>SDF 페이스 셰도우</td></tr>
+      <tr><td>primary</td><td><a href="https://github.com/Delt06/urp-toon-shader">Delt06/urp-toon-shader (인버티드 헐 / 램프)</a></td><td>외곽선 / 램프</td></tr>
+      <tr><td>primary</td><td><a href="https://gdcvault.com/play/1035480/-Honkai-Star-Rail-Reimagining">GDC — Honkai: Star Rail</a></td><td>HoYoverse 공식</td></tr>
+      <tr><td>secondary</td><td><a href="https://deepwiki.com/vrm-c/UniVRM/4-springbone-physics-system">UniVRM SpringBone 물리 시스템</a></td><td>스프링본</td></tr>
+      <tr><td>secondary</td><td><a href="https://www.thisisgame.com/webzine/news/nboard/263/?n=214678">thisisgame — 블루 아카이브 3D 배경 2.5명</a></td><td>아트 파이프라인</td></tr>
+      <tr><td>secondary</td><td><a href="https://gamevu.co.kr/articleView.html?idxno=41698">gamevu — 블루 아카이브 배경 제작</a></td><td>아트 파이프라인</td></tr>
+      <tr><td>primary</td><td><a href="https://unity.com/how-to/mobile-game-optimization-tips-part-2">Unity 모바일 최적화 가이드</a></td><td>모바일 NPR</td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    deep-research 하네스로 생성 · 6갈래 병렬 검색 → 22 소스 페치 → 83 주장 추출 → 25 적대적 검증(3표 중 2표 반박 시 기각) → 종합<br>
+    레퍼런스: 원신 / 붕괴:스타레일 / 젠레스 존 제로 / 블루 아카이브 · TA 실무 적용 관점 정리
+  </footer>
+
+</div>
+</body>
+</html>
