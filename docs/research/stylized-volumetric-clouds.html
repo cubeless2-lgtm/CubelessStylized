@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스타일라이즈 볼류메트릭 클라우드 렌더링 리서치 — UE5 타깃</title>
+<style>
+  :root{
+    --bg:#0f1217; --panel:#161b22; --panel2:#1c232d; --ink:#e6edf3; --muted:#9aa7b4;
+    --line:#2a3340; --accent:#7cc7ff; --accent2:#ffd27c; --good:#5fd28a; --warn:#ffb454; --bad:#ff7a85;
+    --chip:#22303f;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI",Pretendard,"Apple SD Gothic Neo",system-ui,sans-serif;
+    line-height:1.65;font-size:16px}
+  .wrap{max-width:1100px;margin:0 auto;padding:32px 24px 96px}
+  header.hero{padding:40px 32px;border-radius:18px;
+    background:radial-gradient(1200px 400px at 20% -10%,#1d3a5c33,transparent),
+               linear-gradient(135deg,#141b26,#0f1217);
+    border:1px solid var(--line);margin-bottom:28px}
+  header.hero h1{margin:0 0 8px;font-size:30px;letter-spacing:-0.5px}
+  header.hero p{margin:4px 0;color:var(--muted)}
+  .tag{display:inline-block;background:var(--chip);color:var(--accent);
+    border-radius:999px;padding:3px 12px;font-size:12.5px;margin:6px 6px 0 0;border:1px solid #2e3f50}
+  nav.toc{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin-bottom:28px}
+  nav.toc h2{margin:0 0 10px;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+  nav.toc ol{margin:0;padding-left:20px;columns:2;column-gap:32px}
+  nav.toc a{color:var(--ink);text-decoration:none}
+  nav.toc a:hover{color:var(--accent)}
+  section{margin:36px 0;scroll-margin-top:20px}
+  h2.sec{font-size:22px;border-left:4px solid var(--accent);padding-left:12px;margin:0 0 16px}
+  h3{font-size:18px;color:var(--accent2);margin:24px 0 8px}
+  p,li{color:#d6dee7}
+  .lead{color:var(--muted)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14.5px;background:var(--panel);border-radius:10px;overflow:hidden}
+  th,td{border:1px solid var(--line);padding:10px 12px;vertical-align:top;text-align:left}
+  th{background:var(--panel2);color:var(--ink);font-weight:600}
+  td .pro{color:var(--good)} td .con{color:var(--bad)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:14px 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+  .badge{display:inline-block;font-size:11.5px;padding:2px 9px;border-radius:6px;font-weight:600;letter-spacing:.3px}
+  .b-verified{background:#11331f;color:var(--good);border:1px solid #1d5234}
+  .b-cited{background:#33260f;color:var(--warn);border:1px solid #5a431a}
+  .b-domain{background:#1a2733;color:var(--accent);border:1px solid #294056}
+  blockquote{margin:10px 0;padding:10px 16px;border-left:3px solid #3a4a5c;background:#131922;color:var(--muted);font-size:14px;border-radius:0 8px 8px 0}
+  code{background:#0c1117;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:13px;color:#ffd9a8;font-family:"Cascadia Code",Consolas,monospace}
+  pre{background:#0b0f14;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.5}
+  pre code{background:none;border:none;padding:0;color:#cfe6ff}
+  ul.links{list-style:none;padding:0}
+  ul.links li{padding:8px 0;border-bottom:1px dashed var(--line)}
+  ul.links a{color:var(--accent);text-decoration:none;font-weight:600}
+  ul.links a:hover{text-decoration:underline}
+  ul.links .q{font-size:12px;margin-left:8px;color:var(--muted)}
+  .q-primary{color:var(--good)} .q-blog{color:var(--accent2)} .q-forum{color:var(--warn)} .q-secondary{color:#9ec5ff}
+  .rec{background:linear-gradient(135deg,#15251c,#101814);border:1px solid #1f4030}
+  .note{font-size:13px;color:var(--muted)}
+  .pill{font-size:12px;color:var(--muted)}
+  hr{border:none;border-top:1px solid var(--line);margin:28px 0}
+  .star{color:var(--accent2)}
+  footer{margin-top:48px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>스타일라이즈 / 서브컬쳐 볼류메트릭 클라우드 렌더링 리서치</h1>
+  <p>최종 구현 타깃: <strong>Unreal Engine 5 (PC / 콘솔 풀퀄리티)</strong></p>
+  <p class="lead">진짜 볼류메트릭 레이마칭 · 카드/빌보드 셀 구름 · 하이브리드 반볼류메트릭 · 표면 셰이딩 기법 비교 + 큐레이션 레퍼런스</p>
+  <div>
+    <span class="tag">Nubis / Decima</span>
+    <span class="tag">UE5 Volumetric Cloud</span>
+    <span class="tag">Genshin / Honkai 셰이더</span>
+    <span class="tag">Ghibli NPR</span>
+    <span class="tag">Cel / Ramp / Rim</span>
+  </div>
+  <p class="note" style="margin-top:16px">
+    범례 —
+    <span class="badge b-verified">검증됨</span> 다수결 교차검증 통과(2~3표),
+    <span class="badge b-cited">출처확보·미검증</span> 출처는 확보했으나 세션 리밋으로 검증 기권,
+    <span class="badge b-domain">도메인 지식</span> TA 일반 지식 기반 보강.
+  </p>
+</header>
+
+<nav class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#tldr">결론 먼저 (TL;DR)</a></li>
+    <li><a href="#compare">기법 4종 비교표</a></li>
+    <li><a href="#vol">1. 진짜 볼류메트릭 레이마칭</a></li>
+    <li><a href="#card">2. 카드 / 빌보드 셀 구름</a></li>
+    <li><a href="#hybrid">3. 하이브리드 (UDS류 + RGBA 패킹)</a></li>
+    <li><a href="#surface">4. 표면 셰이딩 기법</a></li>
+    <li><a href="#ue">5. UE5 구현 접근법</a></li>
+    <li><a href="#recipe">6. Cubeless 추천 레시피</a></li>
+    <li><a href="#refs">7. 큐레이션 레퍼런스</a></li>
+  </ol>
+</nav>
+
+<section id="tldr">
+  <h2 class="sec">결론 먼저 (TL;DR)</h2>
+  <div class="card rec">
+    <p><strong>스타일라이즈 애니풍 + PC/콘솔 풀퀄</strong>이라면, 순수 사실주의 레이마칭(Nubis식)을 그대로 쓰는 건 과한 비용이야. 핵심은 <em>"볼륨의 실루엣/시차감은 살리되, 라이팅은 셀/램프로 단순화"</em>하는 하이브리드다.</p>
+    <ul>
+      <li><span class="star">★ 1순위</span> — <strong>UE5 Volumetric Cloud 컴포넌트 + 커스텀 머티리얼</strong>. 라이트 적분 단계를 표준 Beer/HG 대신 <strong>램프 LUT·포스터라이즈</strong>로 갈아끼워 셀 구름화. 풀퀄 환경에서 실루엣과 라이트 시프트를 공짜로 얻으면서 아트 방향만 비튼다.</li>
+      <li><span class="star">★ 2순위</span> — <strong>지브리/카드 룩</strong>이 목표면 스카이돔/빌보드 + 셀 그라데이션 램프 셰이더. 가장 싸고 가장 "그림" 같다. 시차감·통과비행은 포기.</li>
+      <li><span class="star">★ 보조</span> — Ultra Dynamic Sky를 베이스로 깔고 그 위 머티리얼만 스타일라이즈하면 시간대/날씨 시스템을 통째로 재활용 가능.</li>
+    </ul>
+    <p class="note">근거: Nubis 자체가 PS4에서 <strong>~2ms</strong>까지 최적화된 사례 <span class="badge b-verified">검증됨</span>이고, UE5 Volumetric Cloud 머티리얼은 <strong>2개 위상함수 블렌드 + 채널별 노이즈 패킹</strong> 구조라 셀화 진입점이 명확함 <span class="badge b-verified">검증됨</span>.</p>
+  </div>
+</section>
+
+<section id="compare">
+  <h2 class="sec">기법 4종 비교표</h2>
+  <table>
+    <thead><tr>
+      <th>기법</th><th>장점</th><th>단점 / 비용</th><th>스타일 적합도</th><th>UE5 진입점</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>① 진짜 볼류메트릭<br>레이마칭</strong></td>
+        <td class="pro">실제 3D 부피·시차·통과비행·셀프섀도우. 모든 각도에서 일관.</td>
+        <td class="con">레이마칭 비용 큼(54~96 step). 셀룩으로 비틀려면 라이팅 커스텀 필수. 노이즈 텍스처 오쏘링 난이도.</td>
+        <td>사실풍↔준스타일. 애니 "그림" 룩엔 노력 多.</td>
+        <td>Volumetric Cloud 컴포넌트 + 커스텀 머티리얼 / Custom HLSL</td>
+      </tr>
+      <tr>
+        <td><strong>② 카드 / 빌보드<br>셀 구름</strong></td>
+        <td class="pro">가장 저렴. "손그림" 룩 최강. 셀 그림자·테두리 풀컨트롤.</td>
+        <td class="con">시차/통과비행 불가. 카메라 이동 시 평면감·정렬 깨짐. 구도 의존.</td>
+        <td><strong>지브리·애니 배경 최고</strong>. 서브컬쳐 정석.</td>
+        <td>Unlit/Default 머티리얼 + 램프 텍스처, 스카이돔/스프라이트</td>
+      </tr>
+      <tr>
+        <td><strong>③ 하이브리드<br>(반볼류·UDS류)</strong></td>
+        <td class="pro">비용↔품질 균형. 시간대/날씨 시스템 재활용. 가짜 시차로 입체감.</td>
+        <td class="con">근접/통과비행 약점. "진짜 부피"는 아님. 룩 한계 존재.</td>
+        <td>넓은 야외 + 스타일라이즈 무난. 절충점.</td>
+        <td>Ultra Dynamic Sky + 스카이 머티리얼 오버라이드</td>
+      </tr>
+      <tr>
+        <td><strong>④ 표면 셰이딩<br>(셀/램프/림)</strong></td>
+        <td class="pro">①②③ 어디에나 얹는 "룩 레이어". 통일된 아트 디렉션.</td>
+        <td class="con">단독으로 구름 형태를 만들지 못함. 항상 형상 기법과 결합.</td>
+        <td>전 기법 공통 마감 도구.</td>
+        <td>램프 LUT, Posterize, Fresnel(림), 컬러그레이딩 노드</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="note">실무에선 보통 <strong>①·②·③ 중 하나(형상) + ④(룩)</strong>를 조합한다. ④는 독립 기법이 아니라 마감 레이어로 보는 게 맞아.</p>
+</section>
+
+<section id="vol">
+  <h2 class="sec">1. 진짜 볼류메트릭 레이마칭 클라우드</h2>
+  <p class="lead">3D 노이즈로 밀도장을 만들고, 카메라 레이를 따라 행진(raymarch)하며 밀도 적분 + 라이트 방향 샘플로 음영을 누적하는 방식. 업계 레퍼런스의 사실상 표준은 Guerrilla의 <strong>Nubis</strong>(Decima 엔진, Horizon 시리즈).</p>
+
+  <h3>Nubis 핵심 기법 <span class="badge b-verified">검증됨</span></h3>
+  <div class="card">
+    <ul>
+      <li><strong>Perlin-Worley 합성 노이즈</strong> — Perlin과 반전 Worley를 곱(multiply)이 아니라 <em>remap</em>으로 합성해 저밀도 영역에 둥근 구름 베이스를 부여. 곱하면 코어 밀도가 날아가므로 remap을 씀.
+        <pre><code>perlin-worley = remap(perlin, 1.0 - worley, 1.0, 0.0, 1.0)</code></pre></li>
+      <li><strong>라이팅 = Beer-Lambert + Henyey-Greenstein</strong> — 감쇠는 Beer-Lambert, 전방산란 방향성은 HG. Nubis는 <em>HG 로브 2개를 <code>max()</code>로 결합</em>하고 Beer 함수 2개를 써서 다중 내부산란을 근사.</li>
+      <li><strong>적응형 레이마칭</strong> — 시선 방향에 따라 <strong>54~96 step</strong>. 저주파 노이즈에선 크고 싼 스텝, 밀도가 잡히면 짧고 정밀한 풀 샘플. 라이팅은 라이트 정렬 콘에서 <strong>5개 밀도 샘플</strong>, 샘플마다 LOD를 낮춤.</li>
+    </ul>
+  </div>
+
+  <h3>성능 — "비싸다"는 편견을 깨는 최적화 단계 <span class="badge b-verified">검증됨</span></h3>
+  <table>
+    <thead><tr><th>최적화 단계 (Standard PS4)</th><th>렌더 시간</th></tr></thead>
+    <tbody>
+      <tr><td>미최적화 셰이더</td><td>22 ms</td></tr>
+      <tr><td>+ 적응형 스텝 / LODing</td><td>8.1 ms</td></tr>
+      <tr><td>+ 구름 내부에서만 라이트 샘플</td><td>3.34 ms</td></tr>
+      <tr><td>+ 오클루전 인지 레이마칭 시작점</td><td>1.2 ms</td></tr>
+      <tr><td>+ 리프로젝션(temporal) → 최종 프레임 예산</td><td>~2 ms</td></tr>
+    </tbody>
+  </table>
+  <p class="note">즉 콘솔 풀퀄 예산(~2ms)에서 실시간 볼류메트릭은 충분히 viable. 2015 프로토타입이 이미 PS4에서 다양한 구름·조명 조건을 2ms 미만에 렌더 <span class="badge b-verified">검증됨</span>. 2023년엔 2.5D→복셀 기반으로 전환, 압축 SDF로 레이마칭 가속 <span class="badge b-verified">검증됨</span>.</p>
+
+  <h3>스타일라이즈하게 비트는 법 <span class="badge b-domain">도메인 지식</span></h3>
+  <ul>
+    <li><strong>라이트 적분을 램프 LUT로 치환</strong> — Beer-Lambert의 연속 감쇠값을 1D 램프 텍스처로 인덱싱해 2~3단계로 양자화. 곧바로 셀 구름 음영이 나온다.</li>
+    <li><strong>Posterize(계단화)</strong> — 최종 밀도/광량을 <code>floor(x * N)/N</code>로 밴딩. 애니풍 "면 분할" 룩.</li>
+    <li><strong>다크 엣지 / 인너 글로우</strong> — Nubis의 저비용 근사 기법을 과장해 테두리 진하게, 내부 밝게 → 일러스트 구름 느낌.</li>
+    <li><strong>실루엣 단순화</strong> — 디테일 노이즈 기여도를 낮추고 베이스 형태 위주로. 고주파를 죽일수록 "그림" 같아진다.</li>
+  </ul>
+</section>
+
+<section id="card">
+  <h2 class="sec">2. 카드 / 빌보드 스타일라이즈 클라우드</h2>
+  <p class="lead">구름을 3D 부피가 아니라 평면(스카이돔 텍스처, 빌보드 스프라이트, 패럴랙스 레이어)으로 그리고, 셀 그림자·램프로 칠하는 방식. 지브리·원신·붕괴 등 서브컬쳐 정석 룩.</p>
+
+  <h3>서브컬쳐 게임 셰이더 특징 <span class="badge b-cited">출처확보·미검증</span> <span class="badge b-domain">도메인 지식</span></h3>
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">Genshin Impact 계열</h3>
+      <p>하늘은 그라데이션 램프 + 큰 면 단위 셀 구름. 캐릭터 셰이더의 램프/림 기법이 환경에도 일관 적용. 셰이더 재현 분석이 다수 공개됨(80.lv, bjayers 블로그).</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Ghibli / 손그림 룩</h3>
+      <p>붓터치 텍스처 + 단순 2~3톤 음영. UE5 NPR 셰이더로 재현 사례 존재(80.lv Ghibli-style shader). 디테일보다 색·실루엣·면 분할.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Honkai 계열</h3>
+      <p>채도 높은 색 그레이딩 + 부드러운 셀 경계(스무스 스텝). 시간대별 색 팔레트 전환을 적극 활용.</p>
+    </div>
+  </div>
+
+  <h3>장단점 정리</h3>
+  <table>
+    <thead><tr><th>항목</th><th>평가</th></tr></thead>
+    <tbody>
+      <tr><td>비용</td><td class="pro">최저. 텍스처 샘플 + 머티리얼 수식 몇 개.</td></tr>
+      <tr><td>룩</td><td class="pro">"그림" 재현력 최강. 아트 디렉션 100% 통제.</td></tr>
+      <tr><td>시차/통과비행</td><td class="con">불가. 패럴랙스 레이어로 가짜 깊이만.</td></tr>
+      <tr><td>카메라 자유도</td><td class="con">올려다보는 구도 위주. 구름 사이 비행 불가.</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Cubeless가 <em>탑다운/측면/고정 구도 위주</em>라면 이게 가성비 최고. 자유 비행/근접이 있으면 ③ 하이브리드로.</p>
+</section>
+
+<section id="hybrid">
+  <h2 class="sec">3. 하이브리드 (Ultra Dynamic Sky류 + RGBA 패킹)</h2>
+  <p class="lead">카드의 저비용과 볼류메트릭의 입체감 사이 절충. UDS 같은 패키지는 여러 구름 모드(볼류메트릭/스태틱/2D 다이내믹/복셀)를 한 시스템에 묶어 성능·룩 티어를 제공한다고 알려짐 <span class="badge b-cited">출처확보·미검증</span>.</p>
+
+  <h3>RGBA 채널 패킹 패턴 <span class="badge b-verified">검증됨(원리)</span></h3>
+  <p>볼류메트릭/하이브리드 공통으로 노이즈를 <strong>채널별로 패킹</strong>해 한 번의 샘플로 여러 정보를 읽는다. UE5 Volumetric Cloud 머티리얼도 채널별 노이즈 패킹 + 채널별 Noise 컨트롤 구조 <span class="badge b-cited">출처확보·미검증</span>. Nubis의 전형적 2D 클라우드맵 패킹은:</p>
+  <table>
+    <thead><tr><th>채널</th><th>역할 (전형 패턴)</th></tr></thead>
+    <tbody>
+      <tr><td>R</td><td>Perlin 노이즈 — 연결된 구름 덩어리</td></tr>
+      <tr><td>G</td><td>Perlin-Worley — 고립된 섬 형태</td></tr>
+      <tr><td>B</td><td>저주파 노이즈 — 구름 타입(0 stratus / 0.5 stratocumulus / 1 cumulus)</td></tr>
+      <tr><td>A</td><td>커버리지 / 높이 / 밀도 마스크 (구현별)</td></tr>
+    </tbody>
+  </table>
+  <p class="note">위 채널 의미는 Nubis 발표 자료 기반 일반 패턴 <span class="badge b-cited">출처확보·미검증</span>. 실제 패킹은 프로젝트 요구에 맞춰 의미를 먼저 정의하고 임포트해야 함(프로젝트 룰과 일치).</p>
+
+  <h3>UDS 베이스 + 스타일라이즈 전략 <span class="badge b-domain">도메인 지식</span></h3>
+  <ul>
+    <li>UDS의 시간대/날씨/문라이트 시스템은 그대로 두고 <strong>구름 머티리얼만 오버라이드</strong>해 램프·포스터라이즈 적용.</li>
+    <li>2D 다이내믹 모드는 스카이스피어 머티리얼 효과(가짜 시차) → 가장 싸게 움직이는 구름.</li>
+    <li>볼류메트릭 모드는 풀퀄 컷신용, 2D/스태틱은 게임플레이용으로 LOD 스위칭.</li>
+  </ul>
+</section>
+
+<section id="surface">
+  <h2 class="sec">4. 표면 셰이딩 기법 (룩 레이어)</h2>
+  <p class="lead">형상 기법 위에 얹는 마감. 셀/램프, 림라이트, 컬러그레이딩, 포스터라이즈, 노멀 기반 음영. 독립 구름 기법이 아니라 ①②③ 공통 도구.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">셀 / 그라데이션 램프</h3>
+      <p>연속 N·L(또는 밀도/광량)을 1D 램프 텍스처로 인덱싱해 단계화. 상용 셀 셰이더(Flatkit, Quibli)는 None/Single/Steps/Curve 같은 모드와 R8 램프 텍스처를 사용한다고 알려짐 <span class="badge b-cited">출처확보·미검증</span>.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">림라이트</h3>
+      <p>Fresnel(<code>1 - N·V</code>)로 테두리 발광. 구름 실루엣을 광원 방향으로 밝혀 "빛 머금은 가장자리". 역광 구름의 핵심.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">포스터라이즈</h3>
+      <p><code>floor(x*N)/N</code>로 색/광량 밴딩. 애니 면분할. 램프와 병용하면 깔끔한 계단 음영.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">컬러 그레이딩</h3>
+      <p>시간대별 팔레트(아침/노을/밤)를 램프 색으로 직접 지정. 사실 라이팅 대신 <em>아트가 고른 색</em>으로 분위기 제어.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">노멀 기반 음영</h3>
+      <p>카드 구름엔 가짜 노멀맵으로 면 음영을, 볼류메트릭엔 그래디언트 기반 의사 노멀로 셀 경계 생성.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ue">
+  <h2 class="sec">5. Unreal Engine 5 구현 접근법</h2>
+
+  <h3>A. Volumetric Cloud 컴포넌트 + 셀화 머티리얼 (추천) <span class="badge b-verified">검증됨(구조)</span></h3>
+  <p>UE5의 Volumetric Cloud 머티리얼은 <strong>위상함수 2개를 Phase Blend로 블렌드</strong>(0=Phase A, 1=Phase B, 방향성 파라미터 -1~1)하고, multiscatter(intensity/occlusion/eccentricity, 0~1)와 채널별 노이즈 컨트롤을 노출한다 <span class="badge b-verified">검증됨</span> / <span class="badge b-cited">일부 미검증</span>.</p>
+  <ul>
+    <li>네이티브 노드로 의미(좌표, 노이즈 샘플, 커버리지, 파라미터)를 유지하고, <strong>라이트 응답 곡선만 램프 LUT/Posterize로 교체</strong> → 셀 구름.</li>
+    <li>어려운 수식 섬(노이즈 해시, remap, HG)은 작은 <code>Custom</code> HLSL 노드로 격리(프로젝트의 하이브리드 머티리얼 원칙과 일치).</li>
+    <li>compile_error_count=0 확인 후 저장, Custom 노드 수·연결 입력 검증.</li>
+  </ul>
+
+  <h3>B. Custom HLSL 풀 레이마처</h3>
+  <p>네이티브로 부족할 때 SceneCapture/포스트프로세스에 레이마칭 HLSL을 직접 작성. 모바일 대응 사례(저해상 렌더타깃 320×180 업스케일, 64 density/2 light step로 구형 모바일 60fps)도 보고됨 <span class="badge b-cited">출처확보·미검증</span>. PC/콘솔 풀퀄에선 굳이 모바일 트릭 불필요.</p>
+
+  <h3>C. 카드 / 스카이돔 머티리얼</h3>
+  <p>Unlit/Default 머티리얼 + 램프 텍스처 + 패럴랙스 UV. 가장 단순하고 룩 통제 최강. 지브리 NPR 셰이더가 이 경로.</p>
+
+  <pre><code>// 셀 구름화 핵심 의사코드 (라이트 적분 치환)
+float density = SampleCloudDensity(p);          // 네이티브 노이즈 패킹 샘플
+float light   = BeerLambert(opticalDepth);      // 표준 감쇠
+// --- 스타일라이즈 치환 ---
+float celLit  = Texture2DSample(RampLUT, light).r;   // 1D 램프로 양자화
+celLit        = floor(celLit * Steps) / Steps;       // 포스터라이즈
+float rim     = pow(1.0 - saturate(NdotV), RimPow);  // 림라이트
+float3 col    = lerp(ShadowColor, LitColor, celLit) + rim * RimColor;</code></pre>
+
+  <p class="note">맵 전환은 프로젝트 룰대로 Python <code>load_map</code> 금지, 네이티브 <code>open_editor_level</code>/<code>safe_new_preview_map</code> 사용. 머티리얼 작업은 MCP로 노드 나열→컴파일 검증→저장 순.</p>
+</section>
+
+<section id="recipe">
+  <h2 class="sec">6. Cubeless 추천 레시피</h2>
+  <div class="card rec">
+    <h3 style="margin-top:0">단계별 권장 경로</h3>
+    <ol>
+      <li><strong>룩 프로토타입</strong> — 스카이돔 카드 구름 + 램프/포스터라이즈/림으로 목표 룩을 먼저 확정(가장 싸게 아트 디렉션 락).</li>
+      <li><strong>입체감 필요 판단</strong> — 카메라가 구름에 가까워지거나 통과/시차가 필요하면 UE5 Volumetric Cloud로 승격.</li>
+      <li><strong>셀화 머티리얼</strong> — Volumetric Cloud 머티리얼의 Phase/멀티스캐터를 단순화하고 라이트 응답을 램프 LUT로 교체. 1번에서 확정한 팔레트 재사용.</li>
+      <li><strong>성능 패스</strong> — 적응형 스텝/리프로젝션로 콘솔 ~2ms 타깃. 게임플레이는 LOD 다운(2D), 컷신은 풀 볼류메트릭.</li>
+      <li><strong>날씨/시간대</strong> — 필요하면 UDS를 베이스로 깔고 구름 머티리얼만 오버라이드해 시스템 재활용.</li>
+    </ol>
+    <p>요약: <strong>"카드로 룩 잡고 → 필요한 곳만 볼류메트릭으로, 라이팅은 끝까지 램프/포스터라이즈로 셀화"</strong>. 이게 서브컬쳐 풀퀄의 현실적 황금경로야.</p>
+  </div>
+</section>
+
+<section id="refs">
+  <h2 class="sec">7. 큐레이션 레퍼런스</h2>
+
+  <h3>① 볼류메트릭 / Nubis (1차 자료)</h3>
+  <ul class="links">
+    <li><a href="https://advances.realtimerendering.com/s2017/Nubis%20-%20Authoring%20Realtime%20Volumetric%20Cloudscapes%20with%20the%20Decima%20Engine%20-%20Final%20.pdf" target="_blank">Nubis: Authoring Realtime Volumetric Cloudscapes with the Decima Engine (SIGGRAPH 2017)</a><span class="q q-primary">★ 1차 · 핵심 5클레임 출처</span></li>
+    <li><a href="https://www.schneidervfx.com/" target="_blank">Andrew Schneider (Nubis 개발자) 포트폴리오 · 기법 연혁</a><span class="q q-primary">★ 1차</span></li>
+  </ul>
+
+  <h3>② UE5 공식 / 구현</h3>
+  <ul class="links">
+    <li><a href="https://dev.epicgames.com/documentation/en-us/unreal-engine/volumetric-cloud-material-in-unreal-engine" target="_blank">UE5 공식: Volumetric Cloud Material</a><span class="q q-primary">★ 1차 · Phase/노이즈/멀티스캐터 구조</span></li>
+    <li><a href="https://80.lv/articles/creating-volumetric-clouds-for-mobile-in-unreal-engine-5" target="_blank">80.lv: Creating Volumetric Clouds for Mobile in UE5 (커스텀 레이마처)</a><span class="q q-secondary">2차</span></li>
+    <li><a href="https://www.strayspark.studio/blog/stylized-rendering-ue5-non-photorealistic" target="_blank">Strayspark: Stylized / NPR Rendering in UE5</a><span class="q q-blog">블로그</span></li>
+    <li><a href="https://forums.unrealengine.com/t/toon-shading-models-stylized-rendering-experiments/218895" target="_blank">UE 포럼: Toon Shading Models & Stylized Rendering Experiments</a><span class="q q-forum">포럼</span></li>
+  </ul>
+
+  <h3>③ 서브컬쳐 / 셀 셰이더 (Genshin · Ghibli)</h3>
+  <ul class="links">
+    <li><a href="https://80.lv/articles/breakdown-setting-up-a-genshin-impact-style-shader-in-unreal-engine-5" target="_blank">80.lv: Genshin Impact Style Shader in UE5 (브레이크다운)</a><span class="q q-blog">블로그</span></li>
+    <li><a href="https://bjayers.com/blog/9oOD/blender-npr-recreating-the-genshin-impact-shader" target="_blank">bjayers: Recreating the Genshin Impact Shader (Blender NPR, 이식 참고)</a><span class="q q-blog">블로그</span></li>
+    <li><a href="https://80.lv/articles/ghibli-style-stylized-shader-made-in-unreal-engine-5" target="_blank">80.lv: Ghibli-Style Stylized Shader in UE5</a><span class="q q-secondary">2차</span></li>
+  </ul>
+
+  <h3>④ 하이브리드 / UDS</h3>
+  <ul class="links">
+    <li><a href="https://www.ultradynamicsky.com/Documentation/V9/9-5" target="_blank">Ultra Dynamic Sky 공식 문서 V9 — Cloud Sky Modes</a><span class="q q-primary">★ 1차</span></li>
+  </ul>
+
+  <h3>⑤ 표면 셰이딩 / 상용 램프 셰이더</h3>
+  <ul class="links">
+    <li><a href="https://flatkit.dustyroom.com/stylized-surface/" target="_blank">Flatkit: Stylized Surface (셀 모드 None/Single/Steps/Curve, R8 램프)</a><span class="q q-primary">★ 1차</span></li>
+    <li><a href="https://quibli.dustyroom.com/stylized-lit-shader/" target="_blank">Quibli: Stylized Lit Shader (그라데이션 에디터, 멀티컬러 램프)</a><span class="q q-secondary">2차</span></li>
+  </ul>
+
+  <p class="note" style="margin-top:18px">검증 통계: 5각도 · 소스 20 · 추출 클레임 49 · 검증 25 → <strong>확정 7</strong>, 나머지 18은 세션 리밋으로 검증 기권(반박 아님, 출처는 확보됨). 종합 단계는 리밋으로 자동화 실패 → 본 문서는 이에타가 수기 종합.</p>
+</section>
+
+<footer>
+  <p>작성: 이에타 (Ieta) · Deep Research 하니스 결과 + TA 도메인 지식 수기 종합</p>
+  <p>경로: <code>docs/research/stylized-volumetric-clouds.html</code> · 타깃: Unreal Engine 5 (PC/Console)</p>
+  <p class="note">⚠ "출처확보·미검증" 배지 항목은 세션 토큰 리밋(1am KST 리셋)으로 교차검증이 기권된 것으로, <em>거짓이 아니라 미검증</em>이다. 리셋 후 워크플로 재실행으로 검증 보강 가능.</p>
+</footer>
+
+</div>
+</body>
+</html>

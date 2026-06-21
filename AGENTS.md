@@ -32,6 +32,7 @@
 - If the user says to push a submodule, inspect and push inside that submodule repository, then report whether the parent pointer also changed.
 - Versioned Git hooks are managed in `.githooks`; local clones must point Git at that folder with `Tools/GitHooks/install-hooks.ps1`.
 - The active pre-commit hook runs `Tools/GitHooks/check_unreal_python_uv_safety.py` and blocks staged Unreal Python scripts that call `StaticMeshDescription.GetVertexInstanceUV` without an obvious UV channel count guard.
+- The active pre-commit hook also runs `Tools/GitHooks/check_no_project_mcp_plugin_dependency.py` and blocks project C++/module/descriptor/config changes that introduce hard dependencies on `UnrealMCP`, `/Script/UnrealMCP`, `MCPUnreal`, or `mcp_unreal` without the explicit approval token.
 
 ## User Approval Follow-Through
 
@@ -155,6 +156,9 @@
 - If an Unreal asset cannot be safely modified through MCP or editor scripting, provide a concrete manual edit guide before considering C++.
 - Before considering C++ for an Unreal MCP task, state the non-C++ approach being attempted or why MCP/editor-asset editing is blocked.
 - Add or modify C++ only when the user explicitly asks for a code/C++ implementation, except for the plugin exceptions listed under 티브렛.
+- MCP and UnrealMCP are optional authoring aids for this project, not mandatory project dependencies. Do not add hard references from project C++ APIs, Blueprint helper classes, `.Build.cs`, `.uplugin`, `.uproject`, config files, or finished assets to the UnrealMCP plugin unless the user explicitly asks for that exact dependency.
+- MCP C++ extensions should stay editor-only tooling by default. They may unlock editor access to Blueprint, PCG, material, or asset mutation APIs, but final promoted content must be native Unreal content that can load, cook, package, and run when the MCP plugin is absent unless the user explicitly accepted that dependency.
+- Before promoting or packaging MCP-authored content, audit for `/Script/UnrealMCP`, `/UnrealMCP`, `UnrealMCP`, `MCPUnreal`, or `mcp_unreal` hard references. For binary assets, use Reference Viewer, asset registry dependency checks, or a cook/package smoke with the MCP plugin disabled or absent.
 - During PCG authoring, expose mesh choices through Blueprint variables and PCG Actor Property override paths by default.
 - Use fast PCG and fast Blueprint authoring for new assets or major rebuilds: batch creation and settings changes, grouped compile/save/generate checkpoints, and numerical validation before screenshots.
 - Before accepting a finished live-refresh PCG Blueprint, verify parameter delta, spline-shape delta, and mesh-override delta behavior.
