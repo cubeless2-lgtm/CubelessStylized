@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 
-SCANNED_ENDINGS = (
+TEXT_SCANNED_ENDINGS = (
     ".cpp",
     ".h",
     ".hpp",
@@ -20,6 +20,12 @@ SCANNED_ENDINGS = (
     ".ini",
     ".uplugin",
     ".uproject",
+)
+
+ASSET_SCANNED_ENDINGS = (
+    ".uasset",
+    ".umap",
+    ".uexp",
 )
 
 ALLOW_TOKEN = "cubeless-mcp-plugin-dependency: explicit-user-request"
@@ -37,6 +43,15 @@ BLOCK_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("MCP plugin/module dependency", re.compile(r"""["'](?:UnrealMCP|MCPUnreal|mcp_unreal)["']""", re.IGNORECASE)),
 )
 
+BINARY_BLOCK_TOKENS: tuple[tuple[str, str], ...] = (
+    ("UnrealMCP binary name/reference", "UnrealMCP"),
+    ("UnrealMCP script path reference", "/Script/UnrealMCP"),
+    ("UnrealMCP plugin path reference", "Plugins/UnrealMCP"),
+    ("UnrealMCP plugin path reference", "Plugins\\UnrealMCP"),
+    ("MCP-only plugin identifier", "MCPUnreal"),
+    ("MCP-only plugin identifier", "mcp_unreal"),
+)
+
 
 def run_git(args: list[str]) -> str:
     result = subprocess.run(
@@ -51,13 +66,32 @@ def run_git(args: list[str]) -> str:
     return result.stdout
 
 
+def run_git_bytes(args: list[str]) -> bytes:
+    result = subprocess.run(
+        ["git", *args],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return result.stdout
+
+
+def is_text_path(path: Path) -> bool:
+    path_text = path.as_posix()
+    return any(path_text.endswith(ending) for ending in TEXT_SCANNED_ENDINGS)
+
+
+def is_binary_asset_path(path: Path) -> bool:
+    path_text = path.as_posix()
+    return any(path_text.endswith(ending) for ending in ASSET_SCANNED_ENDINGS)
+
+
 def should_scan(path: Path) -> bool:
     normalized_parts = {part.lower() for part in path.parts}
     if normalized_parts & SKIPPED_PARTS:
         return False
 
-    path_text = path.as_posix()
-    return any(path_text.endswith(ending) for ending in SCANNED_ENDINGS)
+    return is_text_path(path) or is_binary_asset_path(path)
 
 
 def staged_files() -> list[Path]:
@@ -71,6 +105,19 @@ def staged_text(path: Path) -> str | None:
     except subprocess.CalledProcessError:
         return None
     except UnicodeDecodeError:
+        return None
+
+
+def staged_binary_blob(path: Path) -> bytes | None:
+    try:
+        # Unreal assets are stored through LFS, so inspect the worktree file instead of the staged pointer.
+        return path.read_bytes()
+    except OSError:
+        pass
+
+    try:
+        return run_git_bytes(["show", f":{path.as_posix()}"])
+    except subprocess.CalledProcessError:
         return None
 
 
@@ -129,19 +176,47 @@ def matching_lines(lines: list[tuple[int, str]]) -> list[tuple[int, str, str]]:
     return matches
 
 
+def binary_needles(token: str) -> tuple[tuple[str, bytes], ...]:
+    return (
+        ("utf-8/ascii", token.encode("utf-8")),
+        ("utf-16-le", token.encode("utf-16-le")),
+    )
+
+
+def matching_binary_tokens(blob: bytes) -> list[tuple[str, str]]:
+    matches: list[tuple[str, str]] = []
+    for label, token in BINARY_BLOCK_TOKENS:
+        for encoding, needle in binary_needles(token):
+            if needle in blob:
+                matches.append((label, f"{token} ({encoding})"))
+                break
+    return matches
+
+
 def main() -> int:
     failures: list[tuple[Path, list[tuple[int, str, str]]]] = []
+    binary_failures: list[tuple[Path, list[tuple[str, str]]]] = []
 
     for path in staged_files():
-        text = staged_text(path)
-        if text is None:
-            continue
+        if is_text_path(path):
+            text = staged_text(path)
+            if text is None:
+                continue
 
-        matches = matching_lines(staged_added_lines(path))
-        if matches:
-            failures.append((path, matches))
+            matches = matching_lines(staged_added_lines(path))
+            if matches:
+                failures.append((path, matches))
 
-    if not failures:
+        if is_binary_asset_path(path):
+            blob = staged_binary_blob(path)
+            if blob is None:
+                continue
+
+            binary_matches = matching_binary_tokens(blob)
+            if binary_matches:
+                binary_failures.append((path, binary_matches))
+
+    if not failures and not binary_failures:
         return 0
 
     print("Project-side dependency on the UnrealMCP/MCP plugin detected.", file=sys.stderr)
@@ -158,6 +233,13 @@ def main() -> int:
         print(f"- {path.as_posix()}", file=sys.stderr)
         for line_number, label, line in matches[:8]:
             print(f"  line {line_number}: {label}: {line}", file=sys.stderr)
+        if len(matches) > 8:
+            print(f"  ... {len(matches) - 8} more match(es)", file=sys.stderr)
+
+    for path, matches in binary_failures:
+        print(f"- {path.as_posix()}", file=sys.stderr)
+        for label, token in matches[:8]:
+            print(f"  binary asset blob: {label}: {token}", file=sys.stderr)
         if len(matches) > 8:
             print(f"  ... {len(matches) - 8} more match(es)", file=sys.stderr)
 
