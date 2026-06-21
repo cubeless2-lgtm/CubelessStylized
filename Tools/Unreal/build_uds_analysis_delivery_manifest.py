@@ -30,7 +30,6 @@ STAGE_EXACT = {
     "Content/Cubeless/Sky/Data/DA_Weather_Cloudy.uasset",
     "Content/Cubeless/Sky/Data/DA_Weather_Overcast.uasset",
     "Content/Cubeless/Sky/Materials/M_Sky_Dome.uasset",
-    "docs/work-log.md",
     "Tools/Unreal/audit_cubeless_sky_dependencies.py",
     "Tools/Unreal/build_uds_analysis_delivery_manifest.py",
     "Tools/Unreal/check_uds_analysis_staging_scope.py",
@@ -42,7 +41,6 @@ STAGE_EXACT = {
 
 STAGE_PREFIXES = (
     "Content/Cubeless/Sky/Meshes/",
-    "docs/uds-analysis/",
 )
 
 MANUAL_EXACT = {

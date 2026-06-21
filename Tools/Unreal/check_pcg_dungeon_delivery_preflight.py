@@ -14,16 +14,23 @@ import json
 import py_compile
 import re
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from cubeless_ops_paths import project_doc_display, project_doc_path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SIBLING_MCP_ROOT = PROJECT_ROOT.parent / "unreal-mcp-cubeless"
 REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_Dungeon" / "CubelessDungeonMVP_DeliveryPreflight.json"
 CONTENT_ROOT = PROJECT_ROOT / "Content" / "Cubeless" / "PCG" / "Dungeon"
-MANIFEST_PATH = PROJECT_ROOT / "docs" / "pcg-dungeon-delivery-manifest.md"
+MANIFEST_PATH = project_doc_path("docs/pcg-dungeon-delivery-manifest.md", PROJECT_ROOT)
 LOG_DIR = PROJECT_ROOT / "Saved" / "Logs"
 
 PYTHON_FILES = [
@@ -90,7 +97,10 @@ LOG_TIMESTAMP_RE = re.compile(
 
 
 def _relative(path: Path) -> str:
-    return path.relative_to(PROJECT_ROOT).as_posix()
+    try:
+        return path.relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return project_doc_display(path, PROJECT_ROOT)
 
 
 def _read_json(path: Path) -> dict[str, Any]:

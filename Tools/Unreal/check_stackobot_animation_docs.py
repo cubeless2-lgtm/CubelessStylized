@@ -30,11 +30,26 @@ import time
 from pathlib import Path
 from typing import Any
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from cubeless_ops_paths import (
+    cubeless_stylized_docs_root,
+    project_doc_display,
+    project_doc_path,
+    project_docs_glob,
+)
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DOCS_ROOT = PROJECT_ROOT / "docs"
+DOCS_ROOT = cubeless_stylized_docs_root(PROJECT_ROOT)
 REPORT_PATH = PROJECT_ROOT / "Saved" / "MCP_DocAudit" / "StackOBotAnimationDocsLinkAudit.json"
 SAMPLE_ANIM_STUDY_ROOT = "/Game/_MCP_Sample/AnimStudy"
+
+
+def _doc_path(path_text: str) -> Path:
+    return project_doc_path(path_text, PROJECT_ROOT)
 
 
 def _stackobot_project_root() -> Path | None:
@@ -1447,7 +1462,7 @@ def _project_relative(path: Path) -> str:
     try:
         return path.relative_to(PROJECT_ROOT).as_posix()
     except ValueError:
-        return path.as_posix()
+        return project_doc_display(path, PROJECT_ROOT)
 
 
 def _collect_doc_references(docs: list[Path]) -> list[dict[str, Any]]:
@@ -1460,7 +1475,7 @@ def _collect_doc_references(docs: list[Path]) -> list[dict[str, Any]]:
         for line_number, line in enumerate(lines, start=1):
             for match in RELATIVE_DOC_RE.finditer(line):
                 ref_text = match.group(0)
-                target = PROJECT_ROOT / ref_text
+                target = _doc_path(ref_text)
                 references.append(
                     {
                         "source": _project_relative(path),
@@ -1495,7 +1510,7 @@ def _required_doc_entries() -> list[dict[str, Any]]:
     return [
         {
             "path": path_text,
-            "exists": (PROJECT_ROOT / path_text).exists(),
+            "exists": _doc_path(path_text).exists(),
         }
         for path_text in REQUIRED_DOC_PATHS
     ]
@@ -1503,7 +1518,7 @@ def _required_doc_entries() -> list[dict[str, Any]]:
 
 def _doc_index_coverage_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-doc-index.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     return [
         {
@@ -1519,7 +1534,7 @@ def _doc_index_coverage_entries() -> list[dict[str, Any]]:
 def _required_section_entries() -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for path_text, sections in REQUIRED_SECTIONS.items():
-        path = PROJECT_ROOT / path_text
+        path = _doc_path(path_text)
         text = _read_text(path) if path.exists() else ""
         for section in sections:
             entries.append(
@@ -1535,7 +1550,7 @@ def _required_section_entries() -> list[dict[str, Any]]:
 def _required_token_entries() -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for path_text, tokens in REQUIRED_TOKENS.items():
-        path = PROJECT_ROOT / path_text
+        path = _doc_path(path_text)
         text = _read_text(path) if path.exists() else ""
         for token in tokens:
             entries.append(
@@ -1586,7 +1601,7 @@ def _parse_example_fields(block: str) -> dict[str, str]:
 
 def _request_example_field_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-request-run-examples.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     matches = list(EXAMPLE_SECTION_RE.finditer(text))
     entries: list[dict[str, Any]] = []
@@ -1626,7 +1641,7 @@ def _request_example_field_entries() -> list[dict[str, Any]]:
 
 def _request_example_records() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-request-run-examples.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     matches = list(EXAMPLE_SECTION_RE.finditer(text))
     records: list[dict[str, Any]] = []
@@ -1650,7 +1665,7 @@ def _request_example_records() -> list[dict[str, Any]]:
 
 
 def _sample_manifest_paths() -> set[str]:
-    path = PROJECT_ROOT / "docs/stackobot-sample-asset-manifest.md"
+    path = _doc_path("docs/stackobot-sample-asset-manifest.md")
     text = _read_text(path) if path.exists() else ""
     return set(SAMPLE_ASSET_PATH_RE.findall(text))
 
@@ -1675,7 +1690,7 @@ def _sample_target_manifest_entries() -> list[dict[str, Any]]:
             )
 
     route_matrix_path_text = "docs/stackobot-animation-route-matrix.md"
-    route_matrix_path = PROJECT_ROOT / route_matrix_path_text
+    route_matrix_path = _doc_path(route_matrix_path_text)
     route_matrix_text = _read_text(route_matrix_path) if route_matrix_path.exists() else ""
     execution_matrix = _markdown_heading_section(route_matrix_text, "## Execution Matrix")
     for sample_path in SAMPLE_ASSET_PATH_RE.findall(execution_matrix):
@@ -1695,7 +1710,7 @@ def _sample_target_manifest_entries() -> list[dict[str, Any]]:
 
 def _route_matrix_sample_target_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-route-matrix.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     execution_matrix = _markdown_heading_section(text, "## Execution Matrix")
     entries: list[dict[str, Any]] = []
@@ -1729,7 +1744,7 @@ def _route_matrix_sample_target_entries() -> list[dict[str, Any]]:
 
 def _sample_manifest_route_target_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-sample-asset-manifest.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Route Token Sample Target Map")
     entries: list[dict[str, Any]] = []
@@ -1768,7 +1783,7 @@ def _route_matrix_any_token_entries(
     field_name: str,
 ) -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-route-matrix.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     execution_matrix = _markdown_heading_section(text, "## Execution Matrix")
     entries: list[dict[str, Any]] = []
@@ -1802,7 +1817,7 @@ def _route_matrix_classification_entries(
     field_name: str,
 ) -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-route-matrix.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     classification = _markdown_heading_section(text, "## Route Classification")
     entries: list[dict[str, Any]] = []
@@ -1840,7 +1855,7 @@ def _route_matrix_evidence_required_entries(
     field_name: str,
 ) -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-route-matrix.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     evidence_matrix = _markdown_heading_section(text, "## Evidence And Approval Matrix")
     entries: list[dict[str, Any]] = []
@@ -1880,7 +1895,7 @@ def _route_matrix_evidence_any_token_entries(
     lower_value: bool = False,
 ) -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-route-matrix.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     evidence_matrix = _markdown_heading_section(text, "## Evidence And Approval Matrix")
     entries: list[dict[str, Any]] = []
@@ -1916,7 +1931,7 @@ def _route_matrix_evidence_any_token_entries(
 
 def _route_matrix_selection_rule_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-route-matrix.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     selection_rules = _markdown_heading_section(text, "## Selection Rules")
     return [
@@ -1932,7 +1947,7 @@ def _route_matrix_selection_rule_entries() -> list[dict[str, Any]]:
 
 def _quickstart_route_shortcut_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-quickstart.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     route_shortcuts = _markdown_heading_section(text, "## Route Shortcuts")
     return [
@@ -1948,7 +1963,7 @@ def _quickstart_route_shortcut_entries() -> list[dict[str, Any]]:
 
 def _quickstart_start_here_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-quickstart.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Start Here")
     return [
@@ -1965,7 +1980,7 @@ def _quickstart_start_here_entries() -> list[dict[str, Any]]:
 
 def _quickstart_preflight_checklist_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-quickstart.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Preflight Checklist")
     return [
@@ -1982,7 +1997,7 @@ def _quickstart_preflight_checklist_entries() -> list[dict[str, Any]]:
 
 def _doc_index_route_coverage_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-doc-index.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     route_coverage = _markdown_heading_section(text, "## Route Coverage")
     required_tokens = [
@@ -2004,7 +2019,7 @@ def _doc_index_route_coverage_entries() -> list[dict[str, Any]]:
 
 def _doc_index_route_token_document_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-doc-index.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Route Token Document Map")
     entries: list[dict[str, Any]] = []
@@ -2039,7 +2054,7 @@ def _doc_index_route_token_document_entries() -> list[dict[str, Any]]:
 
 def _cpp_api_route_decision_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-cpp-api-decision-matrix.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     route_decisions = _markdown_heading_section(text, "## Route Token Decision Map")
     entries: list[dict[str, Any]] = []
@@ -2070,7 +2085,7 @@ def _cpp_api_route_decision_entries() -> list[dict[str, Any]]:
 
 def _cpp_api_candidate_matrix_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-cpp-api-decision-matrix.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     candidate_matrix = _markdown_heading_section(text, "## Candidate Matrix")
     return [
@@ -2086,7 +2101,7 @@ def _cpp_api_candidate_matrix_entries() -> list[dict[str, Any]]:
 
 def _handoff_route_map_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-tivret-handoff-templates.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     route_map = _markdown_heading_section(text, "## Route Token To Handoff")
     entries: list[dict[str, Any]] = []
@@ -2120,7 +2135,7 @@ def _route_token_command_row_entries(
     check_name: str,
     route_tokens: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, heading)
     entries: list[dict[str, Any]] = []
@@ -2269,7 +2284,7 @@ def _request_example_route_coverage_entries() -> list[dict[str, Any]]:
 
 def _request_compiler_route_coverage_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-request-compiler-drills.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     sections = {
         "signal_words": _markdown_heading_section(text, "## Signal Words"),
@@ -2598,7 +2613,7 @@ def _request_example_route_acceptance_focus_entries() -> list[dict[str, Any]]:
 
 def _request_run_template_field_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-request-run-template.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     entries: list[dict[str, Any]] = []
 
@@ -2617,7 +2632,7 @@ def _request_run_template_field_entries() -> list[dict[str, Any]]:
 
 def _request_run_template_section_field_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-request-run-template.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     entries: list[dict[str, Any]] = []
 
@@ -2644,7 +2659,7 @@ def _request_run_template_section_field_entries() -> list[dict[str, Any]]:
 
 def _request_run_template_acceptance_gate_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-request-run-template.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Acceptance Checklist")
     tokens = list(ACCEPTANCE_UNIVERSAL_PASS_FIELDS.values())
@@ -2662,7 +2677,7 @@ def _request_run_template_acceptance_gate_entries() -> list[dict[str, Any]]:
 
 def _request_run_template_tivret_handoff_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-request-run-template.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Tivret Handoff")
     return [
@@ -2679,7 +2694,7 @@ def _request_run_template_tivret_handoff_entries() -> list[dict[str, Any]]:
 
 def _playbook_delivery_shape_field_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-request-playbook.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Delivery Shape")
     return [
@@ -2699,7 +2714,7 @@ def _playbook_section_token_entries(
     tokens: dict[str, str],
 ) -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-request-playbook.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, heading)
     return [
@@ -2737,7 +2752,7 @@ def _playbook_cxx_escalation_entries() -> list[dict[str, Any]]:
 
 def _handoff_final_report_field_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-tivret-handoff-templates.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Final Report Shape")
     return [
@@ -2753,7 +2768,7 @@ def _handoff_final_report_field_entries() -> list[dict[str, Any]]:
 
 def _handoff_template_section_token_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-tivret-handoff-templates.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     entries: list[dict[str, Any]] = []
 
@@ -2774,7 +2789,7 @@ def _handoff_template_section_token_entries() -> list[dict[str, Any]]:
 
 def _handoff_route_token_final_report_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-tivret-handoff-templates.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Route Token Final Report Map")
     entries: list[dict[str, Any]] = []
@@ -2810,7 +2825,7 @@ def _handoff_route_token_final_report_entries() -> list[dict[str, Any]]:
 
 def _handoff_route_token_final_report_cxx_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-tivret-handoff-templates.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Route Token Final Report Map")
     entries: list[dict[str, Any]] = []
@@ -2843,7 +2858,7 @@ def _handoff_route_token_final_report_cxx_entries() -> list[dict[str, Any]]:
 
 def _acceptance_final_report_field_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Final User Report Checklist")
     return [
@@ -2860,7 +2875,7 @@ def _acceptance_final_report_field_entries() -> list[dict[str, Any]]:
 
 def _acceptance_universal_pass_field_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Universal Pass Gate")
     return [
@@ -2877,7 +2892,7 @@ def _acceptance_universal_pass_field_entries() -> list[dict[str, Any]]:
 
 def _acceptance_completion_evidence_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Universal Pass Gate")
     return [
@@ -2894,7 +2909,7 @@ def _acceptance_completion_evidence_entries() -> list[dict[str, Any]]:
 
 def _acceptance_route_criteria_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Route-Specific Pass Criteria")
     return [
@@ -2910,7 +2925,7 @@ def _acceptance_route_criteria_entries() -> list[dict[str, Any]]:
 
 def _acceptance_route_token_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Route-Specific Pass Criteria")
     entries: list[dict[str, Any]] = []
@@ -2946,7 +2961,7 @@ def _acceptance_route_token_entries() -> list[dict[str, Any]]:
 
 def _acceptance_evidence_strength_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Evidence Strength Levels")
     return [
@@ -2962,7 +2977,7 @@ def _acceptance_evidence_strength_entries() -> list[dict[str, Any]]:
 
 def _acceptance_evidence_strength_detail_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Evidence Strength Levels")
     return [
@@ -2979,7 +2994,7 @@ def _acceptance_evidence_strength_detail_entries() -> list[dict[str, Any]]:
 
 def _acceptance_escalation_trigger_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## When To Stop And Escalate")
     return [
@@ -2996,7 +3011,7 @@ def _acceptance_escalation_trigger_entries() -> list[dict[str, Any]]:
 
 def _command_syntax_json_blocks() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-mcp-command-syntax.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     entries: list[dict[str, Any]] = []
 
@@ -3047,7 +3062,7 @@ def _command_syntax_command_entries(json_blocks: list[dict[str, Any]]) -> list[d
 
 def _command_quick_map_command_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-mcp-command-syntax.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Command Quick Map")
     return [
@@ -3079,7 +3094,7 @@ def _authoring_route_template_entries() -> list[dict[str, Any]]:
 
 def _authoring_completion_contract_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-authoring-templates.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Completion Contract")
     return [
@@ -3096,7 +3111,7 @@ def _authoring_completion_contract_entries() -> list[dict[str, Any]]:
 
 def _authoring_cxx_escalation_gate_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-authoring-templates.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## C++/API Escalation Gate")
     return [
@@ -3129,7 +3144,7 @@ def _playbook_route_failure_entries() -> list[dict[str, Any]]:
 
 def _playbook_route_failure_cxx_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-request-playbook.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Route Token Failure Map")
     entries: list[dict[str, Any]] = []
@@ -3195,7 +3210,7 @@ def _closeout_ready_route_token_entries() -> list[dict[str, Any]]:
 
 def _closeout_next_request_protocol_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-study-closeout.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Next Request Protocol")
     return [
@@ -3212,7 +3227,7 @@ def _closeout_next_request_protocol_entries() -> list[dict[str, Any]]:
 
 def _closeout_cxx_api_timing_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-study-closeout.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## C++ / API Timing")
     return [
@@ -3253,7 +3268,7 @@ def _acceptance_route_token_map_entries() -> list[dict[str, Any]]:
 
 def _acceptance_route_token_min_strength_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-acceptance-checklist.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Route Token Acceptance Map")
     entries: list[dict[str, Any]] = []
@@ -3292,7 +3307,7 @@ def _execution_evidence_route_token_entries() -> list[dict[str, Any]]:
 
 def _execution_evidence_section_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-execution-map.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Route Token Evidence Map")
     entries: list[dict[str, Any]] = []
@@ -3333,7 +3348,7 @@ def _execution_evidence_section_entries() -> list[dict[str, Any]]:
 
 def _command_syntax_result_checklist_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-mcp-command-syntax.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Result Checklist")
     return [
@@ -3350,7 +3365,7 @@ def _command_syntax_result_checklist_entries() -> list[dict[str, Any]]:
 
 def _local_check_runner_schema_entries() -> list[dict[str, Any]]:
     path_text = "Tools/Unreal/run_stackobot_animation_local_checks.py"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     return [
         {
@@ -3365,7 +3380,7 @@ def _local_check_runner_schema_entries() -> list[dict[str, Any]]:
 
 def _doc_index_local_check_command_entries() -> list[dict[str, Any]]:
     path_text = "docs/stackobot-animation-doc-index.md"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     text = _read_text(path) if path.exists() else ""
     section = _markdown_heading_section(text, "## Local Checks")
     return [
@@ -3381,7 +3396,7 @@ def _doc_index_local_check_command_entries() -> list[dict[str, Any]]:
 
 def _preflight_required_command_entries() -> list[dict[str, Any]]:
     path_text = "Tools/Unreal/check_stackobot_animation_preflight.py"
-    path = PROJECT_ROOT / path_text
+    path = _doc_path(path_text)
     required_commands: set[str] = set()
     if path.exists():
         try:
@@ -3639,7 +3654,7 @@ def _command_syntax_param_value_entries(json_blocks: list[dict[str, Any]]) -> li
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
     started_at = time.monotonic()
-    docs = sorted(DOCS_ROOT.glob(args.glob))
+    docs = project_docs_glob(args.glob, PROJECT_ROOT)
     references = _collect_doc_references(docs)
     missing_references = [entry for entry in references if not entry["exists"]]
     external_paths = _external_path_entries()
@@ -4703,7 +4718,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--glob",
         default=STACKOBOT_DOC_GLOB,
-        help="Documentation glob under docs/ to scan. Default: %(default)s",
+        help="Documentation glob under migrated CubelessStylized docs to scan. Default: %(default)s",
     )
     parser.add_argument(
         "--write-report",

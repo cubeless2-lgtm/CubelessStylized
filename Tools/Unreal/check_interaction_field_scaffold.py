@@ -7,12 +7,18 @@ import json
 import sys
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from cubeless_ops_paths import project_doc_path
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGIN_ROOT = REPO_ROOT / "Plugins" / "InteractionField"
 UPROJECT = REPO_ROOT / "StylizedCubeless.uproject"
 DESCRIPTOR = PLUGIN_ROOT / "InteractionField.uplugin"
-PLAN_DOC = REPO_ROOT / "docs" / "interaction-field-system.md"
+PLAN_DOC = project_doc_path("docs/interaction-field-system.md", REPO_ROOT)
 
 
 REQUIRED_CONTENT_DIRS = [

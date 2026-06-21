@@ -48,7 +48,7 @@
 - Use Git-tracked Markdown as durable memory.
 - Promote reusable Cubeless-wide rules and lessons into `../CubelessOps`.
 - For promotion requests such as `공용작업으로 승격`, follow `../CubelessOps/docs/workflows/promote-shared-work.md`.
-- Keep CubelessStylized-specific paths, assets, engine notes, and local exceptions in this file or `docs/`.
+- Keep critical CubelessStylized bootstrap paths, asset roots, engine notes, and local exceptions in this file or the project binding under `../CubelessOps/projects/`. Durable project documents and learning notes belong under `../CubelessOps/docs/projects/cubeless-stylized/`; local `docs/` is only a thin pointer.
 - If an important decision, reusable procedure, handoff instruction, execution result, verification result, failure cause, workaround, or residual risk appears during work, update the appropriate Git-tracked doc and report which file changed.
 - Do not capture short confirmations, unaccepted temporary ideas, secrets, credentials, personal data, or anything the user says not to record.
 - Prefer one Codex session per coherent work topic. When a new request starts a materially different topic, recommend a new session title; the user creates or switches sessions.
@@ -122,7 +122,7 @@
 - Review only C++ and Unreal build-related files by default: `.cpp`, `.h`, `.hpp`, `.inl`, `.Build.cs`, and `.Target.cs`.
 - Prioritize findings over summaries. Report concrete bugs, crash risks, behavioral regressions, missing verification, and Unreal-specific lifecycle hazards first.
 - Apply `../CubelessOps/docs/workflows/unreal-cpp-review.md` first when available.
-- Apply `docs/unreal-cpp-conventions.md` when reviewing naming, file structure, UObject ownership, module boundaries, Slate/editor UI, async/socket work, and verification expectations.
+- Apply `../CubelessOps/docs/projects/cubeless-stylized/reviews/unreal-cpp-conventions.md` when reviewing naming, file structure, UObject ownership, module boundaries, Slate/editor UI, async/socket work, and verification expectations.
 
 ## Selected Static Mesh Texture Workflow
 
@@ -143,7 +143,7 @@
 
 - Manage Unreal C++ convention through 이에타 by default.
 - Use source priority: Epic official Unreal C++ coding standard, Unreal Engine/Lyra local style, CubelessStylized project rules, then third-party checklists as supporting references only.
-- Treat `docs/unreal-cpp-conventions.md` as the project-facing checklist for C++ and Unreal build review.
+- Treat `../CubelessOps/docs/projects/cubeless-stylized/reviews/unreal-cpp-conventions.md` as the project-facing checklist for C++ and Unreal build review.
 - Do not mass-format the repository just because a convention rule is added.
 - `.editorconfig` may define safe editor defaults, but do not force indentation globally until the current codebase style has been sampled per module.
 - `.clang-format` is optional and must be trialed on a small sample or temporary copy before adoption.
